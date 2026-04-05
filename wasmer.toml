@@ -7,7 +7,7 @@ description = "Paul Wang Digital Intelligence Hub"
 "wasmer/static-web-server" = "^1"
 
 [fs]
-public = "dist"
+"/public" = "dist"
 
 [[command]]
 name = "script"
@@ -16,4 +16,4 @@ runner = "https://webc.org/runner/wasi"
 
 [command.annotations.wasi]
 # This tells Wasmer to serve the 'dist' folder and fallback to index.html for React Router
-env = ["SERVER_PORT=8080", "SERVER_ROOT=/public", "SERVER_PAGE_FALLBACK=/public/index.html"]
+env = ["SERVER_PORT=8080", "SERVER_ROOT=/public", "SERVER_FALLBACK_PAGE=/public/index.html"]
