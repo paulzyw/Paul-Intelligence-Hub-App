@@ -16,4 +16,10 @@ runner = "https://webc.org/runner/wasi"
 
 [command.annotations.wasi]
 # This tells Wasmer to serve the 'dist' folder and fallback to index.html for React Router
-env = ["SERVER_PORT=8080", "SERVER_ROOT=/public", "SERVER_PAGE_FALLBACK=/public/index.html"]
+env = [
+  "SERVER_PORT=8080", 
+  "SERVER_ROOT=/public", 
+  "SERVER_PAGE_FALLBACK=/public/index.html",
+  "SERVER_FALLBACK_PAGE_DOCUMENT=/public/index.html",
+  "SERVER_ERROR_PAGE_404=/public/index.html"
+]

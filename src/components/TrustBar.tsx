@@ -1,10 +1,16 @@
+import suezLogo from '../assets/logos/Suez.png';
+import veoliaLogo from '../assets/logos/Veolia.png';
+import alstomLogo from '../assets/logos/Alstom.png';
+import geLogo from '../assets/logos/GE.png';
+import aspenLogo from '../assets/logos/aspentech.png';
+
 export function TrustBar() {
   const logos = [
-    { src: "/Suez.png", alt: "Suez" },
-    { src: "/Veolia.png", alt: "Veolia" },
-    { src: "/Alstom.png", alt: "Alstom" },
-    { src: "/GE.png", alt: "GE" },
-    { src: "/aspentech.png", alt: "AspenTech" }
+    { src: suezLogo, alt: "Suez" },
+    { src: veoliaLogo, alt: "Veolia" },
+    { src: alstomLogo, alt: "Alstom" },
+    { src: geLogo, alt: "GE" },
+    { src: aspenLogo, alt: "AspenTech" }
   ];
 
   return (
