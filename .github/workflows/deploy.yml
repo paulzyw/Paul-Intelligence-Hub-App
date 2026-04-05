@@ -36,4 +36,6 @@ jobs:
       - name: Deploy to Wasmer Edge
         env:
           WASMER_TOKEN: ${{ secrets.WASMER_TOKEN }}
-        run: wasmer deploy --non-interactive --owner paulzyw02
+        run: |
+          export WASMER_TOKEN=$(echo -n "$WASMER_TOKEN" | tr -d '\n\r ')
+          wasmer deploy --non-interactive --owner paulzyw02
