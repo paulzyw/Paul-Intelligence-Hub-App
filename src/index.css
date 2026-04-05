@@ -1,0 +1,64 @@
+@import "tailwindcss";
+@plugin "@tailwindcss/typography";
+
+@theme {
+  --color-bg-primary: var(--bg-primary);
+  --color-bg-surface: var(--bg-surface);
+  --color-text-primary: var(--text-primary);
+  --color-text-secondary: var(--text-secondary);
+  --color-accent: var(--accent);
+  --color-border: var(--border-color);
+  --color-amber: #ED8936;
+  --color-obsidian: #121416;
+  --color-steel: #2D3748;
+  --color-ivory: #F4F4F9;
+}
+
+@layer base {
+  :root {
+    --bg-primary: #F8F9FA;
+    --bg-surface: #FFFFFF;
+    --text-primary: #1A202C;
+    --text-secondary: #4A5568;
+    --accent: #DD6B20;
+    --border-color: #E2E8F0;
+  }
+
+  .dark {
+    --bg-primary: #121416;
+    --bg-surface: #1E2124;
+    --text-primary: #F4F4F9;
+    --text-secondary: #A0AEC0;
+    --accent: #ED8936;
+    --border-color: #2D3748;
+  }
+
+  body {
+    background-color: var(--bg-primary);
+    color: var(--text-primary);
+    transition-property: color, background-color, border-color, text-decoration-color, fill, stroke;
+    transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+    transition-duration: 300ms;
+  }
+}
+
+@layer components {
+  .prose table {
+    @apply w-full border-collapse border border-steel my-8;
+  }
+  .prose thead {
+    @apply bg-steel text-amber font-bold;
+  }
+  .prose th {
+    @apply p-4 border border-steel text-left text-amber font-bold;
+  }
+  .prose tbody tr {
+    @apply border-b border-steel transition-colors;
+  }
+  .prose tbody tr:nth-child(even) {
+    @apply bg-steel/30;
+  }
+  .prose td {
+    @apply p-4 border border-steel;
+  }
+}
