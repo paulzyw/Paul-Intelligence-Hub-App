@@ -11,6 +11,13 @@ export function Insights() {
   const [posts, setPosts] = useState<Post[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
+  const [currentPage, setCurrentPage] = useState(1);
+  const postsPerPage = 10;
+
+  // Reset to page 1 when search or category changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery, activeCategory]);
 
   useEffect(() => {
     async function fetchData() {
@@ -48,8 +55,13 @@ export function Insights() {
     return matchesCategory && matchesSearch;
   });
 
-  const featuredPost = filteredPosts.find(p => p.featured) || filteredPosts[0];
-  const regularPosts = featuredPost ? filteredPosts.filter(p => p.id !== featuredPost.id) : filteredPosts;
+  const totalPages = Math.ceil(filteredPosts.length / postsPerPage);
+  const indexOfLastPost = currentPage * postsPerPage;
+  const indexOfFirstPost = indexOfLastPost - postsPerPage;
+  const currentPosts = filteredPosts.slice(indexOfFirstPost, indexOfLastPost);
+
+  const featuredPost = currentPage === 1 ? (currentPosts.find(p => p.featured) || currentPosts[0]) : null;
+  const regularPosts = featuredPost ? currentPosts.filter(p => p.id !== featuredPost.id) : currentPosts;
 
   return (
     <div className="min-h-screen bg-bg-primary pt-12 pb-24">
@@ -250,20 +262,49 @@ export function Insights() {
             )}
 
             {/* PAGINATION */}
-            <div className="flex justify-center items-center gap-2 mt-8">
-              <button className="w-10 h-10 rounded-full flex items-center justify-center bg-accent text-white font-bold">1</button>
-              <button className="w-10 h-10 rounded-full flex items-center justify-center text-text-secondary hover:text-accent transition-colors">2</button>
-              <button className="w-10 h-10 rounded-full flex items-center justify-center text-text-secondary hover:text-accent transition-colors">3</button>
-              <span className="text-text-secondary">...</span>
-              <button className="w-10 h-10 rounded-full flex items-center justify-center text-text-secondary hover:text-accent transition-colors">8</button>
-            </div>
+            {totalPages > 1 && (
+              <div className="flex justify-center items-center gap-2 mt-8">
+                <button 
+                  onClick={() => {
+                    setCurrentPage(prev => Math.max(prev - 1, 1));
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                  }}
+                  disabled={currentPage === 1}
+                  className="px-4 py-2 rounded-full text-sm font-medium text-text-secondary hover:text-accent disabled:opacity-50 disabled:hover:text-text-secondary transition-colors"
+                >
+                  Previous
+                </button>
+                
+                {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
+                  <button
+                    key={page}
+                    onClick={() => {
+                      setCurrentPage(page);
+                      window.scrollTo({ top: 0, behavior: 'smooth' });
+                    }}
+                    className={cn(
+                      "w-10 h-10 rounded-full flex items-center justify-center font-bold transition-colors",
+                      currentPage === page
+                        ? "bg-accent text-white"
+                        : "text-text-secondary hover:text-accent hover:bg-border"
+                    )}
+                  >
+                    {page}
+                  </button>
+                ))}
 
-            {/* LOAD MORE ALTERNATIVE */}
-            <div className="flex justify-center mt-4">
-              <button className="px-6 py-3 border border-border rounded-md text-text-primary font-medium hover:border-accent hover:text-accent transition-colors">
-                View More Insights
-              </button>
-            </div>
+                <button 
+                  onClick={() => {
+                    setCurrentPage(prev => Math.min(prev + 1, totalPages));
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                  }}
+                  disabled={currentPage === totalPages}
+                  className="px-4 py-2 rounded-full text-sm font-medium text-text-secondary hover:text-accent disabled:opacity-50 disabled:hover:text-text-secondary transition-colors"
+                >
+                  Next
+                </button>
+              </div>
+            )}
 
           </div>
 

@@ -12,11 +12,13 @@ import { Insights } from './pages/Insights';
 import { Contact } from './pages/Contact';
 import { Admin } from './pages/Admin';
 import { PostDetail } from './pages/PostDetail';
+import { ScrollToTop } from './components/ScrollToTop';
 
 export default function App() {
   return (
     <ThemeProvider defaultTheme="dark">
       <BrowserRouter>
+        <ScrollToTop />
         <Routes>
           <Route path="/" element={<Layout />}>
             <Route index element={<Home />} />

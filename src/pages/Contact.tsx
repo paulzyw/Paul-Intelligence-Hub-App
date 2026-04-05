@@ -211,8 +211,7 @@ export function Contact() {
                       />
                     </div>
                     <div>
-                      <label htmlFor="email" className="block text-sm font-medium text-text-primary mb-1">Professional Email</label>
-                      <span className="block text-xs text-text-secondary mb-2">Corporate email preferred</span>
+                      <label htmlFor="email" className="block text-sm font-medium text-text-primary mb-2">Professional Email</label>
                       <input 
                         type="email" 
                         id="email" 

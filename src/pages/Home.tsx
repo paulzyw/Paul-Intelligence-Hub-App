@@ -3,7 +3,6 @@ import { motion } from 'motion/react';
 import { Link } from 'react-router-dom';
 import { Database, Lightbulb, Target, Settings, TrendingUp, Users, HeartHandshake, Briefcase, Zap, RefreshCw, ArrowRight } from 'lucide-react';
 import { MeteorBackground } from '../components/MeteorBackground';
-import { TrustBar } from '../components/TrustBar';
 import { supabase, type Post } from '../lib/supabase';
 
 export function Home() {
@@ -123,9 +122,6 @@ export function Home() {
           </div>
         </div>
       </section>
-
-      {/* TRUST BAR */}
-      <TrustBar />
 
       {/* ABOUT ME & WHAT I DO */}
       <section className="py-24 bg-bg-primary">
