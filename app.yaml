@@ -1,0 +1,4 @@
+---
+kind: wasmer.io/App.v0
+name: digital-intelligence-hub
+package: paulzyw02/digital-intelligence-hub
