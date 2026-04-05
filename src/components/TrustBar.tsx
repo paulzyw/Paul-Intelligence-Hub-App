@@ -16,7 +16,7 @@ export function TrustBar() {
               <img 
                 src={logo.src} 
                 alt={logo.alt} 
-                className="h-10 md:h-12 w-auto object-contain grayscale opacity-50 transition-all duration-500 ease-in-out hover:grayscale-0 hover:opacity-100 hover:scale-105"
+                className="h-10 md:h-12 w-auto object-contain grayscale opacity-50 invert brightness-0 transition-all duration-500 ease-in-out hover:opacity-100 hover:scale-105"
                 referrerPolicy="no-referrer"
               />
             </div>
