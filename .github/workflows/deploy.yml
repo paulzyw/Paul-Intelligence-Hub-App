@@ -36,4 +36,4 @@ jobs:
       - name: Deploy to Wasmer Edge
         env:
           WASMER_TOKEN: ${{ secrets.WASMER_TOKEN }}
-        run: wasmer deploy --non-interactive
+        run: wasmer deploy --non-interactive --owner paulzyw02
