@@ -2,3 +2,7 @@
 kind: wasmer.io/App.v0
 name: digital-intelligence-hub
 package: .
+env:
+  SERVER_PAGE_FALLBACK: /public/index.html
+  SERVER_FALLBACK_PAGE_DOCUMENT: /public/index.html
+  SERVER_ERROR_PAGE_404: /public/404.html

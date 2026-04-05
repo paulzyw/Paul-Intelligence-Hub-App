@@ -22,7 +22,7 @@ export function TrustBar() {
               <img 
                 src={logo.src} 
                 alt={logo.alt} 
-                className="h-10 md:h-12 w-auto object-contain bg-white/80 p-2 rounded"
+                className="h-10 md:h-12 w-auto object-contain brightness-0 invert opacity-60 transition-all duration-500 hover:opacity-100 hover:scale-105"
               />
             </div>
           ))}
