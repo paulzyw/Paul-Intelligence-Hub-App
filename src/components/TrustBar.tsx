@@ -1,33 +1,45 @@
-import suezLogo from '../assets/logos/Suez.png';
-import veoliaLogo from '../assets/logos/Veolia.png';
-import alstomLogo from '../assets/logos/Alstom.png';
-import geLogo from '../assets/logos/GE.png';
-import aspenLogo from '../assets/logos/aspentech.png';
+import { useState } from 'react';
 
 export function TrustBar() {
   const logos = [
-    { src: suezLogo, alt: "Suez" },
-    { src: veoliaLogo, alt: "Veolia" },
-    { src: alstomLogo, alt: "Alstom" },
-    { src: geLogo, alt: "GE" },
-    { src: aspenLogo, alt: "AspenTech" }
+    { id: 'logo1', name: 'Suez' },
+    { id: 'logo2', name: 'Veolia' },
+    { id: 'logo3', name: 'Alstom' },
+    { id: 'logo4', name: 'GE' },
+    { id: 'logo5', name: 'AspenTech' }
   ];
 
   return (
-    <section className="w-full bg-obsidian dark:bg-obsidian py-16 border-y border-border/20">
+    <section className="w-full bg-obsidian py-16 border-y border-border/20">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-        <div className="flex flex-wrap justify-center items-center gap-8 md:gap-16 lg:gap-24">
-          {logos.map((logo, index) => (
-            <div key={index} className="flex items-center justify-center">
-              <img 
-                src={logo.src} 
-                alt={logo.alt} 
-                className="h-10 md:h-12 w-auto object-contain"
-              />
-            </div>
+        <div className="flex flex-wrap justify-center items-center gap-x-8 gap-y-8 md:gap-x-12 lg:gap-x-16">
+          {logos.map((logo) => (
+            <LogoItem key={logo.id} id={logo.id} name={logo.name} />
           ))}
         </div>
       </div>
     </section>
+  );
+}
+
+function LogoItem({ id, name }: { id: string; name: string }) {
+  const [error, setError] = useState(false);
+
+  return (
+    <div className="flex items-center justify-center min-w-[100px] md:min-w-[140px]">
+      {!error ? (
+        <img 
+          src={`/logos/${id}.png`} 
+          alt={name} 
+          loading="lazy"
+          onError={() => setError(true)}
+          className="h-8 md:h-10 w-auto max-w-[120px] md:max-w-[160px] object-contain opacity-50 hover:opacity-100 hover:scale-110 transition-all duration-500 ease-in-out cursor-default will-change-transform"
+        />
+      ) : (
+        <span className="text-ivory font-medium text-lg opacity-50 hover:opacity-100 transition-opacity duration-500 cursor-default">
+          {name}
+        </span>
+      )}
+    </div>
   );
 }
