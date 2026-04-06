@@ -110,14 +110,14 @@ export function PostDetail() {
             <span className="w-1.5 h-6 bg-amber rounded-full inline-block"></span>
             Key Takeaways
           </h3>
-          <p className="text-text-secondary text-lg leading-relaxed">
+          <p className="text-text-secondary text-lg leading-relaxed font-light md:font-normal">
             {post.summary}
           </p>
         </div>
 
         {/* CONTENT */}
         <div 
-          className="prose prose-invert max-w-none mb-24 text-ivory prose-p:mt-0 prose-p:mb-2 prose-p:text-lg prose-headings:text-ivory prose-a:text-accent hover:prose-a:text-accent/80 prose-strong:text-ivory prose-li:mt-0 prose-li:mb-0"
+          className="prose prose-invert max-w-none mb-24 text-ivory prose-p:mt-0 prose-p:mb-2 prose-p:text-lg prose-p:font-light md:prose-p:font-normal prose-headings:text-ivory prose-a:text-accent hover:prose-a:text-accent/80 prose-strong:font-medium md:prose-strong:font-semibold prose-strong:text-ivory prose-li:mt-0 prose-li:mb-0"
           dangerouslySetInnerHTML={{ 
             __html: DOMPurify.sanitize(post.content).replace(/<table/g, '<div class="overflow-x-auto w-full"><table').replace(/<\/table>/g, '</table></div>') 
           }}
