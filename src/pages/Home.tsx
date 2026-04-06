@@ -3,6 +3,7 @@ import { motion, useInView, animate } from 'motion/react';
 import { Link } from 'react-router-dom';
 import { Database, Lightbulb, Target, Settings, TrendingUp, Users, HeartHandshake, Briefcase, Zap, RefreshCw, ArrowRight } from 'lucide-react';
 import { MeteorBackground } from '../components/MeteorBackground';
+import { TrustBar } from '../components/TrustBar';
 import { supabase, type Post } from '../lib/supabase';
 
 function Counter({ value, duration = 2, prefix = '', suffix = '', decimals = 0 }: { value: number, duration?: number, prefix?: string, suffix?: string, decimals?: number }) {
@@ -157,6 +158,9 @@ export function Home() {
           </div>
         </div>
       </section>
+
+      {/* TRUST BAR / LOGOS */}
+      <TrustBar />
 
       {/* ABOUT ME & WHAT I DO */}
       <section className="py-24 bg-bg-primary">
