@@ -1,9 +1,34 @@
-import { useState, useEffect } from 'react';
-import { motion } from 'motion/react';
+import { useState, useEffect, useRef } from 'react';
+import { motion, useInView, animate } from 'motion/react';
 import { Link } from 'react-router-dom';
 import { Database, Lightbulb, Target, Settings, TrendingUp, Users, HeartHandshake, Briefcase, Zap, RefreshCw, ArrowRight } from 'lucide-react';
 import { MeteorBackground } from '../components/MeteorBackground';
 import { supabase, type Post } from '../lib/supabase';
+
+function Counter({ value, duration = 2, prefix = '', suffix = '', decimals = 0 }: { value: number, duration?: number, prefix?: string, suffix?: string, decimals?: number }) {
+  const [displayValue, setDisplayValue] = useState(0);
+  const nodeRef = useRef<HTMLSpanElement>(null);
+  const isInView = useInView(nodeRef, { once: true, margin: "-50px" });
+
+  useEffect(() => {
+    if (isInView) {
+      const controls = animate(0, value, {
+        duration,
+        ease: "easeOut",
+        onUpdate(latest) {
+          setDisplayValue(latest);
+        },
+      });
+      return () => controls.stop();
+    }
+  }, [isInView, value, duration]);
+
+  return (
+    <span ref={nodeRef}>
+      {prefix}{displayValue.toFixed(decimals)}{suffix}
+    </span>
+  );
+}
 
 export function Home() {
   const [latestPosts, setLatestPosts] = useState<Post[]>([]);
@@ -96,27 +121,37 @@ export function Home() {
       </section>
 
       {/* METRICS STRIP */}
-      <section className="w-full bg-obsidian border-y border-border py-8">
+      <section className="w-full bg-bg-surface border-y border-border py-8">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-6 text-center divide-x divide-border/50">
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-6 text-center">
             <div className="flex flex-col">
-              <span className="text-3xl font-bold text-text-primary">10+</span>
+              <span className="text-3xl font-bold text-text-primary">
+                <Counter value={10} suffix="+" />
+              </span>
               <span className="text-sm text-gray-400 mt-1 uppercase tracking-wider">Years Experience</span>
             </div>
             <div className="flex flex-col">
-              <span className="text-3xl font-bold text-text-primary">35%</span>
+              <span className="text-3xl font-bold text-text-primary">
+                <Counter value={35} suffix="%" />
+              </span>
               <span className="text-sm text-gray-400 mt-1 uppercase tracking-wider">Revenue CAGR</span>
             </div>
             <div className="flex flex-col">
-              <span className="text-3xl font-bold text-text-primary">$1.1B</span>
+              <span className="text-3xl font-bold text-text-primary">
+                <Counter value={1.1} prefix="$" suffix="B" decimals={1} />
+              </span>
               <span className="text-sm text-gray-400 mt-1 uppercase tracking-wider">Delivered Revenue</span>
             </div>
             <div className="flex flex-col">
-              <span className="text-3xl font-bold text-text-primary">$650M</span>
+              <span className="text-3xl font-bold text-text-primary">
+                <Counter value={650} prefix="$" suffix="M" />
+              </span>
               <span className="text-sm text-gray-400 mt-1 uppercase tracking-wider">OpEx Saved</span>
             </div>
-            <div className="flex flex-col col-span-2 md:col-span-1 border-l-0 md:border-l border-border/50 pt-6 md:pt-0">
-              <span className="text-3xl font-bold text-text-primary">10M Ton</span>
+            <div className="flex flex-col col-span-2 md:col-span-1 pt-6 md:pt-0">
+              <span className="text-3xl font-bold text-text-primary">
+                <Counter value={10} suffix="M Ton" />
+              </span>
               <span className="text-sm text-gray-400 mt-1 uppercase tracking-wider">CO2 Reduced</span>
             </div>
           </div>
@@ -391,12 +426,16 @@ export function Home() {
               ))
             ) : latestPosts.length > 0 ? (
               latestPosts.map((post) => (
-                <Link to={`/post/${post.slug}`} key={post.id} className="group cursor-pointer flex flex-col h-full bg-bg-surface border border-border rounded-xl overflow-hidden hover:shadow-xl transition-all duration-300 hover:-translate-y-1">
+                <Link 
+                  to={`/post/${post.slug}`} 
+                  key={post.id} 
+                  className="group cursor-pointer flex flex-col h-full bg-bg-surface border border-border rounded-xl overflow-hidden hover:border-amber hover:shadow-[0_0_25px_rgba(237,137,54,0.15)] transition-all duration-500 hover:-translate-y-1"
+                >
                   <div className="relative h-48 overflow-hidden">
                     <img 
                       src={post.thumbnail_url} 
                       alt={post.title} 
-                      className="w-full h-full object-cover grayscale group-hover:grayscale-0 transition-all duration-500"
+                      className="w-full h-full object-cover scale-100 group-hover:scale-110 transition-transform duration-700 ease-out will-change-transform"
                       referrerPolicy="no-referrer"
                     />
                     <div className="absolute top-4 left-4 bg-obsidian/90 border border-amber text-ivory text-xs font-bold px-3 py-1 rounded-full">
