@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { supabase, type Post, type Category } from '../lib/supabase';
-import { LogOut, Plus, Edit, Trash2, Save, X, UploadCloud, Image as ImageIcon, FolderPlus } from 'lucide-react';
+import { LogOut, Plus, Edit, Trash2, Save, X, UploadCloud, Image as ImageIcon, FolderPlus, Sparkles } from 'lucide-react';
 import { Editor } from '@tinymce/tinymce-react';
 
 const TinyMCEEditor = ({ content, onChange }: { content: string, onChange: (content: string) => void }) => {
@@ -143,7 +143,15 @@ export function Admin() {
   const [isEditing, setIsEditing] = useState(false);
   const [currentPost, setCurrentPost] = useState<Partial<Post>>({});
   const [uploadingImage, setUploadingImage] = useState(false);
+  const [autoSyncReadTime, setAutoSyncReadTime] = useState(true);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const calculateReadingTime = (content: string) => {
+    if (!content) return 1;
+    const text = content.replace(/<[^>]*>/g, ''); // Strip HTML
+    const words = text.trim().split(/\s+/).filter(w => w.length > 0).length;
+    return Math.ceil(words / 225) || 1;
+  };
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -443,14 +451,44 @@ export function Admin() {
                   </div>
                   <div className="flex gap-4">
                     <div className="flex-1">
-                      <label className="block text-sm font-medium text-text-primary mb-1">Read Time (mins)</label>
-                      <input 
-                        type="number" 
-                        required
-                        value={currentPost.read_time || ''}
-                        onChange={(e) => setCurrentPost({...currentPost, read_time: parseInt(e.target.value)})}
-                        className="w-full px-3 py-2 border border-border rounded-md bg-transparent text-text-primary focus:outline-none focus:border-accent"
-                      />
+                      <div className="flex justify-between items-center mb-1">
+                        <label className="block text-sm font-medium text-text-primary">Read Time (mins)</label>
+                        <div className="flex items-center gap-2">
+                          <input 
+                            type="checkbox" 
+                            id="auto_sync"
+                            checked={autoSyncReadTime}
+                            onChange={(e) => setAutoSyncReadTime(e.target.checked)}
+                            className="w-3 h-3 rounded border-border text-accent focus:ring-accent bg-transparent"
+                          />
+                          <label htmlFor="auto_sync" className="text-[10px] text-text-secondary cursor-pointer">
+                            Auto-sync
+                          </label>
+                        </div>
+                      </div>
+                      <div className="relative">
+                        <input 
+                          type="number" 
+                          required
+                          value={currentPost.read_time || ''}
+                          onChange={(e) => {
+                            setCurrentPost({...currentPost, read_time: parseInt(e.target.value)});
+                            setAutoSyncReadTime(false); // Disable auto-sync if manually changed
+                          }}
+                          className="w-full px-3 py-2 border border-border rounded-md bg-transparent text-text-primary focus:outline-none focus:border-accent pr-10"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const time = calculateReadingTime(currentPost.content || '');
+                            setCurrentPost({...currentPost, read_time: time});
+                          }}
+                          className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-text-secondary hover:text-accent hover:bg-accent/10 rounded transition-colors"
+                          title="Auto-calculate reading time"
+                        >
+                          <Sparkles size={16} />
+                        </button>
+                      </div>
                     </div>
                     <div className="flex-1">
                       <label className="block text-sm font-medium text-text-primary mb-1">Thumbnail URL</label>
@@ -510,7 +548,13 @@ export function Admin() {
                 </div>
                 <TinyMCEEditor 
                   content={currentPost.content || ''}
-                  onChange={(content) => setCurrentPost({...currentPost, content})}
+                  onChange={(content) => {
+                    const updates: any = { content };
+                    if (autoSyncReadTime) {
+                      updates.read_time = calculateReadingTime(content);
+                    }
+                    setCurrentPost({ ...currentPost, ...updates });
+                  }}
                 />
               </div>
 
