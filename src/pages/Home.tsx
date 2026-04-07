@@ -115,14 +115,14 @@ export function Home() {
                 repeat: Infinity,
                 ease: "easeInOut"
               }}
-              className="w-1 h-1.5 bg-gray-400 rounded-full"
+              className="w-1 h-1.5 bg-[#ED8936] rounded-full"
             />
           </div>
         </motion.div>
       </section>
 
       {/* METRICS STRIP */}
-      <section className="w-full bg-bg-surface border-y border-border py-8">
+      <section className="w-full bg-obsidian border-y border-border py-8">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <div className="grid grid-cols-2 md:grid-cols-5 gap-6 text-center">
             <div className="flex flex-col">
@@ -163,7 +163,7 @@ export function Home() {
       <TrustBar />
 
       {/* ABOUT ME & WHAT I DO */}
-      <section className="py-24 bg-bg-primary">
+      <section className="py-24 bg-bg-surface">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-16">
             {/* Left: About */}
@@ -396,7 +396,7 @@ export function Home() {
             <span className="text-amber">•</span>
             <span>Manufacturing</span>
             <span className="text-amber">•</span>
-            <span>Technology / SaaS</span>
+            <span>Technology / Software / SaaS</span>
           </div>
         </div>
       </section>

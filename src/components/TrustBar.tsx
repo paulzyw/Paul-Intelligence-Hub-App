@@ -28,7 +28,7 @@ function LogoItem({ logo }: { logo: typeof LOGO_DATA[0] }) {
 
   return (
     <motion.div
-      whileHover={{ scale: 1.1 }}
+      whileHover={{ scale: 1.15 }}
       transition={{ duration: 0.5, ease: "easeInOut" }}
       className="flex items-center justify-center"
     >
@@ -38,7 +38,7 @@ function LogoItem({ logo }: { logo: typeof LOGO_DATA[0] }) {
           alt={`${logo.name} logo`}
           loading="lazy"
           onError={() => setHasError(true)}
-          className="h-10 w-auto object-contain opacity-50 hover:opacity-100 transition-opacity duration-500 cursor-default"
+          className="h-10 w-auto object-contain opacity-60 hover:opacity-100 transition-opacity duration-500 cursor-default"
         />
       ) : (
         <div className="border-l-4 border-[#ED8936] pl-3 py-1">
