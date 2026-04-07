@@ -40,7 +40,7 @@ export function Home() {
       try {
         const { data, error } = await supabase
           .from('posts')
-          .select('*, categories(*)')
+          .select('*')
           .order('created_at', { ascending: false })
           .limit(3);
         
@@ -443,7 +443,7 @@ export function Home() {
                       referrerPolicy="no-referrer"
                     />
                     <div className="absolute top-4 left-4 bg-obsidian/90 border border-amber text-ivory text-xs font-bold px-3 py-1 rounded-full">
-                      {post.categories?.name || 'Uncategorized'}
+                      {post.category || 'Uncategorized'}
                     </div>
                     <div className="absolute bottom-4 right-4 bg-obsidian/80 backdrop-blur text-ivory text-xs px-2 py-1 rounded flex items-center gap-1">
                       {post.read_time} Min Read

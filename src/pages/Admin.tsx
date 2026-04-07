@@ -180,7 +180,7 @@ export function Admin() {
   const fetchPosts = async () => {
     const { data, error } = await supabase
       .from('posts')
-      .select('*, categories(*)')
+      .select('*')
       .order('created_at', { ascending: false });
     
     if (error) console.error('Error fetching posts:', error);
@@ -250,6 +250,12 @@ export function Admin() {
 
   const handleSavePost = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    if (!currentPost.category_id) {
+      alert("Error: Category ID not found. Please re-select a category.");
+      return;
+    }
+
     setLoading(true);
     
     // Remove joined relations that shouldn't be saved to the posts table
@@ -402,62 +408,86 @@ export function Admin() {
                   <label className="block text-sm font-medium text-text-primary mb-1">Category</label>
                   <select
                     required
-                    value={currentPost.category_id || ''}
-                    onChange={(e) => setCurrentPost({...currentPost, category_id: e.target.value})}
+                    value={currentPost.category || ''}
+                    onChange={(e) => {
+                      const match = categories.find(cat => cat.name === e.target.value);
+                      if (match) {
+                        setCurrentPost({
+                          ...currentPost, 
+                          category: match.name,
+                          category_id: match.id
+                        });
+                      }
+                    }}
                     className="w-full px-3 py-2 border border-border rounded-md bg-bg-primary text-text-primary focus:outline-none focus:border-accent"
                   >
                     <option value="" disabled>Select a category</option>
                     {categories.map(cat => (
-                      <option key={cat.id} value={cat.id}>{cat.name}</option>
+                      <option key={cat.id} value={cat.name}>{cat.name}</option>
                     ))}
                   </select>
                 </div>
-                <div className="flex gap-4">
-                  <div className="flex-1">
-                    <label className="block text-sm font-medium text-text-primary mb-1">Read Time (mins)</label>
+                <div className="flex flex-col gap-4">
+                  <div className="flex items-center gap-3 p-3 bg-bg-primary rounded-md border border-border">
                     <input 
-                      type="number" 
-                      required
-                      value={currentPost.read_time || ''}
-                      onChange={(e) => setCurrentPost({...currentPost, read_time: parseInt(e.target.value)})}
-                      className="w-full px-3 py-2 border border-border rounded-md bg-transparent text-text-primary focus:outline-none focus:border-accent"
+                      type="checkbox" 
+                      id="is_featured"
+                      checked={currentPost.is_featured || false}
+                      onChange={(e) => setCurrentPost({...currentPost, is_featured: e.target.checked})}
+                      className="w-5 h-5 rounded border-border text-accent focus:ring-accent bg-transparent"
                     />
+                    <label htmlFor="is_featured" className="text-sm font-medium text-text-primary cursor-pointer">
+                      Pin as Featured Insight
+                    </label>
+                    <span className="text-[10px] text-text-secondary ml-auto italic">Prioritizes recent featured</span>
                   </div>
-                  <div className="flex-1">
-                    <label className="block text-sm font-medium text-text-primary mb-1">Thumbnail URL</label>
-                    <input 
-                      type="url" 
-                      required
-                      value={currentPost.thumbnail_url || ''}
-                      onChange={(e) => setCurrentPost({...currentPost, thumbnail_url: e.target.value})}
-                      className="w-full px-3 py-2 border border-border rounded-md bg-transparent text-text-primary focus:outline-none focus:border-accent mb-2"
-                    />
-                    <div 
-                      className="border-2 border-dashed border-border rounded-md p-4 text-center cursor-pointer hover:border-accent transition-colors flex flex-col items-center justify-center"
-                      onDrop={handleImageUpload}
-                      onDragOver={handleDragOver}
-                      onClick={() => fileInputRef.current?.click()}
-                    >
+                  <div className="flex gap-4">
+                    <div className="flex-1">
+                      <label className="block text-sm font-medium text-text-primary mb-1">Read Time (mins)</label>
                       <input 
-                        type="file" 
-                        ref={fileInputRef} 
-                        className="hidden" 
-                        accept="image/*"
-                        onChange={handleImageUpload}
+                        type="number" 
+                        required
+                        value={currentPost.read_time || ''}
+                        onChange={(e) => setCurrentPost({...currentPost, read_time: parseInt(e.target.value)})}
+                        className="w-full px-3 py-2 border border-border rounded-md bg-transparent text-text-primary focus:outline-none focus:border-accent"
                       />
-                      {uploadingImage ? (
-                        <span className="text-sm text-text-secondary">Uploading...</span>
-                      ) : currentPost.thumbnail_url ? (
-                        <div className="flex flex-col items-center">
-                          <ImageIcon size={24} className="text-accent mb-2" />
-                          <span className="text-xs text-text-secondary">Image uploaded. Click or drag to replace.</span>
-                        </div>
-                      ) : (
-                        <div className="flex flex-col items-center">
-                          <UploadCloud size={24} className="text-text-secondary mb-2" />
-                          <span className="text-xs text-text-secondary">Drag & drop image here, or click to select</span>
-                        </div>
-                      )}
+                    </div>
+                    <div className="flex-1">
+                      <label className="block text-sm font-medium text-text-primary mb-1">Thumbnail URL</label>
+                      <input 
+                        type="url" 
+                        required
+                        value={currentPost.thumbnail_url || ''}
+                        onChange={(e) => setCurrentPost({...currentPost, thumbnail_url: e.target.value})}
+                        className="w-full px-3 py-2 border border-border rounded-md bg-transparent text-text-primary focus:outline-none focus:border-accent mb-2"
+                      />
+                      <div 
+                        className="border-2 border-dashed border-border rounded-md p-4 text-center cursor-pointer hover:border-accent transition-colors flex flex-col items-center justify-center"
+                        onDrop={handleImageUpload}
+                        onDragOver={handleDragOver}
+                        onClick={() => fileInputRef.current?.click()}
+                      >
+                        <input 
+                          type="file" 
+                          ref={fileInputRef} 
+                          className="hidden" 
+                          accept="image/*"
+                          onChange={handleImageUpload}
+                        />
+                        {uploadingImage ? (
+                          <span className="text-sm text-text-secondary">Uploading...</span>
+                        ) : currentPost.thumbnail_url ? (
+                          <div className="flex flex-col items-center">
+                            <ImageIcon size={24} className="text-accent mb-2" />
+                            <span className="text-xs text-text-secondary">Image uploaded. Click or drag to replace.</span>
+                          </div>
+                        ) : (
+                          <div className="flex flex-col items-center">
+                            <UploadCloud size={24} className="text-text-secondary mb-2" />
+                            <span className="text-xs text-text-secondary">Drag & drop image here, or click to select</span>
+                          </div>
+                        )}
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -536,7 +566,7 @@ export function Admin() {
                           <div className="font-medium text-text-primary">{post.title}</div>
                           <div className="text-xs text-text-secondary">{post.slug}</div>
                         </td>
-                        <td className="p-4 text-sm text-text-secondary">{post.categories?.name || 'Uncategorized'}</td>
+                        <td className="p-4 text-sm text-text-secondary">{post.category || 'Uncategorized'}</td>
                         <td className="p-4 text-sm text-text-secondary">
                           {new Date(post.created_at).toLocaleDateString()}
                         </td>

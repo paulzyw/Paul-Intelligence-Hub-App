@@ -4,6 +4,7 @@ import { supabase, type Post } from '../lib/supabase';
 import { Clock, ArrowLeft, Calendar } from 'lucide-react';
 import { motion } from 'motion/react';
 import DOMPurify from 'dompurify';
+import { RelatedPosts } from '../components/RelatedPosts';
 
 export function PostDetail() {
   const { slug } = useParams<{ slug: string }>();
@@ -16,7 +17,7 @@ export function PostDetail() {
       try {
         const { data, error } = await supabase
           .from('posts')
-          .select('*, categories(*)')
+          .select('*')
           .eq('slug', slug)
           .single();
         
@@ -76,7 +77,7 @@ export function PostDetail() {
         {/* HEADER */}
         <header className="mb-12">
           <div className="flex items-center gap-4 mb-6">
-            <span className="text-accent font-bold text-sm uppercase tracking-wider">{post.categories?.name || 'Uncategorized'}</span>
+            <span className="text-accent font-bold text-sm uppercase tracking-wider">{post.category || 'Uncategorized'}</span>
             <span className="text-text-secondary text-sm flex items-center gap-1">
               <Calendar size={14} /> {new Date(post.created_at).toLocaleDateString()}
             </span>
@@ -110,14 +111,14 @@ export function PostDetail() {
             <span className="w-1.5 h-6 bg-amber rounded-full inline-block"></span>
             Key Takeaways
           </h3>
-          <p className="text-text-secondary text-lg leading-relaxed font-light md:font-normal">
+          <p className="text-text-secondary text-lg leading-relaxed font-light">
             {post.summary}
           </p>
         </div>
 
         {/* CONTENT */}
         <div 
-          className="prose prose-invert max-w-none mb-24 text-ivory prose-p:mt-0 prose-p:mb-2 prose-p:text-lg prose-p:font-light md:prose-p:font-normal prose-headings:text-ivory prose-a:text-accent hover:prose-a:text-accent/80 prose-strong:font-medium md:prose-strong:font-semibold prose-strong:text-ivory prose-li:mt-0 prose-li:mb-0"
+          className="prose prose-invert max-w-none mb-24 text-ivory prose-p:mt-0 prose-p:mb-2 prose-p:text-lg prose-p:font-light prose-headings:text-ivory prose-a:text-accent hover:prose-a:text-accent/80 prose-strong:font-medium prose-strong:text-ivory prose-li:mt-0 prose-li:mb-0"
           dangerouslySetInnerHTML={{ 
             __html: DOMPurify.sanitize(post.content).replace(/<table/g, '<div class="overflow-x-auto w-full"><table').replace(/<\/table>/g, '</table></div>') 
           }}
@@ -126,15 +127,7 @@ export function PostDetail() {
         {/* FOOTER / YOU MIGHT ALSO LIKE */}
         <footer className="border-t border-border pt-12">
           <h3 className="text-2xl font-bold text-text-primary mb-8">You Might Also Like</h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="bg-bg-surface border border-border p-6 rounded-xl">
-              <h4 className="font-bold text-text-primary mb-2">Explore More Insights</h4>
-              <p className="text-text-secondary text-sm mb-4">Discover more strategies on SaaS growth and digital transformation.</p>
-              <Link to="/insights" className="text-accent hover:underline text-sm font-medium">
-                View all articles &rarr;
-              </Link>
-            </div>
-          </div>
+          <RelatedPosts currentPostId={post.id} category={post.category} />
         </footer>
 
       </article>

@@ -12,7 +12,7 @@ export function Insights() {
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
-  const postsPerPage = 10;
+  const postsPerPage = 7;
 
   // Reset to page 1 when search or category changes
   useEffect(() => {
@@ -25,7 +25,7 @@ export function Insights() {
         const [postsResponse, categoriesResponse] = await Promise.all([
           supabase
             .from('posts')
-            .select('*, categories(*)')
+            .select('*')
             .order('created_at', { ascending: false }),
           supabase
             .from('categories')
@@ -49,7 +49,7 @@ export function Insights() {
   }, []);
 
   const filteredPosts = posts.filter(post => {
-    const matchesCategory = activeCategory === 'All' || post.category_id === activeCategory;
+    const matchesCategory = activeCategory === 'All' || post.category === activeCategory;
     const matchesSearch = post.title.toLowerCase().includes(searchQuery.toLowerCase()) || 
                           post.summary.toLowerCase().includes(searchQuery.toLowerCase());
     return matchesCategory && matchesSearch;
@@ -60,7 +60,7 @@ export function Insights() {
   const indexOfFirstPost = indexOfLastPost - postsPerPage;
   const currentPosts = filteredPosts.slice(indexOfFirstPost, indexOfLastPost);
 
-  const featuredPost = currentPage === 1 ? (currentPosts.find(p => p.featured) || currentPosts[0]) : null;
+  const featuredPost = currentPage === 1 ? (currentPosts.find(p => p.is_featured) || currentPosts[0]) : null;
   const regularPosts = featuredPost ? currentPosts.filter(p => p.id !== featuredPost.id) : currentPosts;
 
   return (
@@ -106,10 +106,10 @@ export function Insights() {
             {categories.map((category) => (
               <button
                 key={category.id}
-                onClick={() => setActiveCategory(category.id)}
+                onClick={() => setActiveCategory(category.name)}
                 className={cn(
                   "whitespace-nowrap px-4 py-2 rounded-full text-sm font-medium transition-colors border",
-                  activeCategory === category.id
+                  activeCategory === category.name
                     ? "bg-obsidian text-ivory border-amber dark:bg-ivory dark:text-obsidian dark:border-amber"
                     : "bg-bg-surface text-text-secondary border-border hover:border-accent/50"
                 )}
@@ -171,13 +171,14 @@ export function Insights() {
                           className="w-full h-full object-cover scale-100 group-hover:scale-110 transition-transform duration-700 ease-out will-change-transform"
                           referrerPolicy="no-referrer"
                         />
-                        <div className="absolute top-4 left-4 bg-obsidian/90 border border-amber text-ivory text-xs font-bold px-3 py-1 rounded-full">
+                        <div className="absolute top-4 left-4 bg-obsidian/90 border border-amber text-ivory text-xs font-bold px-3 py-1.5 rounded-full flex items-center gap-1.5">
+                          <Award size={12} className="text-amber" />
                           Featured
                         </div>
                       </div>
                       <div className="p-8 md:p-10 flex flex-col flex-grow">
                         <div className="flex items-center gap-4 mb-4">
-                          <span className="text-accent font-bold text-sm uppercase tracking-wider">{featuredPost.categories?.name || 'Uncategorized'}</span>
+                          <span className="text-accent font-bold text-sm uppercase tracking-wider">{featuredPost.category || 'Uncategorized'}</span>
                           <span className="text-text-secondary text-sm">{new Date(featuredPost.created_at).toLocaleDateString()}</span>
                         </div>
                         <h2 className="text-3xl md:text-4xl font-bold text-text-primary mb-4 group-hover:text-accent transition-colors">
@@ -224,7 +225,7 @@ export function Insights() {
                         </div>
                         <div className="w-full md:w-2/3 p-6 md:p-8 flex flex-col justify-center">
                           <div className="flex items-center gap-4 mb-3">
-                            <span className="text-accent font-bold text-xs uppercase tracking-wider">{post.categories?.name || 'Uncategorized'}</span>
+                            <span className="text-accent font-bold text-xs uppercase tracking-wider">{post.category || 'Uncategorized'}</span>
                             <span className="text-text-secondary text-xs">{new Date(post.created_at).toLocaleDateString()}</span>
                           </div>
                           <h3 className="text-2xl font-bold text-text-primary mb-3 line-clamp-2 group-hover:text-accent transition-colors">

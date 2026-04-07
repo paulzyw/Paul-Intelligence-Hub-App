@@ -17,9 +17,12 @@ export type Post = {
   slug: string;
   summary: string;
   content: string;
+  category: string;
   category_id: string;
   read_time: number;
   thumbnail_url: string;
+  featured: boolean;
+  is_featured: boolean;
   created_at: string;
   categories?: Category; // For joined queries
 };
