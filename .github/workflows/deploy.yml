@@ -39,4 +39,14 @@ jobs:
         run: |
           export WASMER_TOKEN=$(echo -n "$WASMER_TOKEN" | tr -d '\n\r ')
           sed -i "s/version = \".*\"/version = \"0.1.${{ github.run_number }}\"/" wasmer.toml
-          wasmer deploy --non-interactive --owner paulzyw02
+          wasmer deploy \
+            --env VITE_SUPABASE_URL=${{ secrets.VITE_SUPABASE_URL }} \
+            --env VITE_SUPABASE_ANON_KEY=${{ secrets.VITE_SUPABASE_ANON_KEY }} \
+            --env VITE_EMAILJS_SERVICE_ID=${{ secrets.VITE_EMAILJS_SERVICE_ID }} \
+            --env VITE_EMAILJS_TEMPLATE_ID=${{ secrets.VITE_EMAILJS_TEMPLATE_ID }} \
+            --env VITE_EMAILJS_PUBLIC_KEY=${{ secrets.VITE_EMAILJS_PUBLIC_KEY }} \
+            --non-interactive --owner paulzyw02
+
+
+
+      
