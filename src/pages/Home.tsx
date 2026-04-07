@@ -34,7 +34,6 @@ function Counter({ value, duration = 2, prefix = '', suffix = '', decimals = 0 }
 export function Home() {
   const [latestPosts, setLatestPosts] = useState<Post[]>([]);
   const [loadingPosts, setLoadingPosts] = useState(true);
-  const [fetchError, setFetchError] = useState<string | null>(null);
 
   useEffect(() => {
     async function fetchLatestPosts() {
@@ -45,15 +44,11 @@ export function Home() {
           .order('created_at', { ascending: false })
           .limit(3);
         
-        if (error) {
-          console.error('Error fetching latest posts:', error);
-          setFetchError(error.message);
-        } else if (data) {
+        if (!error && data) {
           setLatestPosts(data);
         }
-      } catch (err: any) {
+      } catch (err) {
         console.error('Error fetching latest posts:', err);
-        setFetchError(err.message);
       } finally {
         setLoadingPosts(false);
       }
@@ -420,11 +415,7 @@ export function Home() {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            {fetchError ? (
-              <div className="col-span-3 p-6 bg-red-500/10 border border-red-500/20 rounded-xl text-red-500 text-center text-sm">
-                Error loading insights: {fetchError}
-              </div>
-            ) : loadingPosts ? (
+            {loadingPosts ? (
               // Skeleton Loaders
               [1, 2, 3].map((i) => (
                 <div key={i} className="flex flex-col h-full bg-bg-surface border border-border rounded-xl overflow-hidden animate-pulse">

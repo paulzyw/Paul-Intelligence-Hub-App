@@ -144,7 +144,6 @@ export function Admin() {
   const [currentPost, setCurrentPost] = useState<Partial<Post>>({});
   const [uploadingImage, setUploadingImage] = useState(false);
   const [autoSyncReadTime, setAutoSyncReadTime] = useState(true);
-  const [dbError, setDbError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const calculateReadingTime = (content: string) => {
@@ -177,39 +176,23 @@ export function Admin() {
   }, []);
 
   const fetchCategories = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('categories')
-        .select('*')
-        .order('name');
-        
-      if (error) {
-        console.error('Error fetching categories:', error);
-        setDbError(`Categories Error: ${error.message}`);
-      } else {
-        setCategories(data || []);
-      }
-    } catch (err: any) {
-      setDbError(`Categories Connection Error: ${err.message}`);
-    }
+    const { data, error } = await supabase
+      .from('categories')
+      .select('*')
+      .order('name');
+      
+    if (error) console.error('Error fetching categories:', error);
+    else setCategories(data || []);
   };
 
   const fetchPosts = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('posts')
-        .select('*')
-        .order('created_at', { ascending: false });
-      
-      if (error) {
-        console.error('Error fetching posts:', error);
-        setDbError(`Posts Error: ${error.message}`);
-      } else {
-        setPosts(data || []);
-      }
-    } catch (err: any) {
-      setDbError(`Posts Connection Error: ${err.message}`);
-    }
+    const { data, error } = await supabase
+      .from('posts')
+      .select('*')
+      .order('created_at', { ascending: false });
+    
+    if (error) console.error('Error fetching posts:', error);
+    else setPosts(data || []);
   };
 
   const handleLogin = async (e: React.FormEvent) => {
@@ -384,19 +367,12 @@ export function Admin() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center mb-8">
           <h1 className="text-3xl font-bold text-text-primary">Content Management</h1>
-          <div className="flex items-center gap-4">
-            {dbError && (
-              <div className="text-xs bg-red-500/10 text-red-500 px-3 py-1 rounded border border-red-500/20 max-w-md truncate">
-                {dbError}
-              </div>
-            )}
-            <button
-              onClick={handleLogout}
-              className="flex items-center gap-2 text-text-secondary hover:text-text-primary transition-colors"
-            >
-              <LogOut size={20} /> Logout
-            </button>
-          </div>
+          <button
+            onClick={handleLogout}
+            className="flex items-center gap-2 text-text-secondary hover:text-text-primary transition-colors"
+          >
+            <LogOut size={20} /> Logout
+          </button>
         </div>
 
         {!isEditing && (

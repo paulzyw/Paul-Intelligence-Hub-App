@@ -16,7 +16,7 @@ import { ScrollToTop } from './components/ScrollToTop';
 
 export default function App() {
   return (
-    <ThemeProvider defaultTheme="dark">
+    <ThemeProvider>
       <BrowserRouter>
         <ScrollToTop />
         <Routes>
