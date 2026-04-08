@@ -35,13 +35,13 @@ export function Insights() {
       }
 
       // 2. Call Edge Function for MailerLite
-      // Replace 'YOUR_FUNCTION_URL' with the actual URL from Supabase Dashboard
       const functionUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/subscribe-mailerlite`;
       const response = await fetch(functionUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`
+          'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+          'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY
         },
         body: JSON.stringify({ email: subscribeEmail })
       });
