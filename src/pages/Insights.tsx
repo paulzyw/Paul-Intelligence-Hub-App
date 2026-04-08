@@ -25,17 +25,23 @@ export function Insights() {
     setSubscribeMessage('');
 
     try {
-      // 1. Save to Supabase table (optional but good for backup)
+      // 1. Save to Supabase table
       const { error: dbError } = await supabase
         .from('subscribers')
         .insert([{ email: subscribeEmail }]);
 
-      if (dbError && dbError.code !== '23505') { // Ignore unique constraint error (already subscribed)
-        throw new Error(dbError.message);
+      if (dbError && dbError.code !== '23505') {
+        throw new Error(`Database Error: ${dbError.message}`);
       }
 
       // 2. Call Edge Function for MailerLite
-      const functionUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/subscribe-mailerlite`;
+      const baseUrl = import.meta.env.VITE_SUPABASE_URL;
+      if (!baseUrl || baseUrl.includes('placeholder')) {
+        throw new Error('Supabase URL is not configured. Please check your environment variables.');
+      }
+
+      const functionUrl = `${baseUrl.replace(/\/$/, '')}/functions/v1/subscribe-mailerlite`;
+
       const response = await fetch(functionUrl, {
         method: 'POST',
         headers: {
