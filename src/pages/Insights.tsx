@@ -12,7 +12,55 @@ export function Insights() {
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
+  const [subscribeEmail, setSubscribeEmail] = useState('');
+  const [subscribeStatus, setSubscribeStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
+  const [subscribeMessage, setSubscribeMessage] = useState('');
   const postsPerPage = 7;
+
+  const handleSubscribe = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!subscribeEmail) return;
+
+    setSubscribeStatus('loading');
+    setSubscribeMessage('');
+
+    try {
+      // 1. Save to Supabase table (optional but good for backup)
+      const { error: dbError } = await supabase
+        .from('subscribers')
+        .insert([{ email: subscribeEmail }]);
+
+      if (dbError && dbError.code !== '23505') { // Ignore unique constraint error (already subscribed)
+        throw new Error(dbError.message);
+      }
+
+      // 2. Call Edge Function for MailerLite
+      // Replace 'YOUR_FUNCTION_URL' with the actual URL from Supabase Dashboard
+      const functionUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/subscribe-mailerlite`;
+      const response = await fetch(functionUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`
+        },
+        body: JSON.stringify({ email: subscribeEmail })
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || 'Subscription failed');
+      }
+
+      setSubscribeStatus('success');
+      setSubscribeMessage('Thank you for subscribing!');
+      setSubscribeEmail('');
+    } catch (err: any) {
+      console.error('Subscription error:', err);
+      setSubscribeStatus('error');
+      setSubscribeMessage(err.message || 'Something went wrong. Please try again.');
+    }
+  };
 
   // Reset to page 1 when search or category changes
   useEffect(() => {
@@ -333,16 +381,37 @@ export function Insights() {
               <div className="bg-obsidian rounded-xl p-6 text-ivory border border-border/20">
                 <h3 className="text-lg font-bold mb-2">Subscribe to Insights</h3>
                 <p className="text-sm text-gray-400 mb-4">Get the latest strategies on SaaS growth and digital transformation delivered to your inbox.</p>
-                <form className="flex flex-col gap-3" onSubmit={(e) => e.preventDefault()}>
+                <form className="flex flex-col gap-3" onSubmit={handleSubscribe}>
                   <input 
                     type="email" 
                     placeholder="Corporate Email" 
-                    className="w-full px-3 py-2 bg-steel border border-gray-700 rounded text-sm focus:outline-none focus:border-amber text-ivory"
+                    required
+                    value={subscribeEmail}
+                    onChange={(e) => setSubscribeEmail(e.target.value)}
+                    disabled={subscribeStatus === 'loading'}
+                    className="w-full px-3 py-2 bg-steel border border-gray-700 rounded text-sm focus:outline-none focus:border-amber text-ivory disabled:opacity-50"
                   />
-                  <button className="w-full py-2 bg-amber text-obsidian font-bold rounded hover:bg-amber/90 transition-colors text-sm">
-                    Subscribe
+                  <button 
+                    type="submit"
+                    disabled={subscribeStatus === 'loading'}
+                    className="w-full py-2 bg-amber text-obsidian font-bold rounded hover:bg-amber/90 transition-colors text-sm disabled:opacity-50 flex items-center justify-center gap-2"
+                  >
+                    {subscribeStatus === 'loading' ? (
+                      <>
+                        <div className="w-4 h-4 border-2 border-obsidian/30 border-t-obsidian rounded-full animate-spin"></div>
+                        Processing...
+                      </>
+                    ) : 'Subscribe'}
                   </button>
                 </form>
+                {subscribeMessage && (
+                  <p className={cn(
+                    "mt-4 text-xs text-center font-medium",
+                    subscribeStatus === 'success' ? "text-green-400" : "text-red-400"
+                  )}>
+                    {subscribeMessage}
+                  </p>
+                )}
               </div>
             </div>
           </div>
