@@ -2,11 +2,11 @@ import { useState } from 'react';
 import { motion } from 'motion/react';
 
 const LOGO_DATA = [
-  { name: 'SUEZ', url: 'https://raw.githubusercontent.com/paulzyw/logos_hub_app/refs/heads/main/logo1.png' },
-  { name: 'VEOLIA', url: 'https://raw.githubusercontent.com/paulzyw/logos_hub_app/refs/heads/main/logo2.png' },
-  { name: 'Alstom', url: 'https://raw.githubusercontent.com/paulzyw/logos_hub_app/refs/heads/main/logo3.png' },
-  { name: 'GE', url: 'https://raw.githubusercontent.com/paulzyw/logos_hub_app/refs/heads/main/logo4.png' },
-  { name: 'Aspentech', url: 'https://raw.githubusercontent.com/paulzyw/logos_hub_app/refs/heads/main/logo5.png' },
+  { name: 'SUEZ', url: 'https://yfonihlpdvelssfmzokp.supabase.co/storage/v1/object/public/trust_bar_logos/logo1.png' },
+  { name: 'VEOLIA', url: 'https://yfonihlpdvelssfmzokp.supabase.co/storage/v1/object/public/trust_bar_logos/logo2.png' },
+  { name: 'Alstom', url: 'https://yfonihlpdvelssfmzokp.supabase.co/storage/v1/object/public/trust_bar_logos/logo3.png' },
+  { name: 'GE', url: 'https://yfonihlpdvelssfmzokp.supabase.co/storage/v1/object/public/trust_bar_logos/logo4.png' },
+  { name: 'Aspentech', url: 'https://yfonihlpdvelssfmzokp.supabase.co/storage/v1/object/public/trust_bar_logos/logo5.png' },
 ];
 
 export function TrustBar() {
