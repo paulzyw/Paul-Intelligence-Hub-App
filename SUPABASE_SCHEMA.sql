@@ -1,5 +1,5 @@
--- Create the posts table
-CREATE TABLE posts (
+-- Create the posts table if it doesn't exist
+CREATE TABLE IF NOT EXISTS posts (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
   title TEXT NOT NULL,
   slug TEXT NOT NULL UNIQUE,
@@ -16,53 +16,66 @@ CREATE TABLE posts (
 ALTER TABLE posts ENABLE ROW LEVEL SECURITY;
 
 -- Policy: Allow public read access
-CREATE POLICY "Allow public read access" ON posts
-  FOR SELECT
-  USING (true);
+DO $$ 
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'Allow public read access' AND tablename = 'posts') THEN
+        CREATE POLICY "Allow public read access" ON posts FOR SELECT USING (true);
+    END IF;
+END $$;
 
--- Policy: Allow authenticated users to insert/update/delete
-CREATE POLICY "Allow authenticated insert" ON posts FOR INSERT WITH CHECK (auth.role() = 'authenticated');
-CREATE POLICY "Allow authenticated update" ON posts FOR UPDATE USING (auth.role() = 'authenticated');
-CREATE POLICY "Allow authenticated delete" ON posts FOR DELETE USING (auth.role() = 'authenticated');
+-- Policies for authenticated users
+DO $$ 
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'Allow authenticated insert' AND tablename = 'posts') THEN
+        CREATE POLICY "Allow authenticated insert" ON posts FOR INSERT WITH CHECK (auth.role() = 'authenticated');
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'Allow authenticated update' AND tablename = 'posts') THEN
+        CREATE POLICY "Allow authenticated update" ON posts FOR UPDATE USING (auth.role() = 'authenticated');
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'Allow authenticated delete' AND tablename = 'posts') THEN
+        CREATE POLICY "Allow authenticated delete" ON posts FOR DELETE USING (auth.role() = 'authenticated');
+    END IF;
+END $$;
 
--- Create a storage bucket for blog images
-INSERT INTO storage.buckets (id, name, public) VALUES ('blog-images', 'blog-images', true);
+-- Create storage buckets
+INSERT INTO storage.buckets (id, name, public) 
+VALUES ('blog-images', 'blog-images', true)
+ON CONFLICT (id) DO NOTHING;
+
+INSERT INTO storage.buckets (id, name, public) 
+VALUES ('knowledge-base', 'knowledge-base', true)
+ON CONFLICT (id) DO NOTHING;
 
 -- Storage Policies
-CREATE POLICY "Public Access" ON storage.objects FOR SELECT USING ( bucket_id = 'blog-images' );
-CREATE POLICY "Auth Insert" ON storage.objects FOR INSERT WITH CHECK ( bucket_id = 'blog-images' AND auth.role() = 'authenticated' );
-CREATE POLICY "Auth Update" ON storage.objects FOR UPDATE USING ( bucket_id = 'blog-images' AND auth.role() = 'authenticated' );
-CREATE POLICY "Auth Delete" ON storage.objects FOR DELETE USING ( bucket_id = 'blog-images' AND auth.role() = 'authenticated' );
+DO $$ 
+BEGIN
+    -- blog-images policies
+    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'Public Access' AND tablename = 'objects' AND schemaname = 'storage') THEN
+        CREATE POLICY "Public Access" ON storage.objects FOR SELECT USING ( bucket_id = 'blog-images' );
+    END IF;
+    -- knowledge-base policies
+    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'Public Access KB' AND tablename = 'objects' AND schemaname = 'storage') THEN
+        CREATE POLICY "Public Access KB" ON storage.objects FOR SELECT USING ( bucket_id = 'knowledge-base' );
+    END IF;
+END $$;
 
--- Insert Initial Data
-INSERT INTO posts (title, slug, summary, content, category, read_time, thumbnail_url, featured) VALUES
-(
-  'Innovation Leadership: P&L Leaders Drive Growth',
-  'innovation-leadership-pl-leaders-drive-growth',
-  'A strategic look at how P&L leaders can foster innovation and drive sustainable growth in complex industrial environments.',
-  'Content will be provided later.',
-  'Leadership',
-  5,
-  'https://picsum.photos/seed/innovation/1200/600',
-  true
-),
-(
-  'The Power of a Structured 5RQ Pipeline Governance Model in a SaaS Business',
-  'structured-5rq-pipeline-governance-saas',
-  'Discover how the 5RQ pipeline governance model can transform your SaaS business by ensuring predictable revenue and scalable growth.',
-  'Content will be provided later.',
-  'Revenue Growth',
-  8,
-  'https://picsum.photos/seed/pipeline/1200/600',
-  false
-),
-(
-  'The Entrepreneurial Edge',
-  'the-entrepreneurial-edge',
-  'Exploring the mindset and strategies required to maintain an entrepreneurial edge within large, established organizations.',
-  'Content will be provided later.',
-  'AI Strategy',
-  6,
-  'https://picsum.photos/seed/edge/1200/600',
-  false
+-- Create chat_history table
+CREATE TABLE IF NOT EXISTS chat_history (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  session_id TEXT NOT NULL,
+  message TEXT NOT NULL,
+  role TEXT NOT NULL CHECK (role IN ('user', 'assistant')),
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
+
+ALTER TABLE chat_history ENABLE ROW LEVEL SECURITY;
+
+DO $$ 
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'Allow public insert' AND tablename = 'chat_history') THEN
+        CREATE POLICY "Allow public insert" ON chat_history FOR INSERT WITH CHECK (true);
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'Allow public select' AND tablename = 'chat_history') THEN
+        CREATE POLICY "Allow public select" ON chat_history FOR SELECT USING (true);
+    END IF;
+END $$;
