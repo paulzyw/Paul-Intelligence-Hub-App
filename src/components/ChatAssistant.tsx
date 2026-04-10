@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { MessageSquare, Send, X, Loader2, User, Bot } from 'lucide-react';
+import ReactMarkdown from 'react-markdown';
 import { cn } from '../lib/utils';
 import { supabase } from '../lib/supabase';
 
@@ -38,6 +39,48 @@ export function ChatAssistant() {
     return () => clearInterval(timer);
   }, [cooldown]);
 
+  const [isAdminMode, setIsAdminMode] = useState(false);
+  const [adminCount, setAdminCount] = useState(0);
+  const [isProcessing, setIsProcessing] = useState(false);
+
+  const handleAdminTrigger = () => {
+    setAdminCount(prev => {
+      if (prev + 1 >= 5) {
+        setIsAdminMode(true);
+        return 0;
+      }
+      return prev + 1;
+    });
+  };
+
+  const processKB = async () => {
+    setIsProcessing(true);
+    try {
+      const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/process-kb`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+        },
+        body: JSON.stringify({})
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to process Knowledge Base');
+      }
+
+      alert(data.message || 'Knowledge Base processed successfully!');
+      setIsAdminMode(false);
+    } catch (err: any) {
+      console.error('Processing error:', err);
+      alert(`Processing error: ${err.message || 'Unknown error'}`);
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
   const handleSend = async () => {
     if (!input.trim() || isLoading || cooldown > 0) return;
 
@@ -45,19 +88,71 @@ export function ChatAssistant() {
     setInput('');
     setMessages((prev) => [...prev, { role: 'user', content: userMessage }]);
     setIsLoading(true);
-    setCooldown(5); // 5 second throttle
+    setCooldown(5);
 
     try {
-      const { data, error } = await supabase.functions.invoke('chat-assistant', {
-        body: { 
+      const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/chat-assistant`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+        },
+        body: JSON.stringify({
           message: userMessage,
           sessionId: sessionId.current
-        }
+        })
       });
 
-      if (error) throw error;
+      if (!response.ok) throw new Error('Failed to connect to assistant');
 
-      setMessages((prev) => [...prev, { role: 'assistant', content: data.response }]);
+      // Check if it's a stream or a direct JSON response (for intents/cache)
+      const contentType = response.headers.get('Content-Type');
+      
+      if (contentType?.includes('application/json')) {
+        const data = await response.json();
+        setMessages((prev) => [...prev, { role: 'assistant', content: data.response }]);
+        setIsLoading(false);
+        return;
+      }
+
+      // Handle Streaming
+      const reader = response.body?.getReader();
+      const decoder = new TextDecoder();
+      let assistantMessage = '';
+
+      setMessages((prev) => [...prev, { role: 'assistant', content: '' }]);
+      
+      while (true) {
+        const { done, value } = await reader!.read();
+        if (done) break;
+
+        // Hide "Thinking..." as soon as we get the first chunk of data
+        setIsLoading(false);
+
+        const chunk = decoder.decode(value);
+        const lines = chunk.split('\n');
+
+        for (const line of lines) {
+          if (line.startsWith('data: ')) {
+            const dataStr = line.slice(6);
+            if (dataStr === '[DONE]') continue;
+            
+            try {
+              const data = JSON.parse(dataStr);
+              if (data.text) {
+                assistantMessage += data.text;
+                setMessages((prev) => {
+                  const newMessages = [...prev];
+                  newMessages[newMessages.length - 1].content = assistantMessage;
+                  return newMessages;
+                });
+              }
+            } catch (e) {
+              console.error('Error parsing stream chunk', e, dataStr);
+            }
+          }
+        }
+      }
     } catch (err) {
       console.error('Chat error:', err);
       setMessages((prev) => [...prev, { role: 'assistant', content: 'Sorry, I encountered an error. Please try again later.' }]);
@@ -82,7 +177,10 @@ export function ChatAssistant() {
                 <div className="w-8 h-8 rounded-full bg-amber flex items-center justify-center text-obsidian">
                   <Bot size={18} />
                 </div>
-                <div>
+                <div 
+                  className="cursor-pointer select-none"
+                  onClick={handleAdminTrigger}
+                >
                   <h3 className="font-bold text-sm">Paul's Assistant</h3>
                   <p className="text-[10px] text-gray-400">Powered by Gemini AI</p>
                 </div>
@@ -96,30 +194,63 @@ export function ChatAssistant() {
             </div>
 
             {/* Messages */}
-            <div className="flex-grow overflow-y-auto p-4 space-y-4 scrollbar-thin scrollbar-thumb-border">
+            <div className="flex-grow overflow-y-auto p-4 space-y-6 scrollbar-thin scrollbar-thumb-border bg-bg-surface/50 backdrop-blur-sm">
+              {isAdminMode && (
+                <motion.div 
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: 'auto' }}
+                  className="p-4 bg-accent/5 border border-accent/20 rounded-xl flex flex-col gap-2 mb-4"
+                >
+                  <p className="text-[10px] font-bold text-accent uppercase tracking-widest">System Sync</p>
+                  <button
+                    onClick={processKB}
+                    disabled={isProcessing}
+                    className="w-full py-2.5 bg-accent text-white text-xs font-bold rounded-lg hover:bg-accent/90 disabled:opacity-50 flex items-center justify-center gap-2 shadow-lg shadow-accent/20 transition-all active:scale-[0.98]"
+                  >
+                    {isProcessing ? (
+                      <>
+                        <Loader2 size={14} className="animate-spin" />
+                        Processing...
+                      </>
+                    ) : (
+                      'Update Knowledge Base'
+                    )}
+                  </button>
+                  <button 
+                    onClick={() => setIsAdminMode(false)}
+                    className="text-[10px] text-text-secondary hover:text-text-primary text-center transition-colors"
+                  >
+                    Dismiss
+                  </button>
+                </motion.div>
+              )}
+
               {messages.map((msg, i) => (
-                <div 
-                  key={i} 
+                <motion.div 
+                  key={i}
+                  initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  transition={{ duration: 0.2 }}
                   className={cn(
-                    "flex gap-3 max-w-[85%]",
+                    "flex gap-3 max-w-[90%]",
                     msg.role === 'user' ? "ml-auto flex-row-reverse" : "mr-auto"
                   )}
                 >
                   <div className={cn(
-                    "w-8 h-8 rounded-full flex-shrink-0 flex items-center justify-center",
-                    msg.role === 'user' ? "bg-accent text-white" : "bg-border text-text-secondary"
+                    "w-8 h-8 rounded-full flex-shrink-0 flex items-center justify-center shadow-sm",
+                    msg.role === 'user' ? "bg-accent text-white" : "bg-obsidian text-ivory"
                   )}>
-                    {msg.role === 'user' ? <User size={16} /> : <Bot size={16} />}
+                    {msg.role === 'user' ? <User size={14} /> : <Bot size={14} />}
                   </div>
                   <div className={cn(
-                    "p-3 rounded-2xl text-sm leading-relaxed",
+                    "p-3 rounded-2xl text-sm leading-relaxed prose prose-sm max-w-none",
                     msg.role === 'user' 
-                      ? "bg-accent text-white rounded-tr-none" 
-                      : "bg-bg-primary text-text-primary border border-border rounded-tl-none"
+                      ? "bg-accent text-white rounded-tr-none prose-invert" 
+                      : "bg-bg-primary text-text-primary border border-border rounded-tl-none prose-headings:text-text-primary prose-p:text-text-primary prose-strong:text-text-primary"
                   )}>
-                    {msg.content}
+                    <ReactMarkdown>{msg.content}</ReactMarkdown>
                   </div>
-                </div>
+                </motion.div>
               ))}
               {isLoading && (
                 <div className="flex gap-3 mr-auto max-w-[85%]">
