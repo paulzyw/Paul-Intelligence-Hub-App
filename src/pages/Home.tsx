@@ -199,7 +199,7 @@ export function Home() {
                 {[
                   { icon: TrendingUp, title: "Revenue Strategy", desc: "Drive sustainable SaaS revenue growth through market expansion" },
                   { icon: Target, title: "GTM Execution", desc: "Design scalable GTM strategies to accelerate acquisition" },
-                  { icon: Briefcase, title: "Commercial Leadership", desc: "Drive profitability improvement and maximize business impact globally" },
+                  { icon: Briefcase, title: "Commercial Leadership", desc: "Drive profitability improvement and maximize business impact" },
                   { icon: HeartHandshake, title: "Partner Ecosystem", desc: "Build partner networks generating significant pipeline" },
                   { icon: Settings, title: "Operations Excellence", desc: "Utilize data-driven solutions to drive operational efficiency" },
                   { icon: Zap, title: "Digital Transformation", desc: "Drive digital transformation to gain financial benefit" }
