@@ -12,13 +12,13 @@ import { Insights } from './pages/Insights';
 import { Contact } from './pages/Contact';
 import { Admin } from './pages/Admin';
 import { PostDetail } from './pages/PostDetail';
-import { ScrollToTop } from './components/ScrollToTop';
+import { ScrollReset } from './components/ScrollReset';
 
 export default function App() {
   return (
     <ThemeProvider>
       <BrowserRouter>
-        <ScrollToTop />
+        <ScrollReset />
         <Routes>
           <Route path="/" element={<Layout />}>
             <Route index element={<Home />} />
