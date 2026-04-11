@@ -59,9 +59,9 @@ export function Home() {
   return (
     <div className="flex flex-col w-full">
       {/* HERO SECTION */}
-      <section className="relative w-full bg-obsidian py-24 lg:py-32 overflow-hidden flex items-center justify-center min-h-[80vh]">
+      <section className="relative w-full bg-bg-primary py-24 lg:py-32 overflow-hidden flex items-center justify-center min-h-[80vh] transition-colors duration-400">
         <div className="absolute inset-0 opacity-20 bg-[linear-gradient(to_right,#80808012_1px,transparent_1px),linear-gradient(to_bottom,#80808012_1px,transparent_1px)] bg-[size:24px_24px]"></div>
-        <div className="absolute inset-0 bg-gradient-to-t from-obsidian to-transparent"></div>
+        <div className="absolute inset-0 bg-gradient-to-t from-bg-primary to-transparent"></div>
         <MeteorBackground />
         
         <div className="relative z-10 mx-auto max-w-5xl px-4 sm:px-6 lg:px-8 text-center">
@@ -69,7 +69,7 @@ export function Home() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6 }}
-            className="text-4xl md:text-6xl lg:text-7xl font-bold tracking-tight text-ivory mb-6"
+            className="text-4xl md:text-6xl lg:text-7xl font-bold tracking-tight text-text-primary mb-6"
           >
             Turning Data and Technology Into Measurable Business Growth
           </motion.h1>
@@ -77,7 +77,7 @@ export function Home() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, delay: 0.2 }}
-            className="text-xl md:text-2xl text-gray-400 mb-10 font-medium"
+            className="text-xl md:text-2xl text-text-secondary mb-10 font-medium"
           >
             Paul Wang | Data-Driven Business Growth Leader | SaaS & Digital Transformation
           </motion.h2>
@@ -88,7 +88,7 @@ export function Home() {
           >
             <Link 
               to="/contact" 
-              className="group inline-flex items-center justify-center px-8 py-4 bg-[#ED8936] hover:bg-[#DD6B20] text-obsidian rounded-md transition-colors duration-300 active:scale-95"
+              className="group inline-flex items-center justify-center px-8 py-4 bg-accent hover:opacity-90 text-white rounded-md transition-all duration-300 active:scale-95 shadow-lg shadow-accent/20"
             >
               <span className="text-base font-bold transition-transform duration-300 inline-block group-hover:scale-110">
                 Contact Paul
@@ -115,45 +115,45 @@ export function Home() {
                 repeat: Infinity,
                 ease: "easeInOut"
               }}
-              className="w-1 h-1.5 bg-[#ED8936] rounded-full"
+              className="w-1 h-1.5 bg-accent rounded-full"
             />
           </div>
         </motion.div>
       </section>
 
       {/* METRICS STRIP */}
-      <section className="w-full bg-obsidian border-y border-border py-8">
+      <section className="w-full bg-bg-primary border-y border-border py-8 transition-colors duration-400">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <div className="grid grid-cols-2 md:grid-cols-5 gap-6 text-center">
             <div className="flex flex-col">
               <span className="text-3xl font-bold text-text-primary">
                 <Counter value={10} suffix="+" />
               </span>
-              <span className="text-sm text-gray-400 mt-1 uppercase tracking-wider">Years Experience</span>
+              <span className="text-sm text-text-secondary mt-1 uppercase tracking-wider">Years Experience</span>
             </div>
             <div className="flex flex-col">
               <span className="text-3xl font-bold text-text-primary">
                 <Counter value={35} suffix="%" />
               </span>
-              <span className="text-sm text-gray-400 mt-1 uppercase tracking-wider">Revenue CAGR</span>
+              <span className="text-sm text-text-secondary mt-1 uppercase tracking-wider">Revenue CAGR</span>
             </div>
             <div className="flex flex-col">
               <span className="text-3xl font-bold text-text-primary">
                 <Counter value={1.1} prefix="$" suffix="B" decimals={1} />
               </span>
-              <span className="text-sm text-gray-400 mt-1 uppercase tracking-wider">Delivered Revenue</span>
+              <span className="text-sm text-text-secondary mt-1 uppercase tracking-wider">Delivered Revenue</span>
             </div>
             <div className="flex flex-col">
               <span className="text-3xl font-bold text-text-primary">
                 <Counter value={650} prefix="$" suffix="M" />
               </span>
-              <span className="text-sm text-gray-400 mt-1 uppercase tracking-wider">OpEx Saved</span>
+              <span className="text-sm text-text-secondary mt-1 uppercase tracking-wider">OpEx Saved</span>
             </div>
             <div className="flex flex-col col-span-2 md:col-span-1 pt-6 md:pt-0">
               <span className="text-3xl font-bold text-text-primary">
                 <Counter value={10} suffix="M Ton" />
               </span>
-              <span className="text-sm text-gray-400 mt-1 uppercase tracking-wider">CO2 Reduced</span>
+              <span className="text-sm text-text-secondary mt-1 uppercase tracking-wider">CO2 Reduced</span>
             </div>
           </div>
         </div>
@@ -204,7 +204,7 @@ export function Home() {
                   { icon: Settings, title: "Operations Excellence", desc: "Utilize data-driven solutions to drive operational efficiency" },
                   { icon: Zap, title: "Digital Transformation", desc: "Drive digital transformation to gain financial benefit" }
                 ].map((item, i) => (
-                  <div key={i} className="flex gap-4 items-start p-4 rounded-xl dark:bg-[#1E2124]">
+                  <div key={i} className="flex gap-4 items-start p-4 rounded-xl bg-bg-primary border border-border/50">
                     <div className="mt-1 p-2 rounded-lg bg-accent/10 text-accent">
                       <item.icon size={24} />
                     </div>
@@ -221,11 +221,11 @@ export function Home() {
       </section>
 
       {/* IMPACT-BASED PROFESSIONAL EXPERIENCE */}
-      <section className="py-24 bg-obsidian text-ivory">
+      <section className="py-24 bg-bg-primary transition-colors duration-400">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-16">
-            <h2 className="text-3xl md:text-4xl font-bold mb-4">Impact-Based Professional Experience</h2>
-            <p className="text-gray-400 max-w-2xl mx-auto">Showcasing the 'How' behind the measurable business growth.</p>
+            <h2 className="text-3xl md:text-4xl font-bold mb-4 text-text-primary">Impact-Based Professional Experience</h2>
+            <p className="text-text-secondary max-w-2xl mx-auto">Showcasing the 'How' behind the measurable business growth.</p>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
@@ -281,14 +281,14 @@ export function Home() {
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
                 transition={{ duration: 0.5, delay: i * 0.1 }}
-                className="bg-bg-surface border border-border/20 p-8 rounded-xl transition-all duration-300 hover:-translate-y-2 hover:border-amber hover:shadow-[0_10px_30px_-15px_rgba(237,137,54,0.3)] group"
+                className="bg-bg-surface border border-border p-8 rounded-xl transition-all duration-300 hover:-translate-y-2 hover:border-accent hover:shadow-xl group"
               >
-                <h3 className="text-2xl font-bold mb-3 text-[#DD6B20] dark:text-[#ED8936] transition-colors">{exp.title}</h3>
-                <p className="text-gray-400 mb-6 text-sm leading-relaxed">{exp.summary}</p>
+                <h3 className="text-2xl font-bold mb-3 text-accent transition-colors">{exp.title}</h3>
+                <p className="text-text-secondary mb-6 text-sm leading-relaxed">{exp.summary}</p>
                 <ul className="space-y-2">
                   {exp.bullets.map((bullet, j) => (
-                    <li key={j} className="flex items-start gap-2 text-sm text-gray-300">
-                      <span className="text-amber mt-1">•</span>
+                    <li key={j} className="flex items-start gap-2 text-sm text-text-secondary">
+                      <span className="text-accent mt-1">•</span>
                       <span>{bullet}</span>
                     </li>
                   ))}
@@ -383,19 +383,19 @@ export function Home() {
       </section>
 
       {/* INDUSTRIES MARQUEE */}
-      <section className="py-12 bg-obsidian text-ivory overflow-hidden border-y border-border/20">
+      <section className="py-12 bg-bg-surface text-text-primary overflow-hidden border-y border-border transition-colors duration-400">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-          <div className="flex flex-wrap justify-center gap-4 md:gap-8 lg:gap-12 items-center text-sm md:text-base lg:text-lg font-medium text-gray-400 uppercase tracking-widest">
+          <div className="flex flex-wrap justify-center gap-4 md:gap-8 lg:gap-12 items-center text-sm md:text-base lg:text-lg font-medium text-text-secondary uppercase tracking-widest">
             <span>Energy</span>
-            <span className="text-amber">•</span>
+            <span className="text-accent">•</span>
             <span>Oil & Gas</span>
-            <span className="text-amber">•</span>
+            <span className="text-accent">•</span>
             <span>Electric Power</span>
-            <span className="text-amber">•</span>
+            <span className="text-accent">•</span>
             <span>Chemical</span>
-            <span className="text-amber">•</span>
+            <span className="text-accent">•</span>
             <span>Manufacturing</span>
-            <span className="text-amber">•</span>
+            <span className="text-accent">•</span>
             <span>Technology / Software / SaaS</span>
           </div>
         </div>
@@ -478,17 +478,17 @@ export function Home() {
       </section>
 
       {/* FINAL CTA */}
-      <section className="py-32 bg-obsidian text-center relative overflow-hidden">
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(237,137,54,0.1)_0,transparent_50%)]"></div>
+      <section className="py-32 bg-bg-primary text-center relative overflow-hidden transition-colors duration-400">
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(0,163,224,0.05)_0,transparent_50%)]"></div>
         <div className="relative z-10 mx-auto max-w-3xl px-4 sm:px-6 lg:px-8">
-          <h2 className="text-4xl md:text-5xl font-bold text-ivory mb-6">Let’s build scalable growth together.</h2>
-          <p className="text-xl text-gray-400 mb-10">
+          <h2 className="text-4xl md:text-5xl font-bold text-text-primary mb-6">Let’s build scalable growth together.</h2>
+          <p className="text-xl text-text-secondary mb-10">
             Whether you are exploring collaboration, partnership opportunities, or simply exchanging ideas, feel free to reach out.
           </p>
           <div className="flex flex-col sm:flex-row items-center justify-center gap-6">
             <a 
               href="mailto:paul.zy.wang@hotmail.com"
-              className="inline-flex items-center justify-center px-8 py-4 text-base font-bold text-obsidian bg-amber hover:bg-amber/90 rounded-md transition-all hover:scale-[1.03] active:scale-[0.97] w-full sm:w-auto"
+              className="inline-flex items-center justify-center px-8 py-4 text-base font-bold text-white bg-accent hover:opacity-90 rounded-md transition-all hover:scale-[1.03] active:scale-[0.97] w-full sm:w-auto shadow-lg shadow-accent/20"
             >
               EMAIL ME
             </a>
@@ -496,7 +496,7 @@ export function Home() {
               href="https://www.linkedin.com/in/paulzyw" 
               target="_blank" 
               rel="noopener noreferrer"
-              className="text-gray-400 hover:text-ivory transition-colors flex items-center gap-2 font-medium"
+              className="text-text-secondary hover:text-accent transition-colors flex items-center gap-2 font-medium"
             >
               Find me on LinkedIn <ArrowRight size={16} />
             </a>

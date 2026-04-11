@@ -11,7 +11,7 @@ const LOGO_DATA = [
 
 export function TrustBar() {
   return (
-    <section id="trust-bar" className="w-full bg-[#121416] py-12 border-y border-white/5 overflow-hidden">
+    <section id="trust-bar" className="w-full bg-bg-primary py-12 border-y border-border transition-colors duration-400">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex flex-wrap justify-center items-center gap-8 md:gap-12 lg:gap-16">
           {LOGO_DATA.map((logo) => (
@@ -38,11 +38,11 @@ function LogoItem({ logo }: { logo: typeof LOGO_DATA[0] }) {
           alt={`${logo.name} logo`}
           loading="lazy"
           onError={() => setHasError(true)}
-          className="h-10 w-auto object-contain opacity-60 hover:opacity-100 transition-opacity duration-500 cursor-default"
+          className="h-10 w-auto object-contain opacity-60 hover:opacity-100 transition-opacity duration-500 cursor-default dark:invert"
         />
       ) : (
-        <div className="border-l-4 border-[#ED8936] pl-3 py-1">
-          <span className="text-ivory font-sans font-medium tracking-wider uppercase text-sm md:text-base">
+        <div className="border-l-4 border-accent pl-3 py-1">
+          <span className="text-text-primary font-sans font-medium tracking-wider uppercase text-sm md:text-base">
             {logo.name}
           </span>
         </div>

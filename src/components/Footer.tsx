@@ -13,9 +13,9 @@ export function Footer() {
           <div className="flex flex-col space-y-4">
             <Link to="/" className="flex items-center gap-2">
               <img 
-                src="/paul wang_dark mode.svg" 
+                src={theme === 'dark' ? "/paul wang_dark mode.svg" : "/paul wang_light mode.svg"} 
                 alt="Paul Wang Logo" 
-                className="h-8 w-auto" 
+                className="h-8 w-auto transition-opacity duration-300" 
               />
             </Link>
             <p className="text-sm text-text-secondary max-w-xs">

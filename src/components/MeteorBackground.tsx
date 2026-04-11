@@ -86,9 +86,10 @@ export function MeteorBackground() {
         // Tail of the meteor (trailing up and right)
         ctx.lineTo(this.x + this.length, this.y - this.length);
         
-        // Linear gradient from transparent to Energetic Amber
+        // Linear gradient from transparent to Theme Accent
         const gradient = ctx.createLinearGradient(this.x, this.y, this.x + this.length, this.y - this.length);
-        gradient.addColorStop(0, 'rgba(237, 137, 54, 0.8)'); // Head
+        const accentColor = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim();
+        gradient.addColorStop(0, `${accentColor}cc`); // Head (80% opacity)
         gradient.addColorStop(1, 'transparent'); // Tail
 
         ctx.strokeStyle = gradient;

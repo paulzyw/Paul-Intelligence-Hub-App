@@ -2,10 +2,13 @@ import { Link, useLocation } from 'react-router-dom';
 import { Menu, X } from 'lucide-react';
 import { useState } from 'react';
 import { cn } from '../lib/utils';
+import { ThemeToggle } from './ThemeToggle';
+import { useTheme } from '../context/ThemeContext';
 
 export function Navbar() {
   const location = useLocation();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const { theme } = useTheme();
 
   const links = [
     { name: 'Home', path: '/' },
@@ -26,15 +29,15 @@ export function Navbar() {
           <div className="flex-shrink-0">
             <Link to="/" className="flex items-center gap-2">
               <img 
-                src="/paul wang_dark mode.svg" 
+                src={theme === 'dark' ? "/paul wang_dark mode.svg" : "/paul wang_light mode.svg"} 
                 alt="Paul Wang Logo" 
-                className="h-6 w-auto" 
+                className="h-6 w-auto transition-opacity duration-300" 
               />
             </Link>
           </div>
           
-          <div className="hidden md:block">
-            <div className="ml-10 flex items-center space-x-8">
+          <div className="hidden md:flex items-center gap-8">
+            <div className="flex items-center space-x-8">
               {links.map((link) => (
                 <Link
                   key={link.name}
@@ -48,9 +51,11 @@ export function Navbar() {
                 </Link>
               ))}
             </div>
+            <ThemeToggle />
           </div>
 
           <div className="flex md:hidden items-center gap-4">
+            <ThemeToggle />
             <button
               onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
               className="text-text-secondary hover:text-accent p-2"

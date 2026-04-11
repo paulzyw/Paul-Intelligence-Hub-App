@@ -122,6 +122,8 @@ serve(async (req) => {
 
     const context = chunks?.map((c: any) => c.content).join("\n\n") || "No specific context found."
 
+    // Previous LAYER 4 before streaming effect optimization 20260411
+    
     // --- LAYER 4: STREAMING GENERATION ---
     console.log('Starting streaming generation...')
     let stream;
@@ -183,6 +185,74 @@ serve(async (req) => {
         'Connection': 'keep-alive',
       }
     })
+    
+    /*
+    //LAYER 4 with optimizaed streaming effect
+    // --- LAYER 4: STREAMING GENERATION ---
+    console.log('Starting streaming generation...');
+
+    // 1. Initialize the Gemini Model
+    
+
+    // NEW SYNTAX (Works with @google/genai 2.0+)
+    const geminiStream = await ai.generateContentStream({
+      model: "gemini-1.5-flash", 
+      systemInstruction: SYSTEM_INSTRUCTION,
+      contents: [{ role: 'user', parts: [{ text: `Context: ${context}\n\nQuestion: ${message}` }] }],
+      config: { temperature: 0.85 }, // Note: 'generationConfig' is now often just 'config'
+    });
+
+    // 3. Create a TransformStream to format chunks for SSE
+    const encoder = new TextEncoder();
+    const { readable, writable } = new TransformStream();
+    const writer = writable.getWriter();
+
+    // 4. Background processing: Pipe Gemini to the Browser
+    (async () => {
+      let fullResponse = "";
+      try {
+        for await (const chunk of geminiStream.stream) {
+          const chunkText = chunk.text();
+          fullResponse += chunkText;
+
+          // Format as Server-Sent Event (SSE)
+          const sseData = `data: ${JSON.stringify({ text: chunkText })}\n\n`;
+          await writer.write(encoder.encode(sseData));
+        }
+
+        // Signal completion
+        await writer.write(encoder.encode("data: [DONE]\n\n"));
+
+        // 5. Background Tasks (Saving to DB after stream starts)
+        await Promise.all([
+          supabase.from('response_cache').upsert({ query_text: userQuery, response_text: fullResponse }),
+          supabase.from('chat_history').insert([
+            { session_id: sessionId, message: message, role: 'user' },
+            { session_id: sessionId, message: fullResponse, role: 'assistant' }
+          ])
+        ]);
+
+      } catch (err) {
+        console.error("Streaming error:", err);
+        const errorData = `data: ${JSON.stringify({ error: "Stream interrupted" })}\n\n`;
+        await writer.write(encoder.encode(errorData));
+      } finally {
+        await writer.close();
+      }
+    })();
+
+    // 6. Return the Response IMMEDIATELY
+    return new Response(readable, {
+      headers: {
+        ...corsHeaders,
+        'Content-Type': 'text/event-stream',
+        'Cache-Control': 'no-cache',
+        'Connection': 'keep-alive',
+        'X-Content-Type-Options': 'nosniff', // Prevents buffering in some browsers
+      },
+    });
+*/
+// not in LAYER section below
 
   } catch (error) {
     console.error('Function Error:', error)

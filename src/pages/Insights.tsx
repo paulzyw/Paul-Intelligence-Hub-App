@@ -384,9 +384,9 @@ export function Insights() {
                 </ul>
               </div>
 
-              <div className="bg-obsidian rounded-xl p-6 text-ivory border border-border/20">
+              <div className="bg-bg-surface rounded-xl p-6 text-text-primary border border-border transition-colors duration-400">
                 <h3 className="text-lg font-bold mb-2">Subscribe to Insights</h3>
-                <p className="text-sm text-gray-400 mb-4">Get the latest strategies on SaaS growth and digital transformation delivered to your inbox.</p>
+                <p className="text-sm text-text-secondary mb-4">Get the latest strategies on SaaS growth and digital transformation delivered to your inbox.</p>
                 <form className="flex flex-col gap-3" onSubmit={handleSubscribe}>
                   <input 
                     type="email" 
@@ -395,16 +395,16 @@ export function Insights() {
                     value={subscribeEmail}
                     onChange={(e) => setSubscribeEmail(e.target.value)}
                     disabled={subscribeStatus === 'loading'}
-                    className="w-full px-3 py-2 bg-steel border border-gray-700 rounded text-sm focus:outline-none focus:border-amber text-ivory disabled:opacity-50"
+                    className="w-full px-3 py-2 bg-bg-primary border border-border rounded text-sm focus:outline-none focus:ring-1 focus:ring-accent focus:border-accent text-text-primary disabled:opacity-50 transition-all"
                   />
                   <button 
                     type="submit"
                     disabled={subscribeStatus === 'loading'}
-                    className="w-full py-2 bg-amber text-obsidian font-bold rounded hover:bg-amber/90 transition-colors text-sm disabled:opacity-50 flex items-center justify-center gap-2"
+                    className="w-full py-2 bg-accent text-white font-bold rounded hover:opacity-90 transition-all text-sm disabled:opacity-50 flex items-center justify-center gap-2 shadow-lg shadow-accent/20 active:scale-[0.98]"
                   >
                     {subscribeStatus === 'loading' ? (
                       <>
-                        <div className="w-4 h-4 border-2 border-obsidian/30 border-t-obsidian rounded-full animate-spin"></div>
+                        <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
                         Processing...
                       </>
                     ) : 'Subscribe'}
@@ -413,7 +413,7 @@ export function Insights() {
                 {subscribeMessage && (
                   <p className={cn(
                     "mt-4 text-xs text-center font-medium",
-                    subscribeStatus === 'success' ? "text-green-400" : "text-red-400"
+                    subscribeStatus === 'success' ? "text-green-500 dark:text-green-400" : "text-red-500 dark:text-red-400"
                   )}>
                     {subscribeMessage}
                   </p>

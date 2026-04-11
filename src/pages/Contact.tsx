@@ -110,13 +110,13 @@ export function Contact() {
     <div className="min-h-screen bg-bg-primary pt-12 pb-24">
       
       {/* HEADER AREA */}
-      <div className="w-full bg-obsidian py-16 mb-12 border-b border-border/20">
+      <div className="w-full bg-bg-primary py-16 mb-12 border-b border-border transition-colors duration-400">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <motion.h1 
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5 }}
-            className="text-4xl md:text-5xl lg:text-6xl font-bold text-ivory mb-4"
+            className="text-4xl md:text-5xl lg:text-6xl font-bold text-text-primary mb-4"
           >
             Start a Strategic Conversation
           </motion.h1>
@@ -124,7 +124,7 @@ export function Contact() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5, delay: 0.1 }}
-            className="text-xl text-gray-400 max-w-3xl"
+            className="text-xl text-text-secondary max-w-3xl"
           >
             Welcome opportunities of exploring collaboration, partnerships and inquiries for digital transformation advisory.
           </motion.p>

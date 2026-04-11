@@ -81,6 +81,8 @@ export function ChatAssistant() {
     }
   };
 
+// the previous HandleSend function before streaming effect optimization 20260411
+
   const handleSend = async () => {
     if (!input.trim() || isLoading || cooldown > 0) return;
 
@@ -161,6 +163,99 @@ export function ChatAssistant() {
     }
   };
 
+/*
+// HandleSend function with optimizaed Streaming Effect
+
+const handleSend = async () => {
+  if (!input.trim() || isLoading || cooldown > 0) return;
+
+  const userMessage = input.trim();
+  setInput('');
+  setMessages((prev) => [...prev, { role: 'user', content: userMessage }]);
+  setIsLoading(true);
+  setCooldown(5);
+
+  try {
+    const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/chat-assistant`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+      },
+      body: JSON.stringify({
+        message: userMessage,
+        sessionId: sessionId.current
+      })
+    });
+
+    if (!response.ok) throw new Error('Failed to connect to assistant');
+
+    const contentType = response.headers.get('Content-Type');
+    
+    // Handle standard JSON (Intents/Cache)
+    if (contentType?.includes('application/json')) {
+      const data = await response.json();
+      setMessages((prev) => [...prev, { role: 'assistant', content: data.response }]);
+      setIsLoading(false);
+      return;
+    }
+
+    // --- Optimized Streaming Logic ---
+    const reader = response.body?.getReader();
+    const decoder = new TextDecoder();
+    let assistantMessage = '';
+    let buffer = ''; // Buffer to handle partial chunks
+
+    // Add an empty message for the assistant that we will fill up
+    setMessages((prev) => [...prev, { role: 'assistant', content: '' }]);
+    
+    while (true) {
+      const { done, value } = await reader!.read();
+      if (done) break;
+
+      // The moment we get ANY data, stop the "Thinking..." loader
+      setIsLoading(false);
+
+      buffer += decoder.decode(value, { stream: true });
+      
+      // Split by double newline (Standard SSE format)
+      const lines = buffer.split('\n\n');
+      
+      // Keep the last partial line in the buffer
+      buffer = lines.pop() || '';
+
+      for (const line of lines) {
+        const message = line.replace(/^data: /, '').trim();
+        
+        if (message === '[DONE]') continue;
+        if (!message) continue;
+
+        try {
+          const parsed = JSON.parse(message);
+          if (parsed.text) {
+            assistantMessage += parsed.text;
+            
+            // Functional state update is crucial for streaming performance
+            setMessages((prev) => {
+              const updated = [...prev];
+              updated[updated.length - 1].content = assistantMessage;
+              return updated;
+            });
+          }
+        } catch (e) {
+          console.warn('Skipping malformed stream chunk:', message);
+        }
+      }
+    }
+  } catch (err) {
+    console.error('Chat error:', err);
+    setMessages((prev) => [...prev, { role: 'assistant', content: 'Sorry, I encountered an error. Please try again later.' }]);
+  } finally {
+    setIsLoading(false);
+  }
+};
+*/
+// below not in the optimization scope
   return (
     <div className="fixed bottom-6 right-6 z-50">
       <AnimatePresence>
@@ -172,9 +267,9 @@ export function ChatAssistant() {
             className="mb-4 w-[350px] sm:w-[400px] h-[500px] bg-bg-surface border border-border rounded-2xl shadow-2xl flex flex-col overflow-hidden"
           >
             {/* Header */}
-            <div className="p-4 bg-obsidian text-ivory flex justify-between items-center">
+            <div className="p-4 bg-bg-surface border-b border-border text-text-primary flex justify-between items-center">
               <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-full bg-amber flex items-center justify-center text-obsidian">
+                <div className="w-8 h-8 rounded-full bg-accent flex items-center justify-center text-white shadow-sm">
                   <Bot size={18} />
                 </div>
                 <div 
@@ -182,12 +277,12 @@ export function ChatAssistant() {
                   onClick={handleAdminTrigger}
                 >
                   <h3 className="font-bold text-sm">Paul's Assistant</h3>
-                  <p className="text-[10px] text-gray-400">Powered by Gemini AI</p>
+                  <p className="text-[10px] text-text-secondary">Powered by Gemini AI</p>
                 </div>
               </div>
               <button 
                 onClick={() => setIsOpen(false)}
-                className="p-1 hover:bg-white/10 rounded-full transition-colors"
+                className="p-1 hover:bg-accent/10 rounded-full transition-colors text-text-secondary"
               >
                 <X size={20} />
               </button>
@@ -238,7 +333,7 @@ export function ChatAssistant() {
                 >
                   <div className={cn(
                     "w-8 h-8 rounded-full flex-shrink-0 flex items-center justify-center shadow-sm",
-                    msg.role === 'user' ? "bg-accent text-white" : "bg-obsidian text-ivory"
+                    msg.role === 'user' ? "bg-accent text-white" : "bg-bg-surface text-text-primary border border-border"
                   )}>
                     {msg.role === 'user' ? <User size={14} /> : <Bot size={14} />}
                   </div>
@@ -253,15 +348,19 @@ export function ChatAssistant() {
                 </motion.div>
               ))}
               {isLoading && (
-                <div className="flex gap-3 mr-auto max-w-[85%]">
-                  <div className="w-8 h-8 rounded-full bg-border text-text-secondary flex items-center justify-center">
-                    <Bot size={16} />
+                <motion.div 
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="flex gap-3 mr-auto max-w-[90%]"
+                >
+                  <div className="w-8 h-8 rounded-full bg-bg-surface text-text-primary border border-border flex items-center justify-center shadow-sm">
+                    <Bot size={14} />
                   </div>
                   <div className="bg-bg-primary border border-border p-3 rounded-2xl rounded-tl-none flex items-center gap-2">
                     <Loader2 size={16} className="animate-spin text-accent" />
                     <span className="text-xs text-text-secondary">Thinking...</span>
                   </div>
-                </div>
+                </motion.div>
               )}
               <div ref={messagesEndRef} />
             </div>
