@@ -6,8 +6,13 @@
   --color-bg-surface: var(--bg-surface);
   --color-text-primary: var(--text-primary);
   --color-text-secondary: var(--text-secondary);
+  --color-bg-hero-primary: var(--bg-hero-primary);
+  --color-bg-hero-surface: var(--bg-hero-surface);
+  --color-text-hero-primary: var(--text-hero-primary);
+  --color-text-hero-secondary: var(--text-hero-secondary);
   --color-accent: var(--accent);
   --color-border: var(--border-color);
+  --color-border-hero: var(--border-hero-color);
   --color-amber: #ED8936;
   --color-obsidian: #121416;
   --color-steel: #2D3748;
@@ -16,21 +21,31 @@
 
 @layer base {
   :root {
+    --bg-hero-primary: #051c2c;
+    --bg-hero-surface: #1b2f3e;
+    --text-hero-primary: #F4F4F9;
+    --text-hero-secondary: #A0AEC0;
     --bg-primary: #f0f2f5;
     --bg-surface: #FFFFFF;
     --text-primary: #1A202C;
     --text-secondary: #4A5568;
     --accent: #00a3e0;
     --border-color: #E2E8F0;
+    --border-hero-color: #1b2f3e;
   }
 
   .dark {
+    --bg-hero-primary: #121416;
+    --bg-hero-surface: #1E2124;
+    --text-hero-primary: #F4F4F9;
+    --text-hero-secondary: #A0AEC0;
     --bg-primary: #121416;
     --bg-surface: #1E2124;
     --text-primary: #F4F4F9;
     --text-secondary: #A0AEC0;
     --accent: #ED8936;
     --border-color: #2D3748;
+    --border-hero-color: #2d3748;
   }
 
   body {

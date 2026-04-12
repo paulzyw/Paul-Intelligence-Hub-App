@@ -38,13 +38,13 @@ export function ScrollToTop() {
           exit={{ opacity: 0, scale: 0.5, y: 20 }}
           onClick={scrollToTop}
           className={cn(
-            "fixed bottom-24 right-6 z-50 p-3 rounded-full shadow-lg transition-all duration-300",
+            "fixed bottom-24 right-6 z-50 p-2 rounded-full shadow-lg transition-all duration-300",
             "bg-accent text-white hover:opacity-90 hover:scale-110 active:scale-95",
             "shadow-accent/20 border border-white/10"
           )}
           aria-label="Scroll to top"
         >
-          <ArrowUp size={24} />
+          <ArrowUp size={20} />
         </motion.button>
       )}
     </AnimatePresence>

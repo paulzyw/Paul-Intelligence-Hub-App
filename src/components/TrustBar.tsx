@@ -11,7 +11,7 @@ const LOGO_DATA = [
 
 export function TrustBar() {
   return (
-    <section id="trust-bar" className="w-full bg-bg-primary py-12 border-y border-border transition-colors duration-400">
+    <section id="trust-bar" className="w-full bg-bg-hero-primary py-12 border-y border-border-hero transition-colors duration-400">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex flex-wrap justify-center items-center gap-8 md:gap-12 lg:gap-16">
           {LOGO_DATA.map((logo) => (

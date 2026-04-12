@@ -59,9 +59,9 @@ export function Home() {
   return (
     <div className="flex flex-col w-full">
       {/* HERO SECTION */}
-      <section className="relative w-full bg-bg-primary py-24 lg:py-32 overflow-hidden flex items-center justify-center min-h-[80vh] transition-colors duration-400">
+      <section className="relative w-full bg-bg-hero-primary py-24 lg:py-32 overflow-hidden flex items-center justify-center min-h-[80vh] transition-colors duration-400">
         <div className="absolute inset-0 opacity-20 bg-[linear-gradient(to_right,#80808012_1px,transparent_1px),linear-gradient(to_bottom,#80808012_1px,transparent_1px)] bg-[size:24px_24px]"></div>
-        <div className="absolute inset-0 bg-gradient-to-t from-bg-primary to-transparent"></div>
+        <div className="absolute inset-0 bg-gradient-to-t from-bg-hero-primary to-transparent"></div>
         <MeteorBackground />
         
         <div className="relative z-10 mx-auto max-w-5xl px-4 sm:px-6 lg:px-8 text-center">
@@ -69,7 +69,7 @@ export function Home() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6 }}
-            className="text-4xl md:text-6xl lg:text-7xl font-bold tracking-tight text-text-primary mb-6"
+            className="text-4xl md:text-6xl lg:text-7xl font-bold tracking-tight text-text-hero-primary mb-6"
           >
             Turning Data and Technology Into Measurable Business Growth
           </motion.h1>
@@ -77,7 +77,7 @@ export function Home() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, delay: 0.2 }}
-            className="text-xl md:text-2xl text-text-secondary mb-10 font-medium"
+            className="text-xl md:text-2xl text-text-hero-secondary mb-10 font-medium"
           >
             Paul Wang | Data-Driven Business Growth Leader | SaaS & Digital Transformation
           </motion.h2>
@@ -104,7 +104,7 @@ export function Home() {
           transition={{ delay: 1.2, duration: 1 }}
           className="absolute bottom-8 left-1/2 -translate-x-1/2 flex justify-center pointer-events-none z-10"
         >
-          <div className="w-5 h-8 border-2 border-gray-500/50 rounded-full flex justify-center p-1">
+          <div className="w-5 h-8 border-2 border-text-hero-secondary/30 rounded-full flex justify-center p-1">
             <motion.div
               animate={{
                 y: [0, 12, 0],
@@ -122,38 +122,38 @@ export function Home() {
       </section>
 
       {/* METRICS STRIP */}
-      <section className="w-full bg-bg-primary border-y border-border py-8 transition-colors duration-400">
+      <section className="w-full bg-bg-hero-primary border-y border-border-hero py-8 transition-colors duration-400">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <div className="grid grid-cols-2 md:grid-cols-5 gap-6 text-center">
             <div className="flex flex-col">
-              <span className="text-3xl font-bold text-text-primary">
+              <span className="text-3xl font-bold text-text-hero-primary">
                 <Counter value={10} suffix="+" />
               </span>
-              <span className="text-sm text-text-secondary mt-1 uppercase tracking-wider">Years Experience</span>
+              <span className="text-sm text-text-hero-secondary mt-1 uppercase tracking-wider">Years Experience</span>
             </div>
             <div className="flex flex-col">
-              <span className="text-3xl font-bold text-text-primary">
+              <span className="text-3xl font-bold text-text-hero-primary">
                 <Counter value={35} suffix="%" />
               </span>
-              <span className="text-sm text-text-secondary mt-1 uppercase tracking-wider">Revenue CAGR</span>
+              <span className="text-sm text-text-hero-secondary mt-1 uppercase tracking-wider">Revenue CAGR</span>
             </div>
             <div className="flex flex-col">
-              <span className="text-3xl font-bold text-text-primary">
+              <span className="text-3xl font-bold text-text-hero-primary">
                 <Counter value={1.1} prefix="$" suffix="B" decimals={1} />
               </span>
-              <span className="text-sm text-text-secondary mt-1 uppercase tracking-wider">Delivered Revenue</span>
+              <span className="text-sm text-text-hero-secondary mt-1 uppercase tracking-wider">Delivered Revenue</span>
             </div>
             <div className="flex flex-col">
-              <span className="text-3xl font-bold text-text-primary">
+              <span className="text-3xl font-bold text-text-hero-primary">
                 <Counter value={650} prefix="$" suffix="M" />
               </span>
-              <span className="text-sm text-text-secondary mt-1 uppercase tracking-wider">OpEx Saved</span>
+              <span className="text-sm text-text-hero-secondary mt-1 uppercase tracking-wider">OpEx Saved</span>
             </div>
             <div className="flex flex-col col-span-2 md:col-span-1 pt-6 md:pt-0">
-              <span className="text-3xl font-bold text-text-primary">
+              <span className="text-3xl font-bold text-text-hero-primary">
                 <Counter value={10} suffix="M Ton" />
               </span>
-              <span className="text-sm text-text-secondary mt-1 uppercase tracking-wider">CO2 Reduced</span>
+              <span className="text-sm text-text-hero-secondary mt-1 uppercase tracking-wider">CO2 Reduced</span>
             </div>
           </div>
         </div>
