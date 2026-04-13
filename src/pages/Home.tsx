@@ -433,7 +433,7 @@ export function Home() {
                 <Link 
                   to={`/post/${post.slug}`} 
                   key={post.id} 
-                  className="group cursor-pointer flex flex-col h-full bg-bg-surface border border-border rounded-xl overflow-hidden hover:border-amber hover:shadow-[0_0_25px_rgba(237,137,54,0.15)] transition-all duration-500 hover:-translate-y-1"
+                  className="group cursor-pointer flex flex-col h-full bg-bg-surface border border-border rounded-xl overflow-hidden hover:border-accent hover:shadow-[0_0_25px_rgba(237,137,54,0.15)] transition-all duration-500 hover:-translate-y-1"
                 >
                   <div className="relative h-48 overflow-hidden">
                     <img 
@@ -442,7 +442,7 @@ export function Home() {
                       className="w-full h-full object-cover scale-100 group-hover:scale-110 transition-transform duration-700 ease-out will-change-transform"
                       referrerPolicy="no-referrer"
                     />
-                    <div className="absolute top-4 left-4 bg-obsidian/90 border border-amber text-ivory text-xs font-bold px-3 py-1 rounded-full">
+                    <div className="absolute top-4 left-4 bg-obsidian/90 border border-accent text-ivory text-xs font-bold px-3 py-1 rounded-full">
                       {post.category || 'Uncategorized'}
                     </div>
                     <div className="absolute bottom-4 right-4 bg-obsidian/80 backdrop-blur text-ivory text-xs px-2 py-1 rounded flex items-center gap-1">

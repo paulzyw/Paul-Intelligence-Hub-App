@@ -215,7 +215,7 @@ export function Insights() {
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.5 }}
-                    className="group cursor-pointer flex flex-col bg-bg-surface border border-border rounded-xl overflow-hidden hover:border-amber hover:shadow-[0_0_30px_rgba(237,137,54,0.15)] transition-all duration-500"
+                    className="group cursor-pointer flex flex-col bg-bg-surface border border-border rounded-xl overflow-hidden hover:border-accent hover:shadow-[0_0_30px_rgba(237,137,54,0.15)] transition-all duration-500"
                   >
                     <Link to={`/post/${featuredPost.slug}`} className="flex flex-col h-full">
                       <div className="relative h-64 md:h-96 overflow-hidden">
@@ -266,7 +266,7 @@ export function Insights() {
                       whileInView={{ opacity: 1, y: 0 }}
                       viewport={{ once: true }}
                       transition={{ duration: 0.5, delay: index * 0.1 }}
-                      className="group cursor-pointer flex flex-col md:flex-row bg-bg-surface border border-border rounded-xl overflow-hidden hover:border-amber hover:shadow-[0_0_25px_rgba(237,137,54,0.15)] transition-all duration-500 hover:-translate-y-1"
+                      className="group cursor-pointer flex flex-col md:flex-row bg-bg-surface border border-border rounded-xl overflow-hidden hover:border-accent hover:shadow-[0_0_25px_rgba(237,137,54,0.15)] transition-all duration-500 hover:-translate-y-1"
                     >
                       <Link to={`/post/${post.slug}`} className="flex flex-col md:flex-row w-full h-full">
                         <div className="w-full md:w-1/3 h-48 md:h-auto relative overflow-hidden">
