@@ -12,6 +12,8 @@ import { Insights } from './pages/Insights';
 import { Contact } from './pages/Contact';
 import { Admin } from './pages/Admin';
 import { PostDetail } from './pages/PostDetail';
+import { Research } from './pages/Research';
+import { ResearchDetail } from './pages/ResearchDetail';
 import { ScrollReset } from './components/ScrollReset';
 
 export default function App() {
@@ -25,6 +27,8 @@ export default function App() {
             <Route path="about" element={<About />} />
             <Route path="insights" element={<Insights />} />
             <Route path="post/:slug" element={<PostDetail />} />
+            <Route path="research" element={<Research />} />
+            <Route path="research/:slug" element={<ResearchDetail />} />
             <Route path="contact" element={<Contact />} />
           </Route>
           <Route path="/admin" element={<Admin />} />

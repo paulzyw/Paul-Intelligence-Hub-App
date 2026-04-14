@@ -14,6 +14,7 @@ export function Navbar() {
     { name: 'Home', path: '/' },
     { name: 'About', path: '/about' },
     { name: 'Insights', path: '/insights' },
+    { name: 'Research', path: '/research' },
     { name: 'Contact', path: '/contact' },
   ];
 

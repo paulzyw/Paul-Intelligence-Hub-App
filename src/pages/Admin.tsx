@@ -1,7 +1,9 @@
 import { useState, useEffect, useRef } from 'react';
-import { supabase, type Post, type Category } from '../lib/supabase';
-import { LogOut, Plus, Edit, Trash2, Save, X, UploadCloud, Image as ImageIcon, FolderPlus, Sparkles } from 'lucide-react';
+import { supabase, type Post, type Category, type ResearchReport, type ReportType } from '../lib/supabase';
+import { LogOut, Plus, Edit, Trash2, Save, X, UploadCloud, Image as ImageIcon, FolderPlus, Sparkles, BarChart3 } from 'lucide-react';
 import { Editor } from '@tinymce/tinymce-react';
+import { ReportTypeManager } from '../components/ReportTypeManager';
+import { ResearchManager } from '../components/ResearchManager';
 
 const TinyMCEEditor = ({ content, onChange }: { content: string, onChange: (content: string) => void }) => {
   return (
@@ -140,6 +142,8 @@ export function Admin() {
 
   const [posts, setPosts] = useState<Post[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
+  const [reports, setReports] = useState<ResearchReport[]>([]);
+  const [reportTypes, setReportTypes] = useState<ReportType[]>([]);
   const [isEditing, setIsEditing] = useState(false);
   const [currentPost, setCurrentPost] = useState<Partial<Post>>({});
   const [uploadingImage, setUploadingImage] = useState(false);
@@ -159,6 +163,8 @@ export function Admin() {
       if (session) {
         fetchPosts();
         fetchCategories();
+        fetchReports();
+        fetchReportTypes();
       }
     });
 
@@ -169,6 +175,8 @@ export function Admin() {
       if (session) {
         fetchPosts();
         fetchCategories();
+        fetchReports();
+        fetchReportTypes();
       }
     });
 
@@ -193,6 +201,26 @@ export function Admin() {
     
     if (error) console.error('Error fetching posts:', error);
     else setPosts(data || []);
+  };
+
+  const fetchReports = async () => {
+    const { data, error } = await supabase
+      .from('research_reports')
+      .select('*, report_types(*)')
+      .order('created_at', { ascending: false });
+    
+    if (error) console.error('Error fetching reports:', error);
+    else setReports(data || []);
+  };
+
+  const fetchReportTypes = async () => {
+    const { data, error } = await supabase
+      .from('report_types')
+      .select('*')
+      .order('name');
+      
+    if (error) console.error('Error fetching report types:', error);
+    else setReportTypes(data || []);
   };
 
   const handleLogin = async (e: React.FormEvent) => {
@@ -376,7 +404,11 @@ export function Admin() {
         </div>
 
         {!isEditing && (
-          <CategoryManager categories={categories} fetchCategories={fetchCategories} />
+          <>
+            <CategoryManager categories={categories} fetchCategories={fetchCategories} />
+            <ReportTypeManager reportTypes={reportTypes} fetchReportTypes={fetchReportTypes} />
+            <ResearchManager reports={reports} reportTypes={reportTypes} fetchReports={fetchReports} />
+          </>
         )}
 
         {isEditing ? (

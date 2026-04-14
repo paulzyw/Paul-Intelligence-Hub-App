@@ -1,10 +1,10 @@
 import { useState, useEffect, useRef } from 'react';
 import { motion, useInView, animate } from 'motion/react';
 import { Link } from 'react-router-dom';
-import { Database, Lightbulb, Target, Settings, TrendingUp, Users, HeartHandshake, Briefcase, Zap, RefreshCw, ArrowRight } from 'lucide-react';
+import { Database, Lightbulb, Target, Settings, TrendingUp, Users, HeartHandshake, Briefcase, Zap, RefreshCw, ArrowRight, FileText, BarChart3, Calendar, Leaf, Gauge, Network, FlaskConical, HelpCircle } from 'lucide-react';
 import { MeteorBackground } from '../components/MeteorBackground';
 import { TrustBar } from '../components/TrustBar';
-import { supabase, type Post } from '../lib/supabase';
+import { supabase, type Post, type ResearchReport } from '../lib/supabase';
 
 function Counter({ value, duration = 2, prefix = '', suffix = '', decimals = 0 }: { value: number, duration?: number, prefix?: string, suffix?: string, decimals?: number }) {
   const [displayValue, setDisplayValue] = useState(0);
@@ -34,6 +34,8 @@ function Counter({ value, duration = 2, prefix = '', suffix = '', decimals = 0 }
 export function Home() {
   const [latestPosts, setLatestPosts] = useState<Post[]>([]);
   const [loadingPosts, setLoadingPosts] = useState(true);
+  const [latestReports, setLatestReports] = useState<ResearchReport[]>([]);
+  const [loadingReports, setLoadingReports] = useState(true);
 
   useEffect(() => {
     async function fetchLatestPosts() {
@@ -53,7 +55,28 @@ export function Home() {
         setLoadingPosts(false);
       }
     }
+
+    async function fetchLatestReports() {
+      try {
+        const { data, error } = await supabase
+          .from('research_reports')
+          .select('*, report_types(*)')
+          .eq('status', 'published')
+          .order('published_at', { ascending: false })
+          .limit(3);
+        
+        if (!error && data) {
+          setLatestReports(data);
+        }
+      } catch (err) {
+        console.error('Error fetching latest reports:', err);
+      } finally {
+        setLoadingReports(false);
+      }
+    }
+
     fetchLatestPosts();
+    fetchLatestReports();
   }, []);
 
   return (
@@ -473,6 +496,82 @@ export function Home() {
             <Link to="/insights" className="inline-flex items-center gap-2 text-accent font-medium hover:underline">
               View All Insights <ArrowRight size={16} />
             </Link>
+          </div>
+        </div>
+      </section>
+
+      {/* LATEST RESEARCH SECTION */}
+      <section className="py-24 bg-bg-surface transition-colors duration-400">
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+          <div className="flex flex-col md:flex-row justify-between items-start md:items-end mb-12 gap-4">
+            <div>
+              <span className="inline-block px-3 py-1 bg-accent/10 text-accent text-[10px] font-bold rounded-full uppercase tracking-widest mb-4">
+                Technical Briefs
+              </span>
+              <h2 className="text-3xl md:text-4xl font-bold text-text-primary mb-4 tracking-tight">Latest Research</h2>
+              <p className="text-text-secondary max-w-xl">
+                Data-driven analysis and quantitative research on operational efficiency and digital transformation.
+              </p>
+            </div>
+            <Link to="/research" className="flex items-center gap-2 text-accent font-bold uppercase text-xs tracking-widest hover:gap-3 transition-all">
+              Explore Research <ArrowRight size={16} />
+            </Link>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+            {loadingReports ? (
+              [1, 2, 3].map((i) => (
+                <div key={i} className="h-80 bg-bg-primary border border-border rounded-xl animate-pulse" />
+              ))
+            ) : latestReports.length > 0 ? (
+              latestReports.map((report) => {
+                const ICON_MAP: Record<string, any> = { Leaf, Gauge, Network, FlaskConical, BarChart3 };
+                const IconComp = ICON_MAP[report.report_types?.icon_name || ''] || HelpCircle;
+                
+                return (
+                  <Link 
+                    to={`/research/${report.slug}`} 
+                    key={report.id} 
+                    className="group flex flex-col bg-bg-primary border border-border rounded-xl overflow-hidden hover:border-accent hover:shadow-[0_0_20px_rgba(0,163,224,0.08)] transition-all duration-500"
+                  >
+                    <div className="p-6 flex flex-col h-full">
+                      <div className="flex items-center justify-between mb-4">
+                        <div className="p-2 bg-bg-surface rounded border border-border">
+                          <IconComp size={16} className="text-accent" />
+                        </div>
+                        {report.highlight_metric && (
+                          <div className="bg-accent text-white px-2 py-0.5 rounded text-[9px] font-bold uppercase">
+                            {report.highlight_metric}
+                          </div>
+                        )}
+                      </div>
+                      
+                      <h3 className="text-lg font-bold text-text-primary mb-3 group-hover:text-accent transition-colors line-clamp-2">
+                        {report.title}
+                      </h3>
+                      
+                      <p className="text-xs text-text-secondary mb-6 line-clamp-3 leading-relaxed">
+                        {report.summary}
+                      </p>
+                      
+                      <div className="mt-auto pt-4 border-t border-border/50 flex items-center justify-between">
+                        <span className="text-[9px] font-bold text-text-secondary uppercase tracking-widest">
+                          {report.report_types?.name || 'Report'}
+                        </span>
+                        <span className="text-[9px] text-text-secondary flex items-center gap-1">
+                          <Calendar size={10} />
+                          {new Date(report.published_at || report.created_at).toLocaleDateString(undefined, { year: 'numeric', month: 'short' })}
+                        </span>
+                      </div>
+                    </div>
+                  </Link>
+                );
+              })
+            ) : (
+              <div className="col-span-3 text-center text-text-secondary py-12 border border-border rounded-xl">
+                No research reports published yet.
+              </div>
+            )}
           </div>
         </div>
       </section>

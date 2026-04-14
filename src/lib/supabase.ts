@@ -26,3 +26,25 @@ export type Post = {
   created_at: string;
   categories?: Category; // For joined queries
 };
+
+export type ReportType = {
+  id: string;
+  name: string;
+  icon_name: string;
+};
+
+export type ResearchReport = {
+  id: string;
+  title: string;
+  slug: string;
+  summary: string;
+  feature_image_url: string;
+  report_html_path: string;
+  highlight_metric: string;
+  status: 'draft' | 'published';
+  report_type_id: string;
+  published_at: string;
+  created_at: string;
+  updated_at: string;
+  report_types?: ReportType;
+};
