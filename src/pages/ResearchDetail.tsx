@@ -163,7 +163,7 @@ export function ResearchDetail() {
               <div className="flex flex-wrap items-center gap-6 mb-8 text-sm text-text-secondary">
                 <div className="flex items-center gap-2">
                   <Calendar size={16} />
-                  {new Date(report.published_at || report.created_at).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' })}
+                  {new Date(report.published_at || report.created_at).toLocaleDateString()}
                 </div>
                 <div className="flex items-center gap-2">
                   <FileText size={16} />
