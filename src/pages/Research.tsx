@@ -139,7 +139,7 @@ export function Research() {
                         <div className="flex items-center justify-between pt-4 border-t border-border">
                           <div className="flex items-center gap-2 text-[10px] text-text-secondary uppercase font-medium">
                             <Calendar size={12} />
-                            {new Date(report.published_at || report.created_at).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })}
+                            {new Date(report.published_at || report.created_at).toLocaleDateString()}
                           </div>
                           <div className="flex items-center gap-1 text-xs font-bold text-accent uppercase tracking-wider group-hover:gap-2 transition-all">
                             Access Data Brief <ArrowRight size={14} />

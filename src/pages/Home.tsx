@@ -560,7 +560,7 @@ export function Home() {
                         </span>
                         <span className="text-[9px] text-text-secondary flex items-center gap-1">
                           <Calendar size={10} />
-                          {new Date(report.published_at || report.created_at).toLocaleDateString(undefined, { year: 'numeric', month: 'short' })}
+                          {new Date(report.published_at || report.created_at).toLocaleDateString()}
                         </span>
                       </div>
                     </div>
