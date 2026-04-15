@@ -37,8 +37,8 @@ export function PostDetail() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-bg-primary pt-24 pb-24">
-        <div className="mx-auto max-w-[800px] px-4 sm:px-6">
+      <div className="min-h-screen bg-bg-postdetail-primary pt-24 pb-24">
+        <div className="mx-auto max-w-[900px] px-4 sm:px-6">
           <div className="animate-pulse space-y-8">
             <div className="h-8 bg-border/50 rounded w-1/4"></div>
             <div className="h-12 bg-border/50 rounded w-3/4"></div>
@@ -56,7 +56,7 @@ export function PostDetail() {
 
   if (!post) {
     return (
-      <div className="min-h-screen bg-bg-primary pt-32 pb-24 text-center">
+      <div className="min-h-screen bg-bg-postdetail-primary pt-32 pb-24 text-center">
         <h1 className="text-4xl font-bold text-text-primary mb-4">Post Not Found</h1>
         <Link to="/insights" className="text-accent hover:underline flex items-center justify-center gap-2">
           <ArrowLeft size={16} /> Back to Insights
@@ -66,8 +66,8 @@ export function PostDetail() {
   }
 
   return (
-    <div className="min-h-screen bg-bg-primary pt-12 pb-24">
-      <article className="mx-auto max-w-[800px] px-4 sm:px-6">
+    <div className="min-h-screen bg-bg-postdetail-primary pt-12 pb-24">
+      <article className="mx-auto max-w-[900px] px-4 sm:px-6">
         
         {/* BACK LINK */}
         <Link to="/insights" className="inline-flex items-center gap-2 text-text-secondary hover:text-accent transition-colors mb-8">
@@ -106,7 +106,7 @@ export function PostDetail() {
         </motion.div>
 
         {/* KEY TAKEAWAYS */}
-        <div className="bg-bg-surface border border-amber/30 rounded-xl p-8 mb-12 shadow-[0_0_15px_rgba(237,137,54,0.05)]">
+        <div className="bg-bg-postdetail-surface border border-amber/30 rounded-xl p-8 mb-12 shadow-[0_0_15px_rgba(237,137,54,0.05)]">
           <h3 className="text-lg font-bold text-text-primary mb-4 flex items-center gap-2">
             <span className="w-1.5 h-6 bg-amber rounded-full inline-block"></span>
             Key Takeaways

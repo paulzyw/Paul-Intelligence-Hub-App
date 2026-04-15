@@ -8,6 +8,8 @@
   --color-text-secondary: var(--text-secondary);
   --color-bg-hero-primary: var(--bg-hero-primary);
   --color-bg-hero-surface: var(--bg-hero-surface);
+  --color-bg-postdetail-primary: var(--bg-postdetail-primary);
+  --color-bg-postdetail-surface: var(--bg-postdetail-surface);
   --color-text-hero-primary: var(--text-hero-primary);
   --color-text-hero-secondary: var(--text-hero-secondary);
   --color-accent: var(--accent);
@@ -25,7 +27,9 @@
     --bg-hero-surface: #1b2f3e;
     --text-hero-primary: #F4F4F9;
     --text-hero-secondary: #A0AEC0;
-    --bg-primary: #F8F9FA;
+    --bg-postdetail-primary: #ffffff;
+    --bg-postdetail-surface: #f0f2f5;
+    --bg-primary: #f0f2f5;
     --bg-surface: #FFFFFF;
     --text-primary: #1A202C;
     --text-secondary: #4A5568;
@@ -39,6 +43,8 @@
     --bg-hero-surface: #1E2124;
     --text-hero-primary: #F4F4F9;
     --text-hero-secondary: #A0AEC0;
+    --bg-postdetail-primary: #121416;
+    --bg-postdetail-surface: #1E2124;
     --bg-primary: #121416;
     --bg-surface: #1E2124;
     --text-primary: #F4F4F9;
