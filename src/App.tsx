@@ -14,6 +14,7 @@ import { Admin } from './pages/Admin';
 import { PostDetail } from './pages/PostDetail';
 import { Research } from './pages/Research';
 import { ResearchDetail } from './pages/ResearchDetail';
+import { Impact } from './pages/Impact';
 import { ScrollReset } from './components/ScrollReset';
 
 export default function App() {
@@ -29,6 +30,7 @@ export default function App() {
             <Route path="post/:slug" element={<PostDetail />} />
             <Route path="research" element={<Research />} />
             <Route path="research/:slug" element={<ResearchDetail />} />
+            <Route path="impact" element={<Impact />} />
             <Route path="contact" element={<Contact />} />
           </Route>
           <Route path="/admin" element={<Admin />} />

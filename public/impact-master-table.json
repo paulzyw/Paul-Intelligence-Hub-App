@@ -1,0 +1,392 @@
+[
+  {
+    "sn": 1,
+    "projectName": "Shift product-oriented selling to solution selling",
+    "company": "AspenTech",
+    "category": "For Employer",
+    "industry": "Software/SaaS",
+    "region": "China",
+    "timePeriod": "2020-2021",
+    "role": "Sales Director",
+    "customerType": "Internal",
+    "initialSituation": "Product-centric sales approach with limited value articulation and low differentiation",
+    "keyChallenge": "Difficulty communicating business value, Low win rates in complex deals, Misalignment with enterprise buying process",
+    "strategy": "Transition to value-based, solution-oriented selling model",
+    "solution": "Develop industry-specific solution packages and value frameworks",
+    "data-AI-Approach": "Value quantification models based on customer operational data",
+
+    "revenue": 86000000,
+    "revenueGrowthPercent": 280,
+    "pipeline": 338000000,
+    "dealSizeIncreasePercent": 35,
+    "marginImprovementPercent": 21,
+    "ebitdaImpact": "High",
+    "costToRevenueImprovementPercent": 29,
+
+    "productivityIncreasePercent": 15,
+    "cycleTimeReductionPercent": -20,
+    "forecastAccuracyImprovementPercent": 25,
+
+    "systemImplemented": "Value-based selling framework",
+    "modelsBuilt": "ROI/value estimation model",
+    "decisionSpeedImprovementPercent": 20,
+
+    "timeRecurrence": "Recurring",
+    "regionCovered": "China",
+
+    "impactSummary": "Drove 230% revenue growth ($65M) by transforming product-centric sales into a value-based solution selling model."
+  },
+
+  {
+    "sn": 2,
+    "projectName": "Structured Data-Driven Go-To-Market",
+    "company": "AspenTech",
+    "category": "For Employer",
+    "industry": "Software/SaaS",
+    "region": "China",
+    "timePeriod": "2020-2026",
+    "role": "Sales Director",
+    "customerType": "Internal",
+    "initialSituation": "Go-to-market execution relied heavily on fragmented, experience-driven decision-making with limited data visibility. Targeting, partner engagement, and opportunity prioritization were inconsistent, resulting in inefficient resource allocation and suboptimal market coverage.",
+    "keyChallenge": "Lack of a structured and scalable GTM framework integrating market segmentation, partner strategy, and pipeline prioritization. Difficulty in identifying high-value accounts, aligning partner contributions, and improving conversion efficiency in complex enterprise sales cycles.",
+    "strategy": "Design and implement a structured, data-driven go-to-market framework combining market segmentation, account prioritization, and partner ecosystem orchestration to systematically improve targeting accuracy and execution efficiency.",
+    "solution": "Developed an integrated go-to-market engine including customer segmentation models, partner performance management system, and opportunity scoring mechanisms. Enabled coordinated execution across sales, marketing, and partners through standardized processes and data-driven insights.",
+    "dataAIApproach": "Leveraged multi-dimensional data including industry, account size, historical deal data, and partner performance to build segmentation and scoring models. Applied analytics-driven prioritization and predictive insights to guide account targeting, partner alignment, and pipeline management decisions.",
+
+    "revenue": 29300000,
+    "revenueGrowthPercent": 260,
+    "pipeline": 113900000,
+    "dealSizeIncreasePercent": 26,
+    "marginImprovementPercent": 15,
+
+    "productivityIncreasePercent": 18,
+    "cycleTimeReductionPercent": -12,
+    "forecastAccuracyImprovementPercent": 16,
+
+    "systemImplemented": "Structured go-to-market engine with segmentation, targeting, and partner orchestration",
+    "modelsBuilt": "Market segmentation model, partner scoring model, opportunity prioritization model",
+    "decisionSpeedImprovementPercent": 25,
+
+    "timeRecurrence": "Recurring",
+    "regionCovered": "China",
+
+    "impactSummary": "Delivered 260% revenue growth by building a structured, data-driven go-to-market engine integrating segmentation, partner strategy, and opportunity prioritization."
+  },
+
+  {
+    "sn": 3,
+    "projectName": "Data-driven marketing lead scoring and assessment",
+    "company": "AspenTech",
+    "category": "For Employer",
+    "industry": "Software/SaaS",
+    "region": "China",
+    "timePeriod": "2021-2026",
+    "role": "Sales Director",
+    "customerType": "Internal",
+    "initialSituation": "Low lead quality and poor conversion rates",
+    "keyChallenge": "High volume, low-quality leads, Weak alignment between marketing and sales",
+    "strategy": "Implement lead scoring and qualification model",
+    "solution": "Data-driven lead prioritization system",
+    "data-AI-Approach": "Predictive lead scoring using behavioral and firmographic data",
+
+    "revenue": 13000000,
+    "revenueGrowthPercent": 230,
+    "pipeline": 85800000,
+    "dealSizeIncreasePercent": 8,
+    "marginImprovementPercent": 3,
+
+    "productivityIncreasePercent": 35,
+    "cycleTimeReductionPercent": -26,
+    "forecastAccuracyImprovementPercent": 18,
+
+    "systemImplemented": "Lead scoring system",
+    "modelsBuilt": "Predictive lead scoring model",
+    "decisionSpeedImprovementPercent": 30,
+
+    "timeRecurrence": "Recurring",
+    "regionCovered": "China",
+
+    "impactSummary": "Improved pipeline quality and conversion efficiency using predictive lead scoring."
+  },
+
+  {
+    "sn": 4,
+    "projectName": "Data-driven sales pipeline scoring and assessment",
+    "company": "AspenTech",
+    "category": "For Employer",
+    "industry": "Software/SaaS",
+    "region": "China",
+    "timePeriod": "2021-2026",
+    "role": "Sales Director",
+    "customerType": "Internal",
+    "initialSituation": "Poor pipeline visibility and unreliable forecasts",
+    "keyChallenge": "Inaccurate pipeline forecasting, Inefficient opportunity prioritization",
+    "strategy": "Introduce pipeline scoring and analytics",
+    "solution": "Opportunity scoring and pipeline health dashboard",
+    "data-AI-Approach": "Probability-based pipeline modeling",
+
+    "revenue": 20800000,
+    "revenueGrowthPercent": 230,
+    "pipeline": 114400000,
+    "dealSizeIncreasePercent": 39,
+    "marginImprovementPercent": 25,
+
+    "productivityIncreasePercent": 45,
+    "cycleTimeReductionPercent": -18,
+    "forecastAccuracyImprovementPercent": 35,
+
+    "systemImplemented": "Pipeline analytics dashboard",
+    "modelsBuilt": "Opportunity scoring model",
+    "decisionSpeedImprovementPercent": 35,
+
+    "timeRecurrence": "Recurring",
+    "regionCovered": "China",
+
+    "impactSummary": "Improved forecast accuracy by 35% through pipeline scoring analytics."
+  },
+
+  {
+    "sn": 5,
+    "projectName": "Energy-savings sharing revenue model",
+    "company": "Hamon",
+    "category": "For Employer",
+    "industry": "Energy",
+    "region": "APAC",
+    "timePeriod": "2015-2020",
+    "role": "VP of Digital BU",
+    "customerType": "Internal",
+    "initialSituation": "Traditional project-based revenue model with limited scalability",
+    "keyChallenge": "High customer resistance to upfront investment, Limited recurring revenue",
+    "strategy": "Introduce performance-based revenue model",
+    "solution": "Energy savings sharing commercial model",
+    "data-AI-Approach": "Energy baseline and process modeling and savings tracking",
+
+    "revenue": 138000000,
+    "revenueGrowthPercent": 500,
+    "pipeline": 441600000,
+    "marginImprovementPercent": 16,
+
+    "co2Reduction": 3000000,
+    "energySavings": 3500000000,
+
+    "systemImplemented": "Energy and process optimization platform",
+    "modelsBuilt": "Energy consumption optimization model",
+
+    "timeRecurrence": "Recurring",
+    "regionCovered": "APAC",
+
+    "impactSummary": "Generated $138M revenue and enabled 3M tons CO2 reduction."
+  },
+
+  {
+    "sn": 6,
+    "projectName": "Strategic partnering",
+    "company": "Hamon",
+    "category": "For Employer",
+    "industry": "Energy",
+    "region": "APAC",
+    "timePeriod": "2015-2020",
+    "role": "VP of Digital BU",
+    "initialSituation": "Limited ecosystem partnerships restricting market expansion",
+    "keyChallenge": "Weak partner engagement, Limited access to large enterprise projects",
+    "strategy": "Build strategic alliances with industrial partners",
+    "solution": "Partner-led market expansion model",
+    "data-AI-Approach": "Partner performance tracking and opportunity mapping",
+
+    "revenue": 70380000,
+    "revenueGrowthPercent": 500,
+    "pipeline": 275000000,
+    "marginImprovementPercent": 11,
+
+    "productivityIncreasePercent": 15,
+    "cycleTimeReductionPercent": -12,
+    "forecastAccuracyImprovementPercent": 15,
+
+    "systemImplemented": "Partner management framework",
+    "modelsBuilt": "Partner performance scoring model",
+
+    "impactSummary": "Expanded market reach through strategic partner ecosystem."
+  },
+
+  {
+    "sn": 7,
+    "projectName": "Electric power consumption optimization solution",
+    "company": "Hamon",
+    "category": "For Customer",
+    "industry": "Electric Power",
+    "region": "APAC",
+    "initialSituation": "High energy consumption and inefficient power usage",
+    "keyChallenge": "Rising energy costs, Lack of optimization tools and ajustment manners",
+    "strategy": "Implement data-driven energy and process optimization",
+    "solution": "Power consumption optimization platform",
+    "data-AI-Approach": "Load forecasting and optimization algorithms",
+
+    "costSaving": 175000000,
+    "co2Reduction": 3000000,
+    "energySavings": 3500000000,
+
+    "timeRecurrence": "Annual",
+    "sites": 21,
+
+    "impactSummary": "Delivered $175M annual cost savings and 3M tons CO2 reduction."
+  },
+
+  {
+    "sn": 8,
+    "projectName": "Boiler operating optimization",
+    "company": "AspenTech",
+    "category": "For Customer",
+    "industry": "Electric Power",
+    "region": "China",
+    "initialSituation": "Inefficient boiler operations and high fuel consumption",
+    "keyChallenge": "Fuel inefficiency, High emissions",
+    "strategy": "Optimize boiler performance using data models",
+    "solution": "AI-driven boiler optimization system",
+    "data-AI-Approach": "Combustion optimization modeling",
+
+    "revenue": 7331200,
+    "costSaving": 429064000,
+    "co2Reduction": 7338000,
+
+    "sites": 29,
+
+    "impactSummary": "Improved boiler efficiency and reduced emissions via AI optimization."
+  },
+
+  {
+    "sn": 9,
+    "projectName": "Crude oil procurement optimization solution",
+    "company": "AspenTech",
+    "category": "For Customer",
+    "industry": "Oil & Gas",
+    "region": "China",
+    "initialSituation": "Inefficient procurement decisions and price volatility exposure",
+    "keyChallenge": "tens of crude oil specification to select, Lack of optimization in sourcing, High procurement costs",
+    "strategy": "Optimize procurement using analytics combining production characteristics and product market price dynamics",
+    "solution": "Crude oil purchase optimization platform",
+    "data-AI-Approach": "Pricing models + supply optimization",
+
+    "profitGenerated": 220000000,
+
+    "sites": 42,
+
+    "impactSummary": "Increased profitability by $220M annually through procurement optimization."
+  },
+
+  {
+    "sn": 10,
+    "projectName": "Air compressor predictive maintenance solution",
+    "company": "AspenTech",
+    "category": "For Customer",
+    "industry": "Petrochemical",
+    "region": "China",
+    "initialSituation": "Frequent equipment failures and high maintenance costs",
+    "keyChallenge": "Unplanned downtime, Reactive maintenance",
+    "strategy": "Implement predictive maintenance",
+    "solution": "AI-based maintenance prediction system",
+    "data-AI-Approach": "Failure prediction models",
+
+    "revenue": 15000000,
+    "downtimeReductionPercent": -33,
+
+    "sites": 12,
+
+    "impactSummary": "Reduced downtime by 33% using predictive maintenance."
+  },
+
+  {
+    "sn": 11,
+    "projectName": "Bioreactor predictive maintenance solution",
+    "company": "AspenTech",
+    "category": "For Customer",
+    "industry": "Pharmaceutical",
+    "region": "China",
+    "initialSituation": "High sensitivity of production systems and risk of failure",
+    "keyChallenge": "Production loss risks, High maintenance cost",
+    "strategy": "Implement predictive analytics",
+    "solution": "Bioreactor monitoring and prediction system",
+    "data-AI-Approach": "Time-series anomaly detection",
+
+    "revenue": 8000000,
+    "downtimeReductionPercent": -20,
+
+    "sites": 5,
+
+    "impactSummary": "Reduced production risk and downtime using predictive analytics."
+  },
+
+  {
+    "sn": 12,
+    "projectName": "Shift to strategic partnering commercial model",
+    "company": "Alstom",
+    "category": "For Employer",
+    "region": "Asia",
+    "initialSituation": "Transactional sales model limiting long-term growth",
+    "keyChallenge": "Low customer lifetime value, Weak strategic positioning",
+    "strategy": "Shift to long-term partnership model",
+    "solution": "Strategic account development framework",
+
+    "revenue": 900000000,
+    "revenueGrowthPercent": 1500,
+    "pipeline": 18108000000,
+    "marginImprovementPercent": 11,
+
+    "impactSummary": "Scaled revenue to $900M+ through strategic partnership model."
+  },
+
+  {
+    "sn": 13,
+    "projectName": "Dedicated to excellence initiative",
+    "company": "Alstom",
+    "category": "For Employer",
+    "region": "Asia",
+    "initialSituation": "Low operational efficiency",
+    "keyChallenge": "High cost structure, Inefficient processes",
+    "strategy": "Operational excellence initiative",
+    "solution": "Process optimization program",
+
+    "costReductionPercent": 12,
+    "productivityIncreasePercent": 15,
+
+    "impactSummary": "Improved efficiency and reduced cost by 12%."
+  },
+
+  {
+    "sn": 14,
+    "projectName": "Data-driven partner performance management system",
+    "company": "AspenTech",
+    "category": "For Employer",
+    "region": "China",
+    "initialSituation": "Limited visibility into partner performance",
+    "keyChallenge": "Inefficient partner management, Poor decision-making",
+    "strategy": "Implement partner analytics",
+    "solution": "Partner performance dashboard",
+
+    "revenue": 1900000,
+    "productivityIncreasePercent": 18,
+    "forecastAccuracyImprovementPercent": 16,
+
+    "impactSummary": "Improved partner productivity through data-driven management."
+  },
+
+  {
+    "sn": 15,
+    "projectName": "Production planning optimization solution",
+    "company": "AspenTech",
+    "category": "For Customer",
+    "industry": "Oil & Gas",
+    "region": "China",
+    "initialSituation": "Inefficient production planning and resource allocation",
+    "keyChallenge": "Suboptimal planning, High operational cost",
+    "strategy": "Optimize planning using analytics",
+    "solution": "Production planning optimization system",
+
+
+    "costReductionPercent": 12,
+    "profitGenerated": 8000000,
+
+    "sites": 27,
+
+    "impactSummary": "Reduced operational cost and improved planning efficiency."
+  }
+]

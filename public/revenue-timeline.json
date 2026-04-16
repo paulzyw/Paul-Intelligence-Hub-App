@@ -1,0 +1,23 @@
+[
+  {"year": 2008, "company": "Alstom", "revenueM": 10000000},
+  {"year": 2009, "company": "Alstom", "revenueM": 12000000},
+  {"year": 2010, "company": "Alstom", "revenueM": 89000000},
+  {"year": 2011, "company": "Alstom", "revenueM": 86000000},
+  {"year": 2012, "company": "Alstom", "revenueM": 257000000},
+  {"year": 2013, "company": "Alstom", "revenueM": 165000000},
+  {"year": 2014, "company": "Alstom", "revenueM": 152000000},
+  {"year": 2015, "company": "Alstom", "revenueM": 142000000},
+
+  {"year": 2016, "company": "Hamon", "revenueM": 10500000},
+  {"year": 2017, "company": "Hamon", "revenueM": 29000000},
+  {"year": 2018, "company": "Hamon", "revenueM": 43000000},
+  {"year": 2019, "company": "Hamon", "revenueM": 56000000},
+
+  {"year": 2020, "company": "AspenTech", "revenueM": 6000000},
+  {"year": 2021, "company": "AspenTech", "revenueM": 9000000},
+  {"year": 2022, "company": "AspenTech", "revenueM": 10500000},
+  {"year": 2023, "company": "AspenTech", "revenueM": 13000000},
+  {"year": 2024, "company": "AspenTech", "revenueM": 14500000},
+  {"year": 2025, "company": "AspenTech", "revenueM": 18500000},
+  {"year": 2026, "company": "AspenTech", "revenueM": 21300000}
+]

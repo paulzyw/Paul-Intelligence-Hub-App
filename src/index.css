@@ -19,6 +19,15 @@
   --color-obsidian: #121416;
   --color-steel: #2D3748;
   --color-ivory: #F4F4F9;
+  
+  /* Impact Dashboard Static Palette */
+  --color-profit-gold: #ED8936;
+  --color-savings-emerald: #10B981;
+  --color-co2-green: #059669;
+  --color-energy-blue: #00a3e0;
+  --color-ui-navy: #051c2c;
+  --color-ui-deep-blue: #002b5c;
+  --color-alert-red: #E53E3E;
 }
 
 @layer base {
