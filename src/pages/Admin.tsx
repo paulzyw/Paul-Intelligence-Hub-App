@@ -1,6 +1,96 @@
 import { useState, useEffect, useRef } from 'react';
-import { supabase, type Post, type Category, type ResearchReport, type ReportType } from '../lib/supabase';
-import { LogOut, Plus, Edit, Trash2, Save, X, UploadCloud, Image as ImageIcon, FolderPlus, Sparkles, BarChart3 } from 'lucide-react';
+import { supabase, type Post, type Category, type ResearchReport, type ReportType, type AccessCode } from '../lib/supabase';
+import { LogOut, Plus, Edit, Trash2, Save, X, UploadCloud, Image as ImageIcon, FolderPlus, Sparkles, BarChart3, Key, Copy, Check } from 'lucide-react';
+
+const AccessCodeGenerator = () => {
+  const [hours, setHours] = useState<number>(24);
+  const [generatedCode, setGeneratedCode] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [copied, setCopied] = useState(false);
+
+  const generateCode = async () => {
+    setLoading(true);
+    setCopied(false);
+    
+    // Generate 6-digit numeric code
+    const code = Math.floor(100000 + Math.random() * 900000).toString();
+    
+    // Calculate expires_at
+    const expiresAt = new Date();
+    expiresAt.setHours(expiresAt.getHours() + hours);
+    
+    const { error } = await supabase
+      .from('temp_access_codes')
+      .insert([{ 
+        code, 
+        expires_at: expiresAt.toISOString() 
+      }]);
+      
+    if (error) {
+      alert('Error generating code: ' + error.message);
+    } else {
+      setGeneratedCode(code);
+    }
+    setLoading(false);
+  };
+
+  const copyToClipboard = () => {
+    if (generatedCode) {
+      navigator.clipboard.writeText(generatedCode);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    }
+  };
+
+  return (
+    <div className="bg-bg-surface border border-border rounded-xl p-6 mb-8">
+      <h2 className="text-xl font-bold text-text-primary mb-4 flex items-center gap-2">
+        <Key size={20} className="text-accent" /> Impact Page Access Control
+      </h2>
+      
+      <div className="flex flex-col gap-6">
+        <div className="flex flex-wrap items-end gap-4">
+          <div className="flex-1 min-w-[200px]">
+            <label className="block text-sm font-medium text-text-secondary mb-1">Validity Period (Hours)</label>
+            <input
+              type="number"
+              value={hours}
+              onChange={(e) => setHours(Number(e.target.value))}
+              min="1"
+              max="720"
+              className="w-full px-3 py-2 border border-border rounded-md bg-bg-primary text-text-primary focus:outline-none focus:border-accent"
+            />
+          </div>
+          <button
+            onClick={generateCode}
+            disabled={loading}
+            className="px-6 py-2 bg-accent text-white rounded-md hover:bg-accent/90 transition-colors disabled:opacity-50 flex items-center gap-2 font-bold"
+          >
+            {loading ? 'Generating...' : 'Generate Access Code'}
+          </button>
+        </div>
+
+        {generatedCode && (
+          <div className="p-8 bg-bg-primary rounded-xl border border-accent/20 flex flex-col items-center justify-center gap-4 text-center animate-in fade-in zoom-in duration-300">
+            <div className="text-xs uppercase tracking-[0.3em] font-black text-text-secondary">Generated Code</div>
+            <div className="text-6xl font-mono font-black tracking-widest text-accent">
+              {generatedCode}
+            </div>
+            <div className="text-sm text-text-secondary">
+              Expires in {hours} hours (at {new Date(Date.now() + hours * 3600000).toLocaleString()})
+            </div>
+            <button
+              onClick={copyToClipboard}
+              className="flex items-center gap-2 px-4 py-2 bg-bg-surface border border-border rounded-lg hover:border-accent transition-all text-sm"
+            >
+              {copied ? <><Check size={16} className="text-green-500" /> Copied!</> : <><Copy size={16} /> Copy to Clipboard</>}
+            </button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
 import { Editor } from '@tinymce/tinymce-react';
 import { ReportTypeManager } from '../components/ReportTypeManager';
 import { ResearchManager } from '../components/ResearchManager';
@@ -405,6 +495,7 @@ export function Admin() {
 
         {!isEditing && (
           <>
+            <AccessCodeGenerator />
             <CategoryManager categories={categories} fetchCategories={fetchCategories} />
             <ReportTypeManager reportTypes={reportTypes} fetchReportTypes={fetchReportTypes} />
             <ResearchManager reports={reports} reportTypes={reportTypes} fetchReports={fetchReports} />

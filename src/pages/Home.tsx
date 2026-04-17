@@ -168,7 +168,7 @@ export function Home() {
             </div>
             <div className="flex flex-col">
               <span className="text-3xl font-bold text-text-hero-primary">
-                <Counter value={650} prefix="$" suffix="M" />
+                <Counter value={855} prefix="$" suffix="M" />
               </span>
               <span className="text-sm text-text-hero-secondary mt-1 uppercase tracking-wider">OpEx Saved</span>
             </div>

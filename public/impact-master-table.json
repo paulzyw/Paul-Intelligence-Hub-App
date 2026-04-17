@@ -284,7 +284,7 @@
     "solution": "AI-based maintenance prediction system",
     "data-AI-Approach": "Failure prediction models",
 
-    "revenue": 15000000,
+    "costSaving": 15000000,
     "downtimeReductionPercent": -33,
 
     "sites": 12,
@@ -305,7 +305,7 @@
     "solution": "Bioreactor monitoring and prediction system",
     "data-AI-Approach": "Time-series anomaly detection",
 
-    "revenue": 8000000,
+    "costSaving": 8000000,
     "downtimeReductionPercent": -20,
 
     "sites": 5,

@@ -79,3 +79,27 @@ BEGIN
         CREATE POLICY "Allow public select" ON chat_history FOR SELECT USING (true);
     END IF;
 END $$;
+
+-- Create temp_access_codes table
+CREATE TABLE IF NOT EXISTS temp_access_codes (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  code TEXT NOT NULL,
+  expires_at TIMESTAMP WITH TIME ZONE NOT NULL,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Enable RLS
+ALTER TABLE temp_access_codes ENABLE ROW LEVEL SECURITY;
+
+-- Policies for temp_access_codes
+DO $$ 
+BEGIN
+    -- Allow public to select if code is valid and not expired
+    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'Allow public read of valid codes' AND tablename = 'temp_access_codes') THEN
+        CREATE POLICY "Allow public read of valid codes" ON temp_access_codes FOR SELECT USING (expires_at > NOW());
+    END IF;
+    -- Allow authenticated to manage
+    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'Allow authenticated manage' AND tablename = 'temp_access_codes') THEN
+        CREATE POLICY "Allow authenticated manage" ON temp_access_codes FOR ALL USING (auth.role() = 'authenticated');
+    END IF;
+END $$;

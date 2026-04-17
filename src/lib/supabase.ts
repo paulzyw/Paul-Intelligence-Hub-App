@@ -48,3 +48,10 @@ export type ResearchReport = {
   updated_at: string;
   report_types?: ReportType;
 };
+
+export type AccessCode = {
+  id: string;
+  code: string;
+  expires_at: string;
+  created_at: string;
+};
