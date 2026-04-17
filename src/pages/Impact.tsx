@@ -313,10 +313,23 @@ export function Impact() {
                       <YAxis dataKey="name" type="category" width={80} axisLine={false} tickLine={false} style={{ fontSize: '10px', fontWeight: 'bold' }} />
                       <Tooltip 
                         cursor={{ fill: 'transparent' }}
-                        contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
+                        contentStyle={{ 
+                          borderRadius: '8px', 
+                          border: 'none', 
+                          boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
+                          backgroundColor: '#ffffff'
+                        }}
+                        labelStyle={{ 
+                          fontWeight: 'bold', 
+                          color: '#051c2c',
+                          marginBottom: '4px'
+                        }}
+                        itemStyle={{
+                          color: '#051c2c'
+                        }}
                         formatter={(value: number) => [`$${value}M`, 'Revenue Impact']}
                       />
-                      <Bar dataKey="value" radius={[0, 4, 4, 0]} barSize={20}>
+                      <Bar dataKey="value" radius={[0, 4, 4, 0]} barSize={45}>
                         {revenueByCompany.map((entry, idx) => (
                            <Cell key={`revenue-cell-${entry.name}-${idx}`} fill={entry.name === revenueByCompany[0].name ? PALETTE.profitGold : PALETTE.uiDeepBlue} />
                         ))}
@@ -334,7 +347,7 @@ export function Impact() {
                         cx="50%"
                         cy="50%"
                         innerRadius={60}
-                        outerRadius={80}
+                        outerRadius={100}
                         paddingAngle={5}
                         dataKey="value"
                       >
@@ -449,7 +462,7 @@ export function Impact() {
         <section className="mt-24 mb-24">
           <div className="mb-8">
             <h2 className="text-2xl font-bold tracking-tight mb-2">Career Evolution Timeline</h2>
-            <p className="text-sm text-text-secondary">Growth trajectory and strategic phase transition (2008—2026)</p>
+            <p className="text-sm text-text-secondary">Growth trajectory and strategic phase transition (2008—2026)(M$)</p>
           </div>
           
           <div className="bg-bg-surface border border-border rounded-2xl p-6 shadow-xl relative">
@@ -466,8 +479,18 @@ export function Impact() {
                 <YAxis yAxisId="left" axisLine={false} tickLine={false} style={{ fontSize: '10px' }} />
                 <YAxis yAxisId="right" orientation="right" axisLine={false} tickLine={false} style={{ fontSize: '10px' }} />
                 <Tooltip 
-                  contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 25px rgba(0,0,0,0.1)' }}
-                  labelStyle={{ fontWeight: 'bold', marginBottom: '8px' }}
+                  contentStyle={{ 
+                    borderRadius: '12px', 
+                    border: 'none', 
+                    boxShadow: '0 10px 25px rgba(0,0,0,0.1)',
+                    backgroundColor: '#ffffff'
+                  }}
+                  labelStyle={{ 
+                    fontWeight: 'bold', 
+                    marginBottom: '8px',
+                    color: '#051c2c' 
+                  }}
+                  formatter={(value: number, name: string) => [`${value.toFixed(1)} M$`, name]}
                 />
                 <Area yAxisId="right" type="monotone" dataKey="cumulative" stroke={PALETTE.profitGold} fillOpacity={1} fill="url(#colorCumulative)" />
                 <Bar yAxisId="left" dataKey="Alstom" stackId="a" fill={PALETTE.uiNavy} />

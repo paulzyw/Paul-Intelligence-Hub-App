@@ -34,14 +34,14 @@
     "timeRecurrence": "Recurring",
     "regionCovered": "China",
 
-    "impactSummary": "Drove 230% revenue growth ($65M) by transforming product-centric sales into a value-based solution selling model."
+    "impactSummary": "Drove 280% revenue growth ($86M) by transforming product-centric sales into a value-based solution selling model."
   },
 
   {
     "sn": 2,
     "projectName": "Structured Data-Driven Go-To-Market",
     "company": "AspenTech",
-    "category": "For Employer",
+    "category": "For Employer_w",
     "industry": "Software/SaaS",
     "region": "China",
     "timePeriod": "2020-2026",
@@ -54,7 +54,7 @@
     "dataAIApproach": "Leveraged multi-dimensional data including industry, account size, historical deal data, and partner performance to build segmentation and scoring models. Applied analytics-driven prioritization and predictive insights to guide account targeting, partner alignment, and pipeline management decisions.",
 
     "revenue": 29300000,
-    "revenueGrowthPercent": 260,
+    "revenueGrowthPercent": 280,
     "pipeline": 113900000,
     "dealSizeIncreasePercent": 26,
     "marginImprovementPercent": 15,
@@ -77,7 +77,7 @@
     "sn": 3,
     "projectName": "Data-driven marketing lead scoring and assessment",
     "company": "AspenTech",
-    "category": "For Employer",
+    "category": "For Employer_w",
     "industry": "Software/SaaS",
     "region": "China",
     "timePeriod": "2021-2026",
@@ -90,7 +90,7 @@
     "data-AI-Approach": "Predictive lead scoring using behavioral and firmographic data",
 
     "revenue": 13000000,
-    "revenueGrowthPercent": 230,
+    "revenueGrowthPercent": 280,
     "pipeline": 85800000,
     "dealSizeIncreasePercent": 8,
     "marginImprovementPercent": 3,
@@ -113,7 +113,7 @@
     "sn": 4,
     "projectName": "Data-driven sales pipeline scoring and assessment",
     "company": "AspenTech",
-    "category": "For Employer",
+    "category": "For Employer_w",
     "industry": "Software/SaaS",
     "region": "China",
     "timePeriod": "2021-2026",
@@ -126,7 +126,7 @@
     "data-AI-Approach": "Probability-based pipeline modeling",
 
     "revenue": 20800000,
-    "revenueGrowthPercent": 230,
+    "revenueGrowthPercent": 280,
     "pipeline": 114400000,
     "dealSizeIncreasePercent": 39,
     "marginImprovementPercent": 25,
@@ -150,7 +150,7 @@
     "projectName": "Energy-savings sharing revenue model",
     "company": "Hamon",
     "category": "For Employer",
-    "industry": "Energy",
+    "industry": "Software/SaaS",
     "region": "APAC",
     "timePeriod": "2015-2020",
     "role": "VP of Digital BU",
@@ -166,9 +166,7 @@
     "pipeline": 441600000,
     "marginImprovementPercent": 16,
 
-    "co2Reduction": 3000000,
-    "energySavings": 3500000000,
-
+    
     "systemImplemented": "Energy and process optimization platform",
     "modelsBuilt": "Energy consumption optimization model",
 
@@ -182,8 +180,8 @@
     "sn": 6,
     "projectName": "Strategic partnering",
     "company": "Hamon",
-    "category": "For Employer",
-    "industry": "Energy",
+    "category": "For Employer_w",
+    "industry": "Software/SaaS",
     "region": "APAC",
     "timePeriod": "2015-2020",
     "role": "VP of Digital BU",
@@ -211,7 +209,7 @@
   {
     "sn": 7,
     "projectName": "Electric power consumption optimization solution",
-    "company": "Hamon",
+    "company": "Electric Power Companies",
     "category": "For Customer",
     "industry": "Electric Power",
     "region": "APAC",
@@ -234,7 +232,7 @@
   {
     "sn": 8,
     "projectName": "Boiler operating optimization",
-    "company": "AspenTech",
+    "company": "Electric Power Companies",
     "category": "For Customer",
     "industry": "Electric Power",
     "region": "China",
@@ -256,7 +254,7 @@
   {
     "sn": 9,
     "projectName": "Crude oil procurement optimization solution",
-    "company": "AspenTech",
+    "company": "Refinery & Chemical Companies",
     "category": "For Customer",
     "industry": "Oil & Gas",
     "region": "China",
@@ -276,7 +274,7 @@
   {
     "sn": 10,
     "projectName": "Air compressor predictive maintenance solution",
-    "company": "AspenTech",
+    "company": "Petrochemical Companies",
     "category": "For Customer",
     "industry": "Petrochemical",
     "region": "China",
@@ -297,7 +295,7 @@
   {
     "sn": 11,
     "projectName": "Bioreactor predictive maintenance solution",
-    "company": "AspenTech",
+    "company": "Pharma Companies",
     "category": "For Customer",
     "industry": "Pharmaceutical",
     "region": "China",
@@ -320,6 +318,7 @@
     "projectName": "Shift to strategic partnering commercial model",
     "company": "Alstom",
     "category": "For Employer",
+    "industry": "Energy",
     "region": "Asia",
     "initialSituation": "Transactional sales model limiting long-term growth",
     "keyChallenge": "Low customer lifetime value, Weak strategic positioning",
@@ -339,6 +338,7 @@
     "projectName": "Dedicated to excellence initiative",
     "company": "Alstom",
     "category": "For Employer",
+    "industry": "Energy",
     "region": "Asia",
     "initialSituation": "Low operational efficiency",
     "keyChallenge": "High cost structure, Inefficient processes",
@@ -356,6 +356,7 @@
     "projectName": "Data-driven partner performance management system",
     "company": "AspenTech",
     "category": "For Employer",
+    "industry": "Software/SaaS",
     "region": "China",
     "initialSituation": "Limited visibility into partner performance",
     "keyChallenge": "Inefficient partner management, Poor decision-making",
@@ -372,7 +373,7 @@
   {
     "sn": 15,
     "projectName": "Production planning optimization solution",
-    "company": "AspenTech",
+    "company": "Refinery Companies",
     "category": "For Customer",
     "industry": "Oil & Gas",
     "region": "China",
