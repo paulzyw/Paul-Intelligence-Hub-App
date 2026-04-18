@@ -28,6 +28,11 @@
   --color-ui-navy: #051c2c;
   --color-ui-deep-blue: #002b5c;
   --color-alert-red: #E53E3E;
+
+  @keyframes shimmer {
+    from { background-position: 200% 0; }
+    to { background-position: -200% 0; }
+  }
 }
 
 @layer base {

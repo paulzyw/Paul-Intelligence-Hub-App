@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
-import { motion, AnimatePresence } from 'motion/react';
+import { motion, AnimatePresence, useInView } from 'motion/react';
 import { supabase } from '../lib/supabase';
 import { 
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, 
@@ -723,7 +723,51 @@ export function Impact() {
   );
 }
 
+function CountUp({ value, suffix = "", prefix = "", duration = 2 }: { value: number | string, suffix?: string, prefix?: string, duration?: number }) {
+  const [displayValue, setDisplayValue] = useState(0);
+  const ref = useRef(null);
+  const isInView = useInView(ref, { once: true, margin: "-20px" });
+  const targetValue = typeof value === 'string' ? parseFloat(value.replace(/[^0-9.]/g, '')) : value;
+  
+  useEffect(() => {
+    if (!isInView) return;
+
+    let startTime: number;
+    let animationFrame: number;
+
+    const animate = (timestamp: number) => {
+      if (!startTime) startTime = timestamp;
+      const progress = Math.min((timestamp - startTime) / (duration * 1000), 1);
+      
+      const easeOutQuad = (t: number) => t * (2 - t);
+      const currentVal = Math.floor(easeOutQuad(progress) * targetValue);
+      
+      setDisplayValue(currentVal);
+
+      if (progress < 1) {
+        animationFrame = requestAnimationFrame(animate);
+      }
+    };
+
+    animationFrame = requestAnimationFrame(animate);
+    return () => cancelAnimationFrame(animationFrame);
+  }, [targetValue, duration, isInView]);
+
+  return (
+    <motion.span
+      ref={ref}
+      initial={{ opacity: 0, scale: 0.95 }}
+      animate={isInView ? { opacity: 1, scale: 1 } : {}}
+      transition={{ type: "spring", stiffness: 100 }}
+    >
+      {prefix}{displayValue.toLocaleString()}{suffix}
+    </motion.span>
+  );
+}
+
 function ValueDeliverySection({ projects }: { projects: ImpactProject[] }) {
+  const [hoveredSide, setHoveredSide] = useState<'employer' | 'customer' | null>(null);
+
   const metrics = useMemo(() => {
     // Employer Metrics
     const aspenTech = projects.find(p => p.company === 'AspenTech' && p.category === 'For Employer');
@@ -755,39 +799,92 @@ function ValueDeliverySection({ projects }: { projects: ImpactProject[] }) {
     };
   }, [projects]);
 
-  const containerVariants = {
-    hidden: { opacity: 0 },
+  // Hierarchy Animation Variants
+  const containerVariants: any = {
+    hidden: { opacity: 0, y: 30 },
     visible: { 
-      opacity: 1,
-      transition: { staggerChildren: 0.1 }
+      opacity: 1, 
+      y: 0,
+      transition: { 
+        duration: 0.8,
+        ease: "easeOut",
+        staggerChildren: 0.2,
+        when: "beforeChildren"
+      }
     }
   };
 
-  const itemVariants = {
-    hidden: { opacity: 0, y: 20 },
-    visible: { opacity: 1, y: 0, transition: { duration: 0.5 } }
+  const panelVariants = (side: 'left' | 'right'): any => ({
+    hidden: { 
+      opacity: 0, 
+      x: side === 'left' ? -40 : 40 
+    },
+    visible: { 
+      opacity: 1, 
+      x: 0,
+      transition: { 
+        duration: 0.7, 
+        ease: [0.22, 1, 0.36, 1], // easeOutQuart
+        staggerChildren: 0.15 
+      }
+    }
+  });
+
+  const layerVariants: any = {
+    hidden: { opacity: 0, y: 15 },
+    visible: { 
+      opacity: 1, 
+      y: 0,
+      transition: { duration: 0.5, ease: "easeOut" } 
+    }
+  };
+
+  const connectorVariants: any = {
+    hidden: { opacity: 0, scale: 0.85 },
+    visible: { 
+      opacity: 1, 
+      scale: 1,
+      transition: { 
+        delay: 1.2,
+        duration: 0.6,
+        type: "spring",
+        stiffness: 100
+      }
+    }
   };
 
   return (
-    <section className="mt-24 mb-32">
-      <div className="mb-8">
+    <motion.section 
+      variants={containerVariants}
+      initial="hidden"
+      whileInView="visible"
+      viewport={{ once: true, amount: 0.1 }}
+      className="mt-24 mb-32"
+    >
+      <motion.div variants={layerVariants} className="mb-8 pl-0">
         <h2 className="text-2xl font-bold tracking-tight mb-2 text-text-primary">How Value Is Delivered</h2>
         <p className="text-sm text-text-secondary">
           From internal transformation to external impact, driven by data and AI
         </p>
-      </div>
+      </motion.div>
 
       <div className="relative">
         {/* 1. CONTENT MAPPING AREA */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
           {/* EMPLOYER MAPPING */}
           <motion.div 
-            variants={containerVariants}
-            initial="hidden"
-            whileInView="visible"
-            viewport={{ once: true, margin: "-100px" }}
-            className="bg-bg-surface border border-border border-b-0 rounded-t-3xl p-8 pb-20 shadow-sm hover:shadow-xl transition-all duration-500 group flex flex-col"
+            variants={panelVariants('left')}
+            onHoverStart={() => setHoveredSide('employer')}
+            onHoverEnd={() => setHoveredSide(null)}
+            className={cn(
+              "bg-bg-surface border border-border border-b-0 rounded-t-3xl p-8 pb-20 shadow-sm transition-all duration-500 group flex flex-col relative overflow-hidden",
+              hoveredSide === 'employer' ? "shadow-2xl -translate-y-1 border-accent/30 bg-accent/[0.02]" : "hover:border-accent/20",
+              hoveredSide === 'customer' && "opacity-60 grayscale-[0.5]"
+            )}
           >
+            {/* Background Glow */}
+            <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-accent/50 to-transparent"></div>
+            
             <div className="mb-8 border-b border-border pb-6">
               <h3 className="text-xl font-bold flex items-center gap-3 text-text-primary">
                 <TrendingUp className="text-accent" size={24} />
@@ -802,10 +899,15 @@ function ValueDeliverySection({ projects }: { projects: ImpactProject[] }) {
                 { label: 'Execution', points: ['Sales productivity improvement', 'Forecast accuracy increase', 'Cycle time reduction'] },
                 { label: 'Outcomes', points: ['Revenue growth', 'Margin improvement', 'Pipeline expansion'] }
               ].map((layer, idx) => (
-                <motion.div key={`employer-layer-${idx}`} variants={itemVariants} className="relative pl-6 border-l-2 border-accent/20 group-hover:border-accent transition-colors">
+                <motion.div 
+                  key={`employer-layer-${idx}`} 
+                  variants={layerVariants}
+                  whileHover={{ x: 4 }}
+                  className="relative pl-6 border-l-2 border-accent/20 group-hover:border-accent transition-colors"
+                >
                   <div className="absolute -left-[5px] top-0 w-2 h-2 rounded-full bg-accent"></div>
                   <h4 className="text-[10px] font-black uppercase tracking-widest text-accent mb-2">{layer.label}</h4>
-                  <ul className="grid grid-cols-1 md:grid-cols-1 gap-x-4 gap-y-1">
+                  <ul className="grid grid-cols-1 gap-y-1">
                     {layer.points.map((pt, pIdx) => (
                       <li key={`employer-pt-${idx}-${pIdx}`} className="text-sm text-text-secondary flex items-start gap-2">
                          <div className="w-1.5 h-1.5 rounded-full bg-accent/30 mt-1.5 shrink-0"></div>
@@ -820,12 +922,18 @@ function ValueDeliverySection({ projects }: { projects: ImpactProject[] }) {
 
           {/* CUSTOMER MAPPING */}
           <motion.div 
-            variants={containerVariants}
-            initial="hidden"
-            whileInView="visible"
-            viewport={{ once: true, margin: "-100px" }}
-            className="bg-bg-surface border border-border border-b-0 rounded-t-3xl p-8 pb-20 shadow-sm hover:shadow-xl transition-all duration-500 group flex flex-col"
+            variants={panelVariants('right')}
+            onHoverStart={() => setHoveredSide('customer')}
+            onHoverEnd={() => setHoveredSide(null)}
+            className={cn(
+              "bg-bg-surface border border-border border-b-0 rounded-t-3xl p-8 pb-20 shadow-sm transition-all duration-500 group flex flex-col relative overflow-hidden",
+              hoveredSide === 'customer' ? "shadow-2xl -translate-y-1 border-savingsEmerald/30 bg-savingsEmerald/[0.02]" : "hover:border-savingsEmerald/20",
+              hoveredSide === 'employer' && "opacity-60 grayscale-[0.5]"
+            )}
           >
+            {/* Background Glow */}
+            <div className="absolute top-0 right-0 w-full h-1 bg-gradient-to-l from-savingsEmerald/50 to-transparent"></div>
+
             <div className="mb-8 border-b border-border pb-6">
               <h3 className="text-xl font-bold flex items-center gap-3 text-text-primary">
                 <Target className="text-savingsEmerald" size={24} />
@@ -841,10 +949,15 @@ function ValueDeliverySection({ projects }: { projects: ImpactProject[] }) {
                 { label: 'Deployment', points: ['Industrial systems', 'Monitoring platforms'] },
                 { label: 'Outcomes', points: ['Cost saving', 'Profit increase', 'CO₂ reduction'] }
               ].map((layer, idx) => (
-                <motion.div key={`customer-layer-${idx}`} variants={itemVariants} className="relative pl-6 border-l-2 border-savingsEmerald/20 group-hover:border-savingsEmerald transition-colors">
+                <motion.div 
+                  key={`customer-layer-${idx}`} 
+                  variants={layerVariants} 
+                  whileHover={{ x: -4 }}
+                  className="relative pl-6 border-l-2 border-savingsEmerald/20 group-hover:border-savingsEmerald transition-colors"
+                >
                   <div className="absolute -left-[5px] top-0 w-2 h-2 rounded-full bg-savingsEmerald"></div>
                   <h4 className="text-[10px] font-black uppercase tracking-widest text-savingsEmerald mb-2">{layer.label}</h4>
-                  <ul className="grid grid-cols-1 md:grid-cols-1 gap-x-4 gap-y-1">
+                  <ul className="grid grid-cols-1 gap-y-1">
                     {layer.points.map((pt, pIdx) => (
                       <li key={`customer-pt-${idx}-${pIdx}`} className="text-sm text-text-secondary flex items-start gap-2">
                          <div className="w-1.5 h-1.5 rounded-full bg-savingsEmerald/30 mt-1.5 shrink-0"></div>
@@ -861,58 +974,89 @@ function ValueDeliverySection({ projects }: { projects: ImpactProject[] }) {
         {/* 2. CENTRAL CONNECTOR (FLOATING AT JOINT) */}
         <div className="flex justify-center items-center h-0 z-20 relative">
           <motion.div 
-            initial={{ scale: 0.8, opacity: 0 }}
-            whileInView={{ scale: 1, opacity: 1 }}
-            className="bg-ui-navy border border-accent/30 text-white px-8 py-3.5 rounded-full flex items-center gap-4 shadow-2xl backdrop-blur-md"
+            variants={connectorVariants}
+            className="bg-ui-navy border border-accent/40 text-white px-8 py-3.5 rounded-full flex items-center gap-4 shadow-[0_20px_50px_rgba(0,0,0,0.3)] backdrop-blur-md group/connector"
           >
-            <div className="w-3 h-3 rounded-full bg-accent animate-pulse shadow-[0_0_12px_theme(colors.orange.500)]"></div>
-            <span className="text-[10px] font-black uppercase tracking-[0.3em] whitespace-nowrap">
+            <motion.div 
+              animate={{ scale: [1, 1.3, 1], opacity: [0.6, 1, 0.6] }}
+              transition={{ repeat: Infinity, duration: 2 }}
+              className="w-3 h-3 rounded-full bg-accent shadow-[0_0_15px_theme(colors.orange.500)]"
+            />
+            <span className="text-[10px] font-black uppercase tracking-[0.3em] whitespace-nowrap bg-gradient-to-r from-white via-accent/50 to-white bg-[length:200%_100%] animate-[shimmer_3s_infinite_linear] bg-clip-text">
               Data & AI as the Core Value Engine
             </span>
-            <div className="w-3 h-3 rounded-full bg-white animate-pulse shadow-[0_0_12px_rgba(255,255,255,0.5)]"></div>
+            <motion.div 
+              animate={{ scale: [1, 1.3, 1], opacity: [0.6, 1, 0.6] }}
+              transition={{ repeat: Infinity, duration: 2, delay: 0.5 }}
+              className="w-3 h-3 rounded-full bg-white shadow-[0_0_15px_rgba(255,255,255,0.8)]"
+            />
           </motion.div>
         </div>
 
         {/* 3. METRICS AREA (ALIGNED & INTEGRATED) */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
           {/* EMPLOYER METRICS */}
-          <div className="bg-bg-surface border border-border border-t-0 rounded-b-3xl p-8 pt-10 shadow-sm">
+          <motion.div 
+            variants={layerVariants}
+            className={cn(
+              "bg-bg-surface border border-border border-t-0 rounded-b-3xl p-8 pt-10 shadow-sm transition-opacity duration-500",
+              hoveredSide === 'customer' && "opacity-60"
+            )}
+          >
             <div className="grid grid-cols-3 gap-4">
               <div className="text-center">
-                <div className="text-2xl font-black text-accent">{metrics.revenueGrowth}%</div>
+                <div className="text-2xl font-black text-accent">
+                  <CountUp value={metrics.revenueGrowth} suffix="%" />
+                </div>
                 <div className="text-[9px] uppercase font-bold text-text-secondary">Revenue Growth</div>
               </div>
               <div className="text-center">
-                <div className="text-2xl font-black text-accent">+{metrics.avgForecast}%</div>
+                <div className="text-2xl font-black text-accent">
+                  <CountUp value={metrics.avgForecast} prefix="+" suffix="%" />
+                </div>
                 <div className="text-[9px] uppercase font-bold text-text-secondary">Forecast Accuracy</div>
               </div>
               <div className="text-center">
-                <div className="text-2xl font-black text-accent">{metrics.avgCycle}%</div>
+                <div className="text-2xl font-black text-accent">
+                  <CountUp value={metrics.avgCycle} suffix="%" />
+                </div>
                 <div className="text-[9px] uppercase font-bold text-text-secondary">Cycle Reduction</div>
               </div>
             </div>
-          </div>
+          </motion.div>
 
           {/* CUSTOMER METRICS */}
-          <div className="bg-bg-surface border border-border border-t-0 rounded-b-3xl p-8 pt-10 shadow-sm">
+          <motion.div 
+            variants={layerVariants}
+            className={cn(
+              "bg-bg-surface border border-border border-t-0 rounded-b-3xl p-8 pt-10 shadow-sm transition-opacity duration-500",
+              hoveredSide === 'employer' && "opacity-60"
+            )}
+          >
             <div className="grid grid-cols-3 gap-4">
               <div className="text-center">
-                <div className="text-2xl font-black text-savingsEmerald">{formatCurrency(metrics.costSaving)}</div>
+                <div className="text-2xl font-black text-savingsEmerald">
+                  <CountUp value={formatCurrency(metrics.costSaving)} />
+                </div>
                 <div className="text-[9px] uppercase font-bold text-text-secondary">Cost Saving</div>
               </div>
               <div className="text-center">
-                <div className="text-2xl font-black text-savingsEmerald">{formatCurrency(metrics.profitIncrease)}</div>
+                <div className="text-2xl font-black text-savingsEmerald">
+                  <CountUp value={formatCurrency(metrics.profitIncrease)} />
+                </div>
                 <div className="text-[9px] uppercase font-bold text-text-secondary">Profit Increase</div>
               </div>
               <div className="text-center">
-                <div className="text-2xl font-black text-savingsEmerald">{formatNumber(metrics.co2Reduced)} T</div>
+                <div className="text-2xl font-black text-savingsEmerald">
+                  <CountUp value={metrics.co2Reduced} suffix=" T" />
+                </div>
                 <div className="text-[9px] uppercase font-bold text-text-secondary">CO₂ Reduced</div>
               </div>
             </div>
-          </div>
+          </motion.div>
         </div>
       </div>
-    </section>
+    </motion.section>
   );
 }
 
