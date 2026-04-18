@@ -723,7 +723,7 @@ export function Impact() {
   );
 }
 
-function CountUp({ value, suffix = "", prefix = "", duration = 2 }: { value: number | string, suffix?: string, prefix?: string, duration?: number }) {
+function CountUp({ value, suffix = "", prefix = "", duration = 2, decimals = 0 }: { value: number | string, suffix?: string, prefix?: string, duration?: number, decimals?: number }) {
   const [displayValue, setDisplayValue] = useState(0);
   const ref = useRef(null);
   const isInView = useInView(ref, { once: true, margin: "-20px" });
@@ -740,7 +740,7 @@ function CountUp({ value, suffix = "", prefix = "", duration = 2 }: { value: num
       const progress = Math.min((timestamp - startTime) / (duration * 1000), 1);
       
       const easeOutQuad = (t: number) => t * (2 - t);
-      const currentVal = Math.floor(easeOutQuad(progress) * targetValue);
+      const currentVal = (easeOutQuad(progress) * targetValue);
       
       setDisplayValue(currentVal);
 
@@ -760,7 +760,7 @@ function CountUp({ value, suffix = "", prefix = "", duration = 2 }: { value: num
       animate={isInView ? { opacity: 1, scale: 1 } : {}}
       transition={{ type: "spring", stiffness: 100 }}
     >
-      {prefix}{displayValue.toLocaleString()}{suffix}
+      {prefix}{displayValue.toLocaleString(undefined, { minimumFractionDigits: decimals, maximumFractionDigits: decimals })}{suffix}
     </motion.span>
   );
 }
@@ -1036,19 +1036,19 @@ function ValueDeliverySection({ projects }: { projects: ImpactProject[] }) {
             <div className="grid grid-cols-3 gap-4">
               <div className="text-center">
                 <div className="text-2xl font-black text-savingsEmerald">
-                  <CountUp value={formatCurrency(metrics.costSaving)} />
+                  <CountUp value={metrics.costSaving / 1000000} prefix="$" suffix="M" />
                 </div>
                 <div className="text-[9px] uppercase font-bold text-text-secondary">Cost Saving</div>
               </div>
               <div className="text-center">
                 <div className="text-2xl font-black text-savingsEmerald">
-                  <CountUp value={formatCurrency(metrics.profitIncrease)} />
+                  <CountUp value={metrics.profitIncrease / 1000000} prefix="$" suffix="M" />
                 </div>
                 <div className="text-[9px] uppercase font-bold text-text-secondary">Profit Increase</div>
               </div>
               <div className="text-center">
                 <div className="text-2xl font-black text-savingsEmerald">
-                  <CountUp value={metrics.co2Reduced} suffix=" T" />
+                  <CountUp value={metrics.co2Reduced / 1000000} suffix="M Tons" decimals={1} />
                 </div>
                 <div className="text-[9px] uppercase font-bold text-text-secondary">CO₂ Reduced</div>
               </div>
