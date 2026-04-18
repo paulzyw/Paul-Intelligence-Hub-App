@@ -590,6 +590,9 @@ function ImpactDashboardUI({ projects, timeline }: { projects: ImpactProject[], 
                   </table>
                 </div>
               </div>
+
+              {/* VALUE DELIVERY SECTION - Internal to Financial for immediate proximity per request */}
+              <ValueDeliverySection projects={projects} />
             </motion.div>
           ) : (
             <motion.div key="esg" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="space-y-12">
@@ -624,6 +627,9 @@ function ImpactDashboardUI({ projects, timeline }: { projects: ImpactProject[], 
                    </div>
                 </div>
               </div>
+              
+              {/* Also showing Value Delivery Section here as it contains CO2 metrics and general methodology */}
+              <ValueDeliverySection projects={projects} />
             </motion.div>
           )}
         </AnimatePresence>
@@ -714,6 +720,199 @@ export function Impact() {
         </motion.div>
       )}
     </AnimatePresence>
+  );
+}
+
+function ValueDeliverySection({ projects }: { projects: ImpactProject[] }) {
+  const metrics = useMemo(() => {
+    // Employer Metrics
+    const aspenTech = projects.find(p => p.company === 'AspenTech' && p.category === 'For Employer');
+    const revenueGrowth = aspenTech?.revenueGrowthPercent || 280;
+    
+    const projectsWithForecast = projects.filter(p => p.forecastAccuracyImprovementPercent);
+    const avgForecast = projectsWithForecast.length > 0 
+      ? Math.round(projectsWithForecast.reduce((sum, p) => sum + p.forecastAccuracyImprovementPercent!, 0) / projectsWithForecast.length) 
+      : 25;
+
+    const projectsWithCycle = projects.filter(p => p.cycleTimeReductionPercent);
+    const avgCycle = projectsWithCycle.length > 0 
+      ? Math.round(Math.abs(projectsWithCycle.reduce((sum, p) => sum + p.cycleTimeReductionPercent!, 0) / projectsWithCycle.length)) 
+      : 20;
+
+    // Customer Metrics
+    const customerProjects = projects.filter(p => p.category === 'For Customer');
+    const costSaving = customerProjects.reduce((sum, p) => sum + (p.costSaving || 0), 0);
+    const profitIncrease = customerProjects.reduce((sum, p) => sum + (p.profitGenerated || 0), 0);
+    const co2Reduced = projects.reduce((sum, p) => sum + (p.co2Reduction || 0), 0);
+
+    return {
+      revenueGrowth,
+      avgForecast,
+      avgCycle,
+      costSaving,
+      profitIncrease,
+      co2Reduced
+    };
+  }, [projects]);
+
+  const containerVariants = {
+    hidden: { opacity: 0 },
+    visible: { 
+      opacity: 1,
+      transition: { staggerChildren: 0.1 }
+    }
+  };
+
+  const itemVariants = {
+    hidden: { opacity: 0, y: 20 },
+    visible: { opacity: 1, y: 0, transition: { duration: 0.5 } }
+  };
+
+  return (
+    <section className="mt-24 mb-32">
+      <div className="mb-8">
+        <h2 className="text-2xl font-bold tracking-tight mb-2 text-text-primary">How Value Is Delivered</h2>
+        <p className="text-sm text-text-secondary">
+          From internal transformation to external impact, driven by data and AI
+        </p>
+      </div>
+
+      <div className="relative">
+        {/* 1. CONTENT MAPPING AREA */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
+          {/* EMPLOYER MAPPING */}
+          <motion.div 
+            variants={containerVariants}
+            initial="hidden"
+            whileInView="visible"
+            viewport={{ once: true, margin: "-100px" }}
+            className="bg-bg-surface border border-border border-b-0 rounded-t-3xl p-8 pb-20 shadow-sm hover:shadow-xl transition-all duration-500 group flex flex-col"
+          >
+            <div className="mb-8 border-b border-border pb-6">
+              <h3 className="text-xl font-bold flex items-center gap-3 text-text-primary">
+                <TrendingUp className="text-accent" size={24} />
+                Driving Internal Growth & Transformation
+              </h3>
+            </div>
+
+            <div className="space-y-6 flex-grow">
+              {[
+                { label: 'Strategy', points: ['Structured GTM model', 'Framework to drive competitiveness', 'Strategic partnering', 'Commercial transformation', 'Operational excellence'] },
+                { label: 'Systems', points: ['Lead scoring', 'Pipeline scoring and assessment', 'Partner performance systems'] },
+                { label: 'Execution', points: ['Sales productivity improvement', 'Forecast accuracy increase', 'Cycle time reduction'] },
+                { label: 'Outcomes', points: ['Revenue growth', 'Margin improvement', 'Pipeline expansion'] }
+              ].map((layer, idx) => (
+                <motion.div key={`employer-layer-${idx}`} variants={itemVariants} className="relative pl-6 border-l-2 border-accent/20 group-hover:border-accent transition-colors">
+                  <div className="absolute -left-[5px] top-0 w-2 h-2 rounded-full bg-accent"></div>
+                  <h4 className="text-[10px] font-black uppercase tracking-widest text-accent mb-2">{layer.label}</h4>
+                  <ul className="grid grid-cols-1 md:grid-cols-1 gap-x-4 gap-y-1">
+                    {layer.points.map((pt, pIdx) => (
+                      <li key={`employer-pt-${idx}-${pIdx}`} className="text-sm text-text-secondary flex items-start gap-2">
+                         <div className="w-1.5 h-1.5 rounded-full bg-accent/30 mt-1.5 shrink-0"></div>
+                         <span>{pt}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </motion.div>
+              ))}
+            </div>
+          </motion.div>
+
+          {/* CUSTOMER MAPPING */}
+          <motion.div 
+            variants={containerVariants}
+            initial="hidden"
+            whileInView="visible"
+            viewport={{ once: true, margin: "-100px" }}
+            className="bg-bg-surface border border-border border-b-0 rounded-t-3xl p-8 pb-20 shadow-sm hover:shadow-xl transition-all duration-500 group flex flex-col"
+          >
+            <div className="mb-8 border-b border-border pb-6">
+              <h3 className="text-xl font-bold flex items-center gap-3 text-text-primary">
+                <Target className="text-savingsEmerald" size={24} />
+                Delivering Measurable Customer Impact
+              </h3>
+            </div>
+
+            <div className="space-y-6 flex-grow">
+              {[
+                { label: 'Problem', points: ['High energy consumption', 'Inefficient operations', 'Unplanned downtime'] },
+                { label: 'Data', points: ['Operational data', 'Equipment data', 'Market data'] },
+                { label: 'AI / Models', points: ['Optimization models', 'Predictive maintenance', 'Planning optimization algorithms'] },
+                { label: 'Deployment', points: ['Industrial systems', 'Monitoring platforms'] },
+                { label: 'Outcomes', points: ['Cost saving', 'Profit increase', 'CO₂ reduction'] }
+              ].map((layer, idx) => (
+                <motion.div key={`customer-layer-${idx}`} variants={itemVariants} className="relative pl-6 border-l-2 border-savingsEmerald/20 group-hover:border-savingsEmerald transition-colors">
+                  <div className="absolute -left-[5px] top-0 w-2 h-2 rounded-full bg-savingsEmerald"></div>
+                  <h4 className="text-[10px] font-black uppercase tracking-widest text-savingsEmerald mb-2">{layer.label}</h4>
+                  <ul className="grid grid-cols-1 md:grid-cols-1 gap-x-4 gap-y-1">
+                    {layer.points.map((pt, pIdx) => (
+                      <li key={`customer-pt-${idx}-${pIdx}`} className="text-sm text-text-secondary flex items-start gap-2">
+                         <div className="w-1.5 h-1.5 rounded-full bg-savingsEmerald/30 mt-1.5 shrink-0"></div>
+                         <span>{pt}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </motion.div>
+              ))}
+            </div>
+          </motion.div>
+        </div>
+
+        {/* 2. CENTRAL CONNECTOR (FLOATING AT JOINT) */}
+        <div className="flex justify-center items-center h-0 z-20 relative">
+          <motion.div 
+            initial={{ scale: 0.8, opacity: 0 }}
+            whileInView={{ scale: 1, opacity: 1 }}
+            className="bg-ui-navy border border-accent/30 text-white px-8 py-3.5 rounded-full flex items-center gap-4 shadow-2xl backdrop-blur-md"
+          >
+            <div className="w-3 h-3 rounded-full bg-accent animate-pulse shadow-[0_0_12px_theme(colors.orange.500)]"></div>
+            <span className="text-[10px] font-black uppercase tracking-[0.3em] whitespace-nowrap">
+              Data & AI as the Core Value Engine
+            </span>
+            <div className="w-3 h-3 rounded-full bg-white animate-pulse shadow-[0_0_12px_rgba(255,255,255,0.5)]"></div>
+          </motion.div>
+        </div>
+
+        {/* 3. METRICS AREA (ALIGNED & INTEGRATED) */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
+          {/* EMPLOYER METRICS */}
+          <div className="bg-bg-surface border border-border border-t-0 rounded-b-3xl p-8 pt-10 shadow-sm">
+            <div className="grid grid-cols-3 gap-4">
+              <div className="text-center">
+                <div className="text-2xl font-black text-accent">{metrics.revenueGrowth}%</div>
+                <div className="text-[9px] uppercase font-bold text-text-secondary">Revenue Growth</div>
+              </div>
+              <div className="text-center">
+                <div className="text-2xl font-black text-accent">+{metrics.avgForecast}%</div>
+                <div className="text-[9px] uppercase font-bold text-text-secondary">Forecast Accuracy</div>
+              </div>
+              <div className="text-center">
+                <div className="text-2xl font-black text-accent">{metrics.avgCycle}%</div>
+                <div className="text-[9px] uppercase font-bold text-text-secondary">Cycle Reduction</div>
+              </div>
+            </div>
+          </div>
+
+          {/* CUSTOMER METRICS */}
+          <div className="bg-bg-surface border border-border border-t-0 rounded-b-3xl p-8 pt-10 shadow-sm">
+            <div className="grid grid-cols-3 gap-4">
+              <div className="text-center">
+                <div className="text-2xl font-black text-savingsEmerald">{formatCurrency(metrics.costSaving)}</div>
+                <div className="text-[9px] uppercase font-bold text-text-secondary">Cost Saving</div>
+              </div>
+              <div className="text-center">
+                <div className="text-2xl font-black text-savingsEmerald">{formatCurrency(metrics.profitIncrease)}</div>
+                <div className="text-[9px] uppercase font-bold text-text-secondary">Profit Increase</div>
+              </div>
+              <div className="text-center">
+                <div className="text-2xl font-black text-savingsEmerald">{formatNumber(metrics.co2Reduced)} T</div>
+                <div className="text-[9px] uppercase font-bold text-text-secondary">CO₂ Reduced</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
   );
 }
 
