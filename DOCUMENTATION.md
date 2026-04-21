@@ -1,81 +1,76 @@
 # Paul Wang Portfolio Website - Documentation
 
 ## 1. Project Overview
-This is a professional portfolio and insights platform for Paul Wang, a Data-Driven Business Growth Leader. The website showcases professional experience, leadership philosophy, and provides a platform for sharing strategic insights through a blog-style interface.
+This is a high-end professional portfolio and industrial insights platform for Paul Wang, a Data-Driven Business Growth Leader. The website showcases leadership philosophy, professional impact metrics, and intensive industry research, providing a bridge between internal transformation and external customer value.
 
 ## 2. Architecture
-The application follows a modern **Serverless Full-Stack** architecture:
-- **Frontend**: React 19 SPA (Single Page Application) built with Vite.
-- **Styling**: Tailwind CSS 4.0 for utility-first styling and responsive design.
-- **Animations**: Motion (formerly Framer Motion) for smooth UI transitions and interactions.
-- **Backend-as-a-Service (BaaS)**: Supabase for database (PostgreSQL), authentication, and Edge Functions.
-- **Edge Functions**: Deno-based serverless functions used for third-party integrations (MailerLite).
+The application uses a modern **Serverless Edge-Optimized** architecture:
+- **Frontend**: React 19 SPA built with Vite and TypeScript.
+- **Styling**: Tailwind CSS 4.0 for utility-first styling with native CSS variable integration.
+- **Animations**: `motion/react` (Framer Motion) for sophisticated UI transitions and storytelling-driven reveals.
+- **Backend-as-a-Service (BaaS)**: Supabase for database (PostgreSQL), real-time subscriptions, and Edge Functions.
+- **Edge Functions**: Deno-based serverless functions for third-party service bridging.
 - **External Services**: 
-  - **EmailJS**: For handling contact form submissions directly from the client.
-  - **MailerLite**: For newsletter subscription management and automated email workflows.
+  - **EmailJS**: Direct client-side handling of contact inquiries.
+  - **MailerLite**: Automated newsletter management via Supabase Edge Function relays.
 
 ## 3. Project File Structure
 ```text
-├── .github/workflows/    # CI/CD pipelines (GitHub Actions)
-├── public/               # Static assets (images, favicon)
+├── public/               # Static assets & favicon
 ├── src/
-│   ├── components/       # Reusable UI components (MeteorBackground, TrustBar, etc.)
-│   ├── lib/              # Utility libraries and configurations (supabase.ts, utils.ts)
-│   ├── pages/            # Main page components (Home, Insights, Contact, PostDetail)
-│   ├── App.tsx           # Main application routing and layout
-│   ├── index.css         # Global styles and Tailwind imports
-│   └── main.tsx          # Application entry point
-├── wasmer.toml           # Wasmer Edge deployment configuration
-├── package.json          # Project dependencies and scripts
+│   ├── components/       # UI Components (MeteorBackground, TrustBar, MeteorCards, etc.)
+│   ├── lib/              # Utility libraries (supabase.ts, utils.ts, charts.ts)
+│   ├── pages/            
+│   │   ├── Home.tsx      # Leadership philosophy & Career mapping
+│   │   ├── Impact.tsx    # Interactive metrics & "Value Delivery Engine"
+│   │   ├── Insights.tsx  # Thought leadership blog & Newsletter
+│   │   ├── Research.tsx  # Industrial whitepapers & Reports
+│   │   ├── About.tsx     # Leadership bio & Core values
+│   │   └── Contact.tsx   # Direct inquiry portal
+│   ├── index.css         # Tailwind 4.0 Core & Global animations
+│   └── main.tsx          # App entry point
+├── wasmer.toml           # Global Edge deployment config
 └── DOCUMENTATION.md      # This file
 ```
 
-## 4. Supporting Libraries
-- **React 19**: UI library.
-- **React Router Dom**: Client-side routing.
-- **Supabase JS**: Client for interacting with Supabase database and functions.
-- **Lucide React**: Icon library.
-- **Motion**: Animation engine.
-- **EmailJS**: Client-side email service.
-- **Tailwind CSS**: Utility-first CSS framework.
+## 4. Design & Animation System
+The website employs a **Storytelling-Driven Motion System** to communicate complex industrial value:
+- **Progressive Disclosure**: Content unfolds sequentially as the user scrolls, preventing information overload.
+- **Directional Logic**: In the "Value Delivery" section, internal transformation (Employer) animates from the Left, while market impact (Customer) animates from the Right.
+- **Viewport-Aware Metrics**: KPI numbers use a spring-based "CountUp" effect that triggers only when they enter the user's viewport.
+- **Shimmer Effects**: Interactive elements (like the Core Value Engine) use background gradient shimmer keyframes to signify activity and status.
+- **Theme Variables**: Leverages Tailwind 4.0's theme block in `index.css` for consistent palette management (e.g., `accent`, `ui-navy`, `savings-emerald`).
 
 ## 5. External Platforms & API Keys
-The following platforms are required for full functionality. Keys are managed via environment variables (`.env` locally, GitHub Secrets for production).
+Keys are managed via environment variables (`.env` locally, Supabase Secrets for cloud functions).
 
-| Platform | Purpose | Required Keys |
+| Platform | Purpose | Key Variable |
 | :--- | :--- | :--- |
-| **Supabase** | Database & Edge Functions | `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY` |
+| **Supabase** | DB & Functions | `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY` |
 | **EmailJS** | Contact Form | `VITE_EMAILJS_SERVICE_ID`, `VITE_EMAILJS_TEMPLATE_ID`, `VITE_EMAILJS_PUBLIC_KEY` |
-| **MailerLite** | Newsletter | `MAILERLITE_API_KEY` (Stored in Supabase Secrets) |
-| **Wasmer** | Hosting | `WASMER_TOKEN` (Stored in GitHub Secrets) |
+| **MailerLite**| Newsletter | `MAILERLITE_API_KEY` (Stored in Supabase Edge Secrets) |
+| **Wasmer** | Hosting | `WASMER_TOKEN` (Managed via GitHub Actions) |
 
 ## 6. Features & Functions
-- **Dynamic Insights Feed**: Fetches blog posts from Supabase with category filtering and search.
-- **Newsletter Subscription**: Integrated with MailerLite via Supabase Edge Functions.
-- **Automated Welcome Email**: Triggered via MailerLite workflows when a user joins the "Website Insights" group.
-- **Contact Form**: Direct email delivery via EmailJS.
-- **Responsive Design**: Optimized for mobile, tablet, and desktop.
-- **Interactive Metrics**: Animated counters for professional impact stats.
+- **Value Delivery Engine**: A visual map connecting Strategy, Systems, and Execution to measurable KPIs.
+- **Research Repository**: A dedicated portal for industry reports and proprietary whitepapers managed via Supabase.
+- **Dynamic Insights Feed**: Full blog functionality with search, category filtering, and featured articles.
+- **Cross-Side Hover Synchronization**: Visual linking of internal capabilities to external results via synchronized UI state.
+- **Newsletter Subscription**: Real-time validation and automation through MailerLite groups.
 
-## 7. Major Troubleshooting
-### Issue: "Failed to fetch" on Subscription
-- **Cause**: Missing or incorrect GitHub Secrets during the build process, or CORS issues in Edge Functions.
-- **Solution**: 
-  1. Verified GitHub Secrets match `VITE_` prefix.
-  2. Updated Edge Function to include proper CORS headers.
-  3. Added fallback URLs in `supabase.ts` for build resilience.
+## 7. Major Troubleshooting & History
+### Issue: Animation Logic Leak (Shadow Updates)
+- **Fix**: Implemented strict `Variants` types and `any` casting for complex stagger logic to satisfy linter constraints while maintaining visual flow.
+
+### Issue: Low Contrast on Floating Labels
+- **Fix**: Redesigned the "Core Value Engine" label with high-contrast pure white iconography against a deep navy (`ui-navy`) background.
 
 ### Issue: Welcome Email Not Triggering
-- **Cause**: MailerLite automations require a subscriber to join a *specific group* to trigger, but the initial API call only added them to the general list.
-- **Solution**: Updated the Edge Function to use the group-specific endpoint: `https://api.mailerlite.com/api/v2/groups/{group_id}/subscribers`.
+- **Fix**: Updated Edge Function to target MailerLite Group endpoints specifically to trigger automated onboarding workflows.
 
-## 8. Hosting & Deployment
-- **Source Control**: GitHub.
-- **CI/CD**: GitHub Actions (`deploy.yml`) triggers on every push to `main`.
-- **Hosting**: **Wasmer Edge**. The build process generates a static `dist` folder which is then deployed to Wasmer's global edge network.
-
-## 9. Maintenance & Future Updates
-- **Content Management**: New posts and categories can be added directly via the Supabase Dashboard.
-- **RSS Feed**: An RSS feed is available at `/functions/v1/rss-feed` for integration with MailerLite campaigns.
-- **Dependencies**: Regularly run `npm update` to keep libraries secure.
+## 8. Maintenance
+- **Domain Migration**: When changing domains, verify the new domain in MailerLite (DNS verification) and update the `APP_URL` in project secrets.
+- **Database Schema**: Reference `SUPABASE_SCHEMA.sql` for table structures (subscribers, posts, reports, impact_projects).
+- **Metric Refinement**: Value formatting logic is centralized near the top of the `Impact.tsx` page using the `formatCurrency` helper.
 - **Backups**: Supabase provides automatic daily backups of the PostgreSQL database.
+- **Development**: Run `npm run dev` to start the local development server on port 3000.
