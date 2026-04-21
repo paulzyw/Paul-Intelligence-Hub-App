@@ -153,7 +153,7 @@ export function ImpactTeaser() {
 
             <div className="flex flex-col items-center text-center">
               <p className="text-sm text-text-hero-secondary/70 italic mb-8 max-w-lg">
-                &quot;This dashboard contains protected performance data from tenures at Alstom, Hamon, and AspenTech.&quot;
+                &quot;This dashboard contains protected performance data from served companies.&quot;
               </p>
               
               <Link to="/impact" className="group relative">
@@ -166,7 +166,7 @@ export function ImpactTeaser() {
               </Link>
               
               <p className="mt-4 text-[10px] text-text-hero-secondary/50 uppercase tracking-[0.2em]">
-                Access is granted to verified recruiters and strategic partners via the Contact page.
+                Access is granted to verified visitors and strategic partners via the Contact page.
               </p>
             </div>
           </div>
