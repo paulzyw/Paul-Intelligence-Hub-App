@@ -163,7 +163,7 @@ export function Home() {
             </div>
             <div className="flex flex-col">
               <span className="text-3xl font-bold text-text-hero-primary">
-                <Counter value={1.1} prefix="$" suffix="B" decimals={1} />
+                <Counter value={1.3} prefix="$" suffix="B" decimals={1} />
               </span>
               <span className="text-sm text-text-hero-secondary mt-1 uppercase tracking-wider">Delivered Revenue</span>
             </div>
