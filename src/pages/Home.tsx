@@ -4,6 +4,7 @@ import { Link } from 'react-router-dom';
 import { Database, Lightbulb, Target, Settings, TrendingUp, Users, HeartHandshake, Briefcase, Zap, RefreshCw, ArrowRight, FileText, BarChart3, Calendar, Leaf, Gauge, Network, FlaskConical, HelpCircle } from 'lucide-react';
 import { MeteorBackground } from '../components/MeteorBackground';
 import { TrustBar } from '../components/TrustBar';
+import { ImpactTeaser } from '../components/ImpactTeaser';
 import { supabase, type Post, type ResearchReport } from '../lib/supabase';
 
 function Counter({ value, duration = 2, prefix = '', suffix = '', decimals = 0 }: { value: number, duration?: number, prefix?: string, suffix?: string, decimals?: number }) {
@@ -405,6 +406,9 @@ export function Home() {
         </div>
       </section>
 
+      {/* STRATEGIC IMPACT TEASER */}
+      <ImpactTeaser />
+
       {/* INDUSTRIES MARQUEE */}
       <section className="py-12 bg-bg-surface text-text-primary overflow-hidden border-y border-border transition-colors duration-400">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
@@ -420,6 +424,7 @@ export function Home() {
             <span>Manufacturing</span>
             <span className="text-accent">•</span>
             <span>Technology / Software / SaaS</span>
+            <span className="text-accent">•</span>
           </div>
         </div>
       </section>
