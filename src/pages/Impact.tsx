@@ -248,6 +248,61 @@ function ImpactGate({ onAuthorized }: { onAuthorized: () => void }) {
 // ===============================================================
 // 2. DASHBOARD DATA LAYER
 // ===============================================================
+// 1.5 CUSTOM TOOLTIP FOR TIMELINE
+// ===============================================================
+const CustomTimelineTooltip = ({ active, payload, label }: any) => {
+  if (active && payload && payload.length) {
+    const data = payload[0].payload;
+    return (
+      <div className="bg-white p-4 rounded-xl shadow-2xl border border-slate-100 min-w-[220px]">
+        <p className="text-ui-navy font-bold text-lg mb-2 border-b border-slate-100 pb-2">{label}</p>
+        <div className="space-y-3">
+          {payload.map((entry: any, index: number) => {
+            // Handle Total Cumulative separately (it's always there if payload is present)
+            if (entry.dataKey === 'totalCumulative') {
+              return (
+                <div key={`tooltip-total-${index}`} className="flex justify-between items-center gap-4 text-xs font-bold pt-2 mt-2 border-t border-slate-100">
+                  <span className="text-slate-600 uppercase tracking-tight">Total Portfolio Impact:</span>
+                  <span className="text-slate-600 font-black">{entry.value.toFixed(1)} M$</span>
+                </div>
+              );
+            }
+            
+            // Check if it's one of the stacked company bars
+            const companyName = entry.dataKey;
+            const companyValue = entry.value;
+            const companyCumulative = data[`${companyName}Cumulative`];
+            
+            if (companyCumulative !== undefined) {
+              return (
+                <div key={`tooltip-company-${index}`} className="space-y-1">
+                  <div className="flex justify-between items-baseline gap-4">
+                    <div className="flex items-center gap-2">
+                      <div className="w-2 h-2 rounded-full" style={{ backgroundColor: entry.color }}></div>
+                      <span className="text-ui-navy font-bold text-sm">{companyName}:</span>
+                    </div>
+                    <span className="font-mono font-bold text-sm text-ui-navy">{companyValue.toFixed(1)} M$</span>
+                  </div>
+                  <div className="flex justify-between items-baseline gap-4 pl-4">
+                    <span className="text-[10px] text-slate-600 uppercase tracking-widest font-medium">Phase Cumulative:</span>
+                    <span className="text-[10px] font-bold text-slate-600">{companyCumulative.toFixed(1)} M$</span>
+                  </div>
+                </div>
+              );
+            }
+            
+            return null; // Don't show redundant Area entries
+          })}
+        </div>
+      </div>
+    );
+  }
+  return null;
+};
+
+// ===============================================================
+// 2. DASHBOARD CONTAINER
+// ===============================================================
 function ImpactDashboardContainer() {
   const [projects, setProjects] = useState<ImpactProject[]>([]);
   const [timeline, setTimeline] = useState<RevenueTimelineEntry[]>([]);
@@ -402,13 +457,25 @@ function ImpactDashboardUI({ projects, timeline }: { projects: ImpactProject[], 
 
   const timelineChartData = useMemo(() => {
     const years = [...new Set(timeline.map(t => t.year))].sort();
-    let cumulative = 0;
+    let totalCumulative = 0;
+    const companyCumulatives: Record<string, number> = {};
+    
     return years.map(year => {
       const yearEntries = timeline.filter(t => t.year === year);
       const yearRevenue = yearEntries.reduce((sum, t) => sum + t.revenueM, 0);
-      cumulative += yearRevenue;
-      const item: any = { year, cumulative: cumulative / 1000000 };
-      yearEntries.forEach(entry => { item[entry.company] = entry.revenueM / 1000000; });
+      totalCumulative += yearRevenue;
+      
+      const item: any = { 
+        year, 
+        totalCumulative: totalCumulative / 1000000 
+      };
+      
+      yearEntries.forEach(entry => {
+        companyCumulatives[entry.company] = (companyCumulatives[entry.company] || 0) + entry.revenueM;
+        item[entry.company] = entry.revenueM / 1000000;
+        item[`${entry.company}Cumulative`] = companyCumulatives[entry.company] / 1000000;
+      });
+      
       return item;
     });
   }, [timeline]);
@@ -606,7 +673,17 @@ function ImpactDashboardUI({ projects, timeline }: { projects: ImpactProject[], 
                       <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E2E8F0" opacity={0.5} />
                       <XAxis dataKey="projectName" hide />
                       <YAxis style={{ fontSize: '10px' }} />
-                      <Tooltip contentStyle={{ borderRadius: '8px', border: 'none' }} />
+                      <Tooltip 
+                        contentStyle={{ 
+                          borderRadius: '12px', 
+                          border: 'none', 
+                          boxShadow: '0 10px 25px rgba(0,0,0,0.1)', 
+                          backgroundColor: '#ffffff',
+                          color: '#051c2c'
+                        }} 
+                        itemStyle={{ color: '#051c2c', fontSize: '12px' }}
+                        labelStyle={{ color: '#051c2c', fontWeight: 'bold', marginBottom: '4px' }}
+                      />
                       <Bar dataKey="co2Reduction" fill={PALETTE.co2Green} radius={[4, 4, 0, 0]} barSize={40} />
                     </BarChart>
                   </ResponsiveContainer>
@@ -654,12 +731,12 @@ function ImpactDashboardUI({ projects, timeline }: { projects: ImpactProject[], 
                 <XAxis dataKey="year" axisLine={false} tickLine={false} style={{ fontSize: '12px', fontWeight: 'bold' }} />
                 <YAxis yAxisId="left" axisLine={false} tickLine={false} style={{ fontSize: '10px' }} />
                 <YAxis yAxisId="right" orientation="right" axisLine={false} tickLine={false} style={{ fontSize: '10px' }} />
-                <Tooltip contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 25px rgba(0,0,0,0.1)', backgroundColor: '#ffffff' }} labelStyle={{ fontWeight: 'bold', marginBottom: '8px', color: '#051c2c' }} formatter={(value: number, name: string) => [`${value.toFixed(1)} M$`, name]} />
-                <Area yAxisId="right" type="monotone" dataKey="cumulative" stroke={PALETTE.profitGold} fillOpacity={1} fill="url(#colorCumulative)" />
+                <Tooltip content={<CustomTimelineTooltip />} />
+                <Area yAxisId="right" type="monotone" dataKey="totalCumulative" stroke={PALETTE.profitGold} fillOpacity={1} fill="url(#colorCumulative)" tooltipType="none" />
                 <Bar yAxisId="left" dataKey="Alstom" stackId="a" fill={PALETTE.uiNavy} />
                 <Bar yAxisId="left" dataKey="Hamon" stackId="a" fill={PALETTE.uiDeepBlue} />
                 <Bar yAxisId="left" dataKey="AspenTech" stackId="a" fill={PALETTE.profitGold} />
-                <Line yAxisId="right" type="monotone" dataKey="cumulative" stroke={PALETTE.profitGold} strokeWidth={3} dot={{ r: 4, fill: '#fff', strokeWidth: 2 }} />
+                <Line yAxisId="right" type="monotone" dataKey="totalCumulative" stroke={PALETTE.profitGold} strokeWidth={3} dot={{ r: 4, fill: '#fff', strokeWidth: 2 }} />
               </ComposedChart>
             </ResponsiveContainer>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-8">

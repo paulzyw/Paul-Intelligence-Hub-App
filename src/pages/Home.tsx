@@ -37,6 +37,13 @@ export function Home() {
   const [loadingPosts, setLoadingPosts] = useState(true);
   const [latestReports, setLatestReports] = useState<ResearchReport[]>([]);
   const [loadingReports, setLoadingReports] = useState(true);
+  const [metrics, setMetrics] = useState({
+    revenue: 1.3,
+    revenueSuffix: 'B',
+    revenueDecimals: 1,
+    opex: 855,
+    co2: 10
+  });
 
   useEffect(() => {
     async function fetchLatestPosts() {
@@ -76,8 +83,46 @@ export function Home() {
       }
     }
 
+    async function fetchProjectMetrics() {
+      try {
+        const res = await fetch('/impact-master-table.json');
+        if (!res.ok) return;
+        const projects = await res.json();
+        if (!Array.isArray(projects)) return;
+
+        const totalRevenue = projects.reduce((sum, p) => sum + (p.revenue || 0), 0);
+        const totalSavings = projects.reduce((sum, p) => sum + (p.costSaving || 0), 0);
+        const totalProfit = projects.reduce((sum, p) => sum + (p.profitGenerated || 0), 0);
+        const totalCO2 = projects.reduce((sum, p) => sum + (p.co2Reduction || 0), 0);
+
+        // Revenue: Check if it's Billions or Millions
+        let revenueVal = totalRevenue;
+        let revenueSuffix = 'M';
+        let revenueDecimals = 0;
+        
+        if (totalRevenue >= 1000000000) {
+          revenueVal = totalRevenue / 1000000000;
+          revenueSuffix = 'B';
+          revenueDecimals = 1;
+        } else {
+          revenueVal = totalRevenue / 1000000;
+        }
+
+        setMetrics({
+          revenue: revenueVal,
+          revenueSuffix,
+          revenueDecimals,
+          opex: Math.round((totalSavings + totalProfit) / 1000000), // Integer M$
+          co2: Math.round(totalCO2 / 1000000) // Integer M Ton
+        });
+      } catch (err) {
+        console.error('Error fetching project metrics:', err);
+      }
+    }
+
     fetchLatestPosts();
     fetchLatestReports();
+    fetchProjectMetrics();
   }, []);
 
   return (
@@ -163,19 +208,19 @@ export function Home() {
             </div>
             <div className="flex flex-col">
               <span className="text-3xl font-bold text-text-hero-primary">
-                <Counter value={1.3} prefix="$" suffix="B" decimals={1} />
+                <Counter value={metrics.revenue} prefix="$" suffix={metrics.revenueSuffix} decimals={metrics.revenueDecimals} />
               </span>
               <span className="text-sm text-text-hero-secondary mt-1 uppercase tracking-wider">Delivered Revenue</span>
             </div>
             <div className="flex flex-col">
               <span className="text-3xl font-bold text-text-hero-primary">
-                <Counter value={855} prefix="$" suffix="M" />
+                <Counter value={metrics.opex} prefix="$" suffix="M" decimals={0} />
               </span>
               <span className="text-sm text-text-hero-secondary mt-1 uppercase tracking-wider">OpEx Saved</span>
             </div>
             <div className="flex flex-col col-span-2 md:col-span-1 pt-6 md:pt-0">
               <span className="text-3xl font-bold text-text-hero-primary">
-                <Counter value={10} suffix="M Ton" />
+                <Counter value={metrics.co2} suffix="M Ton" decimals={0} />
               </span>
               <span className="text-sm text-text-hero-secondary mt-1 uppercase tracking-wider">CO2 Reduced</span>
             </div>
