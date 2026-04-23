@@ -34,7 +34,7 @@ serve(async (req) => {
         'Authorization': `Bearer ${RESEND_API_KEY}`,
       },
       body: JSON.stringify({
-        from: 'Portfolio Alerts <alerts@updates.paulwang.me>', // Update with verified domain
+        from: 'onboarding@resend.dev', // Default sender for testing/self-notifications
         to: OWNER_EMAIL,
         subject: `[Portfolio Alert] ${isUnlock ? '🔓 UNLOCK' : 'Visit'} from ${record.city || 'Unknown'}, ${record.country || 'Unknown'}`,
         html: `
