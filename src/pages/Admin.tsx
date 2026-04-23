@@ -94,6 +94,7 @@ const AccessCodeGenerator = () => {
 import { Editor } from '@tinymce/tinymce-react';
 import { ReportTypeManager } from '../components/ReportTypeManager';
 import { ResearchManager } from '../components/ResearchManager';
+import { TrafficMonitor } from '../components/TrafficMonitor';
 
 const TinyMCEEditor = ({ content, onChange }: { content: string, onChange: (content: string) => void }) => {
   return (
@@ -495,6 +496,7 @@ export function Admin() {
 
         {!isEditing && (
           <>
+            <TrafficMonitor />
             <AccessCodeGenerator />
             <CategoryManager categories={categories} fetchCategories={fetchCategories} />
             <ReportTypeManager reportTypes={reportTypes} fetchReportTypes={fetchReportTypes} />

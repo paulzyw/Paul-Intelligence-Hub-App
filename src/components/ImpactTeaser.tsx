@@ -31,12 +31,12 @@ export function ImpactTeaser() {
       try {
         const response = await fetch('/impact-master-table.json');
         if (!response.ok) throw new Error('Data source unreachable');
-        const projects: ImpactProject[] = await response.json();
+        const projects: any[] = await response.json();
         
         const totals = projects.reduce((acc, p) => ({
-          revenue: acc.revenue + (p.revenue || 0),
-          savings: acc.savings + (p.costSaving || 0),
-          co2: acc.co2 + (p.co2Reduction || 0)
+          revenue: acc.revenue + (Number(p.revenue) || 0),
+          savings: acc.savings + (Number(p.costSaving) || 0),
+          co2: acc.co2 + (Number(p.co2Reduction) || 0)
         }), { revenue: 0, savings: 0, co2: 0 });
 
         setData(totals);

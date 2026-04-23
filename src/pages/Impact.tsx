@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { Link } from 'react-router-dom';
+import { logUnlockEvent } from '../hooks/useTrafficTracking';
 
 // Static Value Palette
 const PALETTE = {
@@ -117,6 +118,7 @@ function ImpactGate({ onAuthorized }: { onAuthorized: () => void }) {
       const newCount = clickCount + 1;
       setClickCount(newCount);
       if (newCount === 5) {
+        logUnlockEvent('/impact');
         onAuthorized();
       }
     } else {
@@ -138,6 +140,7 @@ function ImpactGate({ onAuthorized }: { onAuthorized: () => void }) {
         .maybeSingle();
         
       if (data) {
+        logUnlockEvent('/impact');
         onAuthorized();
       } else {
         const newAttempts = failedAttempts + 1;
