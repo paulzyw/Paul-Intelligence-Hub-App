@@ -152,7 +152,7 @@ export function TrafficMonitor() {
               <div>
                 <div className="text-sm text-text-secondary">Top Source</div>
                 <div className="text-2xl font-black text-text-primary">
-                  {stats?.sources?.sort((a: any, b: any) => b.count - a.count)[0]?.source || 'None'}
+                  {stats?.sources?.slice().sort((a: any, b: any) => b.count - a.count)[0]?.source || 'None'}
                 </div>
               </div>
               <div className="absolute top-0 right-0 p-2 opacity-5">
@@ -257,22 +257,25 @@ export function TrafficMonitor() {
                      </tr>
                    </thead>
                    <tbody>
-                     {(stats?.top_cities || []).map((city: any, i: number) => (
-                       <tr key={i} className="border-b border-border/50 last:border-0 hover:bg-white/5 transition-colors">
-                         <td className="p-3 font-medium text-text-primary">
-                           {city.city || 'Private Location'}, {city.country}
-                         </td>
-                         <td className="p-3">
-                            <div className="w-full bg-bg-surface h-1 rounded-full overflow-hidden max-w-[100px]">
-                               <div 
-                                 className="bg-accent h-full" 
-                                 style={{ width: `${(city.visit_count / stats.top_cities[0].visit_count) * 100}%` }}
-                               ></div>
-                            </div>
-                         </td>
-                         <td className="p-3 text-right font-mono text-xs">{city.visit_count}</td>
-                       </tr>
-                     ))}
+                     {(stats?.top_cities || []).map((city: any, i: number) => {
+                       const maxVisits = stats?.top_cities?.[0]?.visit_count || 1;
+                       return (
+                         <tr key={i} className="border-b border-border/50 last:border-0 hover:bg-white/5 transition-colors">
+                           <td className="p-3 font-medium text-text-primary">
+                             {city.city || 'Private Location'}, {city.country}
+                           </td>
+                           <td className="p-3">
+                              <div className="w-full bg-bg-surface h-1 rounded-full overflow-hidden max-w-[100px]">
+                                 <div 
+                                   className="bg-accent h-full" 
+                                   style={{ width: `${(city.visit_count / maxVisits) * 100}%` }}
+                                 ></div>
+                              </div>
+                           </td>
+                           <td className="p-3 text-right font-mono text-xs">{city.visit_count}</td>
+                         </tr>
+                       );
+                     })}
                    </tbody>
                  </table>
                </div>

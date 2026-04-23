@@ -563,7 +563,7 @@ function ImpactDashboardUI({ projects, timeline }: { projects: ImpactProject[], 
                       />
                       <Bar dataKey="value" radius={[0, 4, 4, 0]} barSize={45}>
                         {revenueByCompany.map((entry, idx) => (
-                           <Cell key={`revenue-cell-${entry.name}-${idx}`} fill={entry.name === revenueByCompany[0].name ? PALETTE.profitGold : PALETTE.uiDeepBlue} />
+                           <Cell key={`revenue-cell-${entry.name}-${idx}`} fill={idx === 0 ? PALETTE.profitGold : PALETTE.uiDeepBlue} />
                         ))}
                       </Bar>
                     </BarChart>
@@ -779,11 +779,19 @@ function ImpactDashboardUI({ projects, timeline }: { projects: ImpactProject[], 
 // ===============================================================
 export function Impact() {
   const [isAuthorized, setIsAuthorized] = useState(() => {
-    return sessionStorage.getItem('impact_authorized') === 'true';
+    try {
+      return sessionStorage.getItem('impact_authorized') === 'true';
+    } catch (e) {
+      return false;
+    }
   });
 
   const handleAuthorized = () => {
-    sessionStorage.setItem('impact_authorized', 'true');
+    try {
+      sessionStorage.setItem('impact_authorized', 'true');
+    } catch (e) {
+      console.warn('SessionStorage blocked.');
+    }
     setIsAuthorized(true);
   };
 
