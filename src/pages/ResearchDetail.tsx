@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { motion } from 'motion/react';
 import { supabase, type ResearchReport } from '../lib/supabase';
+import { safeSupabaseQuery } from '../lib/fetchData';
 import { ArrowLeft, Calendar, FileText, BarChart3, Leaf, Gauge, Network, FlaskConical, HelpCircle, Share2, Download, ZoomIn, ZoomOut, Maximize2 } from 'lucide-react';
 
 const ICON_MAP: Record<string, any> = {
@@ -26,18 +27,22 @@ export function ResearchDetail() {
 
   useEffect(() => {
     async function fetchReport() {
+      if (!slug) return;
+      setLoading(true);
       try {
-        const { data, error } = await supabase
-          .from('research_reports')
-          .select('*, report_types(*)')
-          .eq('slug', slug)
-          .single();
+        const { data, error } = await safeSupabaseQuery<ResearchReport>(() =>
+          supabase
+            .from('research_reports')
+            .select('*, report_types(*)')
+            .eq('slug', slug)
+            .single()
+        );
         
         if (error) throw error;
         setReport(data);
 
         // Get public URL for the HTML report
-        if (data.report_html_path) {
+        if (data && data.report_html_path) {
           const { data: urlData } = supabase.storage
             .from('research-reports')
             .getPublicUrl(data.report_html_path);
@@ -63,6 +68,38 @@ export function ResearchDetail() {
     }
     fetchReport();
   }, [slug]);
+
+  useEffect(() => {
+    // Add copy buttons to code blocks
+    if (!loading && report) {
+      const timer = setTimeout(() => {
+        const blocks = document.querySelectorAll('pre');
+        blocks.forEach((block) => {
+          if (block.parentElement?.classList.contains('code-block-wrapper')) return;
+          const wrapper = document.createElement('div');
+          wrapper.className = 'code-block-wrapper';
+          block.parentNode?.insertBefore(wrapper, block);
+          wrapper.appendChild(block);
+          const button = document.createElement('button');
+          button.className = 'copy-code-btn';
+          button.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-copy"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>';
+          button.addEventListener('click', () => {
+            const code = block.querySelector('code')?.innerText || block.innerText;
+            navigator.clipboard.writeText(code).then(() => {
+              button.classList.add('copied');
+              button.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-check text-green-500"><path d="M20 6 9 17l-5-5"/></svg>';
+              setTimeout(() => {
+                button.classList.remove('copied');
+                button.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-copy"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>';
+              }, 2000);
+            });
+          });
+          wrapper.appendChild(button);
+        });
+      }, 500);
+      return () => clearTimeout(timer);
+    }
+  }, [loading, report]);
 
   if (loading) {
     return (

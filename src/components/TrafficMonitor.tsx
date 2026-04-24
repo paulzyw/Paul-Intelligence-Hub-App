@@ -247,7 +247,7 @@ export function TrafficMonitor() {
                <div className="p-4 bg-bg-surface border-b border-border font-bold text-xs uppercase tracking-widest flex items-center gap-2">
                  <MapPin size={14} className="text-accent" /> Top Geographic Origins
                </div>
-               <div className="overflow-x-auto">
+               <div className="h-[300px] overflow-y-auto custom-scrollbar">
                  <table className="w-full text-left text-sm">
                    <thead>
                      <tr className="border-b border-border text-text-secondary">

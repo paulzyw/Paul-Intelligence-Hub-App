@@ -6,6 +6,7 @@ import { MeteorBackground } from '../components/MeteorBackground';
 import { TrustBar } from '../components/TrustBar';
 import { ImpactTeaser } from '../components/ImpactTeaser';
 import { supabase, type Post, type ResearchReport } from '../lib/supabase';
+import { safeFetch, safeSupabaseQuery } from '../lib/fetchData';
 
 function Counter({ value, duration = 2, prefix = '', suffix = '', decimals = 0 }: { value: number, duration?: number, prefix?: string, suffix?: string, decimals?: number }) {
   const [displayValue, setDisplayValue] = useState(0);
@@ -35,8 +36,10 @@ function Counter({ value, duration = 2, prefix = '', suffix = '', decimals = 0 }
 export function Home() {
   const [latestPosts, setLatestPosts] = useState<Post[]>([]);
   const [loadingPosts, setLoadingPosts] = useState(true);
+  const [errorPosts, setErrorPosts] = useState<string | null>(null);
   const [latestReports, setLatestReports] = useState<ResearchReport[]>([]);
   const [loadingReports, setLoadingReports] = useState(true);
+  const [errorReports, setErrorReports] = useState<string | null>(null);
   const [metrics, setMetrics] = useState({
     revenue: 1.3,
     revenueSuffix: 'B',
@@ -47,37 +50,55 @@ export function Home() {
 
   useEffect(() => {
     async function fetchLatestPosts() {
+      setLoadingPosts(true);
+      setErrorPosts(null);
       try {
-        const { data, error } = await supabase
-          .from('posts')
-          .select('*')
-          .order('created_at', { ascending: false })
-          .limit(3);
+        const { data, error } = await safeSupabaseQuery<Post[]>(() => 
+          supabase
+            .from('posts')
+            .select('*')
+            .order('created_at', { ascending: false })
+            .limit(3)
+        );
         
-        if (!error && data) {
-          setLatestPosts(data);
+        if (error) {
+          console.error('Supabase error fetching posts:', error);
+          setErrorPosts(error.message || 'Failed to fetch posts');
+        } else {
+          console.log('Fetched posts:', data?.length);
+          setLatestPosts(data || []);
         }
       } catch (err) {
-        console.error('Error fetching latest posts:', err);
+        console.error('Catch error fetching latest posts:', err);
+        setErrorPosts('An unexpected error occurred while fetching posts');
       } finally {
         setLoadingPosts(false);
       }
     }
 
     async function fetchLatestReports() {
+      setLoadingReports(true);
+      setErrorReports(null);
       try {
-        const { data, error } = await supabase
-          .from('research_reports')
-          .select('*, report_types(*)')
-          .eq('status', 'published')
-          .order('published_at', { ascending: false })
-          .limit(3);
+        const { data, error } = await safeSupabaseQuery<ResearchReport[]>(() =>
+          supabase
+            .from('research_reports')
+            .select('*, report_types(*)')
+            .eq('status', 'published')
+            .order('created_at', { ascending: false })
+            .limit(3)
+        );
         
-        if (!error && data) {
-          setLatestReports(data);
+        if (error) {
+          console.error('Supabase error fetching reports:', error);
+          setErrorReports(error.message || 'Failed to fetch research reports');
+        } else {
+          console.log('Fetched reports:', data?.length);
+          setLatestReports(data || []);
         }
       } catch (err) {
-        console.error('Error fetching latest reports:', err);
+        console.error('Catch error fetching latest reports:', err);
+        setErrorReports('An unexpected error occurred while fetching research reports');
       } finally {
         setLoadingReports(false);
       }
@@ -85,9 +106,7 @@ export function Home() {
 
     async function fetchProjectMetrics() {
       try {
-        const res = await fetch('/impact-master-table.json');
-        if (!res.ok) return;
-        const projects = await res.json();
+        const projects = await safeFetch('/impact-master-table.json');
         if (!Array.isArray(projects)) return;
 
         const totalRevenue = projects.reduce((sum, p) => sum + (p.revenue || 0), 0);
@@ -501,33 +520,42 @@ export function Home() {
                   </div>
                 </div>
               ))
+            ) : errorPosts ? (
+              <div className="col-span-3 text-center text-red-500 py-12 border border-border rounded-xl bg-red-500/5">
+                <p className="font-bold">Error loading posts</p>
+                <p className="text-sm opacity-80">{errorPosts}</p>
+                <p className="text-xs mt-4 text-text-secondary">Please check your Supabase configuration in AI Studio settings.</p>
+              </div>
             ) : latestPosts.length > 0 ? (
               latestPosts.map((post) => (
                 <Link 
                   to={`/post/${post.slug}`} 
                   key={post.id} 
-                  className="group cursor-pointer flex flex-col h-full bg-bg-surface border border-border rounded-xl overflow-hidden hover:border-accent hover:shadow-[0_0_25px_rgba(237,137,54,0.15)] transition-all duration-500 hover:-translate-y-1"
+                  className="group cursor-pointer flex flex-col h-full bg-bg-surface border border-border rounded-xl overflow-hidden hover:border-accent hover:shadow-[0_0_25px_rgba(0,163,224,0.15)] transition-all duration-500 hover:-translate-y-1"
                 >
-                  <div className="relative h-48 overflow-hidden">
+                  <div className="relative h-48 overflow-hidden bg-bg-primary/30">
                     <img 
-                      src={post.thumbnail_url} 
+                      src={post.thumbnail_url || 'https://images.unsplash.com/photo-1460925895917-afdab827c52f?q=80&w=2426&auto=format&fit=crop'} 
                       alt={post.title} 
                       className="w-full h-full object-cover scale-100 group-hover:scale-110 transition-transform duration-700 ease-out will-change-transform"
                       referrerPolicy="no-referrer"
+                      onError={(e) => {
+                        (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1460925895917-afdab827c52f?q=80&w=2426&auto=format&fit=crop';
+                      }}
                     />
                     <div className="absolute top-4 left-4 bg-obsidian/90 border border-accent text-ivory text-xs font-bold px-3 py-1 rounded-full">
                       {post.category || 'Uncategorized'}
                     </div>
                     <div className="absolute bottom-4 right-4 bg-obsidian/80 backdrop-blur text-ivory text-xs px-2 py-1 rounded flex items-center gap-1">
-                      {post.read_time} Min Read
+                      {post.read_time || 5} Min Read
                     </div>
                   </div>
                   <div className="p-6 flex flex-col flex-grow">
                     <h3 className="text-xl font-bold text-text-primary mb-3 line-clamp-2 group-hover:text-accent transition-colors">
-                      {post.title}
+                      {post.title || 'Untitled Post'}
                     </h3>
                     <p className="text-text-secondary text-sm mb-6 line-clamp-2 flex-grow">
-                      {post.summary}
+                      {post.summary || 'No summary available for this post.'}
                     </p>
                     <span className="text-accent font-medium text-sm flex items-center gap-1 group/link mt-auto">
                       Read Article <ArrowRight size={14} className="transition-transform group-hover/link:translate-x-1" />
@@ -536,8 +564,10 @@ export function Home() {
                 </Link>
               ))
             ) : (
-              <div className="col-span-3 text-center text-text-secondary py-12 border border-border rounded-xl">
-                No insights published yet. Check back soon.
+              <div className="col-span-3 text-center text-text-secondary py-12 border border-border rounded-xl bg-bg-surface/50">
+                <FileText size={48} className="mx-auto mb-4 opacity-10" />
+                <p className="font-semibold text-text-primary mb-2">No insights published yet</p>
+                <p className="text-sm">Please seed the database in the <Link to="/admin" className="text-accent hover:underline">Admin dashboard</Link> to see sample content.</p>
               </div>
             )}
           </div>
@@ -573,6 +603,11 @@ export function Home() {
               [1, 2, 3].map((i) => (
                 <div key={i} className="h-80 bg-bg-primary border border-border rounded-xl animate-pulse" />
               ))
+            ) : errorReports ? (
+              <div className="col-span-3 text-center text-red-500 py-12 border border-border rounded-xl bg-red-500/5">
+                <p className="font-bold">Error loading research</p>
+                <p className="text-sm opacity-80">{errorReports}</p>
+              </div>
             ) : latestReports.length > 0 ? (
               latestReports.map((report) => {
                 const ICON_MAP: Record<string, any> = { Leaf, Gauge, Network, FlaskConical, BarChart3 };
@@ -584,7 +619,7 @@ export function Home() {
                     key={report.id} 
                     className="group flex flex-col bg-bg-primary border border-border rounded-xl overflow-hidden hover:border-accent hover:shadow-[0_0_20px_rgba(0,163,224,0.08)] transition-all duration-500"
                   >
-                    <div className="p-6 flex flex-col h-full">
+                    <div className="p-6 flex flex-col h-full bg-bg-surface/30">
                       <div className="flex items-center justify-between mb-4">
                         <div className="p-2 bg-bg-surface rounded border border-border">
                           <IconComp size={16} className="text-accent" />
@@ -597,16 +632,16 @@ export function Home() {
                       </div>
                       
                       <h3 className="text-lg font-bold text-text-primary mb-3 group-hover:text-accent transition-colors line-clamp-2">
-                        {report.title}
+                        {report.title || 'Untitled Report'}
                       </h3>
                       
-                      <p className="text-xs text-text-secondary mb-6 line-clamp-3 leading-relaxed">
-                        {report.summary}
+                      <p className="text-xs text-text-secondary mb-6 line-clamp-3 leading-relaxed flex-grow">
+                        {report.summary || 'Analytical brief and research data analysis for this initiative.'}
                       </p>
                       
                       <div className="mt-auto pt-4 border-t border-border/50 flex items-center justify-between">
                         <span className="text-[9px] font-bold text-text-secondary uppercase tracking-widest">
-                          {report.report_types?.name || 'Report'}
+                          {report.report_types?.name || 'Technical Brief'}
                         </span>
                         <span className="text-[9px] text-text-secondary flex items-center gap-1">
                           <Calendar size={10} />
@@ -618,8 +653,10 @@ export function Home() {
                 );
               })
             ) : (
-              <div className="col-span-3 text-center text-text-secondary py-12 border border-border rounded-xl">
-                No research reports published yet.
+              <div className="col-span-3 text-center text-text-secondary py-12 border border-border rounded-xl bg-bg-surface/50">
+                <BarChart3 size={48} className="mx-auto mb-4 opacity-10" />
+                <p className="font-semibold text-text-primary mb-2">No research reports published yet</p>
+                <p className="text-sm">Check the <Link to="/admin" className="text-accent hover:underline">Admin dashboard</Link> to seed sample data.</p>
               </div>
             )}
           </div>

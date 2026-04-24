@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { motion } from 'motion/react';
 import { Link } from 'react-router-dom';
 import { supabase, type ResearchReport } from '../lib/supabase';
+import { safeSupabaseQuery } from '../lib/fetchData';
 import { BarChart3, FileText, ArrowRight, Leaf, Gauge, Network, FlaskConical, HelpCircle, Calendar } from 'lucide-react';
 import { cn } from '../lib/utils';
 
@@ -16,22 +17,32 @@ const ICON_MAP: Record<string, any> = {
 export function Research() {
   const [reports, setReports] = useState<ResearchReport[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const reportsPerPage = 6;
 
   useEffect(() => {
     async function fetchReports() {
+      setLoading(true);
+      setError(null);
       try {
-        const { data, error } = await supabase
-          .from('research_reports')
-          .select('*, report_types(*)')
-          .eq('status', 'published')
-          .order('published_at', { ascending: false });
+        const { data, error } = await safeSupabaseQuery<ResearchReport[]>(() =>
+          supabase
+            .from('research_reports')
+            .select('*, report_types(*)')
+            .eq('status', 'published')
+            .order('created_at', { ascending: false })
+        );
         
-        if (error) throw error;
-        setReports(data || []);
+        if (error) {
+          console.error('Supabase error fetching reports:', error);
+          setError(error.message || 'Failed to fetch research reports');
+        } else {
+          setReports(data || []);
+        }
       } catch (err) {
-        console.error('Error fetching research reports:', err);
+        console.error('Catch error fetching reports:', err);
+        setError('An unexpected error occurred while fetching reports');
       } finally {
         setLoading(false);
       }
@@ -74,10 +85,22 @@ export function Research() {
               <div key={i} className="bg-bg-surface border border-border rounded-xl h-96 animate-pulse" />
             ))}
           </div>
+        ) : error ? (
+          <div className="text-center py-24 bg-bg-surface border border-red-500/20 rounded-xl bg-red-500/5">
+            <h3 className="text-2xl font-bold text-red-500 mb-2">Error loading research</h3>
+            <p className="text-text-secondary">{error}</p>
+            <button 
+              onClick={() => window.location.reload()}
+              className="mt-6 px-6 py-2 bg-accent text-white rounded-md font-bold"
+            >
+              Retry
+            </button>
+          </div>
         ) : reports.length === 0 ? (
           <div className="text-center py-20 bg-bg-surface border border-border rounded-2xl">
             <FileText size={48} className="mx-auto text-text-secondary mb-4 opacity-20" />
-            <p className="text-text-secondary">No research reports published yet.</p>
+            <p className="font-semibold text-text-primary mb-2">No research reports published yet.</p>
+            <p className="text-sm text-text-secondary">Please check the <Link to="/admin" className="text-accent hover:underline">Admin dashboard</Link> to seed sample data.</p>
           </div>
         ) : (
           <>
@@ -95,19 +118,16 @@ export function Research() {
                   >
                     <Link to={`/research/${report.slug}`} className="flex flex-col h-full">
                       {/* Feature Image */}
-                      <div className="relative h-48 overflow-hidden bg-bg-primary">
-                        {report.feature_image_url ? (
-                          <img 
-                            src={report.feature_image_url} 
-                            alt={report.title}
-                            className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
-                            referrerPolicy="no-referrer"
-                          />
-                        ) : (
-                          <div className="w-full h-full flex items-center justify-center text-text-secondary/20">
-                            <FileText size={48} />
-                          </div>
-                        )}
+                      <div className="relative h-48 overflow-hidden bg-bg-primary/50">
+                        <img 
+                          src={report.feature_image_url || 'https://images.unsplash.com/photo-1551288049-bebda4e38f71?q=80&w=2070&auto=format&fit=crop'} 
+                          alt={report.title}
+                          className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
+                          referrerPolicy="no-referrer"
+                          onError={(e) => {
+                            (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1551288049-bebda4e38f71?q=80&w=2070&auto=format&fit=crop';
+                          }}
+                        />
                         
                         {/* Data Badge */}
                         {report.highlight_metric && (

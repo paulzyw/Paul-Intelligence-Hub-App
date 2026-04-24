@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { supabase, type Post } from '../lib/supabase';
+import { safeSupabaseQuery } from '../lib/fetchData';
 import { Clock, ArrowLeft, Calendar } from 'lucide-react';
 import { motion } from 'motion/react';
 import DOMPurify from 'dompurify';
@@ -14,12 +15,15 @@ export function PostDetail() {
   useEffect(() => {
     async function fetchPost() {
       if (!slug) return;
+      setLoading(true);
       try {
-        const { data, error } = await supabase
-          .from('posts')
-          .select('*')
-          .eq('slug', slug)
-          .single();
+        const { data, error } = await safeSupabaseQuery<Post>(() =>
+          supabase
+            .from('posts')
+            .select('*')
+            .eq('slug', slug)
+            .single()
+        );
         
         if (error) {
           console.error('Error fetching post:', error);
@@ -34,6 +38,49 @@ export function PostDetail() {
     }
     fetchPost();
   }, [slug]);
+
+  useEffect(() => {
+    // Add copy buttons to code blocks after content is rendered
+    if (!loading && post) {
+      const timer = setTimeout(() => {
+        const blocks = document.querySelectorAll('pre');
+        blocks.forEach((block) => {
+          if (block.parentElement?.classList.contains('code-block-wrapper')) return;
+          
+          // Wrap pre in div for positioning
+          const wrapper = document.createElement('div');
+          wrapper.className = 'code-block-wrapper';
+          block.parentNode?.insertBefore(wrapper, block);
+          
+          // Add header
+          const header = document.createElement('div');
+          header.className = 'code-block-header';
+          
+          // Add copy button
+          const button = document.createElement('button');
+          button.className = 'copy-code-btn';
+          button.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-copy"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg> <span>Copy</span>';
+          
+          button.addEventListener('click', () => {
+            const code = block.querySelector('code')?.innerText || block.innerText;
+            navigator.clipboard.writeText(code).then(() => {
+              button.classList.add('copied');
+              button.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-check text-green-500"><path d="M20 6 9 17l-5-5"/></svg> <span>Copied!</span>';
+              setTimeout(() => {
+                button.classList.remove('copied');
+                button.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-copy"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg> <span>Copy</span>';
+              }, 2000);
+            });
+          });
+          
+          header.appendChild(button);
+          wrapper.appendChild(header);
+          wrapper.appendChild(block);
+        });
+      }, 500); // Wait for DOM to be stable
+      return () => clearTimeout(timer);
+    }
+  }, [loading, post]);
 
   if (loading) {
     return (
@@ -117,12 +164,14 @@ export function PostDetail() {
         </div>
 
         {/* CONTENT */}
-        <div 
-          className="prose dark:prose-invert max-w-none mb-24 text-text-primary prose-p:mt-0 prose-p:mb-2 prose-p:text-lg prose-p:font-light prose-headings:text-text-primary prose-a:text-accent hover:prose-a:text-accent/80 prose-strong:font-medium prose-strong:text-text-primary prose-li:mt-0 prose-li:mb-0 transition-colors duration-400"
-          dangerouslySetInnerHTML={{ 
-            __html: DOMPurify.sanitize(post.content).replace(/<table/g, '<div class="overflow-x-auto w-full"><table').replace(/<\/table>/g, '</table></div>') 
-          }}
-        />
+        <div className="prose-content">
+          <div 
+            className="prose dark:prose-invert max-w-none mb-24 text-text-primary prose-p:mt-0 prose-p:mb-2 prose-p:text-lg prose-headings:text-text-primary prose-a:text-accent hover:prose-a:text-accent/80 prose-strong:text-text-primary prose-li:mt-0 prose-li:mb-0 transition-colors duration-400"
+            dangerouslySetInnerHTML={{ 
+              __html: DOMPurify.sanitize(post.content).replace(/<table/g, '<div class="overflow-x-auto w-full"><table').replace(/<\/table>/g, '</table></div>') 
+            }}
+          />
+        </div>
 
         {/* FOOTER / YOU MIGHT ALSO LIKE */}
         <footer className="border-t border-border pt-12">

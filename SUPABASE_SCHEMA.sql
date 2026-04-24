@@ -9,8 +9,61 @@ CREATE TABLE IF NOT EXISTS posts (
   read_time INTEGER NOT NULL,
   thumbnail_url TEXT NOT NULL,
   featured BOOLEAN DEFAULT false,
+  is_featured BOOLEAN DEFAULT false,
+  category_id UUID,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
 );
+
+-- Create Categories table
+CREATE TABLE IF NOT EXISTS categories (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  name TEXT NOT NULL UNIQUE,
+  slug TEXT NOT NULL UNIQUE,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
+);
+
+-- Create Report Types table
+CREATE TABLE IF NOT EXISTS report_types (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  name TEXT NOT NULL UNIQUE,
+  slug TEXT NOT NULL UNIQUE,
+  icon_name TEXT,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
+);
+
+-- Create Research Reports table
+CREATE TABLE IF NOT EXISTS research_reports (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  title TEXT NOT NULL,
+  slug TEXT NOT NULL UNIQUE,
+  summary TEXT NOT NULL,
+  feature_image_url TEXT,
+  report_html_path TEXT NOT NULL,
+  highlight_metric TEXT,
+  status TEXT DEFAULT 'published',
+  report_type_id UUID REFERENCES report_types(id),
+  published_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()),
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
+);
+
+-- Enable RLS
+ALTER TABLE categories ENABLE ROW LEVEL SECURITY;
+ALTER TABLE report_types ENABLE ROW LEVEL SECURITY;
+ALTER TABLE research_reports ENABLE ROW LEVEL SECURITY;
+
+-- Public Read Policies
+DO $$ 
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'Allow public read' AND tablename = 'categories') THEN
+        CREATE POLICY "Allow public read" ON categories FOR SELECT USING (true);
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'Allow public read' AND tablename = 'report_types') THEN
+        CREATE POLICY "Allow public read" ON report_types FOR SELECT USING (true);
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'Allow public read' AND tablename = 'research_reports') THEN
+        CREATE POLICY "Allow public read" ON research_reports FOR SELECT USING (true);
+    END IF;
+END $$;
 
 -- Enable Row Level Security (RLS)
 ALTER TABLE posts ENABLE ROW LEVEL SECURITY;

@@ -4,6 +4,7 @@ import { Search, ArrowRight, Clock, Award } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { motion } from 'motion/react';
 import { supabase, type Post, type Category } from '../lib/supabase';
+import { safeSupabaseQuery } from '../lib/fetchData';
 
 export function Insights() {
   const [activeCategory, setActiveCategory] = useState<string>('All');
@@ -11,6 +12,7 @@ export function Insights() {
   const [posts, setPosts] = useState<Post[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [subscribeEmail, setSubscribeEmail] = useState('');
   const [subscribeStatus, setSubscribeStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
@@ -75,26 +77,39 @@ export function Insights() {
 
   useEffect(() => {
     async function fetchData() {
+      setLoading(true);
+      setError(null);
       try {
         const [postsResponse, categoriesResponse] = await Promise.all([
-          supabase
-            .from('posts')
-            .select('*')
-            .order('created_at', { ascending: false }),
-          supabase
-            .from('categories')
-            .select('*')
-            .order('name')
+          safeSupabaseQuery<Post[]>(() =>
+            supabase
+              .from('posts')
+              .select('*')
+              .order('created_at', { ascending: false })
+          ),
+          safeSupabaseQuery<Category[]>(() =>
+            supabase
+              .from('categories')
+              .select('*')
+              .order('name')
+          )
         ]);
         
-        if (!postsResponse.error && postsResponse.data) {
-          setPosts(postsResponse.data);
+        if (postsResponse.error) {
+          console.error('Supabase error fetching posts:', postsResponse.error);
+          setError(postsResponse.error.message || 'Failed to fetch insights');
+        } else {
+          setPosts(postsResponse.data || []);
         }
-        if (!categoriesResponse.error && categoriesResponse.data) {
-          setCategories(categoriesResponse.data);
+
+        if (categoriesResponse.error) {
+          console.error('Supabase error fetching categories:', categoriesResponse.error);
+        } else {
+          setCategories(categoriesResponse.data || []);
         }
       } catch (err) {
-        console.error('Error fetching data:', err);
+        console.error('Catch error fetching insights:', err);
+        setError('An unexpected error occurred while fetching data');
       } finally {
         setLoading(false);
       }
@@ -104,8 +119,9 @@ export function Insights() {
 
   const filteredPosts = posts.filter(post => {
     const matchesCategory = activeCategory === 'All' || post.category === activeCategory;
-    const matchesSearch = post.title.toLowerCase().includes(searchQuery.toLowerCase()) || 
-                          post.summary.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesSearch = 
+      (post.title || '').toLowerCase().includes(searchQuery.toLowerCase()) || 
+      (post.summary || '').toLowerCase().includes(searchQuery.toLowerCase());
     return matchesCategory && matchesSearch;
   });
 
@@ -114,7 +130,7 @@ export function Insights() {
   const indexOfFirstPost = indexOfLastPost - postsPerPage;
   const currentPosts = filteredPosts.slice(indexOfFirstPost, indexOfLastPost);
 
-  const featuredPost = currentPage === 1 ? (currentPosts.find(p => p.is_featured) || currentPosts[0]) : null;
+  const featuredPost = currentPage === 1 ? (currentPosts.find(p => p.is_featured || p.featured) || currentPosts[0]) : null;
   const regularPosts = featuredPost ? currentPosts.filter(p => p.id !== featuredPost.id) : currentPosts;
 
   return (
@@ -207,6 +223,17 @@ export function Insights() {
                   ))}
                 </div>
               </div>
+            ) : error ? (
+              <div className="text-center py-24 bg-bg-surface border border-red-500/20 rounded-xl bg-red-500/5">
+                <h3 className="text-2xl font-bold text-red-500 mb-2">Error loading insights</h3>
+                <p className="text-text-secondary">{error}</p>
+                <button 
+                  onClick={() => window.location.reload()}
+                  className="mt-6 px-6 py-2 bg-accent text-white rounded-md font-bold"
+                >
+                  Retry
+                </button>
+              </div>
             ) : filteredPosts.length > 0 ? (
               <>
                 {/* FEATURED INSIGHT */}
@@ -218,12 +245,15 @@ export function Insights() {
                     className="group cursor-pointer flex flex-col bg-bg-surface border border-border rounded-xl overflow-hidden hover:border-accent hover:shadow-[0_0_30px_rgba(237,137,54,0.15)] transition-all duration-500"
                   >
                     <Link to={`/post/${featuredPost.slug}`} className="flex flex-col h-full">
-                      <div className="relative h-64 md:h-96 overflow-hidden">
+                      <div className="relative h-64 md:h-96 overflow-hidden bg-bg-primary/50">
                         <img 
-                          src={featuredPost.thumbnail_url} 
+                          src={featuredPost.thumbnail_url || 'https://images.unsplash.com/photo-1460925895917-afdab827c52f?q=80&w=2426&auto=format&fit=crop'} 
                           alt={featuredPost.title} 
                           className="w-full h-full object-cover scale-100 group-hover:scale-110 transition-transform duration-700 ease-out will-change-transform"
                           referrerPolicy="no-referrer"
+                          onError={(e) => {
+                            (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1460925895917-afdab827c52f?q=80&w=2426&auto=format&fit=crop';
+                          }}
                         />
                         <div className="absolute top-4 left-4 bg-obsidian/90 border border-amber text-ivory text-xs font-bold px-3 py-1.5 rounded-full flex items-center gap-1.5">
                           <Award size={12} className="text-amber" />
@@ -269,12 +299,15 @@ export function Insights() {
                       className="group cursor-pointer flex flex-col md:flex-row bg-bg-surface border border-border rounded-xl overflow-hidden hover:border-accent hover:shadow-[0_0_25px_rgba(237,137,54,0.15)] transition-all duration-500 hover:-translate-y-1"
                     >
                       <Link to={`/post/${post.slug}`} className="flex flex-col md:flex-row w-full h-full">
-                        <div className="w-full md:w-1/3 h-48 md:h-auto relative overflow-hidden">
+                        <div className="w-full md:w-1/3 h-48 md:h-auto relative overflow-hidden bg-bg-primary/50">
                           <img 
-                            src={post.thumbnail_url} 
+                            src={post.thumbnail_url || 'https://images.unsplash.com/photo-1460925895917-afdab827c52f?q=80&w=2426&auto=format&fit=crop'} 
                             alt={post.title} 
                             className="w-full h-full object-cover scale-100 group-hover:scale-110 transition-transform duration-700 ease-out will-change-transform"
                             referrerPolicy="no-referrer"
+                            onError={(e) => {
+                              (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1460925895917-afdab827c52f?q=80&w=2426&auto=format&fit=crop';
+                            }}
                           />
                         </div>
                         <div className="w-full md:w-2/3 p-6 md:p-8 flex flex-col justify-center">

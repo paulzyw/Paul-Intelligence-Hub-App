@@ -13,6 +13,7 @@ import {
 import { cn } from '../lib/utils';
 import { Link } from 'react-router-dom';
 import { logUnlockEvent } from '../hooks/useTrafficTracking';
+import { safeFetch } from '../lib/fetchData';
 
 // Static Value Palette
 const PALETTE = {
@@ -316,16 +317,8 @@ function ImpactDashboardContainer() {
     try {
       console.log('Fetching intelligence clusters...');
       const [projectsRes, timelineRes] = await Promise.all([
-        fetch('/impact-master-table.json').then(async (res) => {
-          if (!res.ok) throw new Error(`Status ${res.status}: Projects source unreachable`);
-          const text = await res.text();
-          return JSON.parse(text);
-        }),
-        fetch('/revenue-timeline.json').then(async (res) => {
-          if (!res.ok) throw new Error(`Status ${res.status}: Timeline source unreachable`);
-          const text = await res.text();
-          return JSON.parse(text);
-        })
+        safeFetch('/impact-master-table.json'),
+        safeFetch('/revenue-timeline.json')
       ]);
 
       if (!Array.isArray(projectsRes)) throw new Error('Malformed project intelligence data');

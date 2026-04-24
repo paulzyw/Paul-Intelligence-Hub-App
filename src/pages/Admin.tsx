@@ -91,45 +91,11 @@ const AccessCodeGenerator = () => {
     </div>
   );
 };
-import { Editor } from '@tinymce/tinymce-react';
+import { TiptapEditor } from '../components/TiptapEditor';
 import { ReportTypeManager } from '../components/ReportTypeManager';
 import { ResearchManager } from '../components/ResearchManager';
 import { TrafficMonitor } from '../components/TrafficMonitor';
-
-const TinyMCEEditor = ({ content, onChange }: { content: string, onChange: (content: string) => void }) => {
-  return (
-    <div className="border border-border rounded-md bg-bg-surface focus-within:border-accent transition-colors overflow-hidden">
-      <Editor
-        apiKey="ab4oi3gjblnzqqb9x2511u1toic042wfi8s7g5ujvl36pl1p"
-        value={content}
-        onEditorChange={(newContent) => onChange(newContent)}
-        init={{
-          height: 500,
-          menubar: false,
-          plugins: [
-            'anchor', 'autolink', 'charmap', 'codesample', 'emoticons', 'link', 'lists', 'media', 'searchreplace', 'table', 'visualblocks', 'wordcount',
-            'checklist', 'mediaembed', 'casechange', 'formatpainter', 'pageembed', 'a11ychecker', 'tinymcespellchecker', 'permanentpen', 'powerpaste', 'advtable', 'advcode', 'advtemplate', 'tinymceai', 'uploadcare', 'mentions', 'tinycomments', 'tableofcontents', 'footnotes', 'mergetags', 'autocorrect', 'typography', 'inlinecss', 'markdown','importword', 'exportword', 'exportpdf'
-          ],
-          toolbar: 'undo redo | tinymceai-chat tinymceai-quickactions tinymceai-review | blocks fontfamily fontsize | bold italic underline strikethrough | link media table mergetags | addcomment showcomments | spellcheckdialog a11ycheck typography uploadcare | align lineheight | checklist numlist bullist indent outdent | emoticons charmap | removeformat',
-          tinycomments_mode: 'embedded',
-          tinycomments_author: 'Author name',
-          mergetags_list: [
-            { value: 'First.Name', title: 'First Name' },
-            { value: 'Email', title: 'Email' },
-          ],
-          tinymceai_token_provider: async () => {
-            await fetch(`https://demo.api.tiny.cloud/1/ab4oi3gjblnzqqb9x2511u1toic042wfi8s7g5ujvl36pl1p/auth/random`, { method: "POST", credentials: "include" });
-            return { token: await fetch(`https://demo.api.tiny.cloud/1/ab4oi3gjblnzqqb9x2511u1toic042wfi8s7g5ujvl36pl1p/jwt/tinymceai`, { credentials: "include" }).then(r => r.text()) };
-          },
-          uploadcare_public_key: '462ea3545c0d4698fb4d',
-          content_style: 'body { font-family:Inter,sans-serif; font-size:16px; background-color: #1E2124; color: #F4F4F5; }',
-          skin: 'oxide-dark',
-          content_css: 'dark',
-        }}
-      />
-    </div>
-  );
-};
+import { SeedDatabase } from '../components/SeedDatabase';
 
 const CategoryManager = ({ categories, fetchCategories }: { categories: Category[], fetchCategories: () => void }) => {
   const [newCategoryName, setNewCategoryName] = useState('');
@@ -497,6 +463,12 @@ export function Admin() {
         {!isEditing && (
           <>
             <TrafficMonitor />
+            <SeedDatabase onComplete={() => {
+              fetchPosts();
+              fetchCategories();
+              fetchReports();
+              fetchReportTypes();
+            }} />
             <AccessCodeGenerator />
             <CategoryManager categories={categories} fetchCategories={fetchCategories} />
             <ReportTypeManager reportTypes={reportTypes} fetchReportTypes={fetchReportTypes} />
@@ -671,7 +643,7 @@ export function Admin() {
                 <div className="flex justify-between items-center mb-1">
                   <label className="block text-sm font-medium text-text-primary">Content</label>
                 </div>
-                <TinyMCEEditor 
+                <TiptapEditor 
                   content={currentPost.content || ''}
                   onChange={(content) => {
                     const updates: any = { content };

@@ -3,6 +3,7 @@ import { motion } from 'motion/react';
 import { Link } from 'react-router-dom';
 import { TrendingUp, Gauge, Leaf, LockKeyhole, ArrowRight } from 'lucide-react';
 import { cn } from '../lib/utils';
+import { safeFetch } from '../lib/fetchData';
 
 interface ImpactProject {
   revenue?: number;
@@ -29,9 +30,9 @@ export function ImpactTeaser() {
   useEffect(() => {
     async function fetchImpactData() {
       try {
-        const response = await fetch('/impact-master-table.json');
-        if (!response.ok) throw new Error('Data source unreachable');
-        const projects: any[] = await response.json();
+        const projects = await safeFetch('/impact-master-table.json');
+        
+        if (!Array.isArray(projects)) throw new Error('Data format invalid');
         
         const totals = projects.reduce((acc, p) => ({
           revenue: acc.revenue + (Number(p.revenue) || 0),
