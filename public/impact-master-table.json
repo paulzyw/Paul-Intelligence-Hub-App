@@ -389,5 +389,31 @@
     "sites": 27,
 
     "impactSummary": "Reduced operational cost and improved planning efficiency."
+  },
+
+  {
+    "sn": 16,
+    "projectName": "Localizing Cost Estimation Tool to Meet Local Demand",
+    "company": "AspenTech",
+    "category": "For Employer_w",
+    "industry": "Software/SaaS",
+    "region": "China",
+    "timePeriod": "2021-2022",
+    "role": "Sales Director",
+    "customerType": "Internal",
+    "initialSituation": "Material and price database not support China market",
+    "keyChallenge": "High cost for China customer to inputting loacl material and price data for cost estimation of local project.",
+    "strategy": "Design and integrate a gateway in cost estimation tool",
+    "solution": "Integrated portal enable China customer easily import local material and price database",
+    
+    "revenue": 8500000,
+    "pipeline": 42000000,
+    
+    "systemImplemented": "Customer insights turn to product strategy",
+    
+    "timeRecurrence": "Recurring",
+    "regionCovered": "China",
+
+    "impactSummary": "Generated $8.5M recurring revenue by turning local customer demand into product strategy, significantly reducing customer's cost."
   }
 ]

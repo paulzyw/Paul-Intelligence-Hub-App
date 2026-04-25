@@ -5,6 +5,7 @@ import { safeSupabaseQuery } from '../lib/fetchData';
 import { Clock, ArrowLeft, Calendar } from 'lucide-react';
 import { motion } from 'motion/react';
 import DOMPurify from 'dompurify';
+import hljs from 'highlight.js';
 import { RelatedPosts } from '../components/RelatedPosts';
 
 export function PostDetail() {
@@ -45,6 +46,14 @@ export function PostDetail() {
       const timer = setTimeout(() => {
         const blocks = document.querySelectorAll('pre');
         blocks.forEach((block) => {
+          // Apply syntax highlighting
+          const codeEl = block.querySelector('code');
+          if (codeEl) {
+            hljs.highlightElement(codeEl);
+          } else {
+            hljs.highlightElement(block);
+          }
+
           if (block.parentElement?.classList.contains('code-block-wrapper')) return;
           
           // Wrap pre in div for positioning
@@ -76,6 +85,10 @@ export function PostDetail() {
           header.appendChild(button);
           wrapper.appendChild(header);
           wrapper.appendChild(block);
+          
+          // Force reset any lingering margins/paddings from prose
+          block.style.margin = '0';
+          block.style.paddingTop = '0';
         });
       }, 500); // Wait for DOM to be stable
       return () => clearTimeout(timer);

@@ -16,15 +16,14 @@ serve(async (req) => {
   try {
     const { record } = await req.json()
     
-    // Filter: Alerts for unlocks OR specific high-value events
-    // For this template, we alert on all UNLOCKS or visits from key regions if desired.
-    // Let's stick to UNLOCKS and any visit as a baseline for this instruction.
     const isUnlock = record.is_unlock_event;
     
-    // You can add more filters here, e.g., only specific countries
-    if (!isUnlock && record.country !== 'United States' && record.country !== 'France') {
-        // Optional: Skip standard non-focus traffic to reduce noise
-        // return new Response(JSON.stringify({ skipped: true }), { headers: corsHeaders });
+    // Only trigger email for Impact Dashboard Unlocks
+    if (!isUnlock) {
+        return new Response(JSON.stringify({ skipped: true, reason: 'Not an unlock event' }), { 
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+            status: 200 
+        });
     }
 
     const res = await fetch('https://api.resend.com/emails', {

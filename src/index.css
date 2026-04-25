@@ -55,7 +55,7 @@
     --border-color: #E2E8F0;
     --border-hero-color: #1b2f3e;
     --paragraph-spacing: 0.8rem;
-    --article-line-height: 1.2;
+    --article-line-height: 1.25;
   }
 
   .dark {
@@ -73,7 +73,7 @@
     --border-color: #2D3748;
     --border-hero-color: #2d3748;
     --paragraph-spacing: 0.8rem;
-    --article-line-height: 1.2;
+    --article-line-height: 1.25;
   }
 
   body {
@@ -94,14 +94,14 @@
   .prose-content, .ProseMirror {
     font-family: var(--font-article) !important;
     line-height: var(--article-line-height) !important;
-    font-weight: 200 !important;
+    font-weight: 300 !important;
   }
 
   .prose-content p, .ProseMirror p {
     margin-top: 0 !important;
     margin-bottom: var(--paragraph-spacing) !important;
     line-height: var(--article-line-height) !important;
-    font-weight: 200 !important;
+    font-weight: 300 !important;
   }
 
   .prose-content p:first-child, .ProseMirror p:first-child {
@@ -114,7 +114,7 @@
 
   .prose-content strong, .ProseMirror strong,
   .prose-content b, .ProseMirror b {
-    font-weight: 600 !important;
+    font-weight: 700 !important;
   }
 
   /* Handle other common elements to ensure they don't break the flow */
@@ -255,7 +255,11 @@
 
   /* Make pre take full width and no extra margins inside wrapper */
   .code-block-wrapper pre {
-    @apply m-0 rounded-none border-none shadow-none;
+    @apply !m-0 rounded-none border-none shadow-none !pt-0;
+  }
+
+  .code-block-wrapper pre code {
+    @apply block p-4 !pt-2;
   }
 
   .ProseMirror ul {
@@ -275,16 +279,22 @@
   }
 
 
-  /* Syntax Highlighting (Highlight.js) */
+  /* Syntax Highlighting (Highlight.js / Lowlight) */
+  pre code.hljs,
+  .prose pre code,
+  .ProseMirror pre code {
+    @apply p-0 bg-transparent text-inherit;
+  }
+
   .hljs-comment,
   .hljs-quote {
-    @apply text-slate-500 italic;
+    @apply !text-slate-500 !italic;
   }
 
   .hljs-keyword,
   .hljs-selector-tag,
   .hljs-addition {
-    @apply text-accent font-bold;
+    @apply !text-accent !font-bold;
   }
 
   .hljs-number,
@@ -293,7 +303,7 @@
   .hljs-literal,
   .hljs-doctag,
   .hljs-regexp {
-    @apply text-emerald-400;
+    @apply !text-emerald-500;
   }
 
   .hljs-title,
@@ -301,7 +311,7 @@
   .hljs-name,
   .hljs-selector-id,
   .hljs-selector-class {
-    @apply text-amber font-medium;
+    @apply !text-amber !font-medium;
   }
 
   .hljs-attribute,
@@ -310,7 +320,7 @@
   .hljs-template-variable,
   .hljs-class .hljs-title,
   .hljs-type {
-    @apply text-blue-400;
+    @apply !text-blue-400;
   }
 
   .hljs-symbol,
@@ -318,23 +328,23 @@
   .hljs-subst,
   .hljs-meta,
   .hljs-link {
-    @apply text-purple-400;
+    @apply !text-purple-400;
   }
 
   .hljs-built_in,
   .hljs-deletion {
-    @apply text-pink-400;
+    @apply !text-pink-400;
   }
 
   .hljs-formula {
-    @apply bg-slate-800;
+    @apply !bg-slate-800;
   }
 
   .hljs-emphasis {
-    @apply italic;
+    @apply !italic;
   }
 
   .hljs-strong {
-    @apply font-bold;
+    @apply !font-bold;
   }
 }
