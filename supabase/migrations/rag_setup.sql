@@ -8,6 +8,10 @@ CREATE TABLE IF NOT EXISTS knowledge_chunks (
   embedding VECTOR(768) -- Gemini Embedding-004 size
 );
 
+-- Grant access for Data API
+GRANT SELECT ON public.knowledge_chunks TO anon, authenticated, service_role;
+GRANT ALL ON public.knowledge_chunks TO authenticated, service_role;
+
 -- 3. Create an index for faster similarity search
 CREATE INDEX ON knowledge_chunks USING ivfflat (embedding vector_cosine_ops)
 WITH (lists = 100);
@@ -38,6 +42,9 @@ BEGIN
 END;
 $$;
 
+-- Grant access for Data API
+GRANT EXECUTE ON FUNCTION match_knowledge_chunks(VECTOR, FLOAT, INT) TO anon, authenticated, service_role;
+
 -- 5. Create response_cache table
 CREATE TABLE IF NOT EXISTS response_cache (
   id BIGSERIAL PRIMARY KEY,
@@ -45,3 +52,7 @@ CREATE TABLE IF NOT EXISTS response_cache (
   response_text TEXT NOT NULL,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
+
+-- Grant access for Data API
+GRANT SELECT ON public.response_cache TO anon, authenticated, service_role;
+GRANT ALL ON public.response_cache TO authenticated, service_role;

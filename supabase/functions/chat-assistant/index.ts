@@ -129,7 +129,7 @@ serve(async (req) => {
     let stream;
     try {
       stream = await ai.models.generateContentStream({
-        model: "gemini-flash-latest",
+        model: "gemini-3.1-flash-lite",
         contents: `Context: ${context}\n\nQuestion: ${message}`,
         config: {
           systemInstruction: SYSTEM_INSTRUCTION,

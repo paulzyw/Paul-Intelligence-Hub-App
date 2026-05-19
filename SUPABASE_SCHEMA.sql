@@ -51,6 +51,16 @@ ALTER TABLE categories ENABLE ROW LEVEL SECURITY;
 ALTER TABLE report_types ENABLE ROW LEVEL SECURITY;
 ALTER TABLE research_reports ENABLE ROW LEVEL SECURITY;
 
+-- Grant access for Data API
+GRANT SELECT ON public.categories TO anon, authenticated, service_role;
+GRANT ALL ON public.categories TO authenticated, service_role;
+
+GRANT SELECT ON public.report_types TO anon, authenticated, service_role;
+GRANT ALL ON public.report_types TO authenticated, service_role;
+
+GRANT SELECT ON public.research_reports TO anon, authenticated, service_role;
+GRANT ALL ON public.research_reports TO authenticated, service_role;
+
 -- Public Read Policies
 DO $$ 
 BEGIN
@@ -67,6 +77,10 @@ END $$;
 
 -- Enable Row Level Security (RLS)
 ALTER TABLE posts ENABLE ROW LEVEL SECURITY;
+
+-- Grant access for Data API
+GRANT SELECT ON public.posts TO anon, authenticated, service_role;
+GRANT ALL ON public.posts TO authenticated, service_role;
 
 -- Policy: Allow public read access
 DO $$ 
@@ -123,6 +137,10 @@ CREATE TABLE IF NOT EXISTS chat_history (
 
 ALTER TABLE chat_history ENABLE ROW LEVEL SECURITY;
 
+-- Grant access for Data API
+GRANT SELECT, INSERT ON public.chat_history TO anon, authenticated, service_role;
+GRANT ALL ON public.chat_history TO authenticated, service_role;
+
 DO $$ 
 BEGIN
     IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'Allow public insert' AND tablename = 'chat_history') THEN
@@ -143,6 +161,10 @@ CREATE TABLE IF NOT EXISTS temp_access_codes (
 
 -- Enable RLS
 ALTER TABLE temp_access_codes ENABLE ROW LEVEL SECURITY;
+
+-- Grant access for Data API
+GRANT SELECT ON public.temp_access_codes TO anon, authenticated, service_role;
+GRANT ALL ON public.temp_access_codes TO authenticated, service_role;
 
 -- Policies for temp_access_codes
 DO $$ 

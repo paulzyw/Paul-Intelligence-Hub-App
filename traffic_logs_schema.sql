@@ -13,6 +13,11 @@ CREATE TABLE IF NOT EXISTS traffic_logs (
 -- Enable RLS
 ALTER TABLE traffic_logs ENABLE ROW LEVEL SECURITY;
 
+-- Grant access for Data API
+GRANT INSERT ON public.traffic_logs TO anon, authenticated, service_role;
+GRANT SELECT ON public.traffic_logs TO authenticated, service_role;
+GRANT ALL ON public.traffic_logs TO authenticated, service_role;
+
 -- Allow public to INSERT but not SELECT
 DO $$ 
 BEGIN
@@ -105,3 +110,6 @@ BEGIN
   return result;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- Grant access for Data API
+GRANT EXECUTE ON FUNCTION get_traffic_stats(TEXT) TO anon, authenticated, service_role;

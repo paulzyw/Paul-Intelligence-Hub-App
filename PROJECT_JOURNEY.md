@@ -33,6 +33,14 @@ This document serves as a "narrative archive" of the collaboration between Paul 
     - Transitioned to **Supabase Secrets** management for the MailerLite API to keep keys out of the public browser.
     - Updated the **`DOCUMENTATION.md`** to act as a hand-over guide for future maintenance.
 
+## Phase 5: Future-Proofing & Compliance (May 2026 Milestone)
+**Focus:** Adapting to infrastructure shifts and long-term stability.
+- **Key Dialogue:** Evaluating the impact of Gemini model transitions and Supabase Data API security updates.
+- **Decisions:**
+    - **Model Upgrade:** Transitioned the AI ChatAssistant from `gemini-flash-latest` (Preview) to `gemini-3.1-flash-lite` (GA) ahead of the May 25, 2026 deadline.
+    - **Security Hardening:** Implemented explicit `GRANT` statements across all Supabase schemas to comply with the October 2026 Data API access enforcement.
+    - **Governance:** Established `AGENTS.md` to enforce project-specific coding rules, ensuring all future development remains compatible with Supabase's mandatory explicit permission model.
+
 ## Collaborative Philosophy
 Throughout this journey, our dialogue focused on **Intentional Design**. Every animation, metric, and data point was designed to reinforce Paul's role as a leader who understands both the **Strategy** (Internal) and the **Impact** (External). 
 
