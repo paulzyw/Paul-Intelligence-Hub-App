@@ -15,6 +15,9 @@ import { PostDetail } from './pages/PostDetail';
 import { Research } from './pages/Research';
 import { ResearchDetail } from './pages/ResearchDetail';
 import { Impact } from './pages/Impact';
+import { Solutions } from './pages/Solutions';
+import { Auth } from './pages/Auth';
+import { RevOSApp } from './apps/revos/RevOSApp';
 import { ScrollReset } from './components/ScrollReset';
 
 export default function App() {
@@ -26,6 +29,9 @@ export default function App() {
           <Route path="/" element={<Layout />}>
             <Route index element={<Home />} />
             <Route path="about" element={<About />} />
+            <Route path="auth" element={<Auth />} />
+            <Route path="solutions" element={<Solutions />} />
+            <Route path="solutions/revos/*" element={<RevOSApp />} />
             <Route path="insights" element={<Insights />} />
             <Route path="post/:slug" element={<PostDetail />} />
             <Route path="research" element={<Research />} />

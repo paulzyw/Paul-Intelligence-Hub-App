@@ -81,12 +81,12 @@ export function Home() {
       setErrorReports(null);
       try {
         const { data, error } = await safeSupabaseQuery<ResearchReport[]>(() =>
-          supabase
+          (supabase
             .from('research_reports')
             .select('*, report_types(*)')
             .eq('status', 'published')
             .order('created_at', { ascending: false })
-            .limit(3)
+            .limit(3)) as any
         );
         
         if (error) {

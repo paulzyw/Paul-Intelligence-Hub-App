@@ -31,24 +31,33 @@ export async function safeFetch(url: string, retries = 3, delay = 500) {
  * Robust Supabase query wrapper with retry logic
  */
 export async function safeSupabaseQuery<T>(
-  queryFn: () => Promise<{ data: T | null; error: any }>,
+  queryFn: () => any,
   retries = 3,
   delay = 500
 ): Promise<{ data: T | null; error: any }> {
   let lastResult: { data: T | null; error: any } = { data: null, error: null };
   
   for (let i = 0; i < retries; i++) {
-    const result = await queryFn();
-    if (!result.error) {
-      return result;
-    }
-    
-    lastResult = result;
-    console.warn(`Supabase query attempt ${i + 1} failed:`, result.error);
-    
-    // Don't retry on certain errors (e.g. invalid query)
-    if (result.error.code?.startsWith('P') || result.error.code === '42703') {
-      return result;
+    try {
+      const result = await queryFn();
+      if (!result.error) {
+        return result as { data: T; error: null };
+      }
+      
+      lastResult = result;
+      console.warn(`Supabase query attempt ${i + 1} failed:`, result.error);
+      
+      // Don't retry on certain errors (e.g. invalid query)
+      if (result.error.code?.startsWith('P') || result.error.code === '42703') {
+        return lastResult;
+      }
+    } catch (err: any) {
+      console.error(`Supabase fetch attempt ${i + 1} fatal error:`, err);
+      lastResult = { data: null, error: err };
+      
+      if (err.message !== 'Failed to fetch') {
+        return lastResult;
+      }
     }
 
     if (i < retries - 1) {

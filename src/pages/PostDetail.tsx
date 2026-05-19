@@ -19,11 +19,11 @@ export function PostDetail() {
       setLoading(true);
       try {
         const { data, error } = await safeSupabaseQuery<Post>(() =>
-          supabase
+          (supabase
             .from('posts')
             .select('*')
             .eq('slug', slug)
-            .single()
+            .single()) as any
         );
         
         if (error) {

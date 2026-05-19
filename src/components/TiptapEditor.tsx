@@ -41,8 +41,8 @@ const FontSize = Extension.create({
     return {
       fontSize: {
         default: null,
-        parseHTML: element => element.style.fontSize,
-        renderHTML: attributes => {
+        parseHTML: (element: any) => element.style.fontSize,
+        renderHTML: (attributes: any) => {
           if (!attributes.fontSize) return {};
           return { style: `font-size: ${attributes.fontSize}` };
         },
@@ -51,12 +51,12 @@ const FontSize = Extension.create({
   },
   addCommands() {
     return {
-      setFontSize: fontSize => ({ chain }) => {
+      setFontSize: (fontSize: string) => ({ chain }: any) => {
         return chain()
           .setMark('textStyle', { fontSize })
           .run();
       },
-      unsetFontSize: () => ({ chain }) => {
+      unsetFontSize: () => ({ chain }: any) => {
         return chain()
           .setMark('textStyle', { fontSize: null })
           .removeEmptyTextStyle()
@@ -64,7 +64,7 @@ const FontSize = Extension.create({
       },
     };
   },
-});
+} as any);
 
 // Line Height Extension (Robust)
 const LineHeight = Extension.create({
@@ -79,8 +79,8 @@ const LineHeight = Extension.create({
     return {
       lineHeight: {
         default: null,
-        parseHTML: element => element.style.lineHeight,
-        renderHTML: attributes => {
+        parseHTML: (element: any) => element.style.lineHeight,
+        renderHTML: (attributes: any) => {
           if (!attributes.lineHeight) return {};
           return { style: `line-height: ${attributes.lineHeight}` };
         },
@@ -89,15 +89,15 @@ const LineHeight = Extension.create({
   },
   addCommands() {
     return {
-      setLineHeight: lineHeight => ({ chain }) => {
-        return this.options.types.reduce((chain, type) => chain.updateAttributes(type, { lineHeight }), chain()).run();
+      setLineHeight: (lineHeight: string) => ({ chain }: any) => {
+        return (this.options as any).types.reduce((chain: any, type: any) => chain.updateAttributes(type, { lineHeight }), chain()).run();
       },
-      unsetLineHeight: () => ({ chain }) => {
-        return this.options.types.reduce((chain, type) => chain.updateAttributes(type, { lineHeight: null }), chain()).run();
+      unsetLineHeight: () => ({ chain }: any) => {
+        return (this.options as any).types.reduce((chain: any, type: any) => chain.updateAttributes(type, { lineHeight: null }), chain()).run();
       },
     };
   },
-});
+} as any);
 
 // --- SAFE CUSTOM CODE BLOCK (Enhanced) ---
 const CodeBlockComponent = ({ node }: any) => {
@@ -204,7 +204,7 @@ export const TiptapEditor = ({ content, onChange }: any) => {
 
   useEffect(() => {
     if (editor && content !== editor.getHTML()) {
-      editor.commands.setContent(content, false);
+      editor.commands.setContent(content, { emitUpdate: false });
     }
   }, [content, editor]);
 

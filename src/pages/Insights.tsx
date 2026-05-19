@@ -82,16 +82,16 @@ export function Insights() {
       try {
         const [postsResponse, categoriesResponse] = await Promise.all([
           safeSupabaseQuery<Post[]>(() =>
-            supabase
+            (supabase
               .from('posts')
               .select('*')
-              .order('created_at', { ascending: false })
+              .order('created_at', { ascending: false })) as any
           ),
           safeSupabaseQuery<Category[]>(() =>
-            supabase
+            (supabase
               .from('categories')
               .select('*')
-              .order('name')
+              .order('name')) as any
           )
         ]);
         

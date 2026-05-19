@@ -27,11 +27,11 @@ export function Research() {
       setError(null);
       try {
         const { data, error } = await safeSupabaseQuery<ResearchReport[]>(() =>
-          supabase
+          (supabase
             .from('research_reports')
             .select('*, report_types(*)')
             .eq('status', 'published')
-            .order('created_at', { ascending: false })
+            .order('created_at', { ascending: false })) as any
         );
         
         if (error) {

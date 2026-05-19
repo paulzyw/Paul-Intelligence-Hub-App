@@ -35,6 +35,7 @@ export function Footer() {
               <Link to="/insights" className="text-sm text-text-hero-secondary hover:text-accent transition-colors">Insights</Link>
               <Link to="/impact" className="text-sm text-text-hero-secondary hover:text-accent transition-colors">Impact & Value</Link>
               <Link to="/research" className="text-sm text-text-hero-secondary hover:text-accent transition-colors">Research</Link>
+              <Link to="/solutions" className="text-sm text-text-hero-secondary hover:text-accent transition-colors">Solutions</Link>
               <Link to="/contact" className="text-sm text-text-hero-secondary hover:text-accent transition-colors">Contact</Link>
             </nav>
           </div>
