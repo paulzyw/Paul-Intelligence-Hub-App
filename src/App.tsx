@@ -19,6 +19,7 @@ import { Solutions } from './pages/Solutions';
 import { Auth } from './pages/Auth';
 import { RevOSApp } from './apps/revos/RevOSApp';
 import { ScrollReset } from './components/ScrollReset';
+import { ProtectedRoute } from './components/ProtectedRoute';
 
 export default function App() {
   return (
@@ -31,7 +32,25 @@ export default function App() {
             <Route path="about" element={<About />} />
             <Route path="auth" element={<Auth />} />
             <Route path="solutions" element={<Solutions />} />
-            <Route path="solutions/revos/*" element={<RevOSApp />} />
+            
+            {/* RevOS App Protected Routes */}
+            <Route 
+              path="solutions/revos/*" 
+              element={
+                <ProtectedRoute allowedRoles={[
+                  'free_user', 
+                  'paid_user', 
+                  'enterprise_user', 
+                  'workspace_admin', 
+                  'enterprise_executive', 
+                  'revos_admin', 
+                  'super_admin'
+                ]}>
+                  <RevOSApp />
+                </ProtectedRoute>
+              } 
+            />
+            
             <Route path="insights" element={<Insights />} />
             <Route path="post/:slug" element={<PostDetail />} />
             <Route path="research" element={<Research />} />
@@ -39,7 +58,16 @@ export default function App() {
             <Route path="impact" element={<Impact />} />
             <Route path="contact" element={<Contact />} />
           </Route>
-          <Route path="/admin" element={<Admin />} />
+
+          {/* Admin Dashboard Protected Route */}
+          <Route 
+            path="/admin" 
+            element={
+              <ProtectedRoute allowedRoles={['super_admin']}>
+                <Admin />
+              </ProtectedRoute>
+            } 
+          />
         </Routes>
       </BrowserRouter>
     </ThemeProvider>

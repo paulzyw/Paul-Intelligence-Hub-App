@@ -35,6 +35,8 @@ export function Auth() {
     const handleAuthRedirect = async () => {
       const searchParams = new URLSearchParams(window.location.search);
       const code = searchParams.get('code');
+      const tokenHash = searchParams.get('token_hash');
+      const type = searchParams.get('type');
       const errorParam = searchParams.get('error');
       const errorDesc = searchParams.get('error_description');
 
@@ -45,12 +47,27 @@ export function Auth() {
 
       if (code) {
         setLoading(true);
+        setMessage('Exchanging code for session...');
         try {
           const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(code);
           if (exchangeError) throw exchangeError;
-          // Successful exchange will trigger onAuthStateChange
         } catch (err: any) {
           setError(`Authentication failed: ${err.message}`);
+        } finally {
+          setLoading(false);
+        }
+      } else if (tokenHash && type) {
+        setLoading(true);
+        setMessage('Verifying your email...');
+        try {
+          const { error: verifyError } = await supabase.auth.verifyOtp({
+            token_hash: tokenHash,
+            type: type as any,
+          });
+          if (verifyError) throw verifyError;
+          setMessage('Email confirmed! Signing you in...');
+        } catch (err: any) {
+          setError(`Verification failed: ${err.message}`);
         } finally {
           setLoading(false);
         }

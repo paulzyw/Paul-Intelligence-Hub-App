@@ -1,6 +1,8 @@
 import { useState, useEffect, useRef } from 'react';
 import { supabase, type Post, type Category, type ResearchReport, type ReportType, type AccessCode } from '../lib/supabase';
-import { LogOut, Plus, Edit, Trash2, Save, X, UploadCloud, Image as ImageIcon, FolderPlus, Sparkles, BarChart3, Key, Copy, Check } from 'lucide-react';
+import { LogOut, Plus, Edit, Trash2, Save, X, UploadCloud, Image as ImageIcon, FolderPlus, Sparkles, BarChart3, Key, Copy, Check, ShieldAlert } from 'lucide-react';
+import { useAuth } from '../hooks/useAuth';
+import { Navigate } from 'react-router-dom';
 
 const AccessCodeGenerator = () => {
   const [hours, setHours] = useState<number>(24);
@@ -191,7 +193,7 @@ const CategoryManager = ({ categories, fetchCategories }: { categories: Category
 };
 
 export function Admin() {
-  const [session, setSession] = useState<any>(null);
+  const { user, profile, loading: authLoading, isSuperAdmin } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -215,30 +217,13 @@ export function Admin() {
   };
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      if (session) {
-        fetchPosts();
-        fetchCategories();
-        fetchReports();
-        fetchReportTypes();
-      }
-    });
-
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
-      setSession(session);
-      if (session) {
-        fetchPosts();
-        fetchCategories();
-        fetchReports();
-        fetchReportTypes();
-      }
-    });
-
-    return () => subscription.unsubscribe();
-  }, []);
+    if (user && isSuperAdmin()) {
+      fetchPosts();
+      fetchCategories();
+      fetchReports();
+      fetchReportTypes();
+    }
+  }, [user, profile]);
 
   const fetchCategories = async () => {
     const { data, error } = await supabase
@@ -388,7 +373,15 @@ export function Admin() {
     else fetchPosts();
   };
 
-  if (!session) {
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-bg-primary flex items-center justify-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-accent"></div>
+      </div>
+    );
+  }
+
+  if (!user) {
     return (
       <div className="min-h-screen bg-bg-primary flex flex-col justify-center py-12 sm:px-6 lg:px-8">
         <div className="sm:mx-auto sm:w-full sm:max-w-md">
@@ -442,6 +435,34 @@ export function Admin() {
               </div>
             </form>
           </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (user && !isSuperAdmin()) {
+    return (
+      <div className="min-h-screen bg-bg-primary flex flex-col items-center justify-center p-4">
+        <div className="max-w-md w-full bg-bg-surface border border-border rounded-2xl p-8 text-center shadow-2xl">
+          <div className="w-16 h-16 bg-red-500/10 rounded-full flex items-center justify-center mx-auto mb-6">
+            <ShieldAlert size={32} className="text-red-500" />
+          </div>
+          <h2 className="text-2xl font-bold text-text-primary mb-2">Access Restricted</h2>
+          <p className="text-text-secondary mb-8">
+            This workspace is reserved for Super Administrators. Your current role ({profile?.role}) does not have permission to access the Website Admin Dashboard.
+          </p>
+          <button
+            onClick={handleLogout}
+            className="w-full py-3 bg-accent text-white rounded-xl font-bold hover:bg-accent/90 transition-all"
+          >
+            Logout and Authenticate as Admin
+          </button>
+          <a
+            href="/"
+            className="block mt-4 text-sm text-text-secondary hover:text-text-primary font-bold transition-colors"
+          >
+            Return to Homepage
+          </a>
         </div>
       </div>
     );
