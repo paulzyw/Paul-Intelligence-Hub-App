@@ -31,7 +31,35 @@ export function Auth() {
 
   // Check if user is already logged in or handling a redirect
   useEffect(() => {
-    // Initial check
+    // Check for PKCE code or errors in URL
+    const handleAuthRedirect = async () => {
+      const searchParams = new URLSearchParams(window.location.search);
+      const code = searchParams.get('code');
+      const errorParam = searchParams.get('error');
+      const errorDesc = searchParams.get('error_description');
+
+      if (errorParam) {
+        setError(errorDesc || errorParam);
+        return;
+      }
+
+      if (code) {
+        setLoading(true);
+        try {
+          const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(code);
+          if (exchangeError) throw exchangeError;
+          // Successful exchange will trigger onAuthStateChange
+        } catch (err: any) {
+          setError(`Authentication failed: ${err.message}`);
+        } finally {
+          setLoading(false);
+        }
+      }
+    };
+
+    handleAuthRedirect();
+
+    // Initial check for existing user
     supabase.auth.getUser().then(({ data: { user } }) => {
       if (user) {
         navigate(from, { replace: true });
@@ -46,14 +74,15 @@ export function Auth() {
           setTimeout(() => {
             navigate(from, { replace: true });
           }, 1500);
-        } else if (event === 'INITIAL_SESSION') {
+        } else if (event === 'INITIAL_SESSION' && !window.location.search.includes('code')) {
+          // Only redirect on initial session if we aren't currently exchanging a code
           navigate(from, { replace: true });
         }
       }
 
-      // Handle password recovery or email confirmation failure
       if (event === 'PASSWORD_RECOVERY') {
-        // Handle if needed
+        setMessage('Reset link verified. Please update your password.');
+        setIsSignUp(false); // Ensure we are on sign-in/reset view
       }
     });
 
