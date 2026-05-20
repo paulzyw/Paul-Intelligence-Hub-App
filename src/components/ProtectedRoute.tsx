@@ -29,9 +29,11 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
   }
 
   // If roles are specified, check them
-  if (allowedRoles && profile && !allowedRoles.includes(profile.role)) {
-    // If they aren't allowed, send them back to the solutions page or home
-    return <Navigate to="/solutions" replace />;
+  if (allowedRoles) {
+    if (!profile || !allowedRoles.includes(profile.role)) {
+      // If they aren't allowed, send them back to the solutions page or home
+      return <Navigate to="/solutions" replace />;
+    }
   }
 
   return <>{children}</>;
