@@ -52,8 +52,8 @@ const modules = [
   },
   {
     id: 'pipeline',
-    title: 'Pipeline Assessment & Winning Strategy',
-    subtitle: 'AI-Native Opportunity Intelligence & Winning Motion',
+    title: 'Pipeline Intelligence',
+    subtitle: 'AI-Native Opportunity Intelligence & Winning Strategy',
     description: 'Assess enterprise opportunities, optimize pursuit strategy, and improve win probability.',
     role: 'Combines commercial, stakeholder, delivery, procurement, and forecasting intelligence into one decision system.',
     outcomes: ['Higher win rates', 'Better forecast accuracy', 'Reduced opportunity risk', 'Improved executive visibility'],
@@ -138,7 +138,7 @@ export function Solutions() {
             transition={{ delay: 0.3, duration: 0.8 }}
             className="mt-16 relative mx-auto max-w-6xl px-4 lg:px-0"
           >
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 p-4 rounded-[3rem] border border-border bg-bg-surface/30 backdrop-blur-3xl ring-1 ring-white/10 shadow-2xl relative overflow-hidden">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 p-4 rounded-[1.2rem] border border-border bg-bg-surface/30 backdrop-blur-3xl ring-1 ring-white/10 shadow-2xl relative overflow-hidden">
               <div className="absolute inset-0 bg-gradient-to-tr from-accent/5 via-transparent to-blue-500/5 pointer-events-none" />
               
               {/* Layer 1-2: Strategic Intelligence */}
@@ -262,7 +262,7 @@ export function Solutions() {
             </div>
             <div className="hidden lg:block relative h-full">
               <div className="absolute -inset-10 bg-accent/10 rounded-full blur-[100px] opacity-20" />
-              <div className="relative h-full rounded-[2.5rem] border border-border bg-bg-surface p-10 overflow-hidden flex flex-col justify-between shadow-2xl backdrop-blur-sm">
+              <div className="relative h-full rounded-[1.2rem] border border-border bg-bg-surface p-10 overflow-hidden flex flex-col justify-between shadow-2xl backdrop-blur-sm">
                 <div className="absolute top-0 right-0 p-8 opacity-5">
                   <Network className="w-64 h-64 -mr-20 -mt-20" />
                 </div>
@@ -327,7 +327,7 @@ export function Solutions() {
                 whileInView={{ opacity: 1, y: 0 }}
                 transition={{ delay: index * 0.1 }}
                 viewport={{ once: true }}
-                className="group relative flex flex-col bg-bg-surface rounded-[2.5rem] border border-border p-8 ring-1 ring-white/5 overflow-hidden hover:ring-accent/40 transition-all duration-500"
+                className="group relative flex flex-col bg-bg-surface rounded-[1.2rem] border border-border p-8 ring-1 ring-white/5 overflow-hidden hover:ring-accent/40 transition-all duration-500"
               >
                 <div className={cn("absolute inset-0 bg-gradient-to-br opacity-0 group-hover:opacity-100 transition-opacity duration-500", module.color)} />
                 
@@ -463,7 +463,7 @@ export function Solutions() {
 
       {/* FINAL CTA */}
       <section className="py-32">
-        <div className="mx-auto max-w-4xl px-6 lg:px-8 text-center bg-bg-surface rounded-[3rem] border border-border p-16 relative overflow-hidden ring-1 ring-white/5">
+        <div className="mx-auto max-w-4xl px-6 lg:px-8 text-center bg-bg-surface rounded-[1.2rem] border border-border p-16 relative overflow-hidden ring-1 ring-white/5">
           <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-accent to-transparent" />
           <h2 className="text-3xl md:text-5xl font-bold tracking-tight mb-8">Ready to Architect Your Growth?</h2>
           <p className="text-text-secondary mb-12 text-lg max-w-xl mx-auto">
