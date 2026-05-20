@@ -5,6 +5,7 @@
 
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { ThemeProvider } from './context/ThemeContext';
+import { AuthProvider } from './context/AuthContext';
 import { Layout } from './components/Layout';
 import { Home } from './pages/Home';
 import { About } from './pages/About';
@@ -24,9 +25,10 @@ import { ProtectedRoute } from './components/ProtectedRoute';
 export default function App() {
   return (
     <ThemeProvider>
-      <BrowserRouter>
-        <ScrollReset />
-        <Routes>
+      <AuthProvider>
+        <BrowserRouter>
+          <ScrollReset />
+          <Routes>
           <Route path="/" element={<Layout />}>
             <Route index element={<Home />} />
             <Route path="about" element={<About />} />
@@ -70,6 +72,7 @@ export default function App() {
           />
         </Routes>
       </BrowserRouter>
+      </AuthProvider>
     </ThemeProvider>
   );
 }
