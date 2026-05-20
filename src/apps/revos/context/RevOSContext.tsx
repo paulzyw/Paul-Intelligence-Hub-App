@@ -11,7 +11,7 @@ interface RevOSContextType extends RevOSState {
 const RevOSContext = createContext<RevOSContextType | undefined>(undefined);
 
 export function RevOSProvider({ children }: { children: React.ReactNode }) {
-  const { user, profile: authProfile } = useAuth();
+  const { user, profile: authProfile, loading: authLoading } = useAuth();
   const [state, setState] = useState<RevOSState>({
     profile: null,
     org: null,
@@ -20,6 +20,11 @@ export function RevOSProvider({ children }: { children: React.ReactNode }) {
   });
 
   const fetchOrgDetails = async (profile: any) => {
+    if (!profile) {
+      setState({ profile: null, org: null, isLoading: false, error: null });
+      return;
+    }
+
     try {
       setState(prev => ({ ...prev, isLoading: true }));
       
@@ -41,26 +46,30 @@ export function RevOSProvider({ children }: { children: React.ReactNode }) {
       });
     } catch (err: any) {
       console.error('Error fetching RevOS org details:', err);
-      setState(prev => ({ ...prev, isLoading: false }));
+      setState({
+        profile: profile as RevOSProfile,
+        org: null,
+        isLoading: false,
+        error: null,
+      });
     }
   };
 
   useEffect(() => {
-    if (authProfile) {
-      // We have the profile from AuthContext (which already checked both tables)
-      // Check if it's a RevOS profile or a standard one
-      // In our setup, even standard profiles are mapped to RevOSProfile shape in AuthContext
+    if (authLoading) {
+      setState(prev => ({ ...prev, isLoading: true }));
+      return;
+    }
+
+    if (!user) {
+      setState({ profile: null, org: null, isLoading: false, error: null });
+    } else if (authProfile) {
       fetchOrgDetails(authProfile);
     } else {
-      // If no authProfile but we have a user, it might still be loading or not found
-      if (!user) {
-        setState({ profile: null, org: null, isLoading: false, error: null });
-      } else {
-        // Still waiting for AuthContext profile fetch
-        setState(prev => ({ ...prev, isLoading: true }));
-      }
+      // User is logged in but profile could not be found
+      setState({ profile: null, org: null, isLoading: false, error: 'Authorization profile not found. Please contact support.' });
     }
-  }, [authProfile, user]);
+  }, [authProfile, user, authLoading]);
 
   const signOut = async () => {
     await supabase.auth.signOut();

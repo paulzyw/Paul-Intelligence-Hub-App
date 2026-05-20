@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { supabase, type Post, type Category, type ResearchReport, type ReportType, type AccessCode } from '../lib/supabase';
 import { LogOut, Plus, Edit, Trash2, Save, X, UploadCloud, Image as ImageIcon, FolderPlus, Sparkles, BarChart3, Key, Copy, Check, ShieldAlert } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
-import { Navigate } from 'react-router-dom';
+import { Navigate, useNavigate, Link } from 'react-router-dom';
 
 const AccessCodeGenerator = () => {
   const [hours, setHours] = useState<number>(24);
@@ -193,6 +193,7 @@ const CategoryManager = ({ categories, fetchCategories }: { categories: Category
 };
 
 export function Admin() {
+  const navigate = useNavigate();
   const { user, profile, loading: authLoading, isSuperAdmin } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -216,6 +217,7 @@ export function Admin() {
     return Math.ceil(words / 225) || 1;
   };
 
+  // Initialization of data
   useEffect(() => {
     if (user && isSuperAdmin()) {
       fetchPosts();
@@ -263,18 +265,6 @@ export function Admin() {
       
     if (error) console.error('Error fetching report types:', error);
     else setReportTypes(data || []);
-  };
-
-  const handleLogin = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
-    setError(null);
-    const { error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
-    if (error) setError(error.message);
-    setLoading(false);
   };
 
   const handleLogout = async () => {
@@ -373,104 +363,8 @@ export function Admin() {
     else fetchPosts();
   };
 
-  if (authLoading) {
-    return (
-      <div className="min-h-screen bg-bg-primary flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-accent"></div>
-      </div>
-    );
-  }
-
-  if (!user) {
-    return (
-      <div className="min-h-screen bg-bg-primary flex flex-col justify-center py-12 sm:px-6 lg:px-8">
-        <div className="sm:mx-auto sm:w-full sm:max-w-md">
-          <h2 className="mt-6 text-center text-3xl font-extrabold text-text-primary">
-            Website Admin Dashboard
-          </h2>
-        </div>
-
-        <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
-          <div className="bg-bg-surface py-8 px-4 shadow sm:rounded-lg sm:px-10 border border-border">
-            <form className="space-y-6" onSubmit={handleLogin}>
-              {error && (
-                <div className="bg-red-500/10 border border-red-500/20 text-red-500 px-4 py-3 rounded relative" role="alert">
-                  <span className="block sm:inline">{error}</span>
-                </div>
-              )}
-              <div>
-                <label className="block text-sm font-medium text-text-primary">Email address</label>
-                <div className="mt-1">
-                  <input
-                    type="email"
-                    required
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    className="appearance-none block w-full px-3 py-2 border border-border rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-accent focus:border-accent sm:text-sm bg-transparent text-text-primary"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-text-primary">Password</label>
-                <div className="mt-1">
-                  <input
-                    type="password"
-                    required
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    className="appearance-none block w-full px-3 py-2 border border-border rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-accent focus:border-accent sm:text-sm bg-transparent text-text-primary"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <button
-                  type="submit"
-                  disabled={loading}
-                  className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-accent hover:bg-accent/90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-accent disabled:opacity-50"
-                >
-                  {loading ? 'Signing in...' : 'Sign in to Admin Dashboard'}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  // Double check authorization
-  if (profile?.role !== 'super_admin') {
-    return (
-      <div className="min-h-screen bg-bg-primary flex flex-col items-center justify-center p-4">
-        <div className="max-w-md w-full bg-bg-surface border border-border rounded-2xl p-8 text-center shadow-2xl">
-          <div className="w-16 h-16 bg-red-500/10 rounded-full flex items-center justify-center mx-auto mb-6">
-            <ShieldAlert size={32} className="text-red-500" />
-          </div>
-          <h2 className="text-2xl font-bold text-text-primary mb-2">Access Restricted</h2>
-          <p className="text-text-secondary mb-8">
-            This workspace is reserved for Super Administrators. Your current role ({profile?.role || 'Guest'}) does not have permission to access the Website Admin Dashboard.
-          </p>
-          <button
-            onClick={handleLogout}
-            className="w-full py-3 bg-accent text-white rounded-xl font-bold hover:bg-accent/90 transition-all"
-          >
-            Logout and Authenticate as Admin
-          </button>
-          <a
-            href="/"
-            className="block mt-4 text-sm text-text-secondary hover:text-text-primary font-bold transition-colors"
-          >
-            Return to Homepage
-          </a>
-        </div>
-      </div>
-    );
-  }
-
   return (
-    <div className="min-h-screen bg-bg-primary py-10">
+    <div className="bg-bg-primary py-10">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center mb-8">
           <h1 className="text-3xl font-bold text-text-primary">Content Management</h1>

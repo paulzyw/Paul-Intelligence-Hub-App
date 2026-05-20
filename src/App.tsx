@@ -59,10 +59,17 @@ export default function App() {
             <Route path="research/:slug" element={<ResearchDetail />} />
             <Route path="impact" element={<Impact />} />
             <Route path="contact" element={<Contact />} />
+            
+            {/* Admin Dashboard Protected Route */}
+            <Route 
+              path="admin" 
+              element={
+                <ProtectedRoute allowedRoles={['super_admin']}>
+                  <Admin />
+                </ProtectedRoute>
+              } 
+            />
           </Route>
-
-          {/* Admin Dashboard Protected Route */}
-          <Route path="/admin" element={<Admin />} />
         </Routes>
       </BrowserRouter>
       </AuthProvider>

@@ -56,25 +56,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   useEffect(() => {
     let mounted = true;
 
-    // Use onAuthStateChange to handle initial session AND changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+    async function handleAuth(session: any) {
       if (!mounted) return;
-
+      
       if (session?.user) {
-        // Use a functional update or just check the current state 
-        // inside the callback if we need to avoid re-fetching.
-        // Actually, onAuthStateChange is usually smart enough.
-        // Let's just fetch if we need to.
-        
+        setUser(session.user);
         try {
           setLoading(true);
           const profileData = await fetchProfile(session.user.id);
           if (mounted) {
-            setUser(session.user);
             setProfile(profileData);
           }
         } catch (error) {
-          console.error('Error fetching profile on auth change:', error);
+          console.error('Auth state change profile fetch error:', error);
+          if (mounted) setProfile(null);
         } finally {
           if (mounted) setLoading(false);
         }
@@ -85,13 +80,23 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           setLoading(false);
         }
       }
+    }
+
+    // Initial session check
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      handleAuth(session);
+    });
+
+    // Listen for auth state changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      handleAuth(session);
     });
 
     return () => {
       mounted = false;
       subscription.unsubscribe();
     };
-  }, []); // Empty dependency array to avoid loops
+  }, []);
 
   const hasRole = (roles: UserRole[]) => {
     return profile !== null && roles.includes(profile.role);
