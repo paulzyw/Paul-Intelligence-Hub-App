@@ -21,7 +21,7 @@ export function Auth() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<React.ReactNode | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [rememberMe, setRememberMe] = useState(false);
   
@@ -29,11 +29,31 @@ export function Auth() {
   const location = useLocation();
   const from = (location.state as any)?.from?.pathname || '/solutions/revos';
 
-  // Check if user is already logged in with a valid session
+  // Check if user is already logged in or handling a redirect
   useEffect(() => {
+    // Initial check
     supabase.auth.getUser().then(({ data: { user } }) => {
       if (user) {
         navigate(from, { replace: true });
+      }
+    });
+
+    // Listen for auth state changes (crucial for catching redirects with tokens)
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (session?.user) {
+        if (event === 'SIGNED_IN') {
+          setMessage('Successfully authenticated. Redirecting...');
+          setTimeout(() => {
+            navigate(from, { replace: true });
+          }, 1500);
+        } else if (event === 'INITIAL_SESSION') {
+          navigate(from, { replace: true });
+        }
+      }
+
+      // Handle password recovery or email confirmation failure
+      if (event === 'PASSWORD_RECOVERY') {
+        // Handle if needed
       }
     });
 
@@ -43,7 +63,34 @@ export function Auth() {
       setEmail(savedEmail);
       setRememberMe(true);
     }
+
+    return () => {
+      subscription.unsubscribe();
+    };
   }, [navigate, from]);
+
+  const handleResendConfirmation = async () => {
+    if (!email) {
+      setError('Please enter your email address first.');
+      return;
+    }
+    setLoading(true);
+    try {
+      const { error: resendError } = await supabase.auth.resend({
+        type: 'signup',
+        email: email,
+        options: {
+          emailRedirectTo: `${window.location.origin}/auth`,
+        }
+      });
+      if (resendError) throw resendError;
+      setMessage('Confirmation email resent. Please check your inbox.');
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -71,7 +118,6 @@ export function Auth() {
         
         if (signUpError) throw signUpError;
 
-        // If email confirmation is disabled, Supabase returns a session immediately
         if (data.session) {
           navigate(from, { replace: true });
         } else {
@@ -82,7 +128,24 @@ export function Auth() {
           email,
           password,
         });
-        if (signInError) throw signInError;
+        
+        if (signInError) {
+          if (signInError.message.includes('Email not confirmed')) {
+            setError(
+              <div className="flex flex-col gap-2">
+                <p>Your email is not confirmed yet.</p>
+                <button 
+                  onClick={handleResendConfirmation}
+                  className="text-white underline font-bold hover:text-white/80 transition-colors text-left"
+                >
+                  Resend confirmation email?
+                </button>
+              </div>
+            );
+            return;
+          }
+          throw signInError;
+        }
         navigate(from, { replace: true });
       }
     } catch (err: any) {
