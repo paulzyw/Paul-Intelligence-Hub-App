@@ -31,11 +31,11 @@ export function ResearchDetail() {
       setLoading(true);
       try {
         const { data, error } = await safeSupabaseQuery<ResearchReport>(() =>
-          (supabase
+          supabase
             .from('research_reports')
             .select('*, report_types(*)')
             .eq('slug', slug)
-            .single()) as any
+            .single()
         );
         
         if (error) throw error;

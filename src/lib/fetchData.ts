@@ -29,9 +29,10 @@ export async function safeFetch(url: string, retries = 3, delay = 500) {
 
 /**
  * Robust Supabase query wrapper with retry logic
+ * Handles Supabase query builders (Thenables) and explicit Promises
  */
 export async function safeSupabaseQuery<T>(
-  queryFn: () => any,
+  queryFn: () => PromiseLike<any> | any,
   retries = 3,
   delay = 500
 ): Promise<{ data: T | null; error: any }> {

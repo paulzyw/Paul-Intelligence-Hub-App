@@ -10,7 +10,8 @@ import {
   ShieldAlert,
   Loader2,
   Lock,
-  LogOut
+  LogOut,
+  Command
 } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { RevOSProvider, useRevOS } from './context/RevOSContext';
@@ -118,28 +119,44 @@ function RevOSContent() {
   // Basic access check for the sandbox
   if (!profile && !isLoading) {
     return (
-      <div className="flex-1 flex flex-col items-center justify-center h-[70vh] p-8 text-center animate-in fade-in duration-500">
-        <div className="p-6 rounded-full bg-accent/10 border border-accent/20 mb-8 mx-auto w-fit">
-          <Lock className="h-12 w-12 text-accent" />
+      <div className="flex-1 flex flex-col items-center justify-center min-h-[60vh] p-8 text-center animate-in fade-in zoom-in-95 duration-700">
+        <div className="relative mb-10">
+          <div className="absolute -inset-4 bg-accent/20 rounded-full blur-2xl animate-pulse" />
+          <div className="relative p-8 rounded-[2rem] bg-bg-surface border border-border/50 shadow-2xl">
+            <Command className="h-12 w-12 text-accent" />
+          </div>
         </div>
-        <h2 className="text-2xl font-bold mb-4">Intelligence Access Restricted</h2>
-        <p className="text-text-secondary max-w-sm mb-8 mx-auto">
-          RevOS requires an authenticated commercial identity to access the intelligence graph.
+        
+        <h2 className="text-3xl font-bold mb-4 tracking-tight">Intelligence Access Restricted</h2>
+        <p className="text-text-secondary max-w-md mb-10 mx-auto leading-relaxed">
+          RevOS requires an authenticated commercial identity to access the intelligence graph. 
+          Please sign in with your enterprise account to continue.
         </p>
+
         <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
           <Link 
             to="/auth" 
             state={{ from: location }}
-            className="px-8 py-3 bg-accent text-black font-bold rounded-full hover:scale-105 transition-all text-sm shadow-xl shadow-accent/20"
+            className="px-10 py-4 bg-accent text-black font-bold rounded-2xl hover:scale-105 active:scale-95 transition-all shadow-xl shadow-accent/20 flex items-center gap-2 group"
           >
-            Sign In / Sign Up
+            Sign In to revOS
+            <ChevronRight className="h-4 w-4 group-hover:translate-x-1 transition-transform" />
           </Link>
           <button 
             onClick={() => signOut()}
-            className="px-6 py-2 text-text-secondary hover:text-accent transition-colors text-xs font-bold uppercase tracking-widest"
+            className="px-8 py-4 text-text-secondary hover:text-accent font-bold uppercase tracking-[0.2em] text-[10px] transition-colors"
           >
-            Clear Session
+            Clear Stale Session
           </button>
+        </div>
+        
+        <div className="mt-16 pt-8 border-t border-border/50 w-full max-w-xs mx-auto">
+          <p className="text-[10px] uppercase tracking-[0.3em] font-extrabold text-text-secondary/50 mb-4">Security Protocol</p>
+          <div className="flex justify-center gap-4 opacity-30">
+            <div className="h-1 w-8 bg-border rounded-full" />
+            <div className="h-1 w-8 bg-border rounded-full" />
+            <div className="h-1 w-8 bg-border rounded-full" />
+          </div>
         </div>
       </div>
     );
