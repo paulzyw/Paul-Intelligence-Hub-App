@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { RevOSState, RevOSProfile, RevOSOrg } from '../types';
 import { supabase } from '../../../lib/supabase';
+import { useAuth } from '../../../hooks/useAuth';
 
 interface RevOSContextType extends RevOSState {
   refreshProfile: () => Promise<void>;
@@ -10,6 +11,7 @@ interface RevOSContextType extends RevOSState {
 const RevOSContext = createContext<RevOSContextType | undefined>(undefined);
 
 export function RevOSProvider({ children }: { children: React.ReactNode }) {
+  const { user, profile: authProfile } = useAuth();
   const [state, setState] = useState<RevOSState>({
     profile: null,
     org: null,
@@ -17,69 +19,10 @@ export function RevOSProvider({ children }: { children: React.ReactNode }) {
     error: null,
   });
 
-  const fetchProfile = async () => {
+  const fetchOrgDetails = async (profile: any) => {
     try {
-      setState(prev => ({ ...prev, isLoading: true, error: null }));
-      const { data: { user }, error: authError } = await supabase.auth.getUser();
+      setState(prev => ({ ...prev, isLoading: true }));
       
-      if (authError || !user) {
-        if (authError && authError.message !== 'Auth session missing!') {
-          console.warn('Auth check error:', authError);
-        }
-        setState(prev => ({ ...prev, profile: null, org: null, isLoading: false }));
-        return;
-      }
-
-      // Fetch Profile
-      const { data: profile, error: profileError } = await supabase
-        .from('revos_profiles')
-        .select('*')
-        .eq('id', user.id)
-        .single();
-
-      if (profileError && profileError.code !== 'PGRST116') {
-        throw profileError;
-      }
-
-      // If no profile exists yet, create one
-      if (!profile) {
-        // Use upsert to handle potential race conditions or existing records
-        const { data: newProfile, error: createError } = await supabase
-          .from('revos_profiles')
-          .upsert({ id: user.id, role: 'free_user' }, { onConflict: 'id' })
-          .select()
-          .single();
-
-        if (createError) {
-          // If upsert fails (e.g. unique constraint or RLS), attempt one last fetch
-          const { data: retryProfile } = await supabase
-            .from('revos_profiles')
-            .select('*')
-            .eq('id', user.id)
-            .single();
-            
-          if (retryProfile) {
-            setState({
-              profile: retryProfile as RevOSProfile,
-              org: null,
-              isLoading: false,
-              error: null,
-            });
-            return;
-          }
-          throw new Error(`Profile creation failed: ${createError.message}`);
-        }
-
-        setState({
-          profile: newProfile as RevOSProfile,
-          org: null,
-          isLoading: false,
-          error: null,
-        });
-        return;
-      }
-
-      // Fetch Org if associated
       let org = null;
       if (profile.org_id) {
         const { data: orgData } = await supabase
@@ -97,43 +40,34 @@ export function RevOSProvider({ children }: { children: React.ReactNode }) {
         error: null,
       });
     } catch (err: any) {
-      console.error('Error in RevOS fetchProfile:', err);
-      const errorMessage = err.message === 'Failed to fetch' 
-        ? 'Network error: Could not reach Supabase.'
-        : err.message;
-      setState(prev => ({ ...prev, error: errorMessage, isLoading: false }));
+      console.error('Error fetching RevOS org details:', err);
+      setState(prev => ({ ...prev, isLoading: false }));
     }
   };
 
+  useEffect(() => {
+    if (authProfile) {
+      // We have the profile from AuthContext (which already checked both tables)
+      // Check if it's a RevOS profile or a standard one
+      // In our setup, even standard profiles are mapped to RevOSProfile shape in AuthContext
+      fetchOrgDetails(authProfile);
+    } else {
+      // If no authProfile but we have a user, it might still be loading or not found
+      if (!user) {
+        setState({ profile: null, org: null, isLoading: false, error: null });
+      } else {
+        // Still waiting for AuthContext profile fetch
+        setState(prev => ({ ...prev, isLoading: true }));
+      }
+    }
+  }, [authProfile, user]);
+
   const signOut = async () => {
     await supabase.auth.signOut();
-    setState({
-      profile: null,
-      org: null,
-      isLoading: false,
-      error: null,
-    });
   };
 
-  useEffect(() => {
-    fetchProfile();
-
-    // Listen for auth state changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
-      if (event === 'SIGNED_IN' || event === 'USER_UPDATED') {
-        fetchProfile();
-      } else if (event === 'SIGNED_OUT') {
-        setState({ profile: null, org: null, isLoading: false, error: null });
-      }
-    });
-
-    return () => {
-      subscription.unsubscribe();
-    };
-  }, []);
-
   return (
-    <RevOSContext.Provider value={{ ...state, refreshProfile: fetchProfile, signOut }}>
+    <RevOSContext.Provider value={{ ...state, refreshProfile: () => fetchOrgDetails(authProfile), signOut }}>
       {children}
     </RevOSContext.Provider>
   );

@@ -381,8 +381,67 @@ export function Admin() {
     );
   }
 
-  // Double check authorization (ProtectedRoute handles the initial check)
-  if (!user || profile?.role !== 'super_admin') {
+  if (!user) {
+    return (
+      <div className="min-h-screen bg-bg-primary flex flex-col justify-center py-12 sm:px-6 lg:px-8">
+        <div className="sm:mx-auto sm:w-full sm:max-w-md">
+          <h2 className="mt-6 text-center text-3xl font-extrabold text-text-primary">
+            Website Admin Dashboard
+          </h2>
+        </div>
+
+        <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
+          <div className="bg-bg-surface py-8 px-4 shadow sm:rounded-lg sm:px-10 border border-border">
+            <form className="space-y-6" onSubmit={handleLogin}>
+              {error && (
+                <div className="bg-red-500/10 border border-red-500/20 text-red-500 px-4 py-3 rounded relative" role="alert">
+                  <span className="block sm:inline">{error}</span>
+                </div>
+              )}
+              <div>
+                <label className="block text-sm font-medium text-text-primary">Email address</label>
+                <div className="mt-1">
+                  <input
+                    type="email"
+                    required
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    className="appearance-none block w-full px-3 py-2 border border-border rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-accent focus:border-accent sm:text-sm bg-transparent text-text-primary"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-text-primary">Password</label>
+                <div className="mt-1">
+                  <input
+                    type="password"
+                    required
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    className="appearance-none block w-full px-3 py-2 border border-border rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-accent focus:border-accent sm:text-sm bg-transparent text-text-primary"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-accent hover:bg-accent/90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-accent disabled:opacity-50"
+                >
+                  {loading ? 'Signing in...' : 'Sign in to Admin Dashboard'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Double check authorization
+  if (profile?.role !== 'super_admin') {
     return (
       <div className="min-h-screen bg-bg-primary flex flex-col items-center justify-center p-4">
         <div className="max-w-md w-full bg-bg-surface border border-border rounded-2xl p-8 text-center shadow-2xl">

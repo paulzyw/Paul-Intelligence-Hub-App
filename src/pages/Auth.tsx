@@ -31,6 +31,8 @@ export function Auth() {
 
   // Check if user is already logged in or handling a redirect
   useEffect(() => {
+    let mounted = true;
+
     // Check for PKCE code or errors in URL
     const handleAuthRedirect = async () => {
       const searchParams = new URLSearchParams(window.location.search);
@@ -39,6 +41,8 @@ export function Auth() {
       const type = searchParams.get('type');
       const errorParam = searchParams.get('error');
       const errorDesc = searchParams.get('error_description');
+
+      if (!mounted) return;
 
       if (errorParam) {
         setError(errorDesc || errorParam);
@@ -52,9 +56,9 @@ export function Auth() {
           const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(code);
           if (exchangeError) throw exchangeError;
         } catch (err: any) {
-          setError(`Authentication failed: ${err.message}`);
+          if (mounted) setError(`Authentication failed: ${err.message}`);
         } finally {
-          setLoading(false);
+          if (mounted) setLoading(false);
         }
       } else if (tokenHash && type) {
         setLoading(true);
@@ -65,41 +69,35 @@ export function Auth() {
             type: type as any,
           });
           if (verifyError) throw verifyError;
-          setMessage('Email confirmed! Signing you in...');
+          if (mounted) setMessage('Email confirmed! Signing you in...');
         } catch (err: any) {
-          setError(`Verification failed: ${err.message}`);
+          if (mounted) setError(`Verification failed: ${err.message}`);
         } finally {
-          setLoading(false);
+          if (mounted) setLoading(false);
         }
       }
     };
 
     handleAuthRedirect();
 
-    // Initial check for existing user
-    supabase.auth.getUser().then(({ data: { user } }) => {
-      if (user) {
-        navigate(from, { replace: true });
-      }
-    });
-
     // Listen for auth state changes (crucial for catching redirects with tokens)
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (!mounted) return;
+      
       if (session?.user) {
         if (event === 'SIGNED_IN') {
           setMessage('Successfully authenticated. Redirecting...');
           setTimeout(() => {
-            navigate(from, { replace: true });
-          }, 1500);
+            if (mounted) navigate(from, { replace: true });
+          }, 1000);
         } else if (event === 'INITIAL_SESSION' && !window.location.search.includes('code')) {
-          // Only redirect on initial session if we aren't currently exchanging a code
-          navigate(from, { replace: true });
+           navigate(from, { replace: true });
         }
       }
 
       if (event === 'PASSWORD_RECOVERY') {
         setMessage('Reset link verified. Please update your password.');
-        setIsSignUp(false); // Ensure we are on sign-in/reset view
+        setIsSignUp(false);
       }
     });
 

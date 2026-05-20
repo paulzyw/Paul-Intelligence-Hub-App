@@ -62,14 +62,7 @@ export default function App() {
           </Route>
 
           {/* Admin Dashboard Protected Route */}
-          <Route 
-            path="/admin" 
-            element={
-              <ProtectedRoute allowedRoles={['super_admin']}>
-                <Admin />
-              </ProtectedRoute>
-            } 
-          />
+          <Route path="/admin" element={<Admin />} />
         </Routes>
       </BrowserRouter>
       </AuthProvider>
