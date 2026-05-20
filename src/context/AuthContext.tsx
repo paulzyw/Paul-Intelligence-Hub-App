@@ -36,9 +36,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (!mounted) return;
 
         if (session?.user) {
-          setUser(session.user);
           const profileData = await fetchProfile(session.user.id);
-          if (mounted) setProfile(profileData);
+          if (mounted) {
+            setUser(session.user);
+            setProfile(profileData);
+          }
         }
       } catch (error) {
         console.error('Auth initialization error:', error);
@@ -53,10 +55,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (!mounted) return;
 
       if (session?.user) {
-        setUser(session.user);
+        // If it's a login event or new session, fetch profile
         setLoading(true);
         const profileData = await fetchProfile(session.user.id);
         if (mounted) {
+          setUser(session.user);
           setProfile(profileData);
           setLoading(false);
         }

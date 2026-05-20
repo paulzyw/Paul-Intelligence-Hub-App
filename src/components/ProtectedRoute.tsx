@@ -15,6 +15,7 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
   const { user, profile, loading } = useAuth();
   const location = useLocation();
 
+  // Show loading while we are checking auth session or fetching profile
   if (loading) {
     return (
       <div className="min-h-screen bg-bg-primary flex items-center justify-center">
@@ -28,10 +29,16 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
     return <Navigate to="/auth" state={{ from: location }} replace />;
   }
 
-  // If roles are specified, check them
+  // If roles are specified, wait until profile is available before making a decision
+  // If we have a user but no profile at this point, something is wrong or still loading
   if (allowedRoles) {
-    if (!profile || !allowedRoles.includes(profile.role)) {
-      // If they aren't allowed, send them back to the solutions page or home
+    if (!profile) {
+      // Fallback redirect if profile fetch failed but loading finished
+      return <Navigate to="/solutions" replace />;
+    }
+    
+    if (!allowedRoles.includes(profile.role)) {
+      // If they aren't allowed, send them back to the solutions page
       return <Navigate to="/solutions" replace />;
     }
   }
