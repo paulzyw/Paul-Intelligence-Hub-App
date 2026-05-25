@@ -299,8 +299,8 @@ function RevOSContent() {
 export function RevOSApp() {
   return (
     <RevOSProvider>
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 w-full my-6 sm:my-8 md:my-10">
-        <div className="rounded-3xl border border-border bg-bg-surface overflow-hidden shadow-2xl relative w-full">
+      <div className="max-w-7xl mx-auto px-1.5 sm:px-6 lg:px-8 w-full my-3 sm:my-8 md:my-10">
+        <div className="rounded-2xl sm:rounded-3xl border border-border bg-bg-surface overflow-hidden shadow-2xl relative w-full">
           <div className="absolute inset-0 bg-gradient-to-tr from-accent/5 via-transparent to-blue-500/5 pointer-events-none" />
           <RevOSContent />
         </div>

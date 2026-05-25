@@ -517,11 +517,11 @@ export function RevOSConsole() {
 
   return (
     <div className="min-h-screen bg-bg-primary text-text-primary">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div className="max-w-7xl mx-auto px-2.5 sm:px-6 lg:px-8 py-6 sm:py-8">
         
         {/* Top Header Row with Back button */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
-          <div className="flex items-center gap-4">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6 sm:mb-8">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 sm:gap-4">
             <Link 
               to="/solutions/revos"
               className="p-2 sm:p-2.5 rounded-xl border border-border bg-bg-surface hover:text-accent hover:border-accent/40 transition-all flex items-center justify-center gap-2 text-xs sm:text-sm font-bold shadow-sm"
@@ -534,15 +534,15 @@ export function RevOSConsole() {
             <div className="h-6 w-px bg-border/80 hidden sm:block" />
 
             <div>
-              <div className="flex items-center gap-2">
-                <Shield className="h-5 w-5 text-accent" />
-                <h1 className="text-xl sm:text-2xl font-black uppercase tracking-wider">RevOS Governance Console</h1>
+              <div className="flex items-center gap-2 flex-wrap">
+                <Shield className="h-4 w-4 sm:h-5 sm:w-5 text-accent shrink-0" />
+                <h1 className="text-lg sm:text-xl md:text-2xl font-black uppercase tracking-wider break-words line-clamp-1">RevOS Governance Console</h1>
               </div>
               <p className="text-[10px] sm:text-xs text-text-secondary mt-0.5">Role Authorization Layer (L1-RBAC)</p>
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <button
               onClick={handleResetSandbox}
               className="flex items-center gap-1 px-3 py-1.5 rounded-lg border border-border text-xs text-text-secondary hover:text-accent hover:bg-accent/5 transition-all"
@@ -717,96 +717,166 @@ export function RevOSConsole() {
                       No identities found matching the query context.
                     </div>
                   ) : (
-                    <div className="overflow-x-auto">
-                      <table className="w-full text-left border-collapse">
-                        <thead>
-                          <tr className="bg-bg-primary/50 border-b border-border text-[10px] uppercase font-black text-text-secondary tracking-wider">
-                            <th className="p-4 pl-6">Profile Identity</th>
-                            <th className="p-4">Authorize Role</th>
-                            <th className="p-4">Quotas / Calls</th>
-                            <th className="p-4">Status</th>
-                            <th className="p-4">Registered</th>
-                            <th className="p-4 text-right pr-6">Operational Control</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-border/40">
-                          {filteredUsers.map((u) => {
-                            const roleDetails = ROLE_CONFIG[u.role] || { label: u.role, colorClass: 'bg-border text-text-primary' };
-                            return (
-                              <tr key={u.id} className="hover:bg-bg-primary/30 transition-colors text-xs sm:text-sm">
-                                
-                                {/* Identity (Name & Email) */}
-                                <td className="p-4 pl-6">
-                                  <div className="flex items-center gap-3">
-                                    <div className="w-8 h-8 rounded-full bg-accent/10 border border-accent/25 text-accent flex items-center justify-center font-black text-xs">
-                                      {(u.full_name || u.email).substring(0, 2).toUpperCase()}
-                                    </div>
-                                    <div>
-                                      <div className="font-bold text-text-primary flex items-center gap-1.5">
-                                        <span>{u.full_name || 'Anonymous User'}</span>
-                                        {u.id === user?.id && (
-                                          <span className="text-[9px] uppercase tracking-wider bg-accent/20 text-accent px-1.5 py-0.5 rounded font-bold">Self</span>
-                                        )}
-                                      </div>
-                                      <span className="text-[11px] text-text-secondary block mt-0.5">{u.email}</span>
-                                    </div>
+                    <div className="p-3 sm:p-5 md:p-0">
+                      {/* Mobile Card List (small devices) */}
+                      <div className="block md:hidden space-y-4">
+                        {filteredUsers.map((u) => {
+                          const roleDetails = ROLE_CONFIG[u.role] || { label: u.role, colorClass: 'bg-border text-text-primary' };
+                          return (
+                            <div key={u.id} className="p-4 rounded-xl border border-border bg-bg-surface/60 space-y-4 shadow-sm">
+                              <div className="flex items-center gap-3">
+                                <div className="w-10 h-10 rounded-full bg-accent/10 border border-accent/25 text-accent flex items-center justify-center font-black text-xs shrink-0 font-mono">
+                                  {(u.full_name || u.email).substring(0, 2).toUpperCase()}
+                                </div>
+                                <div className="min-w-0 flex-grow">
+                                  <div className="font-bold text-text-primary flex items-center gap-1.5 flex-wrap">
+                                    <span className="truncate">{u.full_name || 'Anonymous User'}</span>
+                                    {u.id === user?.id && (
+                                      <span className="text-[9px] uppercase tracking-wider bg-accent/20 text-accent px-1.5 py-0.5 rounded font-bold shrink-0">Self</span>
+                                    )}
                                   </div>
-                                </td>
-
-                                {/* Badge role */}
-                                <td className="p-4">
-                                  <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-[10px] border font-bold uppercase tracking-wider ${roleDetails.colorClass}`}>
+                                  <span className="text-[11px] text-text-secondary block mt-0.5 truncate">{u.email}</span>
+                                </div>
+                              </div>
+                              
+                              <div className="grid grid-cols-2 gap-3 pt-2.5 border-t border-border/40">
+                                <div>
+                                  <span className="text-[9px] text-text-secondary block uppercase tracking-wider font-extrabold mb-1">Role</span>
+                                  <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[9px] border font-bold uppercase tracking-wider ${roleDetails.colorClass}`}>
                                     {roleDetails.label}
                                   </span>
-                                </td>
+                                </div>
+                                <div>
+                                  <span className="text-[9px] text-text-secondary block uppercase tracking-wider font-extrabold mb-1">Quota / Month</span>
+                                  <span className="font-mono text-[11px] text-text-primary font-bold">
+                                    {u.api_usage_quota} <span className="opacity-60 text-[9px] font-normal">calls</span>
+                                  </span>
+                                </div>
+                              </div>
 
-                                {/* Usage Limits */}
-                                <td className="p-4 font-mono text-xs text-text-secondary">
-                                  <span className="text-text-primary font-bold">{u.api_usage_quota}</span>
-                                  <span className="opacity-60"> calls/mo</span>
-                                </td>
+                              <div className="flex items-center justify-between pt-3 border-t border-border/40 gap-4 flex-wrap">
+                                <div className="flex items-center gap-2">
+                                  <span className={`h-2 w-2 rounded-full shrink-0 ${u.is_active ? 'bg-green-500 animate-pulse' : 'bg-red-500'}`} />
+                                  <span className="text-[10px] font-bold uppercase tracking-wider text-text-secondary">
+                                    {u.is_active ? 'Active' : 'Restricted'}
+                                  </span>
+                                </div>
 
-                                {/* Status Toggle */}
-                                <td className="p-4">
-                                  <div className="flex items-center gap-2">
-                                    <span className={`h-2 w-2 rounded-full ${u.is_active ? 'bg-green-500 animate-pulse' : 'bg-red-500'}`} />
-                                    <span className="text-[11px] font-medium uppercase tracking-wider text-text-secondary">
-                                      {u.is_active ? 'Active' : 'Restricted'}
+                                <div className="flex items-center gap-2">
+                                  <button 
+                                    onClick={() => handleEditClick(u)}
+                                    className="px-2.5 py-1.5 rounded-lg border border-border text-text-secondary hover:text-accent hover:border-accent/40 bg-bg-primary text-xs font-bold transition-all flex items-center gap-1"
+                                  >
+                                    <Edit size={12} />
+                                    <span>Edit</span>
+                                  </button>
+                                  <button 
+                                    onClick={() => handleDeleteClick(u)}
+                                    className="px-2.5 py-1.5 rounded-lg border border-red-500/20 text-red-400 hover:text-white hover:bg-red-500/10 text-xs font-bold transition-all disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-1"
+                                    disabled={u.id === user?.id}
+                                  >
+                                    <Trash2 size={12} />
+                                    <span>Delete</span>
+                                  </button>
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+
+                      {/* Desktop Table (medium devices and up) */}
+                      <div className="hidden md:block overflow-x-auto">
+                        <table className="w-full text-left border-collapse">
+                          <thead>
+                            <tr className="bg-bg-primary/50 border-b border-border text-[10px] uppercase font-black text-text-secondary tracking-wider">
+                              <th className="p-4 pl-6">Profile Identity</th>
+                              <th className="p-4">Authorize Role</th>
+                              <th className="p-4">Quotas / Calls</th>
+                              <th className="p-4">Status</th>
+                              <th className="p-4">Registered</th>
+                              <th className="p-4 text-right pr-6">Operational Control</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-border/40">
+                            {filteredUsers.map((u) => {
+                              const roleDetails = ROLE_CONFIG[u.role] || { label: u.role, colorClass: 'bg-border text-text-primary' };
+                              return (
+                                <tr key={u.id} className="hover:bg-bg-primary/30 transition-colors text-xs sm:text-sm">
+                                  
+                                  {/* Identity (Name & Email) */}
+                                  <td className="p-4 pl-6">
+                                    <div className="flex items-center gap-3">
+                                      <div className="w-8 h-8 rounded-full bg-accent/10 border border-accent/25 text-accent flex items-center justify-center font-black text-xs font-mono">
+                                        {(u.full_name || u.email).substring(0, 2).toUpperCase()}
+                                      </div>
+                                      <div>
+                                        <div className="font-bold text-text-primary flex items-center gap-1.5">
+                                          <span>{u.full_name || 'Anonymous User'}</span>
+                                          {u.id === user?.id && (
+                                            <span className="text-[9px] uppercase tracking-wider bg-accent/20 text-accent px-1.5 py-0.5 rounded font-bold">Self</span>
+                                          )}
+                                        </div>
+                                        <span className="text-[11px] text-text-secondary block mt-0.5">{u.email}</span>
+                                      </div>
+                                    </div>
+                                  </td>
+
+                                  {/* Badge role */}
+                                  <td className="p-4">
+                                    <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-[10px] border font-bold uppercase tracking-wider ${roleDetails.colorClass}`}>
+                                      {roleDetails.label}
                                     </span>
-                                  </div>
-                                </td>
+                                  </td>
 
-                                {/* Created At */}
-                                <td className="p-4 text-text-secondary text-xs">
-                                  {new Date(u.created_at).toLocaleDateString()}
-                                </td>
+                                  {/* Usage Limits */}
+                                  <td className="p-4 font-mono text-xs text-text-secondary">
+                                    <span className="text-text-primary font-bold">{u.api_usage_quota}</span>
+                                    <span className="opacity-60"> calls/mo</span>
+                                  </td>
 
-                                {/* Operations Actions */}
-                                <td className="p-4 text-right pr-6">
-                                  <div className="flex justify-end gap-1">
-                                    <button
-                                      onClick={() => handleEditClick(u)}
-                                      className="p-1.5 sm:p-2 text-blue-400 hover:text-white hover:bg-blue-500/10 rounded-xl transition-colors border border-transparent hover:border-blue-500/20"
-                                      title="Edit authorized user role"
-                                    >
-                                      <Edit size={15} />
-                                    </button>
-                                    <button
-                                      onClick={() => handleDeleteClick(u)}
-                                      className="p-1.5 sm:p-2 text-red-400 hover:text-white hover:bg-red-500/10 rounded-xl transition-colors border border-transparent hover:border-red-500/20 disabled:opacity-40 disabled:cursor-not-allowed"
-                                      disabled={u.id === user?.id}
-                                      title={u.id === user?.id ? 'Self deletion locked' : 'Erase identity profile'}
-                                    >
-                                      <Trash2 size={15} />
-                                    </button>
-                                  </div>
-                                </td>
+                                  {/* Status Toggle */}
+                                  <td className="p-4">
+                                    <div className="flex items-center gap-2">
+                                      <span className={`h-2 w-2 rounded-full ${u.is_active ? 'bg-green-500 animate-pulse' : 'bg-red-500'}`} />
+                                      <span className="text-[11px] font-medium uppercase tracking-wider text-text-secondary">
+                                        {u.is_active ? 'Active' : 'Restricted'}
+                                      </span>
+                                    </div>
+                                  </td>
 
-                              </tr>
-                            );
-                          })}
-                        </tbody>
-                      </table>
+                                  {/* Created At */}
+                                  <td className="p-4 text-text-secondary text-xs">
+                                    {new Date(u.created_at).toLocaleDateString()}
+                                  </td>
+
+                                  {/* Operations Actions */}
+                                  <td className="p-4 text-right pr-6">
+                                    <div className="flex justify-end gap-1">
+                                      <button
+                                        onClick={() => handleEditClick(u)}
+                                        className="p-1.5 sm:p-2 text-blue-400 hover:text-white hover:bg-blue-500/10 rounded-xl transition-colors border border-transparent hover:border-blue-500/20"
+                                        title="Edit authorized user role"
+                                      >
+                                        <Edit size={15} />
+                                      </button>
+                                      <button
+                                        onClick={() => handleDeleteClick(u)}
+                                        className="p-1.5 sm:p-2 text-red-400 hover:text-white hover:bg-red-500/10 rounded-xl transition-colors border border-transparent hover:border-red-500/20 disabled:opacity-40 disabled:cursor-not-allowed"
+                                        disabled={u.id === user?.id}
+                                        title={u.id === user?.id ? 'Self deletion locked' : 'Erase identity profile'}
+                                      >
+                                        <Trash2 size={15} />
+                                      </button>
+                                    </div>
+                                  </td>
+
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
                     </div>
                   )}
 
@@ -856,7 +926,7 @@ export function RevOSConsole() {
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-xs uppercase tracking-wider font-extrabold text-text-secondary mb-1">Email Address</label>
                   <input 
@@ -897,7 +967,7 @@ export function RevOSConsole() {
                 </p>
               </div>
 
-              <div className="grid grid-cols-2 gap-4 pt-2">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
                 <div>
                   <label className="block text-xs uppercase tracking-wider font-extrabold text-text-secondary mb-1">Compute Token Quota</label>
                   <input 
@@ -1012,7 +1082,7 @@ export function RevOSConsole() {
                 </p>
               </div>
 
-              <div className="grid grid-cols-2 gap-4 pt-2">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
                 <div>
                   <label className="block text-xs uppercase tracking-wider font-extrabold text-text-secondary mb-1">Compute Token Quota</label>
                   <input 
