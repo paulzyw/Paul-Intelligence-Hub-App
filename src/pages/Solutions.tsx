@@ -469,9 +469,12 @@ export function Solutions() {
           <p className="text-text-secondary mb-12 text-lg max-w-xl mx-auto">
             Join the ecosystem of organizations building a resilient, AI-native commercial operating model.
           </p>
-          <button className="px-10 py-5 bg-accent text-black font-extrabold rounded-full hover:scale-105 active:scale-95 transition-all">
+          <Link
+            to="/solutions/revos"
+            className="inline-block px-10 py-5 bg-accent text-black font-extrabold rounded-full hover:scale-105 active:scale-95 transition-all text-center"
+          >
             Get Started with RevOS
-          </button>
+          </Link>
         </div>
       </section>
     </div>

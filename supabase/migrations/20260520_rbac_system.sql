@@ -28,7 +28,7 @@ ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
 
 -- Permissions for Data API Access (Post-May 2026 Policy)
 GRANT SELECT ON public.profiles TO anon;
-GRANT SELECT, UPDATE ON public.profiles TO authenticated;
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.profiles TO authenticated;
 GRANT SELECT, INSERT, UPDATE, DELETE ON public.profiles TO service_role;
 
 -- RLS Rules
@@ -39,6 +39,13 @@ ON public.profiles FOR SELECT USING (true);
 -- 2. Users can update their own non-role profiles (future extensibility)
 CREATE POLICY "Users can edit own profile" 
 ON public.profiles FOR UPDATE USING (auth.uid() = id);
+
+-- 3. Super admins can manage all profiles
+CREATE POLICY "Super admins can manage all profiles" 
+ON public.profiles FOR ALL 
+TO authenticated 
+USING (public.is_super_admin() = true)
+WITH CHECK (public.is_super_admin() = true);
 
 -- Trigger: Automatically create profile on signup
 CREATE OR REPLACE FUNCTION public.handle_new_user()
@@ -71,3 +78,6 @@ BEGIN
   );
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- Grant execution permission
+GRANT EXECUTE ON FUNCTION public.is_super_admin() TO anon, authenticated, service_role;

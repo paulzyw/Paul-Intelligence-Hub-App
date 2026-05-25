@@ -85,6 +85,12 @@ CREATE POLICY "Users can view their own profile"
   TO authenticated 
   USING (id = auth.uid());
 
+CREATE POLICY "Super admins can manage all revos profiles" 
+  ON public.revos_profiles FOR ALL 
+  TO authenticated 
+  USING (public.is_super_admin() = true)
+  WITH CHECK (public.is_super_admin() = true);
+
 CREATE POLICY "Users can view their org's strategies" 
   ON public.revos_gtmos_strategies FOR SELECT 
   TO authenticated 

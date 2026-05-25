@@ -149,14 +149,24 @@ export function Navbar() {
                       </div>
                       
                       {profile?.role === 'super_admin' && (
-                        <Link
-                          to="/admin"
-                          onClick={() => setIsUserMenuOpen(false)}
-                          className="flex items-center gap-2 px-4 py-2 text-sm text-text-primary hover:bg-bg-primary transition-colors"
-                        >
-                          <Shield size={16} />
-                          Admin Panel
-                        </Link>
+                        <>
+                          <Link
+                            to="/admin"
+                            onClick={() => setIsUserMenuOpen(false)}
+                            className="flex items-center gap-2 px-4 py-2 text-sm text-text-primary hover:bg-bg-primary transition-colors border-b border-border/50"
+                          >
+                            <Shield size={16} />
+                            Admin Panel
+                          </Link>
+                          <Link
+                            to="/solutions/revos/console"
+                            onClick={() => setIsUserMenuOpen(false)}
+                            className="flex items-center gap-2 px-4 py-2 text-sm text-accent hover:bg-bg-primary/50 transition-colors font-semibold"
+                          >
+                            <Settings size={16} className="text-accent" />
+                            RevOS Console
+                          </Link>
+                        </>
                       )}
 
                       {(profile?.role === 'revos_admin' || profile?.role === 'free_user') && (
@@ -291,14 +301,24 @@ export function Navbar() {
            </div>
            <div className="space-y-2">
               {profile?.role === 'super_admin' && (
-                <Link
-                  to="/admin"
-                  onClick={() => setIsUserMenuOpen(false)}
-                  className="flex items-center gap-3 p-2 rounded-md hover:bg-bg-primary"
-                >
-                  <Shield size={20} className="text-text-secondary" />
-                  <span className="text-sm font-medium">Admin Panel</span>
-                </Link>
+                <>
+                  <Link
+                    to="/admin"
+                    onClick={() => setIsUserMenuOpen(false)}
+                    className="flex items-center gap-3 p-2 rounded-md hover:bg-bg-primary"
+                  >
+                    <Shield size={20} className="text-text-secondary" />
+                    <span className="text-sm font-medium">Admin Panel</span>
+                  </Link>
+                  <Link
+                    to="/solutions/revos/console"
+                    onClick={() => setIsUserMenuOpen(false)}
+                    className="flex items-center gap-3 p-2 rounded-md text-accent hover:bg-bg-primary font-semibold"
+                  >
+                    <Settings size={20} className="text-accent" />
+                    <span className="text-sm font-medium">RevOS Console</span>
+                  </Link>
+                </>
               )}
               <Link
                 to="/auth"
