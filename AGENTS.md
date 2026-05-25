@@ -31,3 +31,21 @@ GRANT EXECUTE ON FUNCTION public.my_function(arg_type) TO anon, authenticated, s
 
 - Prefer GA models over preview models.
 - As of May 2026, use `gemini-3.1-flash-lite` for high-throughput, low-latency tasks.
+
+---
+
+## RevOS User Role Hierarchy & Authorization
+
+This role hierarchy establishes the foundation for all role-based access control (RBAC) across the RevOS platform. Maintain consistency with this definition in database schema designs, row-level security (RLS) rules, client navigation structures, and API authorizations.
+
+| Role | Purpose |
+| :--- | :--- |
+| **Guest** | Public exploration |
+| **Free User** | Limited self-service usage |
+| **Paid User** | Full professional access |
+| **Enterprise User** | Collaborative enterprise access |
+| **Workspace Admin** | Workspace governance |
+| **Enterprise Executive** | Executive intelligence visibility |
+| **RevOS Admin** | Platform operations management |
+| **Super Admin** | Full system-level authority |
+

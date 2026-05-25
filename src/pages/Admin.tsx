@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { supabase, type Post, type Category, type ResearchReport, type ReportType, type AccessCode } from '../lib/supabase';
-import { LogOut, Plus, Edit, Trash2, Save, X, UploadCloud, Image as ImageIcon, FolderPlus, Sparkles, BarChart3, Key, Copy, Check, ShieldAlert } from 'lucide-react';
+import { Plus, Edit, Trash2, Save, X, UploadCloud, Image as ImageIcon, FolderPlus, Sparkles, BarChart3, Key, Copy, Check, ShieldAlert } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 import { Navigate, useNavigate, Link } from 'react-router-dom';
 
@@ -368,12 +368,6 @@ export function Admin() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center mb-8">
           <h1 className="text-3xl font-bold text-text-primary">Content Management</h1>
-          <button
-            onClick={handleLogout}
-            className="flex items-center gap-2 text-text-secondary hover:text-text-primary transition-colors"
-          >
-            <LogOut size={20} /> Logout
-          </button>
         </div>
 
         {!isEditing && (

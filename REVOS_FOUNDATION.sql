@@ -11,11 +11,20 @@ CREATE TABLE IF NOT EXISTS public.revos_orgs (
 );
 
 -- 2. User Profiles & RBAC
--- Role Enum: Guest, Free User, Paid User, Enterprise User, Workspace Admin, Enterprise Executive, RevOS Admin, Super Admin
+-- Role Enum Constraint: guest, free_user, paid_user, enterprise_user, workspace_admin, enterprise_executive, revos_admin, super_admin
 CREATE TABLE IF NOT EXISTS public.revos_profiles (
   id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
   org_id UUID REFERENCES public.revos_orgs(id),
-  role TEXT NOT NULL DEFAULT 'free_user',
+  role TEXT NOT NULL DEFAULT 'free_user' CHECK (role IN (
+    'guest',
+    'free_user',
+    'paid_user',
+    'enterprise_user',
+    'workspace_admin',
+    'enterprise_executive',
+    'revos_admin',
+    'super_admin'
+  )),
   is_active BOOLEAN DEFAULT TRUE,
   api_usage_quota INTEGER DEFAULT 100,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP

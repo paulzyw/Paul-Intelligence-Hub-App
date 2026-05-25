@@ -10,7 +10,6 @@ import {
   ShieldAlert,
   Loader2,
   Lock,
-  LogOut,
   Command
 } from 'lucide-react';
 import { cn } from '../../lib/utils';
@@ -36,12 +35,6 @@ const RevOSDashboard = () => {
               Role: {profile?.role || 'Guest'}
             </span>
           </div>
-          <button 
-            onClick={() => signOut()}
-            className="text-[10px] uppercase tracking-widest font-bold text-text-secondary hover:text-red-400 transition-colors flex items-center gap-1 px-1"
-          >
-            <LogOut className="h-3 w-3" /> Sign Out
-          </button>
         </div>
       </div>
 
