@@ -14,12 +14,18 @@ export function Navbar() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const userMenuRef = useRef<HTMLDivElement>(null);
+  const mobileUserMenuRef = useRef<HTMLDivElement>(null);
+  const mobileUserButtonRef = useRef<HTMLButtonElement>(null);
   const { theme } = useTheme();
   const { user, profile } = useAuth();
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
-      if (userMenuRef.current && !userMenuRef.current.contains(event.target as Node)) {
+      const clickedOutsideDesktop = !userMenuRef.current || !userMenuRef.current.contains(event.target as Node);
+      const clickedOutsideMobileDropdown = !mobileUserMenuRef.current || !mobileUserMenuRef.current.contains(event.target as Node);
+      const clickedOutsideMobileButton = !mobileUserButtonRef.current || !mobileUserButtonRef.current.contains(event.target as Node);
+      
+      if (clickedOutsideDesktop && clickedOutsideMobileDropdown && clickedOutsideMobileButton) {
         setIsUserMenuOpen(false);
       }
     }
@@ -200,13 +206,21 @@ export function Navbar() {
 
           <div className="flex md:hidden items-center gap-4">
             <ThemeToggle />
-            {user && (
+            {user ? (
               <button
+                ref={mobileUserButtonRef}
                 onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
                 className="p-1 rounded-full text-text-secondary"
               >
                 <User size={20} />
               </button>
+            ) : (
+              <Link
+                to="/auth"
+                className="inline-flex items-center justify-center px-3 py-1.5 border border-border text-xs font-bold rounded-lg text-text-primary hover:bg-bg-primary transition-colors uppercase tracking-wider"
+              >
+                Sign In
+              </Link>
             )}
             <button
               onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
@@ -237,7 +251,7 @@ export function Navbar() {
                 {link.name}
               </Link>
             ))}
-            {user && (
+            {user ? (
               <button
                 onClick={handleLogout}
                 className="w-full flex items-center gap-2 px-3 py-2 text-base font-medium text-red-500 hover:bg-red-500/10 rounded-md"
@@ -245,6 +259,16 @@ export function Navbar() {
                 <LogOut size={18} />
                 Sign Out
               </button>
+            ) : (
+              <div className="px-3 pt-2">
+                <Link
+                  to="/auth"
+                  onClick={() => setIsMobileMenuOpen(false)}
+                  className="w-full flex items-center justify-center px-4 py-2.5 border border-transparent text-sm font-bold rounded-xl text-black bg-accent hover:bg-accent/90 transition-all text-center uppercase tracking-wider shadow-md shadow-accent/10"
+                >
+                  Sign In
+                </Link>
+              </div>
             )}
           </div>
         </div>
@@ -252,7 +276,10 @@ export function Navbar() {
       
       {/* Mobile User Dropdown Overlay */}
       {isMobileMenuOpen === false && isUserMenuOpen && (
-        <div className="md:hidden border-t border-border bg-bg-surface px-4 py-4 space-y-4">
+        <div 
+          ref={mobileUserMenuRef}
+          className="md:hidden border-t border-border bg-bg-surface px-4 py-4 space-y-4"
+        >
            <div className="flex items-center gap-3 pb-4 border-b border-border">
               <div className="w-10 h-10 rounded-full bg-accent/10 flex items-center justify-center text-accent">
                 <User size={24} />
