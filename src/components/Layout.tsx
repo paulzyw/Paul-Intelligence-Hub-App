@@ -9,7 +9,7 @@ export function Layout() {
   useTrafficTracking();
 
   return (
-    <div className="min-h-screen flex flex-col overflow-x-hidden w-full">
+    <div className="min-h-screen flex flex-col w-full">
       <Navbar />
       <main className="flex-grow">
         <Outlet />
