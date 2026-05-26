@@ -76,6 +76,11 @@
     --article-line-height: 1.25;
   }
 
+  html, body {
+    max-width: 100%;
+    overflow-x: hidden;
+  }
+
   body {
     background-color: var(--bg-primary);
     color: var(--text-primary);

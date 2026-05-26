@@ -264,7 +264,7 @@ const handleSend = async () => {
             initial={{ opacity: 0, y: 20, scale: 0.95 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 20, scale: 0.95 }}
-            className="mb-4 w-[350px] sm:w-[400px] h-[500px] bg-bg-surface border border-border rounded-2xl shadow-2xl flex flex-col overflow-hidden"
+            className="mb-4 w-[calc(100vw-2rem)] max-w-[350px] sm:max-w-[400px] h-[500px] bg-bg-surface border border-border rounded-2xl shadow-2xl flex flex-col overflow-hidden"
           >
             {/* Header */}
             <div className="p-4 bg-bg-surface border-b border-border text-text-primary flex justify-between items-center">
