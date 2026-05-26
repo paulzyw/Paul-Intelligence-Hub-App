@@ -160,7 +160,7 @@ function RevOSContent() {
   const isConsole = location.pathname.includes('/solutions/revos/console');
 
   return (
-    <div className="flex flex-col md:flex-row min-h-[60vh] md:min-h-[80vh] overflow-hidden w-full">
+    <div className="flex flex-col md:flex-row min-h-[60vh] md:min-h-[80vh] md:overflow-hidden w-full">
       {/* RevOS Desktop Sidebar */}
       {!isConsole && (
         <aside className="w-64 border-r border-border bg-bg-primary/50 hidden md:block shrink-0">
@@ -215,48 +215,56 @@ function RevOSContent() {
 
       {/* RevOS Mobile Sub-Navigation Header Bar */}
       {!isConsole && (
-        <div className="md:hidden border-b border-border bg-bg-primary/40 backdrop-blur-md sticky top-0 z-30 overflow-x-auto scrollbar-none w-full shrink-0">
-          <div className="flex px-4 py-3 min-w-max gap-2 items-center">
-            <div className="h-6 w-6 rounded bg-accent flex items-center justify-center text-black font-bold text-xs mr-1 shrink-0">R</div>
-            {navigation.map((item) => {
-              const isActive = (item.path === '' && (currentPath === 'revos' || currentPath === '')) || currentPath === item.path;
-              return (
+        <div className="md:hidden border-b border-border bg-bg-primary/40 backdrop-blur-md relative w-full shrink-0">
+          {/* Elegant horizontal gradient mask cued to show horizontal scrolling indicator */}
+          <div className="absolute right-0 top-0 bottom-0 w-12 bg-gradient-to-l from-bg-surface via-bg-surface/70 to-transparent pointer-events-none z-10" />
+          
+          <div 
+            className="overflow-x-auto touch-pan-x scrollbar-none w-full"
+            style={{ WebkitOverflowScrolling: 'touch' }}
+          >
+            <div className="flex px-4 py-3 min-w-max gap-2 items-center pr-12">
+              <div className="h-6 w-6 rounded bg-accent flex items-center justify-center text-black font-bold text-xs mr-1 shrink-0">R</div>
+              {navigation.map((item) => {
+                const isActive = (item.path === '' && (currentPath === 'revos' || currentPath === '')) || currentPath === item.path;
+                return (
+                  <Link
+                    key={item.name}
+                    to={item.path === '' ? '/solutions/revos' : `/solutions/revos/${item.path}`}
+                    className={cn(
+                      "flex items-center gap-1.5 px-3 py-1.5 text-[10px] sm:text-xs font-bold uppercase tracking-wider rounded-lg transition-all border shrink-0",
+                      isActive 
+                        ? "bg-accent border-accent text-black shadow-md shadow-accent/10" 
+                        : "text-text-secondary border-transparent hover:text-text-primary hover:bg-bg-primary"
+                    )}
+                  >
+                    <item.icon className="h-3.5 w-3.5 shrink-0" />
+                    <span>{item.name}</span>
+                  </Link>
+                );
+              })}
+
+              {profile?.role === 'super_admin' && (
                 <Link
-                  key={item.name}
-                  to={item.path === '' ? '/solutions/revos' : `/solutions/revos/${item.path}`}
+                  to="/solutions/revos/console"
                   className={cn(
                     "flex items-center gap-1.5 px-3 py-1.5 text-[10px] sm:text-xs font-bold uppercase tracking-wider rounded-lg transition-all border shrink-0",
-                    isActive 
+                    currentPath === 'console' 
                       ? "bg-accent border-accent text-black shadow-md shadow-accent/10" 
-                      : "text-text-secondary border-transparent hover:text-text-primary hover:bg-bg-primary"
+                      : "text-accent border-accent/20 bg-accent/5"
                   )}
                 >
-                  <item.icon className="h-3.5 w-3.5 shrink-0" />
-                  <span>{item.name}</span>
+                  <Shield className="h-3.5 w-3.5 shrink-0 text-accent" />
+                  <span>Console</span>
                 </Link>
-              );
-            })}
-
-            {profile?.role === 'super_admin' && (
-              <Link
-                to="/solutions/revos/console"
-                className={cn(
-                  "flex items-center gap-1.5 px-3 py-1.5 text-[10px] sm:text-xs font-bold uppercase tracking-wider rounded-lg transition-all border shrink-0",
-                  currentPath === 'console' 
-                    ? "bg-accent border-accent text-black shadow-md shadow-accent/10" 
-                    : "text-accent border-accent/20 bg-accent/5"
-                )}
-              >
-                <Shield className="h-3.5 w-3.5 shrink-0 text-accent" />
-                <span>Console</span>
-              </Link>
-            )}
+              )}
+            </div>
           </div>
         </div>
       )}
 
       {/* Main Content Area */}
-      <main className="flex-1 overflow-x-hidden overflow-y-auto relative bg-bg-surface/30 backdrop-blur-sm w-full min-w-0">
+      <main className="flex-1 overflow-x-hidden md:overflow-y-auto relative bg-bg-surface/30 backdrop-blur-sm w-full min-w-0">
         <AnimatePresence mode="wait">
           <motion.div
             key={location.pathname}
