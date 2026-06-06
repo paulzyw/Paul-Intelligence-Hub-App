@@ -220,6 +220,31 @@ function AutoResizingTextarea({
   );
 }
 
+const invokeGtmApi = async (action: string, payload: Record<string, any> = {}) => {
+  if (supabase) {
+    try {
+      const { data, error } = await supabase.functions.invoke('gtmos-api', {
+        body: { action, ...payload }
+      });
+      if (error) {
+        console.warn(`Supabase edge function error for action '${action}', falling back to local:`, error);
+        throw error;
+      }
+      return data;
+    } catch (edgeErr) {
+      console.warn(`Edge function failed for '${action}', attempting local express api fallback:`, edgeErr);
+    }
+  }
+
+  const response = await fetch(`/api/gtmos/${action}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload)
+  });
+  if (!response.ok) throw new Error(`GTM API responded with code: ${response.status}`);
+  return await response.json();
+};
+
 export function GTMOSModule() {
   const { profile, org } = useRevOS();
 
@@ -735,17 +760,10 @@ export function GTMOSModule() {
   const runGtmDraftGeneration = async () => {
     setIsGeneratingGtmDraft(true);
     try {
-      const response = await fetch('/api/gtmos/generate-gtm-draft', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          onboardingData: currentProject.onboarding,
-          projectName: currentProject.title
-        })
+      const data = await invokeGtmApi('generate-gtm-draft', {
+        onboardingData: currentProject.onboarding,
+        projectName: currentProject.title
       });
-
-      if (!response.ok) throw new Error('GTM draft generation HTTP issue');
-      const data = await response.json();
 
       const nextList = projectsList.map(p => {
         if (p.id === currentProjectId) {
@@ -913,18 +931,13 @@ export function GTMOSModule() {
     setIsGeneratingPlaygroundPitch(true);
     setPitchSuccessMsg('');
     try {
-      const response = await fetch('/api/gtmos/generate-pitch', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          onboardingData: currentProject.onboarding,
-          projectName: currentProject.title,
-          buyerType: playgroundBuyerType,
-          pitchFormat: playgroundFormat
-        })
+      const data = await invokeGtmApi('generate-pitch', {
+        onboardingData: currentProject.onboarding,
+        projectName: currentProject.title,
+        buyerType: playgroundBuyerType,
+        pitchFormat: playgroundFormat
       });
-      if (response.ok) {
-        const data = await response.json();
+      if (data) {
         setGeneratedPlaygroundResult(data);
       }
     } catch (err) {
@@ -967,18 +980,12 @@ export function GTMOSModule() {
     setIsGeneratingCanvas(true);
     setCanvasSuccessMsg('');
     try {
-      const response = await fetch('/api/gtmos/generate-canvas', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          onboardingData: currentProject.onboarding,
-          projectName: currentProject.title,
-          gtmStrategyDraft: currentProject.gtmStrategyDraft
-        })
+      const data = await invokeGtmApi('generate-canvas', {
+        onboardingData: currentProject.onboarding,
+        projectName: currentProject.title,
+        gtmStrategyDraft: currentProject.gtmStrategyDraft
       });
-      if (response.ok) {
-        const data = await response.json();
-        
+      if (data) {
         const nextList = projectsList.map(p => {
           if (p.id === currentProjectId) {
             return {
@@ -1036,14 +1043,9 @@ export function GTMOSModule() {
     }
 
     try {
-      const response = await fetch('/api/gtmos/reason', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ onboardingData: currentProject.onboarding })
+      const data = await invokeGtmApi('reason', {
+        onboardingData: currentProject.onboarding
       });
-
-      if (!response.ok) throw new Error('Reasoning HTTP error');
-      const data = await response.json();
 
       const nextList = projectsList.map(p => {
         if (p.id === currentProjectId) {
@@ -1069,17 +1071,10 @@ export function GTMOSModule() {
   const runStrategyGeneration = async () => {
     setIsGeneratingPillars(true);
     try {
-      const response = await fetch('/api/gtmos/generate-strategy', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          onboardingData: currentProject.onboarding,
-          projectName: currentProject.title
-        })
+      const data = await invokeGtmApi('generate-strategy', {
+        onboardingData: currentProject.onboarding,
+        projectName: currentProject.title
       });
-
-      if (!response.ok) throw new Error('Strategy Generation HTTP Issue');
-      const data = await response.json();
 
       const generatedPillars = data.pillars || DEFAULT_PILLARS;
 
@@ -1123,17 +1118,10 @@ export function GTMOSModule() {
   const runTaskGeneration = async () => {
     setIsGeneratingTasks(true);
     try {
-      const response = await fetch('/api/gtmos/generate-execution', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          strategyData: currentProject.pillars || DEFAULT_PILLARS,
-          projectName: currentProject.title
-        })
+      const taskData = await invokeGtmApi('generate-execution', {
+        strategyData: currentProject.pillars || DEFAULT_PILLARS,
+        projectName: currentProject.title
       });
-
-      if (!response.ok) throw new Error('Task Generation HTTP issue');
-      const taskData = await response.json();
 
       const nextList = projectsList.map(p => (p.id === currentProjectId ? { ...p, tasks: taskData } : p));
       await syncWithCloud(nextList, currentProjectId);
@@ -1153,17 +1141,10 @@ export function GTMOSModule() {
   // Steps 18 - 19: Risk & Recommendations Audit trigger
   const runRiskAudit = async () => {
     try {
-      const response = await fetch('/api/gtmos/risks-recommendations', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          onboardingData: currentProject.onboarding,
-          strategyData: currentProject.pillars
-        })
+      const results = await invokeGtmApi('risks-recommendations', {
+        onboardingData: currentProject.onboarding,
+        strategyData: currentProject.pillars
       });
-
-      if (!response.ok) throw new Error('Risks Audit HTTP issues');
-      const results = await response.json();
 
       const nextList = projectsList.map(p => {
         if (p.id === currentProjectId) {

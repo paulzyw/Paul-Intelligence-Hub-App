@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { GTMOSProject } from './types';
+import { supabase } from '../../../lib/supabase';
 import {
   Sparkles,
   Bot,
@@ -311,27 +312,57 @@ export const GTMSimulationEngine: React.FC<GTMSimulationEngineProps> = ({
     setIsGeneratingAI(true);
     setAiSuccessMsg('');
     try {
-      const response = await fetch('/api/gtmos/simulate-recommendations', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          onboardingData: currentProject.onboarding,
-          projectName: currentProject.title,
-          activeScenario: activeScenarioId,
-          activeParams: {
-            opportunities,
-            winRate,
-            acv,
-            cycleLength,
-            revenueVelocity
-          }
-        })
-      });
+      let data: any = null;
+      if (supabase) {
+        try {
+          const { data: edgeData, error: edgeError } = await supabase.functions.invoke('gtmos-api', {
+            body: {
+              action: 'simulate-recommendations',
+              onboardingData: currentProject.onboarding,
+              projectName: currentProject.title,
+              activeScenario: activeScenarioId,
+              activeParams: {
+                opportunities,
+                winRate,
+                acv,
+                cycleLength,
+                revenueVelocity
+              }
+            }
+          });
+          if (edgeError) throw edgeError;
+          data = edgeData;
+        } catch (edgeErr) {
+          console.warn("Supabase edge function 'simulate-recommendations' failed, falling back to local api:", edgeErr);
+        }
+      }
 
-      if (response.ok) {
-        const data = await response.json();
+      if (!data) {
+        const response = await fetch('/api/gtmos/simulate-recommendations', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            onboardingData: currentProject.onboarding,
+            projectName: currentProject.title,
+            activeScenario: activeScenarioId,
+            activeParams: {
+              opportunities,
+              winRate,
+              acv,
+              cycleLength,
+              revenueVelocity
+            }
+          })
+        });
+
+        if (response.ok) {
+          data = await response.json();
+        }
+      }
+
+      if (data) {
         setAiRecommend(data);
         setAiSuccessMsg('Strategic recommendation compiled successfully!');
         setTimeout(() => setAiSuccessMsg(''), 5000);

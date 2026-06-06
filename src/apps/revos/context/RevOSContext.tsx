@@ -72,7 +72,24 @@ export function RevOSProvider({ children }: { children: React.ReactNode }) {
   }, [authProfile, user, authLoading]);
 
   const signOut = async () => {
-    await supabase.auth.signOut();
+    try {
+      await supabase.auth.signOut();
+    } catch (err) {
+      console.warn('RevOS Context SignOut API failure, performing offline cleanup:', err);
+    } finally {
+      try {
+        const keysToRemove: string[] = [];
+        for (let i = 0; i < localStorage.length; i++) {
+          const key = localStorage.key(i);
+          if (key && (key.startsWith('sb-') || key.includes('supabase.auth.token'))) {
+            keysToRemove.push(key);
+          }
+        }
+        keysToRemove.forEach(k => localStorage.removeItem(k));
+      } catch (e) {
+        console.error('Failed to clear stale storage keys on workspace signout:', e);
+      }
+    }
   };
 
   return (

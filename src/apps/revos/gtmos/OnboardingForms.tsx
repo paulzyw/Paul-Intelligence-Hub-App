@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { OnboardingCategoryFields, CategoryId } from './types';
 import { CATEGORY_SPECS } from './initialState';
 import { Sparkles, Loader2, CheckCircle2, HelpCircle, FileText, Info, Save, ChevronLeft, ChevronRight, Check } from 'lucide-react';
+import { supabase } from '../../../lib/supabase';
 
 interface OnboardingFormsProps {
   activeCategoryId: CategoryId;
@@ -390,31 +391,56 @@ export const OnboardingForms: React.FC<OnboardingFormsProps> = ({
     setEnrichResult(null);
 
     try {
-      const response = await fetch("/api/gtmos/enrich", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          categoryId: activeCategoryId,
-          companyName: onboardingFields.companyName,
-          industry: onboardingFields.industry,
-          currentFields: spec.fields.reduce((acc, f) => {
-            acc[f] = onboardingFields[f];
-            return acc;
-          }, {} as Record<string, string>)
-        })
-      });
-
-      if (!response.ok) {
-        throw new Error("HTTP status " + response.status);
+      let data: any = null;
+      if (supabase) {
+        try {
+          const { data: edgeData, error: edgeError } = await supabase.functions.invoke('gtmos-api', {
+            body: {
+              action: 'enrich',
+              categoryId: activeCategoryId,
+              companyName: onboardingFields.companyName,
+              industry: onboardingFields.industry,
+              currentFields: spec.fields.reduce((acc, f) => {
+                acc[f] = onboardingFields[f];
+                return acc;
+              }, {} as Record<string, string>)
+            }
+          });
+          if (edgeError) throw edgeError;
+          data = edgeData;
+        } catch (edgeErr) {
+          console.warn("Supabase edge function 'enrich' failed, falling back to local api:", edgeErr);
+        }
       }
 
-      const data = await response.json();
-      if (data.enrichedFields) {
+      if (!data) {
+        const response = await fetch("/api/gtmos/enrich", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            categoryId: activeCategoryId,
+            companyName: onboardingFields.companyName,
+            industry: onboardingFields.industry,
+            currentFields: spec.fields.reduce((acc, f) => {
+              acc[f] = onboardingFields[f];
+              return acc;
+            }, {} as Record<string, string>)
+          })
+        });
+
+        if (!response.ok) {
+          throw new Error("HTTP status " + response.status);
+        }
+
+        data = await response.json();
+      }
+
+      if (data && data.enrichedFields) {
         onSaveBatch(data.enrichedFields);
         setSaveState('dirty');
         setEnrichResult("AI successfully populated empty fields with professional, high-fidelity context benchmarks! Press 'Save' below to commit these values.");
       } else {
-        setEnrichResult("Failed to resolve enrichment data. Verify process.env.GEMINI_API_KEY is active.");
+        setEnrichResult("Failed to resolve enrichment data. Verify GEMINI_API_KEY is active on your Supabase dashboard.");
       }
     } catch (err: any) {
       console.error(err);

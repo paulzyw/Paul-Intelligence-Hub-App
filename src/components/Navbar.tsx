@@ -34,9 +34,26 @@ export function Navbar() {
   }, []);
 
   const handleLogout = async () => {
-    await supabase.auth.signOut();
-    setIsUserMenuOpen(false);
-    navigate('/');
+    try {
+      await supabase.auth.signOut();
+    } catch (err) {
+      console.warn('SignOut API failure, performing offline logout:', err);
+    } finally {
+      try {
+        const keysToRemove: string[] = [];
+        for (let i = 0; i < localStorage.length; i++) {
+          const key = localStorage.key(i);
+          if (key && (key.startsWith('sb-') || key.includes('supabase.auth.token'))) {
+            keysToRemove.push(key);
+          }
+        }
+        keysToRemove.forEach(k => localStorage.removeItem(k));
+      } catch (e) {
+        console.error('Failed to clear stale storage keys on signout:', e);
+      }
+      setIsUserMenuOpen(false);
+      navigate('/');
+    }
   };
 
   const [isChangePasswordOpen, setIsChangePasswordOpen] = useState(false);
