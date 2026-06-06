@@ -1499,8 +1499,23 @@ export function GTMOSModule() {
                           <Bot className="h-4 w-4 text-accent" />
                           Consolidated Reasoning Outcomes
                         </h4>
-                        <div className="prose prose-sm max-w-none text-xs text-text-secondary leading-relaxed font-sans prose-headings:text-text-primary prose-headings:font-bold prose-headings:tracking-tight prose-strong:text-accent prose-p:mb-3 prose-ul:list-disc prose-ul:pl-4 prose-li:mb-1">
-                          <ReactMarkdown>{currentProject.aiReasoning}</ReactMarkdown>
+                        <div className="max-w-none font-sans text-[11px] text-text-secondary leading-relaxed space-y-2">
+                          <ReactMarkdown
+                            components={{
+                              p: ({ children }) => <p className="text-[11px] font-normal text-text-secondary leading-relaxed mb-1.5">{children}</p>,
+                              strong: ({ children }) => <strong className="text-[11px] font-bold text-text-secondary">{children}</strong>,
+                              b: ({ children }) => <b className="text-[11px] font-bold text-text-secondary">{children}</b>,
+                              h1: ({ children }) => <h1 className="text-[11px] font-bold text-text-secondary mt-2 mb-1">{children}</h1>,
+                              h2: ({ children }) => <h2 className="text-[11px] font-bold text-text-secondary mt-2 mb-1">{children}</h2>,
+                              h3: ({ children }) => <h3 className="text-[11px] font-bold text-text-secondary mt-2 mb-1">{children}</h3>,
+                              h4: ({ children }) => <h4 className="text-[11px] font-bold text-text-secondary mt-2 mb-1">{children}</h4>,
+                              ul: ({ children }) => <ul className="list-disc pl-4 space-y-1 my-1.5 text-[11px] text-text-secondary">{children}</ul>,
+                              ol: ({ children }) => <ol className="list-decimal pl-4 space-y-1 my-1.5 text-[11px] text-text-secondary">{children}</ol>,
+                              li: ({ children }) => <li className="text-[11px] font-normal text-text-secondary leading-relaxed">{children}</li>,
+                            }}
+                          >
+                            {currentProject.aiReasoning}
+                          </ReactMarkdown>
                         </div>
 
                         {/* Vulnerability alerts lists */}
