@@ -361,3 +361,19 @@
   }
 }
 
+@utility custom-scrollbar-horizontal {
+  scrollbar-width: thin;
+  scrollbar-color: var(--accent) transparent;
+  &::-webkit-scrollbar {
+    height: 5px;
+  }
+  &::-webkit-scrollbar-track {
+    background: rgba(255, 255, 255, 0.03);
+    border-radius: 9999px;
+  }
+  &::-webkit-scrollbar-thumb {
+    background-color: var(--accent);
+    border-radius: 9999px;
+  }
+}
+

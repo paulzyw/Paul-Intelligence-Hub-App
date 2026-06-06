@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { Routes, Route, Link, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
@@ -7,6 +8,7 @@ import {
   PieChart, 
   Settings, 
   ChevronRight,
+  ChevronLeft,
   ShieldAlert,
   Loader2,
   Lock,
@@ -16,6 +18,7 @@ import {
 import { cn } from '../../lib/utils';
 import { RevOSProvider, useRevOS } from './context/RevOSContext';
 import { RevOSConsole } from '../../pages/RevOSConsole';
+import { GTMOSModule } from './gtmos/GTMOSModule';
 
 // Placeholder sub-pages for now
 const RevOSDashboard = () => {
@@ -76,6 +79,7 @@ function RevOSContent() {
   const location = useLocation();
   const { isLoading, profile, error, signOut } = useRevOS();
   const currentPath = location.pathname.split('/').pop();
+  const [isSidebarExpanded, setIsSidebarExpanded] = useState(false);
 
   if (isLoading) {
     return (
@@ -163,12 +167,44 @@ function RevOSContent() {
     <div className="flex flex-col md:flex-row min-h-[60vh] md:min-h-[80vh] md:overflow-hidden w-full">
       {/* RevOS Desktop Sidebar */}
       {!isConsole && (
-        <aside className="w-64 border-r border-border bg-bg-primary/50 hidden md:block shrink-0">
-          <div className="p-6">
-            <div className="flex items-center gap-2 px-2 py-4 border-b border-border mb-6">
-              <div className="h-8 w-8 rounded-lg bg-accent flex items-center justify-center text-black font-bold">R</div>
-              <span className="font-bold tracking-tight">RevOS <span className="text-[10px] bg-accent/20 text-accent px-1.5 py-0.5 rounded ml-1">BETA</span></span>
-            </div>
+        <aside className={cn(
+          "border-r border-border bg-bg-primary/50 hidden md:block shrink-0 transition-all duration-300 ease-in-out select-none",
+          isSidebarExpanded ? "w-64" : "w-18"
+        )}>
+          <div className={cn("transition-all duration-300", isSidebarExpanded ? "p-6" : "p-3")}>
+            {/* Header / Logo */}
+            {isSidebarExpanded ? (
+              <div className="flex items-center justify-between px-2 py-4 border-b border-border mb-6">
+                <div className="flex items-center gap-2">
+                  <div className="h-8 w-8 rounded-lg bg-accent flex items-center justify-center text-black font-extrabold shadow-md shadow-accent/10 shrink-0">
+                    R
+                  </div>
+                  <span className="font-bold tracking-tight text-sm animate-in fade-in duration-300">
+                    RevOS <span className="text-[9px] bg-accent/20 text-accent px-1.5 py-0.5 rounded ml-1">BETA</span>
+                  </span>
+                </div>
+                <button 
+                  onClick={() => setIsSidebarExpanded(false)}
+                  className="p-1 rounded-lg hover:bg-bg-primary text-text-secondary hover:text-text-primary transition-all cursor-pointer mr-1"
+                  title="Collapse Sidebar"
+                >
+                  <ChevronLeft size={16} />
+                </button>
+              </div>
+            ) : (
+              <div className="flex flex-col items-center py-4 border-b border-border mb-6 gap-3">
+                <div className="h-8 w-8 rounded-lg bg-accent flex items-center justify-center text-black font-extrabold shadow-md shadow-accent/15 shrink-0">
+                  R
+                </div>
+                <button 
+                  onClick={() => setIsSidebarExpanded(true)}
+                  className="p-1 rounded-lg hover:bg-bg-primary text-text-secondary hover:text-text-primary transition-all cursor-pointer"
+                  title="Expand Sidebar"
+                >
+                  <ChevronRight size={16} />
+                </button>
+              </div>
+            )}
             
             <nav className="space-y-1">
               {navigation.map((item) => {
@@ -177,34 +213,48 @@ function RevOSContent() {
                   <Link
                     key={item.name}
                     to={item.path === '' ? '/solutions/revos' : `/solutions/revos/${item.path}`}
+                    title={!isSidebarExpanded ? item.name : undefined}
                     className={cn(
-                      "flex items-center gap-3 px-3 py-2 text-sm font-medium rounded-xl transition-all",
+                      "flex items-center rounded-xl transition-all",
+                      isSidebarExpanded ? "gap-3 px-3 py-2 text-sm font-medium" : "justify-center p-3 text-sm",
                       isActive 
                         ? "bg-accent text-black shadow-lg shadow-accent/20" 
                         : "text-text-secondary hover:text-text-primary hover:bg-bg-primary"
                     )}
                   >
-                    <item.icon className="h-4 w-4" />
-                    {item.name}
-                    {isActive && <ChevronRight className="ml-auto h-4 w-4" />}
+                    <item.icon className="h-4 w-4 shrink-0" />
+                    {isSidebarExpanded && (
+                      <span className="animate-in fade-in duration-200 truncate">{item.name}</span>
+                    )}
+                    {isSidebarExpanded && isActive && <ChevronRight className="ml-auto h-4 w-4 shrink-0" />}
                   </Link>
                 );
               })}
 
               {profile?.role === 'super_admin' && (
-                <div className="pt-4 mt-6 border-t border-border/60">
-                  <p className="text-[9px] uppercase tracking-[0.2em] font-extrabold text-accent/60 mb-2 px-3">Administration</p>
+                <div className={cn("pt-4 border-t border-border/60", isSidebarExpanded ? "mt-6" : "mt-4")}>
+                  {isSidebarExpanded ? (
+                    <p className="text-[9px] uppercase tracking-[0.2em] font-extrabold text-accent/60 mb-2 px-3 truncate">
+                      Administration
+                    </p>
+                  ) : (
+                    <div className="h-px bg-border/20 my-2" />
+                  )}
                   <Link
                     to="/solutions/revos/console"
+                    title={!isSidebarExpanded ? "Governance Console" : undefined}
                     className={cn(
-                      "flex items-center gap-3 px-3 py-2.5 text-xs sm:text-sm font-extrabold rounded-xl transition-all border",
+                      "flex items-center font-extrabold rounded-xl transition-all border",
+                      isSidebarExpanded ? "gap-3 px-3 py-2.5 text-xs sm:text-sm" : "justify-center p-3",
                       currentPath === 'console' 
                         ? "bg-accent border-accent text-black shadow-lg shadow-accent/20" 
                         : "text-accent border-accent/20 bg-accent/5 hover:bg-accent/15 hover:text-text-primary"
                     )}
                   >
                     <Shield size={14} className="shrink-0 text-accent" />
-                    <span>Governance Console</span>
+                    {isSidebarExpanded && (
+                      <span className="animate-in fade-in duration-200 truncate">Governance Console</span>
+                    )}
                   </Link>
                 </div>
               )}
@@ -276,7 +326,7 @@ function RevOSContent() {
           >
             <Routes>
               <Route index element={<RevOSDashboard />} />
-              <Route path="gtmos" element={<RevOSModulePlaceholder title="GTMOS" />} />
+              <Route path="gtmos" element={<GTMOSModule />} />
               <Route path="leads" element={<RevOSModulePlaceholder title="Lead Qualification" />} />
               <Route path="pipeline" element={<RevOSModulePlaceholder title="Pipeline Assessment" />} />
               <Route path="settings" element={<RevOSModulePlaceholder title="Settings" />} />

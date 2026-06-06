@@ -74,24 +74,137 @@ GRANT ALL ON public.revos_licenses TO authenticated, service_role;
 GRANT SELECT ON public.revos_gtmos_strategies TO anon, authenticated, service_role;
 GRANT ALL ON public.revos_gtmos_strategies TO authenticated, service_role;
 
--- POLICIES (Preliminary)
-CREATE POLICY "Users can view their own org" 
-  ON public.revos_orgs FOR SELECT 
-  TO authenticated 
-  USING (id IN (SELECT org_id FROM public.revos_profiles WHERE id = auth.uid()));
+-- 5. Helper function for non-recursive policy evaluations
+CREATE OR REPLACE FUNCTION public.is_super_admin()
+RETURNS BOOLEAN SECURITY DEFINER SET search_path = public AS $$
+BEGIN
+  RETURN EXISTS (
+    SELECT 1 
+    FROM public.revos_profiles
+    WHERE id = auth.uid() AND role = 'super_admin'
+  );
+END;
+$$ LANGUAGE plpgsql;
 
-CREATE POLICY "Users can view their own profile" 
+-- Grant execution permission on function (Post-May 2026 standard)
+GRANT EXECUTE ON FUNCTION public.is_super_admin() TO anon, authenticated, service_role;
+
+-- 6. POLICIES DECLARATION
+
+-- 6a. public.revos_profiles Policies
+DROP POLICY IF EXISTS "Users can view their own profile" ON public.revos_profiles;
+DROP POLICY IF EXISTS "Allow users to read own profile" ON public.revos_profiles;
+DROP POLICY IF EXISTS "Allow users to insert own profile" ON public.revos_profiles;
+DROP POLICY IF EXISTS "Allow users to update own profile" ON public.revos_profiles;
+DROP POLICY IF EXISTS "Super admins can manage all revos profiles" ON public.revos_profiles;
+
+CREATE POLICY "Allow users to read own profile" 
   ON public.revos_profiles FOR SELECT 
   TO authenticated 
-  USING (id = auth.uid());
+  USING (id = auth.uid() OR public.is_super_admin() = true);
 
-CREATE POLICY "Super admins can manage all revos profiles" 
-  ON public.revos_profiles FOR ALL 
+CREATE POLICY "Allow users to insert own profile" 
+  ON public.revos_profiles FOR INSERT 
   TO authenticated 
-  USING (public.is_super_admin() = true)
-  WITH CHECK (public.is_super_admin() = true);
+  WITH CHECK (id = auth.uid() OR public.is_super_admin() = true);
 
-CREATE POLICY "Users can view their org's strategies" 
+CREATE POLICY "Allow users to update own profile" 
+  ON public.revos_profiles FOR UPDATE 
+  TO authenticated 
+  USING (id = auth.uid() OR public.is_super_admin() = true)
+  WITH CHECK (id = auth.uid() OR public.is_super_admin() = true);
+
+CREATE POLICY "Allow super admins to delete profiles" 
+  ON public.revos_profiles FOR DELETE 
+  TO authenticated 
+  USING (public.is_super_admin() = true);
+
+
+-- 6b. public.revos_orgs Policies
+DROP POLICY IF EXISTS "Users can view their own org" ON public.revos_orgs;
+DROP POLICY IF EXISTS "Allow users to select their organization" ON public.revos_orgs;
+DROP POLICY IF EXISTS "Allow authenticated users to create organization" ON public.revos_orgs;
+DROP POLICY IF EXISTS "Allow members of organization to update details" ON public.revos_orgs;
+
+CREATE POLICY "Allow users to select their organization" 
+  ON public.revos_orgs FOR SELECT 
+  TO authenticated 
+  USING (
+    id IN (SELECT org_id FROM public.revos_profiles WHERE id = auth.uid())
+    OR public.is_super_admin() = true
+  );
+
+CREATE POLICY "Allow authenticated users to create organization" 
+  ON public.revos_orgs FOR INSERT 
+  TO authenticated 
+  WITH CHECK (true);
+
+CREATE POLICY "Allow members of organization to update details" 
+  ON public.revos_orgs FOR UPDATE 
+  TO authenticated 
+  USING (
+    id IN (SELECT org_id FROM public.revos_profiles WHERE id = auth.uid())
+    OR public.is_super_admin() = true
+  );
+
+
+-- 6c. public.revos_licenses Policies
+DROP POLICY IF EXISTS "Allow users to select organization licenses" ON public.revos_licenses;
+DROP POLICY IF EXISTS "Allow super admins to manage licenses" ON public.revos_licenses;
+
+CREATE POLICY "Allow users to select organization licenses" 
+  ON public.revos_licenses FOR SELECT 
+  TO authenticated 
+  USING (
+    org_id IN (SELECT org_id FROM public.revos_profiles WHERE id = auth.uid())
+    OR public.is_super_admin() = true
+  );
+
+CREATE POLICY "Allow super admins to manage licenses" 
+  ON public.revos_licenses FOR ALL 
+  TO authenticated 
+  USING (public.is_super_admin() = true);
+
+
+-- 6d. public.revos_gtmos_strategies Policies
+DROP POLICY IF EXISTS "Users can view their org's strategies" ON public.revos_gtmos_strategies;
+DROP POLICY IF EXISTS "Allow members to read organization strategies" ON public.revos_gtmos_strategies;
+DROP POLICY IF EXISTS "Allow members to insert strategies" ON public.revos_gtmos_strategies;
+DROP POLICY IF EXISTS "Allow members to update organization strategies" ON public.revos_gtmos_strategies;
+DROP POLICY IF EXISTS "Allow members to delete organization strategies" ON public.revos_gtmos_strategies;
+
+CREATE POLICY "Allow members to read organization strategies" 
   ON public.revos_gtmos_strategies FOR SELECT 
   TO authenticated 
-  USING (org_id IN (SELECT org_id FROM public.revos_profiles WHERE id = auth.uid()));
+  USING (
+    creator_id = auth.uid()
+    OR public.is_super_admin() = true
+  );
+
+CREATE POLICY "Allow members to insert strategies" 
+  ON public.revos_gtmos_strategies FOR INSERT 
+  TO authenticated 
+  WITH CHECK (
+    creator_id = auth.uid()
+    OR public.is_super_admin() = true
+  );
+
+CREATE POLICY "Allow members to update organization strategies" 
+  ON public.revos_gtmos_strategies FOR UPDATE 
+  TO authenticated 
+  USING (
+    creator_id = auth.uid()
+    OR public.is_super_admin() = true
+  )
+  WITH CHECK (
+    creator_id = auth.uid()
+    OR public.is_super_admin() = true
+  );
+
+CREATE POLICY "Allow members to delete organization strategies" 
+  ON public.revos_gtmos_strategies FOR DELETE 
+  TO authenticated 
+  USING (
+    creator_id = auth.uid()
+    OR public.is_super_admin() = true
+  );
