@@ -1,0 +1,733 @@
+import React, { useMemo, useState } from 'react';
+import { 
+  TrendingUp, AlertTriangle, CheckCircle, ShieldAlert, Award, Clock, 
+  Map, Activity, Layers, Play, DollarSign, Brain, Target, Users, ArrowUpRight,
+  ShieldCheck, ArrowRight, Zap, RefreshCw, BarChart2, MessageSquare, Info
+} from 'lucide-react';
+import { 
+  AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, 
+  LineChart, Line, Legend, ReferenceLine
+} from 'recharts';
+import { GTMOSProject, GTMExecutionPlan, GTMWorkstream, GTMInitiative, GTMActionItem, GTMKPI, GTMRisk } from './types';
+
+interface ExecutionDashboardProps {
+  projects: GTMOSProject[];
+  currentProjectId: string;
+}
+
+export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = ({
+  projects,
+  currentProjectId
+}) => {
+  const currentProject = useMemo(() => {
+    return projects.find(p => p.id === currentProjectId) || projects[0];
+  }, [projects, currentProjectId]);
+
+  const plan = currentProject?.archivedExecutionPlan;
+
+  // State for interactive scenarios
+  const [forecastSimulationFactor, setForecastSimulationFactor] = useState<number>(1.0);
+  const [selectedRiskFilter, setSelectedRiskFilter] = useState<'all' | 'high' | 'medium'>('all');
+
+  // Parse active metrics safely
+  const metrics = useMemo(() => {
+    if (!plan) {
+      return {
+        hasPlan: false,
+        totalActions: 0,
+        completedActions: 0,
+        inProgressActions: 0,
+        blockedActions: 0,
+        todoActions: 0,
+        progressPct: 0,
+        avgKpiAttainment: 0,
+        hasKpis: false,
+        riskScore: 0,
+        highRisksCount: 0,
+        mediumRisksCount: 0,
+        healthScore: 0,
+        healthGrade: 'N/A',
+        healthStatus: 'Plan Pending',
+        allRisks: [] as GTMRisk[],
+        workstreamStats: [] as any[],
+        recommendations: [] as string[]
+      };
+    }
+
+    let totalActions = 0;
+    let completedActions = 0;
+    let inProgressActions = 0;
+    let blockedActions = 0;
+    let todoActions = 0;
+    
+    let totalKpis = 0;
+    let accumulatedKpiAttainment = 0;
+    
+    let totalRisks = 0;
+    let totalRiskWeight = 0;
+    let highRisksCount = 0;
+    let mediumRisksCount = 0;
+    const allRisks: GTMRisk[] = [];
+
+    const workstreamStats: any[] = [];
+
+    const parseValueHelper = (val: string) => {
+      if (!val) return 0;
+      const parsed = parseFloat(val.replace(/[^0-9.]/g, ''));
+      return isNaN(parsed) ? 0 : parsed;
+    };
+
+    plan.workstreams.forEach((ws) => {
+      let wsTotalActs = 0;
+      let wsDoneActs = 0;
+      let wsRisksCount = 0;
+
+      ws.initiatives?.forEach((init) => {
+        // Actions
+        init.actions?.forEach((act) => {
+          totalActions++;
+          wsTotalActs++;
+          if (act.status === 'completed') {
+            completedActions++;
+            wsDoneActs++;
+          }
+          else if (act.status === 'in_progress') inProgressActions++;
+          else if (act.status === 'blocked') blockedActions++;
+          else todoActions++;
+        });
+
+        // KPIs
+        init.kpis?.forEach((kpi) => {
+          totalKpis++;
+          const base = parseValueHelper(kpi.baseline);
+          const target = parseValueHelper(kpi.target);
+          const curr = parseValueHelper(kpi.currentValue);
+
+          if (Math.abs(target - base) > 0) {
+            const attainment = Math.min(Math.max((curr - base) / (target - base), 0), 1) * 100;
+            accumulatedKpiAttainment += attainment;
+          } else {
+            accumulatedKpiAttainment += 100; // instant baseline target match
+          }
+        });
+
+        // Risks
+        init.risks?.forEach((risk) => {
+          allRisks.push({
+            ...risk,
+            workstreamName: ws.workstreamName,
+            initiativeName: init.initiativeName
+          } as any);
+
+          totalRisks++;
+          let w = 1;
+          if (risk.impact === 'high') {
+            highRisksCount++;
+            w += 4;
+          } else if (risk.impact === 'medium') {
+            mediumRisksCount++;
+            w += 2;
+          }
+          if (risk.probability === 'high') {
+            w += 4;
+          } else if (risk.probability === 'medium') {
+            w += 2;
+          }
+          totalRiskWeight += w;
+          wsRisksCount++;
+        });
+      });
+
+      workstreamStats.push({
+        id: ws.id,
+        name: ws.workstreamName,
+        owner: ws.owner || 'Unassigned',
+        totalActions: wsTotalActs,
+        completedActions: wsDoneActs,
+        progress: wsTotalActs > 0 ? Math.round((wsDoneActs / wsTotalActs) * 100) : 0,
+        risksCount: wsRisksCount
+      });
+    });
+
+    const progressPct = totalActions > 0 ? Math.round((completedActions / totalActions) * 100) : 0;
+    const avgKpiAttainment = totalKpis > 0 ? Math.round(accumulatedKpiAttainment / totalKpis) : 0;
+
+    // Direct Risk score weighted on scale of 100
+    const maxPossibleRiskWeight = totalRisks * 9; // High + High = 9
+    const riskScore = maxPossibleRiskWeight > 0 ? Math.round((totalRiskWeight / maxPossibleRiskWeight) * 100) : 0;
+
+    // Deduct risk penalty and add milestone alignment
+    // Health score components: 40% progress, 45% KPI achievement, 15% risk mitigation status
+    const healthProgressContribution = progressPct * 0.40;
+    const healthKpiContribution = (totalKpis > 0 ? avgKpiAttainment : progressPct) * 0.45;
+    const riskPenaltyPct = Math.max(0, 15 - (riskScore * 0.15)); // smaller risk means higher mitigation multiplier
+    const healthScore = Math.min(Math.max(Math.round(healthProgressContribution + healthKpiContribution + riskPenaltyPct), 0), 100);
+
+    let healthGrade = 'A+';
+    let healthStatus = 'Peak Performance';
+    if (healthScore >= 90) {
+      healthGrade = 'A';
+      healthStatus = 'Exceptional Alignment';
+    } else if (healthScore >= 80) {
+      healthGrade = 'B+';
+      healthStatus = 'On Track';
+    } else if (healthScore >= 70) {
+      healthGrade = 'B';
+      healthStatus = 'Minor Alignment Gaps';
+    } else if (healthScore >= 60) {
+      healthGrade = 'C';
+      healthStatus = 'Moderate Slippage';
+    } else if (healthScore >= 45) {
+      healthGrade = 'D';
+      healthStatus = 'At High Risk';
+    } else {
+      healthGrade = 'F';
+      healthStatus = 'Delayed / Intervention Required';
+    }
+
+    // Dynamic executive actionable items
+    const recommendations: string[] = [];
+    if (blockedActions > 0) {
+      recommendations.push(`Urgent: Resolve ${blockedActions} blockages immediately to restore initiative momentum.`);
+    }
+    if (riskScore > 40) {
+      recommendations.push(`High Hazard: Aggregated Risk Exposure Index is elevated (${riskScore}%). Address top mitigations below.`);
+    }
+    if (progressPct > 10 && avgKpiAttainment < progressPct * 0.5) {
+      recommendations.push(`Strategic Drift: Tasks are being completed faster than KPIs are yielding outcome performance. Re-evaluate action efficacy.`);
+    }
+    if (totalActions === 0) {
+      recommendations.push("Launch Readiness: Define tactical operational items inside workstreams to begin monitoring pipeline telemetry.");
+    } else if (completedActions === 0) {
+      recommendations.push("Initiation Sprint: Focus team alignment around initial critical milestones to break the zero-start baseline.");
+    }
+    if (recommendations.length < 3) {
+      recommendations.push("Optimise Cadence: Leverage CRM integration triggers to automate task transition audits.");
+      recommendations.push("Resource Balance: Strategic velocity is stable; proceed with current sprint structure.");
+    }
+
+    return {
+      hasPlan: true,
+      totalActions,
+      completedActions,
+      inProgressActions,
+      blockedActions,
+      todoActions,
+      progressPct,
+      avgKpiAttainment,
+      hasKpis: totalKpis > 0,
+      riskScore,
+      highRisksCount,
+      mediumRisksCount,
+      healthScore,
+      healthGrade,
+      healthStatus,
+      allRisks,
+      workstreamStats,
+      recommendations
+    };
+  }, [plan]);
+
+  // Aggregate simulated baseline vs target revenue projections over 6 quarters
+  const revenueChartData = useMemo(() => {
+    const rawGoal = plan?.revenueGoal ? parseFloat(plan.revenueGoal.replace(/[^0-9.]/g, '')) : 10;
+    const baselineArr = currentProject?.onboarding?.ARR ? parseFloat(currentProject.onboarding.ARR.replace(/[^0-9.]/g, '')) : 5;
+    
+    const initialARR = isNaN(baselineArr) || baselineArr === 0 ? 5 : baselineArr;
+    const targetARR = isNaN(rawGoal) || rawGoal === 0 ? (initialARR * 1.5) : rawGoal;
+    
+    const qCount = 6;
+    const progressFactor = metrics.progressPct / 100;
+    const milestoneVelocity = metrics.hasKpis ? (metrics.avgKpiAttainment / 100) : progressFactor;
+
+    return Array.from({ length: qCount }).map((_, idx) => {
+      const qNum = idx + 1;
+      // Normal compound path to targeted ARR
+      const compoundIncrement = (targetARR - initialARR) / (qCount - 1);
+      const targetPath = initialARR + (compoundIncrement * idx);
+      
+      // Actual / Projected path governed by task milestones + user interactive factor
+      const impactGap = (targetPath - initialARR) * (1 - milestoneVelocity);
+      const actualTrend = (initialARR + (compoundIncrement * idx) - (impactGap * 0.4)) * forecastSimulationFactor;
+      
+      return {
+        quarter: `Q${qNum} '26`,
+        'Base Plan': Math.round(initialARR + (targetARR - initialARR) * 0.1 * idx),
+        'Target Goal': Math.round(targetPath),
+        'Live Execution Projected': Math.round(Math.min(actualTrend, targetARR * 1.3))
+      };
+    });
+  }, [plan, currentProject, metrics, forecastSimulationFactor]);
+
+  // Filtered risks
+  const filteredRisks = useMemo(() => {
+    return metrics.allRisks.filter(risk => {
+      if (selectedRiskFilter === 'high') return risk.impact === 'high' || risk.probability === 'high';
+      if (selectedRiskFilter === 'medium') return risk.impact === 'medium' || risk.probability === 'medium';
+      return true;
+    });
+  }, [metrics.allRisks, selectedRiskFilter]);
+
+  return (
+    <div className="space-y-6 animate-fade-in text-left">
+      {/* Executive Briefing top plate */}
+      <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 bg-bg-surface/30 p-6 rounded-3xl border border-border/85">
+        <div className="space-y-1">
+          <div className="flex items-center gap-2">
+            <span className="text-[10px] font-mono font-bold tracking-widest text-accent uppercase block">Executive Desk Overview</span>
+            <span className="px-2 py-0.5 rounded-full bg-status-success-bg/15 border border-status-success/20 text-[9px] font-mono text-status-success flex items-center gap-1">
+              <ShieldCheck className="h-2.5 w-2.5" /> GTM Governance Safe
+            </span>
+          </div>
+          <h2 className="text-xl font-black text-text-primary tracking-tight">Step 17: GTM Strategy Execution Dashboard</h2>
+          <p className="text-xs text-text-secondary max-w-3xl leading-relaxed">
+            Consolidates active program health indicators, direct milestone progress, ARR forecasting curves, and critical dependency mitigations for executive leadership visibility.
+          </p>
+        </div>
+
+        {/* Executive Meta Panel */}
+        {plan ? (
+          <div className="grid grid-cols-2 gap-x-4 gap-y-2 p-3 bg-bg-surface/60 rounded-2xl border border-border/60 text-[10px] text-text-secondary w-full lg:w-auto">
+            <div>Program Sponsor: <span className="text-text-primary font-bold block">{plan.executiveSponsor || 'Not Assigned'}</span></div>
+            <div>Launch Windows: <span className="text-text-primary font-bold block">{plan.launchPeriod || 'H2 2026'}</span></div>
+            <div className="col-span-2 border-t border-border/40 pt-1.5 flex justify-between">
+              <span>Goal: <strong className="text-accent">{plan.businessGoal || 'Expansion'}</strong></span>
+              <span>Target Revenue: <strong className="text-text-primary">{plan.revenueGoal || 'H2 ARR'}</strong></span>
+            </div>
+          </div>
+        ) : (
+          <div className="text-xs text-text-secondary bg-yellow-500/5 px-4 py-3 rounded-2xl border border-yellow-500/20 max-w-md">
+            ⚠️ <strong>No Archived Plan Detected:</strong> Please finalize and archive your action plan inside **Step 15: GTM Execution Engine** first to unlock live executive KPI telemetry. Showing sample baseline modeling below.
+          </div>
+        )}
+      </div>
+
+      {/* Main KPI metrics and Program Health cards */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        {/* Metric 1: Program Health score radial summary */}
+        <div className="p-5 rounded-3xl bg-bg-surface/20 border border-border relative overflow-hidden flex flex-col justify-between h-[155px]">
+          <div className="absolute top-0 right-0 w-24 h-24 bg-accent/5 rounded-full blur-2xl -mr-6 -mt-6 pointer-events-none" />
+          <div className="flex justify-between items-start">
+            <div className="space-y-0.5">
+              <span className="text-[10px] font-mono font-bold tracking-wider text-text-secondary uppercase">Program Health Score</span>
+              <div className="text-xs font-sans text-text-secondary/90 leading-tight">Compound Governance Index</div>
+            </div>
+            <span className="p-1.5 rounded-lg bg-accent/10 border border-accent/20">
+              <Award className="h-4 w-4 text-accent" />
+            </span>
+          </div>
+
+          <div className="flex items-end justify-between">
+            <div>
+              <div className="text-4xl font-black text-text-primary tracking-tighter flex items-baseline">
+                {plan ? metrics.healthScore : 84}<span className="text-xs text-text-secondary font-mono tracking-normal">/100</span>
+              </div>
+              <div className="text-[10px] font-serif tracking-tight text-accent flex items-center gap-1 font-bold">
+                <span className="px-1.5 py-0.5 rounded-full bg-accent/10 text-[9px] font-mono">{plan ? metrics.healthGrade : 'A'}</span> 
+                {plan ? metrics.healthStatus : 'Optimized Pipeline'}
+              </div>
+            </div>
+            <div className="relative w-12 h-12 shrink-0">
+              <svg className="w-full h-full transform -rotate-90">
+                <circle cx="24" cy="24" r="20" stroke="rgba(255,255,255,0.05)" strokeWidth="4" fill="none" />
+                <circle 
+                  cx="24" 
+                  cy="24" 
+                  r="20" 
+                  stroke="var(--color-accent)" 
+                  strokeWidth="4" 
+                  fill="none" 
+                  strokeDasharray="125.6"
+                  strokeDashoffset={125.6 - (125.6 * (plan ? metrics.healthScore : 84)) / 100}
+                />
+              </svg>
+              <div className="absolute inset-0 flex items-center justify-center text-[10px] font-mono font-extrabold text-text-primary">
+                {plan ? metrics.healthScore : 84}%
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Metric 2: Completion of tactile action steps */}
+        <div className="p-5 rounded-3xl bg-bg-surface/20 border border-border relative overflow-hidden flex flex-col justify-between h-[155px]">
+          <div className="flex justify-between items-start">
+            <div className="space-y-0.5">
+              <span className="text-[10px] font-mono font-bold tracking-wider text-text-secondary uppercase">Action Progress</span>
+              <div className="text-xs font-sans text-text-secondary/90 leading-tight">Tactical Executed Milestones</div>
+            </div>
+            <span className="p-1.5 rounded-lg bg-status-success-bg/10 border border-status-success/20">
+              <CheckCircle className="h-4 w-4 text-status-success" />
+            </span>
+          </div>
+
+          <div className="space-y-2">
+            <div className="flex items-baseline justify-between">
+              <div className="text-4xl font-black text-text-primary tracking-tighter">
+                {plan ? metrics.progressPct : 45}%
+              </div>
+              <div className="text-[9px] font-mono text-text-secondary text-right">
+                {plan ? `${metrics.completedActions}/${metrics.totalActions}` : '9/20'} milestones
+              </div>
+            </div>
+            <div className="w-full bg-border rounded-full h-2 overflow-hidden">
+              <div 
+                className="bg-[#00F090] h-full rounded-full transition-all duration-500" 
+                style={{ width: `${plan ? metrics.progressPct : 45}%` }} 
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* Metric 3: Objective KPI achievement levels */}
+        <div className="p-5 rounded-3xl bg-bg-surface/20 border border-border relative overflow-hidden flex flex-col justify-between h-[155px]">
+          <div className="flex justify-between items-start">
+            <div className="space-y-0.5">
+              <span className="text-[10px] font-mono font-bold tracking-wider text-text-secondary uppercase">KPI Achievement Gaps</span>
+              <div className="text-xs font-sans text-text-secondary/90 leading-tight">Direct Attainment of Goals</div>
+            </div>
+            <span className="p-1.5 rounded-lg bg-accent/10 border border-accent/20">
+              <Target className="h-4 w-4 text-accent" />
+            </span>
+          </div>
+
+          <div className="space-y-2">
+            <div className="flex items-baseline justify-between">
+              <div className="text-4xl font-black text-text-primary tracking-tighter col-span-2">
+                {plan ? metrics.avgKpiAttainment : 68}%
+              </div>
+              <span className="text-[9px] font-mono text-text-secondary">avg. target alignment</span>
+            </div>
+            <div className="w-full bg-border rounded-full h-2 overflow-hidden">
+              <div 
+                className="bg-accent h-full rounded-full transition-all duration-500" 
+                style={{ width: `${plan ? metrics.avgKpiAttainment : 68}%` }} 
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* Metric 4: Integrated Risk Score card */}
+        <div className="p-5 rounded-3xl bg-bg-surface/20 border border-border relative overflow-hidden flex flex-col justify-between h-[155px]">
+          <div className="absolute top-0 right-0 w-24 h-24 bg-red-500/5 rounded-full blur-2xl -mr-6 -mt-6 pointer-events-none" />
+          <div className="flex justify-between items-start">
+            <div className="space-y-0.5">
+              <span className="text-[10px] font-mono font-bold tracking-wider text-text-secondary uppercase">Risk Exposure Index</span>
+              <div className="text-xs font-sans text-text-secondary/90 leading-tight">Aggregate Vulnerability</div>
+            </div>
+            <span className="p-1.5 rounded-lg bg-red-400/10 border border-red-500/20">
+              <AlertTriangle className="h-4 w-4 text-red-400" />
+            </span>
+          </div>
+
+          <div className="flex items-end justify-between">
+            <div>
+              <div className="text-4xl font-black text-text-primary tracking-tighter">
+                {plan ? metrics.riskScore : 24}%
+              </div>
+              <div className="text-[10px] font-mono text-text-secondary uppercase">
+                {plan ? `${metrics.highRisksCount} critical hazards` : '2 severe threats'}
+              </div>
+            </div>
+            <span className={`px-2 py-0.5 rounded-full text-[9px] font-mono font-bold ${
+              (plan ? metrics.riskScore : 24) > 40 
+                ? 'bg-red-400/15 border border-red-500/25 text-red-400' 
+                : 'bg-green-400/15 border border-green-500/25 text-status-success'
+            }`}>
+              {(plan ? metrics.riskScore : 24) > 40 ? 'High Threat' : 'Safe Zone'}
+            </span>
+          </div>
+        </div>
+      </div>
+
+      {/* Charts & Risks Panels wrapper */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        {/* Left pane: Area chart tracking ARR forecast trend */}
+        <div className="lg:col-span-8 p-6 rounded-3xl bg-bg-surface/20 border border-border space-y-6 flex flex-col justify-between">
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+            <div className="space-y-1">
+              <div className="flex items-center gap-1">
+                <span className="text-[10px] font-mono font-bold tracking-wider text-accent uppercase">Predictive GTM Modeling</span>
+                <span className="px-1.5 py-0.5 rounded-full bg-border text-[8px] font-mono text-text-secondary">6-Quarter Window</span>
+              </div>
+              <h3 className="text-sm font-black text-text-primary">Executive Revenue Goal vs. Milestone Forecast</h3>
+              <p className="text-[11px] text-text-secondary max-w-xl leading-normal">
+                Compares company baseline ARR modeling against target ambitions. The <strong className="text-accent">Live Execution Projected trend</strong> updates dynamically as underlying pipeline tasks transition and key indicators trigger.
+              </p>
+            </div>
+
+            {/* Interactive modifier simulation handles */}
+            <div className="flex items-center gap-2 bg-bg-primary/40 border border-border px-3 py-1.5 rounded-xl text-xs shrink-0 select-none">
+              <span className="text-[10px] font-mono text-text-secondary">Simulate Risk Factor:</span>
+              <div className="flex items-center gap-1.5">
+                <button 
+                  onClick={() => setForecastSimulationFactor(prev => Math.max(0.6, prev - 0.15))}
+                  className="px-1.5 py-0.5 rounded bg-bg-surface border border-border text-[10px] text-text-primary font-bold hover:bg-bg-surface/80"
+                  title="Simulate Market Headwinds (Decrease projected actuals)"
+                >
+                  -15%
+                </button>
+                <span className="font-mono font-bold text-accent">
+                  {Math.round(forecastSimulationFactor * 100)}%
+                </span>
+                <button 
+                  onClick={() => setForecastSimulationFactor(prev => Math.min(1.4, prev + 0.15))}
+                  className="px-1.5 py-0.5 rounded bg-bg-surface border border-border text-[10px] text-text-primary font-bold hover:bg-bg-surface/80"
+                  title="Simulate Market Tailwinds (Increase projected actuals)"
+                >
+                  +15%
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* Actual chart container */}
+          <div className="h-[250px] w-full pt-4">
+            <ResponsiveContainer width="100%" height="100%">
+              <AreaChart
+                data={revenueChartData}
+                margin={{ top: 10, right: 10, left: -20, bottom: 0 }}
+              >
+                <defs>
+                  <linearGradient id="colorTarget" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="var(--color-accent)" stopOpacity={0.15}/>
+                    <stop offset="95%" stopColor="var(--color-accent)" stopOpacity={0.0}/>
+                  </linearGradient>
+                  <linearGradient id="colorActual" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#00F090" stopOpacity={0.15}/>
+                    <stop offset="95%" stopColor="#00F090" stopOpacity={0.0}/>
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
+                <XAxis 
+                  dataKey="quarter" 
+                  stroke="rgba(255,255,255,0.4)" 
+                  fontSize={10}
+                  tickLine={false}
+                />
+                <YAxis 
+                  stroke="rgba(255,255,255,0.4)" 
+                  fontSize={10} 
+                  tickLine={false}
+                  label={{ value: 'ARR ($M)', angle: -90, position: 'insideLeft', offset: 5, fill: 'rgba(255,255,255,0.4)', fontSize: 10 }}
+                />
+                <Tooltip 
+                  contentStyle={{ backgroundColor: '#121214', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '12px' }}
+                  labelStyle={{ fontSize: '10px', color: 'rgba(255,255,255,0.6)', fontWeight: 'bold' }}
+                  itemStyle={{ fontSize: '11px', color: '#FFF' }}
+                />
+                <Legend 
+                  wrapperStyle={{ fontSize: '10px', paddingTop: '10px' }} 
+                  iconType="circle"
+                />
+                <Area 
+                  type="monotone" 
+                  dataKey="Target Goal" 
+                  stroke="var(--color-accent)" 
+                  strokeWidth={2}
+                  fillOpacity={1} 
+                  fill="url(#colorTarget)" 
+                />
+                <Area 
+                  type="monotone" 
+                  dataKey="Live Execution Projected" 
+                  stroke="#00F090" 
+                  strokeWidth={2.5}
+                  fillOpacity={1} 
+                  fill="url(#colorActual)" 
+                />
+                <Line 
+                  type="monotone" 
+                  dataKey="Base Plan" 
+                  stroke="rgba(255,255,255,0.35)" 
+                  strokeDasharray="4 4" 
+                  strokeWidth={1.5}
+                  dot={false}
+                />
+              </AreaChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+
+        {/* Right pane: Top Hazards Matrix list */}
+        <div className="lg:col-span-4 p-6 rounded-3xl bg-bg-surface/20 border border-border flex flex-col justify-between space-y-4">
+          <div className="space-y-1">
+            <div className="flex justify-between items-center">
+              <span className="text-[10px] font-mono font-bold tracking-wider text-accent uppercase">Risk Matrix Heatmap</span>
+              <div className="flex gap-1.5">
+                <button 
+                  onClick={() => setSelectedRiskFilter('all')}
+                  className={`text-[9px] px-2 py-0.5 rounded-md border font-bold transition-all ${
+                    selectedRiskFilter === 'all' 
+                      ? 'bg-accent/15 border-accent/20 text-accent' 
+                      : 'bg-bg-surface/40 border-border text-text-secondary hover:text-text-primary'
+                  }`}
+                >
+                  All
+                </button>
+                <button 
+                  onClick={() => setSelectedRiskFilter('high')}
+                  className={`text-[9px] px-2 py-0.5 rounded-md border font-bold transition-all ${
+                    selectedRiskFilter === 'high' 
+                      ? 'bg-red-500/10 border-red-500/20 text-red-400' 
+                      : 'bg-bg-surface/40 border-border text-text-secondary hover:text-text-primary'
+                  }`}
+                >
+                  High
+                </button>
+              </div>
+            </div>
+            <h3 className="text-sm font-black text-text-primary">GTM Strategy Execution Top Hazards</h3>
+            <p className="text-[11px] text-text-secondary leading-normal">
+              Active operational flags identified during risk analysis. Filter by importance to target mitigation sprints.
+            </p>
+          </div>
+
+          {/* Risk grid itemization */}
+          <div className="space-y-2.5 max-h-[220px] overflow-y-auto pr-1 flex-grow">
+            {!plan || filteredRisks.length === 0 ? (
+              <div className="py-12 text-center text-xs text-text-secondary border border-dashed border-border rounded-2xl bg-bg-surface/30">
+                <ShieldCheck className="h-6 w-6 text-status-success mx-auto mb-2 animate-pulse" />
+                <p className="font-bold">No Active Flags Found</p>
+                <p className="text-[10px] text-text-secondary/75">Risks have been fully mitigated or are waiting for plan initiation.</p>
+              </div>
+            ) : (
+              filteredRisks.map((risk) => {
+                const isHigh = risk.impact === 'high' || risk.probability === 'high';
+                const isMed = risk.impact === 'medium' || risk.probability === 'medium';
+                const badgeStyle = isHigh 
+                  ? 'bg-red-400/15 border-red-500/25 text-red-400' 
+                  : isMed
+                  ? 'bg-yellow-400/15 border-yellow-500/25 text-accent'
+                  : 'bg-bg-surface border-border text-text-secondary';
+
+                return (
+                  <div key={risk.id} className="p-3 bg-bg-surface/45 border border-border/80 rounded-xl space-y-1.5 text-[11px] hover:border-accent/40 transition-colors">
+                    <div className="flex justify-between items-start gap-1">
+                      <h4 className="font-extrabold text-text-primary line-clamp-1">{risk.riskName}</h4>
+                      <span className={`px-1.5 py-0.5 rounded font-mono text-[8px] font-bold uppercase tracking-wider shrink-0 ${badgeStyle}`}>
+                        {risk.impact} risk
+                      </span>
+                    </div>
+                    {risk.description && (
+                      <p className="text-[10px] text-text-secondary leading-normal line-clamp-2">
+                        {risk.description}
+                      </p>
+                    )}
+                    {risk.mitigationPlan && (
+                      <div className="text-[9px] font-mono p-1.5 bg-bg-primary/50 text-[#00F090] rounded border border-[#00F090]/10 leading-tight">
+                        <strong className="uppercase">Mitigation:</strong> {risk.mitigationPlan}
+                      </div>
+                    )}
+                  </div>
+                );
+              })
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Strategic Alignment Gaps and Velocity Grid */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Left pane: Workstream Velocity table */}
+        <div className="p-6 rounded-3xl bg-bg-surface/20 border border-border space-y-4">
+          <div className="space-y-1">
+            <span className="text-[10px] font-mono font-bold tracking-wider text-accent uppercase">Workstream Dashboard</span>
+            <h3 className="text-sm font-black text-text-primary">Workstream Operational Velocity Overview</h3>
+            <p className="text-[11px] text-text-secondary leading-normal">
+              Monitors progression across each tactical category, helping executives balance team priorities and verify rollout pace.
+            </p>
+          </div>
+
+          <div className="space-y-3 pt-2">
+            {!plan || metrics.workstreamStats.length === 0 ? (
+              <div className="py-12 text-center text-xs text-text-secondary border border-dashed border-border rounded-2xl bg-bg-surface/30">
+                <Layers className="h-6 w-6 text-text-secondary/40 mx-auto mb-2" />
+                <p className="font-bold">No Workstream Analytics Available</p>
+                <p className="text-[10px]">Create an archived execution plan inside step 15 to begin analytics mapping.</p>
+              </div>
+            ) : (
+              metrics.workstreamStats.map((stat) => (
+                <div key={stat.id} className="p-3.5 rounded-2xl bg-bg-surface/50 border border-border/80 flex flex-col justify-between gap-3">
+                  <div className="flex justify-between items-start gap-1">
+                    <div className="space-y-0.5">
+                      <div className="text-xs font-black text-text-primary truncate max-w-[250px]">{stat.name}</div>
+                      <div className="text-[10px] font-mono text-text-secondary flex items-center gap-1.5">
+                        <Users className="h-3 w-3 text-accent" /> Owner: {stat.owner}
+                      </div>
+                    </div>
+                    <span className="text-[10px] font-mono font-bold text-accent shrink-0">
+                      {stat.progress}% Completed
+                    </span>
+                  </div>
+
+                  <div className="flex items-center gap-3">
+                    <div className="flex-grow bg-border rounded-full h-1.5 overflow-hidden">
+                      <div 
+                        className="bg-accent h-full rounded-full transition-all duration-300" 
+                        style={{ width: `${stat.progress}%` }} 
+                      />
+                    </div>
+                    <span className="text-[9px] font-mono text-text-secondary shrink-0 shrink-0">
+                      {stat.completedActions}/{stat.totalActions} Tasks
+                    </span>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+
+        {/* Right pane: Recommended Next Actions & AI Briefing */}
+        <div className="p-6 rounded-3xl bg-bg-surface/20 border border-border space-y-6 flex flex-col justify-between">
+          <div className="space-y-3">
+            <div className="space-y-1">
+              <span className="text-[10px] font-mono font-bold tracking-wider text-accent uppercase">Executive Action Briefing</span>
+              <h3 className="text-sm font-black text-text-primary">Executive Intelligence & Prescribed Next Steps</h3>
+              <p className="text-[11px] text-text-secondary leading-normal">
+                AI prescriptive suggestions generated automatically based on current project telemetry status, risk level, and milestones.
+              </p>
+            </div>
+
+            <div className="space-y-2.5">
+              {metrics.recommendations.map((rec, idx) => {
+                const isUrgent = rec.includes('Urgent') || rec.includes('High Hazard');
+                const pStyle = isUrgent 
+                  ? 'bg-red-400/5 border border-red-500/20 text-red-300' 
+                  : 'bg-bg-surface/50 border border-border text-text-secondary';
+
+                return (
+                  <div key={idx} className={`p-3 rounded-2xl flex items-start gap-3 text-xs leading-relaxed border ${pStyle}`}>
+                    <span className={`p-1 rounded-lg shrink-0 mt-0.5 ${isUrgent ? 'bg-red-400/10 text-red-400' : 'bg-accent/10 text-accent'}`}>
+                      <Zap className="h-3.5 w-3.5" />
+                    </span>
+                    <p className="font-sans font-medium text-text-primary/90">{rec}</p>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Governance summary block (additional details added for executive perspective) */}
+          {plan && (
+            <div className="p-4 rounded-2xl bg-bg-surface/80 border border-accent/20 space-y-3 text-[11px]">
+              <div className="flex items-center gap-1.5 text-text-primary font-bold">
+                <Layers className="h-4 w-4 text-accent" />
+                <span>RACI & Governance Standardized Procedures</span>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-text-secondary">
+                <div className="p-2 bg-bg-primary/50 rounded-xl space-y-0.5">
+                  <span className="font-mono text-[8px] uppercase tracking-wider block">RACI Matrix Alignment</span>
+                  <p className="font-sans leading-normal font-bold text-text-primary line-clamp-1">{plan.governance?.raciAssignment || 'Fully configured internally'}</p>
+                </div>
+                <div className="p-2 bg-bg-primary/50 rounded-xl space-y-0.5">
+                  <span className="font-mono text-[8px] uppercase tracking-wider block">Review Cadence</span>
+                  <p className="font-sans leading-normal font-bold text-text-primary line-clamp-1">{plan.governance?.reviewCadence || 'Quarterly Review Cycle'}</p>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};

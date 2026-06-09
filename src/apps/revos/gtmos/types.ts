@@ -146,6 +146,106 @@ export interface GTMOSRecommendation {
   actionableSteps: string;
 }
 
+export interface GTMActionItem {
+  id: string;
+  actionName: string;
+  description: string;
+  taskType: string;
+  owner: string;
+  startDate: string;
+  dueDate: string;
+  dependencies: string;
+  completionCriteria: string;
+  status: 'todo' | 'in_progress' | 'completed' | 'blocked';
+  progress?: number;
+}
+
+export interface GTMKPI {
+  id: string;
+  kpiName: string;
+  kpiCategory: string;
+  baseline: string;
+  target: string;
+  currentValue: string;
+  measurementFrequency: string;
+  owner: string;
+}
+
+export interface GTMRisk {
+  id: string;
+  riskName: string;
+  description: string;
+  probability: 'low' | 'medium' | 'high';
+  impact: 'low' | 'medium' | 'high';
+  riskScore: number;
+  mitigationPlan: string;
+  owner: string;
+}
+
+export interface GTMDependency {
+  id: string;
+  dependencyType: string;
+  blockingInitiative: string;
+  blockedInitiative: string;
+  impactDescription: string;
+}
+
+export interface GTMAIMonitoringRule {
+  id: string;
+  metric: string;
+  targetThreshold: string;
+  alertThreshold: string;
+  triggerCondition: string;
+  recommendedAction: string;
+}
+
+export interface GTMInitiative {
+  id: string;
+  initiativeName: string;
+  description: string;
+  strategicObjective: string;
+  expectedOutcome: string;
+  priority: 'low' | 'medium' | 'high';
+  timeline: string;
+  owner: string;
+  budget: string;
+  status: 'Not Started' | 'In Progress' | 'Completed' | 'Delayed';
+  actions: GTMActionItem[];
+  kpis: GTMKPI[];
+  risks: GTMRisk[];
+  dependencies: GTMDependency[];
+  aiMonitoringRules: GTMAIMonitoringRule[];
+}
+
+export interface GTMWorkstream {
+  id: string;
+  workstreamName: string;
+  purpose: string;
+  relatedGtmPillar: string;
+  priority: 'low' | 'medium' | 'high';
+  timeline: string;
+  owner: string;
+  initiatives: GTMInitiative[];
+}
+
+export interface GTMExecutionPlan {
+  programName: string;
+  description: string;
+  strategicObjective: string;
+  revenueGoal: string;
+  businessGoal: string;
+  launchPeriod: string;
+  status: string;
+  executiveSponsor: string;
+  workstreams: GTMWorkstream[];
+  governance: {
+    raciAssignment: string;
+    reviewCadence: string;
+    escalationPath: string;
+  };
+  executiveSummary: string;
+}
+
 export interface GTMOSProject {
   id: string;
   title: string;
@@ -164,4 +264,6 @@ export interface GTMOSProject {
   recommendations: GTMOSRecommendation[];
   gtmStrategyDraft?: Record<string, string[]> | null;
   gtmCanvas?: Record<string, string> | null;
+  gtmExecutionPlan?: GTMExecutionPlan | null;
+  archivedExecutionPlan?: GTMExecutionPlan | null;
 }

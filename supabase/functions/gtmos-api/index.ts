@@ -685,6 +685,172 @@ serve(async (req) => {
         return new Response(response.text || "{}", { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
       }
 
+      case "generate-execution-engine": {
+        const response = await ai.models.generateContent({
+          model: "gemini-3.1-flash-lite",
+          contents: [
+            `Role: You are an elite enterprise Revenue Operations Architect and Chief Growth Officer.
+            Based on the onboarding information:
+            ${JSON.stringify(onboardingData, null, 2)}
+
+            And the finalized Strategy Draft:
+            ${JSON.stringify(gtmStrategyDraft, null, 2)}
+
+            Generate a highly trackable, thorough, enterprise-grade GTM Execution Action Plan.
+            The execution timeframe/period of time is given in the "timeHorizon" onboarding field as: "${onboardingData?.timeHorizon || '12-18 Months'}".
+            Make sure all initiatives, workstreams, and actions fit realistic milestones within this timeframe.
+
+            The output MUST be a JSON object conforming to the standard GTMExecutionPlan schema. Do not generate fake/placeholder text. Return actual actionable strategies.`
+          ],
+          config: {
+            systemInstruction: GTMOS_SYSTEM_INSTRUCTION,
+            responseMimeType: "application/json",
+            responseSchema: {
+              type: Type.OBJECT,
+              properties: {
+                programName: { type: Type.STRING },
+                description: { type: Type.STRING },
+                strategicObjective: { type: Type.STRING },
+                revenueGoal: { type: Type.STRING },
+                businessGoal: { type: Type.STRING },
+                launchPeriod: { type: Type.STRING },
+                status: { type: Type.STRING },
+                executiveSponsor: { type: Type.STRING },
+                workstreams: {
+                  type: Type.ARRAY,
+                  items: {
+                    type: Type.OBJECT,
+                    properties: {
+                      id: { type: Type.STRING },
+                      workstreamName: { type: Type.STRING },
+                      purpose: { type: Type.STRING },
+                      relatedGtmPillar: { type: Type.STRING },
+                      priority: { type: Type.STRING },
+                      timeline: { type: Type.STRING },
+                      owner: { type: Type.STRING },
+                      initiatives: {
+                        type: Type.ARRAY,
+                        items: {
+                          type: Type.OBJECT,
+                          properties: {
+                            id: { type: Type.STRING },
+                            initiativeName: { type: Type.STRING },
+                            description: { type: Type.STRING },
+                            strategicObjective: { type: Type.STRING },
+                            expectedOutcome: { type: Type.STRING },
+                            priority: { type: Type.STRING },
+                            timeline: { type: Type.STRING },
+                            owner: { type: Type.STRING },
+                            budget: { type: Type.STRING },
+                            status: { type: Type.STRING },
+                            actions: {
+                              type: Type.ARRAY,
+                              items: {
+                                type: Type.OBJECT,
+                                properties: {
+                                  id: { type: Type.STRING },
+                                  actionName: { type: Type.STRING },
+                                  description: { type: Type.STRING },
+                                  taskType: { type: Type.STRING },
+                                  owner: { type: Type.STRING },
+                                  startDate: { type: Type.STRING },
+                                  dueDate: { type: Type.STRING },
+                                  dependencies: { type: Type.STRING },
+                                  completionCriteria: { type: Type.STRING },
+                                  status: { type: Type.STRING }
+                                },
+                                required: ["id", "actionName", "description", "taskType", "owner", "startDate", "dueDate", "dependencies", "completionCriteria", "status"]
+                              }
+                            },
+                            kpis: {
+                              type: Type.ARRAY,
+                              items: {
+                                type: Type.OBJECT,
+                                properties: {
+                                  id: { type: Type.STRING },
+                                  kpiName: { type: Type.STRING },
+                                  kpiCategory: { type: Type.STRING },
+                                  baseline: { type: Type.STRING },
+                                  target: { type: Type.STRING },
+                                  currentValue: { type: Type.STRING },
+                                  measurementFrequency: { type: Type.STRING },
+                                  owner: { type: Type.STRING }
+                                },
+                                required: ["id", "kpiName", "kpiCategory", "baseline", "target", "currentValue", "measurementFrequency", "owner"]
+                              }
+                            },
+                            risks: {
+                              type: Type.ARRAY,
+                              items: {
+                                type: Type.OBJECT,
+                                properties: {
+                                  id: { type: Type.STRING },
+                                  riskName: { type: Type.STRING },
+                                  description: { type: Type.STRING },
+                                  probability: { type: Type.STRING },
+                                  impact: { type: Type.STRING },
+                                  riskScore: { type: Type.NUMBER },
+                                  mitigationPlan: { type: Type.STRING },
+                                  owner: { type: Type.STRING }
+                                },
+                                required: ["id", "riskName", "description", "probability", "impact", "riskScore", "mitigationPlan", "owner"]
+                              }
+                            },
+                            dependencies: {
+                              type: Type.ARRAY,
+                              items: {
+                                type: Type.OBJECT,
+                                properties: {
+                                  id: { type: Type.STRING },
+                                  dependencyType: { type: Type.STRING },
+                                  blockingInitiative: { type: Type.STRING },
+                                  blockedInitiative: { type: Type.STRING },
+                                  impactDescription: { type: Type.STRING }
+                                },
+                                required: ["id", "dependencyType", "blockingInitiative", "blockedInitiative", "impactDescription"]
+                              }
+                            },
+                            aiMonitoringRules: {
+                              type: Type.ARRAY,
+                              items: {
+                                type: Type.OBJECT,
+                                properties: {
+                                  id: { type: Type.STRING },
+                                  metric: { type: Type.STRING },
+                                  targetThreshold: { type: Type.STRING },
+                                  alertThreshold: { type: Type.STRING },
+                                  triggerCondition: { type: Type.STRING },
+                                  recommendedAction: { type: Type.STRING }
+                                },
+                                required: ["id", "metric", "targetThreshold", "alertThreshold", "triggerCondition", "recommendedAction"]
+                              }
+                            }
+                          },
+                          required: ["id", "initiativeName", "description", "strategicObjective", "expectedOutcome", "priority", "timeline", "owner", "budget", "status", "actions", "kpis", "risks", "dependencies", "aiMonitoringRules"]
+                        }
+                      }
+                    },
+                    required: ["id", "workstreamName", "purpose", "relatedGtmPillar", "priority", "timeline", "owner", "initiatives"]
+                  }
+                },
+                governance: {
+                  type: Type.OBJECT,
+                  properties: {
+                    raciAssignment: { type: Type.STRING },
+                    reviewCadence: { type: Type.STRING },
+                    escalationPath: { type: Type.STRING }
+                  },
+                  required: ["raciAssignment", "reviewCadence", "escalationPath"]
+                },
+                executiveSummary: { type: Type.STRING }
+              },
+              required: ["programName", "description", "strategicObjective", "revenueGoal", "businessGoal", "launchPeriod", "status", "executiveSponsor", "workstreams", "governance", "executiveSummary"]
+            }
+          }
+        });
+        return new Response(response.text || "{}", { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+      }
+
       default:
         return new Response(JSON.stringify({ error: `Action ${action} not found.` }), { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }

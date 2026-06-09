@@ -512,6 +512,8 @@ export const SEED_PROJECTS: GTMOSProject[] = [
         effort: 'Medium',
         actionableSteps: 'Transition pricing tiers from seat caps to total dollar value of pipeline monitored. This limits ARR downgrades when clients downsize staff rows.'
       }
-    ]
+    ],
+    gtmExecutionPlan: null,
+    archivedExecutionPlan: null
   }
 ];

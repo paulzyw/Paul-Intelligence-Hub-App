@@ -1259,6 +1259,382 @@ app.post("/api/gtmos/generate-execution", async (req, res) => {
   }
 });
 
+function computeLocalExecutionEngine(projectName?: string) {
+  const name = projectName || "RevOS Enterprise Sandbox";
+  return {
+    programName: `${name} Strategy Acceleration Program`,
+    description: `A systematic operational rollout designed to implement the core strategic pillars of ${name}, centered on driving pipeline velocity, high-intent outbound acceleration, and partner alignment.`,
+    strategicObjective: `Secure 100 net-new enterprise accounts and expand average contract value by 15%.`,
+    revenueGoal: `$10M net new ARR within the strategic milestone horizon.`,
+    businessGoal: `Establish repeatable, multi-threaded GTM motion that reduces CRM leakage and accelerates proof-of-concept velocity.`,
+    launchPeriod: `18 Months timeframe goal`,
+    status: `Active Modeling`,
+    executiveSponsor: `CRO (Chief Revenue Officer)`,
+    workstreams: [
+      {
+        id: "ws-1",
+        workstreamName: "Outbound Core Acceleration",
+        purpose: "Accelerate high-impact prospecting channels and pipeline velocity by targeting key economic buyers.",
+        relatedGtmPillar: "Pillar 1: Target Market Segment & ICP Mapping",
+        priority: "high",
+        timeline: "Months 1-6",
+        owner: "Head of Sales (VP Enterprise)",
+        initiatives: [
+          {
+            id: "init-1-1",
+            initiativeName: "High-Intent Executive Outreach Campaigns",
+            description: "Deploy highly personalized enterprise ABM sequences targeting Heads of Operations and CIOs with customized audit checklists.",
+            strategicObjective: "Increase outbound open and meeting booking rates by 25%.",
+            expectedOutcome: "Book 45 net-new enterprise demo sessions.",
+            priority: "high",
+            timeline: "Months 1-3",
+            owner: "Outbound SDR Manager",
+            budget: "$25,000",
+            status: "Not Started",
+            actions: [
+              {
+                id: "act-1-1-1",
+                actionName: "Draft standard personalized outreach templates",
+                description: "Write custom sequences featuring custom audit checklists and zero-fluff text blocks.",
+                taskType: "Asset Creation",
+                owner: "Content Specialist",
+                startDate: "2026-06-15",
+                dueDate: "2026-06-30",
+                dependencies: "None",
+                completionCriteria: "Templates designed, optimized, and loaded to Outreach.io.",
+                status: "todo"
+              },
+              {
+                id: "act-1-1-2",
+                actionName: "Verify CRM lead list hygiene",
+                description: "Validate decision maker emails, industry tags, and ARR parameters in the CRM console.",
+                taskType: "Systems Integration",
+                owner: "RevOps Specialist",
+                startDate: "2026-07-01",
+                dueDate: "2026-07-10",
+                dependencies: "None",
+                completionCriteria: "Clean lists of 500 validated enterprise leads synced to CRM.",
+                status: "todo"
+              }
+            ],
+            kpis: [
+              {
+                id: "kpi-1-1-1",
+                kpiName: "Sequence Open Rate",
+                kpiCategory: "Acquisition",
+                baseline: "18%",
+                target: "30%",
+                currentValue: "18%",
+                measurementFrequency: "Weekly",
+                owner: "Marketing Analyst"
+              }
+            ],
+            risks: [
+              {
+                id: "risk-1-1-1",
+                riskName: "Adverse Email Filter Hits",
+                description: "High rate of generic filters flags custom domain outreaches as spam.",
+                probability: "medium",
+                impact: "high",
+                riskScore: 6,
+                mitigationPlan: "Pre-warm dedicated outbound domain pools and set max daily emails to 50 items/rep.",
+                owner: "RevOps Analyst"
+              }
+            ],
+            dependencies: [
+              {
+                id: "dep-1-1-1",
+                dependencyType: "Content Approval",
+                blockingInitiative: "Executive copy sign-off",
+                blockedInitiative: "ABM sequence launch",
+                impactDescription: "Cannot launch sequence without legal content approval."
+              }
+            ],
+            aiMonitoringRules: [
+              {
+                id: "rule-1-1-1",
+                metric: "SDR outbound open rate",
+                targetThreshold: "> 25%",
+                alertThreshold: "< 15%",
+                triggerCondition: "Open rate holds below alert threshold for 5 business days.",
+                recommendedAction: "AI notifies outbound lead to adjust header copies and auto-generates 3 A/B test variations."
+              }
+            ]
+          }
+        ]
+      },
+      {
+        id: "ws-2",
+        workstreamName: "CRM Ledger Integration & Telemetry",
+        purpose: "Build full operational auditability and sync metrics instantly across all customer touchpoints.",
+        relatedGtmPillar: "Pillar 9: Central Operational Feedback",
+        priority: "high",
+        timeline: "Months 3-9",
+        owner: "Director of Revenue Operations (Head of RevOps)",
+        initiatives: [
+          {
+            id: "init-2-1",
+            initiativeName: "Real-time CRM Deal Signal Audit System",
+            description: "Deploy automated telemetry monitors that flag deals at risk of stalling directly inside HubSpot/Salesforce.",
+            strategicObjective: "Reduce deal stagnation by 30% and improve forecast accuracy.",
+            expectedOutcome: "Deal signals analyzed dynamically with actionable coaching feedback.",
+            priority: "high",
+            timeline: "Months 3-6",
+            owner: "Senior Salesforce Engineer",
+            budget: "$40,000",
+            status: "Not Started",
+            actions: [
+              {
+                id: "act-2-1-1",
+                actionName: "Configure Salesforce webhook alerts",
+                description: "Build custom webhook hooks inside Salesforce to catch deal milestone stage lags.",
+                taskType: "Systems Integration",
+                owner: "Senior Developer",
+                startDate: "2026-08-01",
+                dueDate: "2026-08-20",
+                dependencies: "None",
+                completionCriteria: "Webhooks successfully posting updates on deal progression.",
+                status: "todo"
+              }
+            ],
+            kpis: [
+              {
+                id: "kpi-2-1-1",
+                kpiName: "Forecast Discrepancy Percentage",
+                kpiCategory: "Pipeline Velocity",
+                baseline: "14%",
+                target: "3%",
+                currentValue: "14%",
+                measurementFrequency: "Monthly",
+                owner: "Head of RevOps"
+              }
+            ],
+            risks: [
+              {
+                id: "risk-2-1-1",
+                riskName: "Sales Rep Dashboard Blindness",
+                description: "Sales representatives ignore automated notifications inside CRM panels.",
+                probability: "medium",
+                impact: "high",
+                riskScore: 6,
+                mitigationPlan: "Integrate notification briefs directly into daily Slack/Teams logs so they are hard-to-miss.",
+                owner: "Enablement Coach"
+              }
+            ],
+            dependencies: [
+              {
+                id: "dep-2-1-1",
+                dependencyType: "Data Integrations",
+                blockingInitiative: "Salesforce CRM read-write API setup",
+                blockedInitiative: "Real-time pipeline monitoring launch",
+                impactDescription: "Monitoring engine cannot load telemetry data without Salesforce read permissions."
+              }
+            ],
+            aiMonitoringRules: [
+              {
+                id: "rule-2-1-1",
+                metric: "Stale opportunity flagged volume",
+                targetThreshold: "< 5 deals",
+                alertThreshold: "> 15 deals",
+                triggerCondition: "Stale opportunities cross 15 count for 2 consecutive pipelines.",
+                recommendedAction: "AI flags deal flow bottleneck and emails pipeline brief directly to CRO with custom deal-specific action tips."
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    governance: {
+      raciAssignment: "CRO serves as final Accountable owner. VP of Enterprise Sales is Responsible for Outbound execution. Head of RevOps is Responsible for CRM integration and data validation. Marketing directors Consulted on asset creation.",
+      reviewCadence: "Bi-Weekly Executive GTM Sprint reviews with CRO focus.",
+      escalationPath: "Blocker flagged in CRM -> RevOps Specialist notifies workstream owner within 24hr -> unresolved hurdles escalated to CRO during Bi-Weekly sync."
+    },
+    executiveSummary: `This GTM Execution Plan provides a thorough, traceable, programmatic framework to scale enterprise contract values and pipeline ARR for ${name}. By optimizing outbound outreach with clear dependencies and creating absolute telemetry transparency within the transactional CRM registries, GTM operators can track real-time progression, mitigate pipeline stagnation risks, and secure scalable ARR velocity.`
+  };
+}
+
+app.post("/api/gtmos/generate-execution-engine", async (req, res) => {
+  try {
+    const { onboardingData, gtmStrategyDraft, projectName } = req.body;
+
+    if (!hasGenAIKey()) {
+      const fallback = computeLocalExecutionEngine(projectName);
+      return res.json(fallback);
+    }
+
+    const ai = getGenAI();
+
+    const response = await ai.models.generateContent({
+      model: "gemini-3.1-flash-lite",
+      contents: [
+        `Role: You are an elite enterprise Revenue Operations Architect and Chief Growth Officer.
+        Based on the onboarding information:
+        ${JSON.stringify(onboardingData, null, 2)}
+
+        And the finalized GTM Strategy Draft:
+        ${JSON.stringify(gtmStrategyDraft, null, 2)}
+
+        Generate a highly trackable, thorough, enterprise-grade GTM Execution Action Plan.
+        The execution timeframe/period of time is given in the "timeHorizon" onboarding field as: "${onboardingData?.timeHorizon || '12-18 Months'}".
+        Make sure all initiatives, workstreams, and actions fit realistic milestones within this timeframe.
+
+        The output MUST be a JSON object conforming exactly to the standard GTMExecutionPlan schema. Do not generate fake or placeholder text. Return actual actionable strategies.`
+      ],
+      config: {
+        systemInstruction: GTMOS_SYSTEM_INSTRUCTION,
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: Type.OBJECT,
+          properties: {
+            programName: { type: Type.STRING },
+            description: { type: Type.STRING },
+            strategicObjective: { type: Type.STRING },
+            revenueGoal: { type: Type.STRING },
+            businessGoal: { type: Type.STRING },
+            launchPeriod: { type: Type.STRING },
+            status: { type: Type.STRING },
+            executiveSponsor: { type: Type.STRING },
+            workstreams: {
+              type: Type.ARRAY,
+              items: {
+                type: Type.OBJECT,
+                properties: {
+                  id: { type: Type.STRING },
+                  workstreamName: { type: Type.STRING },
+                  purpose: { type: Type.STRING },
+                  relatedGtmPillar: { type: Type.STRING },
+                  priority: { type: Type.STRING },
+                  timeline: { type: Type.STRING },
+                  owner: { type: Type.STRING },
+                  initiatives: {
+                    type: Type.ARRAY,
+                    items: {
+                      type: Type.OBJECT,
+                      properties: {
+                        id: { type: Type.STRING },
+                        initiativeName: { type: Type.STRING },
+                        description: { type: Type.STRING },
+                        strategicObjective: { type: Type.STRING },
+                        expectedOutcome: { type: Type.STRING },
+                        priority: { type: Type.STRING },
+                        timeline: { type: Type.STRING },
+                        owner: { type: Type.STRING },
+                        budget: { type: Type.STRING },
+                        status: { type: Type.STRING },
+                        actions: {
+                          type: Type.ARRAY,
+                          items: {
+                            type: Type.OBJECT,
+                            properties: {
+                              id: { type: Type.STRING },
+                              actionName: { type: Type.STRING },
+                              description: { type: Type.STRING },
+                              taskType: { type: Type.STRING },
+                              owner: { type: Type.STRING },
+                              startDate: { type: Type.STRING },
+                              dueDate: { type: Type.STRING },
+                              dependencies: { type: Type.STRING },
+                              completionCriteria: { type: Type.STRING },
+                              status: { type: Type.STRING }
+                            },
+                            required: ["id", "actionName", "description", "taskType", "owner", "startDate", "dueDate", "dependencies", "completionCriteria", "status"]
+                          }
+                        },
+                        kpis: {
+                          type: Type.ARRAY,
+                          items: {
+                            type: Type.OBJECT,
+                            properties: {
+                              id: { type: Type.STRING },
+                              kpiName: { type: Type.STRING },
+                              kpiCategory: { type: Type.STRING },
+                              baseline: { type: Type.STRING },
+                              target: { type: Type.STRING },
+                              currentValue: { type: Type.STRING },
+                              measurementFrequency: { type: Type.STRING },
+                              owner: { type: Type.STRING }
+                            },
+                            required: ["id", "kpiName", "kpiCategory", "baseline", "target", "currentValue", "measurementFrequency", "owner"]
+                          }
+                        },
+                        risks: {
+                          type: Type.ARRAY,
+                          items: {
+                            type: Type.OBJECT,
+                            properties: {
+                              id: { type: Type.STRING },
+                              riskName: { type: Type.STRING },
+                              description: { type: Type.STRING },
+                              probability: { type: Type.STRING },
+                              impact: { type: Type.STRING },
+                              riskScore: { type: Type.NUMBER },
+                              mitigationPlan: { type: Type.STRING },
+                              owner: { type: Type.STRING }
+                            },
+                            required: ["id", "riskName", "description", "probability", "impact", "riskScore", "mitigationPlan", "owner"]
+                          }
+                        },
+                        dependencies: {
+                          type: Type.ARRAY,
+                          items: {
+                            type: Type.OBJECT,
+                            properties: {
+                              id: { type: Type.STRING },
+                              dependencyType: { type: Type.STRING },
+                              blockingInitiative: { type: Type.STRING },
+                              blockedInitiative: { type: Type.STRING },
+                              impactDescription: { type: Type.STRING }
+                            },
+                            required: ["id", "dependencyType", "blockingInitiative", "blockedInitiative", "impactDescription"]
+                          }
+                        },
+                        aiMonitoringRules: {
+                          type: Type.ARRAY,
+                          items: {
+                            type: Type.OBJECT,
+                            properties: {
+                              id: { type: Type.STRING },
+                              metric: { type: Type.STRING },
+                              targetThreshold: { type: Type.STRING },
+                              alertThreshold: { type: Type.STRING },
+                              triggerCondition: { type: Type.STRING },
+                              recommendedAction: { type: Type.STRING }
+                },
+                            required: ["id", "metric", "targetThreshold", "alertThreshold", "triggerCondition", "recommendedAction"]
+                          }
+                        }
+                      },
+                      required: ["id", "initiativeName", "description", "strategicObjective", "expectedOutcome", "priority", "timeline", "owner", "budget", "status", "actions", "kpis", "risks", "dependencies", "aiMonitoringRules"]
+                    }
+                  }
+                },
+                governance: {
+                  type: Type.OBJECT,
+                  properties: {
+                    raciAssignment: { type: Type.STRING },
+                    reviewCadence: { type: Type.STRING },
+                    escalationPath: { type: Type.STRING }
+                  },
+                  required: ["raciAssignment", "reviewCadence", "escalationPath"]
+                },
+                executiveSummary: { type: Type.STRING }
+              },
+              required: ["programName", "description", "strategicObjective", "revenueGoal", "businessGoal", "launchPeriod", "status", "executiveSponsor", "workstreams", "governance", "executiveSummary"]
+            }
+          }
+        }
+      }
+    });
+
+    const val = JSON.parse(response.text || "{}");
+    res.json(val);
+  } catch (error: any) {
+    console.warn("Execution Engine Generation Error, falling back to local simulation:", error.message);
+    const { projectName } = req.body;
+    res.json(computeLocalExecutionEngine(projectName));
+  }
+});
+
 // Step 18 & 19: AI Operational Risks & Recommendations Proxied Endpoint
 app.post("/api/gtmos/risks-recommendations", async (req, res) => {
   try {
@@ -1543,6 +1919,143 @@ app.post("/api/gtmos/simulate-recommendations", async (req, res) => {
     res.json(computeLocalSimulationRecommendations(activeScenario, onboardingData, projectName, activeParams));
   }
 });
+
+// Dedicated Go-To-Market Initiative Intelligence Generation Endpoint
+app.post("/api/gtmos/generate-initiative-intelligence", async (req, res) => {
+  try {
+    const { initiativeName, description, strategicObjective, onboardingData } = req.body;
+
+    if (!hasGenAIKey()) {
+      return res.json(computeLocalInitiativeIntelligence(initiativeName, description, strategicObjective));
+    }
+
+    const ai = getGenAI();
+
+    const response = await ai.models.generateContent({
+      model: "gemini-3.1-flash-lite",
+      contents: [
+        `You are an elite, world-class GTM Operations Architect.
+        Analyze the following GTM initiative:
+        Initiative name: "${initiativeName}"
+        Description: "${description}"
+        Strategic Objective: "${strategicObjective}"
+        
+        Using this context, propose:
+        1. 2 distinct 'Strategic Dependencies' (one Technical/Systems block, and one Resource/Collateral block) that must be solved before or alongside this initiative.
+        2. 2 high-fidelity, actionable 'AI Guardian Monitoring Rules' with specific target metrics, alerting thresholds, trigger conditions, and concrete AI-recommended recovery actions.
+        
+        The output MUST be a JSON object conforming exactly to this schema:
+        {
+          "dependencies": [
+            {
+              "id": "string (unique code starting with dep-)",
+              "dependencyType": "Technical Dependency" | "Resource Dependency" | "Strategic Block",
+              "blockingInitiative": "string (name of the blocking task, e.g. CRM Custom Object Creation)",
+              "blockedInitiative": "string (name of blocked task, e.g. outbound outreach)",
+              "impactDescription": "string"
+            }
+          ],
+          "aiMonitoringRules": [
+            {
+              "id": "string (unique code starting with rule-)",
+              "metric": "string (e.g. Conversation Rate)",
+              "targetThreshold": "string (e.g. > 8.0%)",
+              "alertThreshold": "string (e.g. < 3.0%)",
+              "triggerCondition": "string (comprehensive condition, e.g. If rolling 7-day conversion falls below 3.0%)",
+              "recommendedAction": "string (proactive AI automation logic)"
+            }
+          ]
+        }
+        Do not add any markup besides raw JSON.`
+      ],
+      config: {
+        systemInstruction: GTMOS_SYSTEM_INSTRUCTION,
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: Type.OBJECT,
+          properties: {
+            dependencies: {
+              type: Type.ARRAY,
+              items: {
+                type: Type.OBJECT,
+                properties: {
+                  id: { type: Type.STRING },
+                  dependencyType: { type: Type.STRING },
+                  blockingInitiative: { type: Type.STRING },
+                  blockedInitiative: { type: Type.STRING },
+                  impactDescription: { type: Type.STRING }
+                },
+                required: ["id", "dependencyType", "blockingInitiative", "blockedInitiative", "impactDescription"]
+              }
+            },
+            aiMonitoringRules: {
+              type: Type.ARRAY,
+              items: {
+                type: Type.OBJECT,
+                properties: {
+                  id: { type: Type.STRING },
+                  metric: { type: Type.STRING },
+                  targetThreshold: { type: Type.STRING },
+                  alertThreshold: { type: Type.STRING },
+                  triggerCondition: { type: Type.STRING },
+                  recommendedAction: { type: Type.STRING }
+                },
+                required: ["id", "metric", "targetThreshold", "alertThreshold", "triggerCondition", "recommendedAction"]
+              }
+            }
+          },
+          required: ["dependencies", "aiMonitoringRules"]
+        }
+      }
+    });
+
+    res.json(JSON.parse(response.text || "{}"));
+  } catch (error: any) {
+    console.warn("Initiative Intelligence Error, returning local fallback:", error.message);
+    const { initiativeName, description, strategicObjective } = req.body;
+    res.json(computeLocalInitiativeIntelligence(initiativeName, description, strategicObjective));
+  }
+});
+
+function computeLocalInitiativeIntelligence(initiativeName: string, description: string, strategicObjective: string) {
+  const initName = initiativeName || "this initiative";
+  return {
+    dependencies: [
+      {
+        id: `dep-${Date.now()}-1`,
+        dependencyType: "Technical Dependency",
+        blockingInitiative: "CRM Custom Object Creation",
+        blockedInitiative: initName,
+        impactDescription: `To measure GTM progression correctly, custom pipeline telemetry registers must be completed in the CRM before launching ${initName}.`
+      },
+      {
+        id: `dep-${Date.now()}-2`,
+        dependencyType: "Resource Dependency",
+        blockingInitiative: "Approved Target Collateral Design",
+        blockedInitiative: initName,
+        impactDescription: `Requires specialized target content collateral, templates, and email scripts to be fully approved before SDR outreach commences.`
+      }
+    ],
+    aiMonitoringRules: [
+      {
+        id: `rule-${Date.now()}-1`,
+        metric: "Conversation Rate",
+        targetThreshold: "> 8.5%",
+        alertThreshold: "< 3.0%",
+        triggerCondition: "If rolling 7-day conversion falls below 3.0%",
+        recommendedAction: "AI triggers instant alert: Initiate deep sentiment override. Revise marketing collateral personalization tokens and re-define ICP filter parameters."
+      },
+      {
+        id: `rule-${Date.now()}-2`,
+        metric: "Pipeline Velocity",
+        targetThreshold: "15 Days / Stage",
+        alertThreshold: "> 30 Days / Stage",
+        triggerCondition: "If deals associated with this initiative stagnate in 'Proposal Sent' for >30 days",
+        recommendedAction: "AI triggers instant trigger: Execute the automated executive-sponsor fallback campaign and notify the account executive team."
+      }
+    ]
+  };
+}
 
 function computeLocalSimulationRecommendations(scenario: string, onboardingData: any, projectName: string, params: any) {
   const o = onboardingData || {};
