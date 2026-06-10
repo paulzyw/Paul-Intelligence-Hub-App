@@ -225,28 +225,17 @@ function AutoResizingTextarea({
 }
 
 const invokeGtmApi = async (action: string, payload: Record<string, any> = {}) => {
-  if (supabase) {
-    try {
-      const { data, error } = await supabase.functions.invoke('gtmos-api', {
-        body: { action, ...payload }
-      });
-      if (error) {
-        console.warn(`Supabase edge function error for action '${action}', falling back to local:`, error);
-        throw error;
-      }
-      return data;
-    } catch (edgeErr) {
-      console.warn(`Edge function failed for '${action}', attempting local express api fallback:`, edgeErr);
-    }
-  }
+  if (!supabase) throw new Error("Supabase client is not initialized.");
 
-  const response = await fetch(`/api/gtmos/${action}`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload)
+  const { data, error } = await supabase.functions.invoke('gtmos-api', {
+    body: { action, ...payload }
   });
-  if (!response.ok) throw new Error(`GTM API responded with code: ${response.status}`);
-  return await response.json();
+
+  if (error) {
+    console.error(`Supabase edge function error for action '${action}':`, error);
+    throw error;
+  }
+  return data;
 };
 
 export function GTMOSModule() {

@@ -34,6 +34,14 @@ GRANT EXECUTE ON FUNCTION public.my_function(arg_type) TO anon, authenticated, s
 
 ---
 
+## Gemini & Backend Architecture
+
+- **Supabase Edge Functions Only**: All Gemini AI reasoning, intelligence generation, and strategic logic MUST be executed via Supabase Edge Functions (e.g., `gtmos-api`).
+- **No Express AI Endpoints**: Do not create or use AI reasoning routes in `server.ts`. This bypasses hosting environment restrictions and ensures that the `GEMINI_API_KEY` remains strictly backend-side and invisible to the client.
+- **Implementation Pattern**: Always use `supabase.functions.invoke('gtmos-api', { body: { action: '...', payload: { ... } } })` for AI features.
+
+---
+
 ## RevOS User Role Hierarchy & Authorization
 
 This role hierarchy establishes the foundation for all role-based access control (RBAC) across the RevOS platform. Maintain consistency with this definition in database schema designs, row-level security (RLS) rules, client navigation structures, and API authorizations.

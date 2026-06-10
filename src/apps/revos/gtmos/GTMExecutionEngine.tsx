@@ -8,6 +8,7 @@ import {
   GTMOSProject, GTMExecutionPlan, GTMWorkstream, GTMInitiative, 
   GTMActionItem, GTMKPI, GTMRisk, GTMDependency, GTMAIMonitoringRule 
 } from './types';
+import { supabase } from '../../../lib/supabase';
 
 interface GTMExecutionEngineProps {
   project: GTMOSProject;
@@ -885,18 +886,19 @@ export const GTMExecutionEngine: React.FC<GTMExecutionEngineProps> = ({
     if (isLocked || !draftPlan || !currentInitiative) return;
     setIsGeneratingIntelligence(true);
     try {
-      const response = await fetch('/api/gtmos/generate-initiative-intelligence', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
+      const { data: result, error: edgeError } = await supabase.functions.invoke('gtmos-api', {
+        body: {
+          action: 'generate-initiative-intelligence',
           initiativeName: currentInitiative.initiativeName,
           description: currentInitiative.description,
           strategicObjective: currentInitiative.strategicObjective,
           onboardingData: project.onboarding
-        }),
+        }
       });
-      if (!response.ok) throw new Error("Failed to contact Gemini strategy advisor.");
-      const result = await response.json();
+
+      if (edgeError || !result) {
+        throw new Error(edgeError?.message || "Failed to contact Gemini strategy advisor.");
+      }
       
       const updatedWorkstreams = [...draftPlan.workstreams];
       

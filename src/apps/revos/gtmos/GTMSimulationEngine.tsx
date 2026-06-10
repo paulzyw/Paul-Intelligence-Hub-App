@@ -333,32 +333,8 @@ export const GTMSimulationEngine: React.FC<GTMSimulationEngineProps> = ({
           if (edgeError) throw edgeError;
           data = edgeData;
         } catch (edgeErr) {
-          console.warn("Supabase edge function 'simulate-recommendations' failed, falling back to local api:", edgeErr);
-        }
-      }
-
-      if (!data) {
-        const response = await fetch('/api/gtmos/simulate-recommendations', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({
-            onboardingData: currentProject.onboarding,
-            projectName: currentProject.title,
-            activeScenario: activeScenarioId,
-            activeParams: {
-              opportunities,
-              winRate,
-              acv,
-              cycleLength,
-              revenueVelocity
-            }
-          })
-        });
-
-        if (response.ok) {
-          data = await response.json();
+          console.error("Supabase edge function 'simulate-recommendations' failed:", edgeErr);
+          throw edgeErr;
         }
       }
 

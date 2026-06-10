@@ -391,48 +391,24 @@ export const OnboardingForms: React.FC<OnboardingFormsProps> = ({
     setEnrichResult(null);
 
     try {
-      let data: any = null;
-      if (supabase) {
-        try {
-          const { data: edgeData, error: edgeError } = await supabase.functions.invoke('gtmos-api', {
-            body: {
-              action: 'enrich',
-              categoryId: activeCategoryId,
-              companyName: onboardingFields.companyName,
-              industry: onboardingFields.industry,
-              currentFields: spec.fields.reduce((acc, f) => {
-                acc[f] = onboardingFields[f];
-                return acc;
-              }, {} as Record<string, string>)
-            }
-          });
-          if (edgeError) throw edgeError;
-          data = edgeData;
-        } catch (edgeErr) {
-          console.warn("Supabase edge function 'enrich' failed, falling back to local api:", edgeErr);
+      if (!supabase) throw new Error("Supabase client is not initialized.");
+
+      const { data, error: edgeError } = await supabase.functions.invoke('gtmos-api', {
+        body: {
+          action: 'enrich',
+          categoryId: activeCategoryId,
+          companyName: onboardingFields.companyName,
+          industry: onboardingFields.industry,
+          currentFields: spec.fields.reduce((acc, f) => {
+            acc[f] = onboardingFields[f];
+            return acc;
+          }, {} as Record<string, string>)
         }
-      }
+      });
 
-      if (!data) {
-        const response = await fetch("/api/gtmos/enrich", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            categoryId: activeCategoryId,
-            companyName: onboardingFields.companyName,
-            industry: onboardingFields.industry,
-            currentFields: spec.fields.reduce((acc, f) => {
-              acc[f] = onboardingFields[f];
-              return acc;
-            }, {} as Record<string, string>)
-          })
-        });
-
-        if (!response.ok) {
-          throw new Error("HTTP status " + response.status);
-        }
-
-        data = await response.json();
+      if (edgeError) {
+        console.error("Supabase edge function 'enrich' failed:", edgeError);
+        throw edgeError;
       }
 
       if (data && data.enrichedFields) {

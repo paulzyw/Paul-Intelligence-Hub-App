@@ -685,6 +685,63 @@ serve(async (req) => {
         return new Response(response.text || "{}", { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
       }
 
+      case "generate-initiative-intelligence": {
+        const { initiativeName, description, strategicObjective } = rawBody;
+        const response = await ai.models.generateContent({
+          model: "gemini-3.1-flash-lite",
+          contents: [
+            `You are an elite enterprise Revenue Operations Architect and Chief Growth Officer.
+            Analyze the following GTM Initiative and generate targeted structural intelligence.
+            
+            Company Context: ${JSON.stringify(onboardingData, null, 2)}
+            Initiative Name: ${initiativeName}
+            Objective: ${strategicObjective}
+            Description: ${description}
+            
+            Identify exactly 2 critical cross-functional Dependencies (blockers) and exactly 2 rigorous AI Monitoring Rules (telemetry thresholds).
+            Ensure the dependencies involve technical, marketing, or operational bottlenecks.`
+          ],
+          config: {
+            systemInstruction: GTMOS_SYSTEM_INSTRUCTION,
+            responseMimeType: "application/json",
+            responseSchema: {
+              type: Type.OBJECT,
+              properties: {
+                dependencies: {
+                  type: Type.ARRAY,
+                  items: {
+                    type: Type.OBJECT,
+                    properties: {
+                      dependencyType: { type: Type.STRING },
+                      blockingInitiative: { type: Type.STRING },
+                      blockedInitiative: { type: Type.STRING },
+                      impactDescription: { type: Type.STRING }
+                    },
+                    required: ["dependencyType", "blockingInitiative", "blockedInitiative", "impactDescription"]
+                  }
+                },
+                aiMonitoringRules: {
+                  type: Type.ARRAY,
+                  items: {
+                    type: Type.OBJECT,
+                    properties: {
+                      metric: { type: Type.STRING },
+                      targetThreshold: { type: Type.STRING },
+                      alertThreshold: { type: Type.STRING },
+                      triggerCondition: { type: Type.STRING },
+                      recommendedAction: { type: Type.STRING }
+                    },
+                    required: ["metric", "targetThreshold", "alertThreshold", "triggerCondition", "recommendedAction"]
+                  }
+                }
+              },
+              required: ["dependencies", "aiMonitoringRules"]
+            }
+          }
+        });
+        return new Response(response.text || "{}", { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+      }
+
       case "generate-execution-engine": {
         const response = await ai.models.generateContent({
           model: "gemini-3.1-flash-lite",
