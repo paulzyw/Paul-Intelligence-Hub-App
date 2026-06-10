@@ -158,6 +158,10 @@ export interface GTMActionItem {
   completionCriteria: string;
   status: 'todo' | 'in_progress' | 'completed' | 'blocked';
   progress?: number;
+  effortEstimateDays?: number;
+  linkedStrategyGoal?: string;
+  successMetric?: string;
+  prerequisiteData?: string;
 }
 
 export interface GTMKPI {

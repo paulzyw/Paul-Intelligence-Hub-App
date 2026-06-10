@@ -462,7 +462,34 @@ export const ExecutionPipeline: React.FC<ExecutionPipelineProps> = ({
                             <Clock className="h-2.5 w-2.5" /> Due: {row.action.dueDate}
                           </span>
                         )}
+                        {row.action.effortEstimateDays && (
+                          <span className="flex items-center gap-1">
+                            Effort: {row.action.effortEstimateDays}d
+                          </span>
+                        )}
                       </div>
+                      
+                      {row.action.linkedStrategyGoal && (
+                        <div className="pt-1.5 flex items-center gap-1.5 text-[9px] text-accent/80 font-mono">
+                          <Target className="h-3 w-3" />
+                          <span>{row.action.linkedStrategyGoal}</span>
+                        </div>
+                      )}
+                      
+                      {(row.action.prerequisiteData || row.action.successMetric) && (
+                        <div className="mt-2 text-[9px] font-sans space-y-1">
+                           {row.action.prerequisiteData && (
+                             <div className="text-text-secondary">
+                               <span className="font-semibold text-text-primary">Requires:</span> {row.action.prerequisiteData}
+                             </div>
+                           )}
+                           {row.action.successMetric && (
+                             <div className="text-text-secondary">
+                               <span className="font-semibold text-text-primary">Metric:</span> {row.action.successMetric}
+                             </div>
+                           )}
+                        </div>
+                      )}
                     </td>
 
                     {/* Column 3: Live interactive status selector */}

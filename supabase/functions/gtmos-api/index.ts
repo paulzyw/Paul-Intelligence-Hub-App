@@ -11,7 +11,14 @@ const GTMOS_SYSTEM_INSTRUCTION = `You are an elite Chief Growth Officer (CGO), w
 Your expertise lies in B2B SaaS, developer tooling, highly sophisticated deep-tech systems, and value-based enterprise software commercialization.
 Your tone is deeply analytical, authoritative, highly professional, precise, and devoid of generic marketing fluff, slogans, or hype. 
 Avoid cliche buzzwords unless they correspond directly to specific, recognized commercial frameworks (e.g., LTV/CAC ratio, NRR expansion paths, PLG velocity, multi-threaded buyer engagement, ROI benchmarking).
-Analyze the provided organizational, financial, and product parameters meticulously to design tactical steps and insights that are directly actionable, distinct, and tailor-fit to the user's operational constraints and assets.`;
+Analyze the provided organizational, financial, and product parameters meticulously to design tactical steps and insights that are directly actionable, distinct, and tailor-fit to the user's operational constraints and assets.
+
+[EXECUTION PROTOCOL]
+Every execution plan must be generated using the following constraints:
+1. OPERATIONAL HIERARCHY: Break the plan into [Workstreams] -> [Tactics] -> [Immediate Actions].
+2. DEPENDENCY MAPPING: For every action, explicitly list required [Data/Resources] (e.g., "Requires Supabase lead list," "Requires final pricing table").
+3. RESOURCE CONSTRAINTS: Tailor the effort level to the team size and timeframe provided in the input. If the timeline is short, prioritize "High-Impact/Low-Effort" tactics.
+4. MEASURABILITY: Every action must be tied to a specific KPI that can be tracked in our backend. Do not suggest abstract actions like "improve brand awareness" without a linked tracking metric.`;
 
 function buildRichContext(onboardingData: any, projectName?: string): string {
   const o = onboardingData || {};
@@ -690,16 +697,16 @@ serve(async (req) => {
         const response = await ai.models.generateContent({
           model: "gemini-3.1-flash-lite",
           contents: [
-            `You are an elite enterprise Revenue Operations Architect and Chief Growth Officer.
-            Analyze the following GTM Initiative and generate targeted structural intelligence.
+            `You are an elite enterprise Revenue Operations Architect and Chief Growth Officer practicing systemic risk modeling.
+            Analyze the following GTM Initiative and perform a structural intelligence extraction.
             
             Company Context: ${JSON.stringify(onboardingData, null, 2)}
             Initiative Name: ${initiativeName}
             Objective: ${strategicObjective}
             Description: ${description}
             
-            Identify exactly 2 critical cross-functional Dependencies (blockers) and exactly 2 rigorous AI Monitoring Rules (telemetry thresholds).
-            Ensure the dependencies involve technical, marketing, or operational bottlenecks.`
+            1. Systemic Dependency Mapping: Model the critical path. Define exactly 2 critical cross-department Dependencies (blockers). Do not give generic blockers; specify systemic bottlenecks (e.g., data flow dependencies, structural silos, integration gates).
+            2. AI Guardian Telemetry: Define exactly 2 rigorous AI Monitoring Rules. Do not give basic metrics. Define actionable telemetry with specific preventative, detective, or corrective threshold triggers.`
           ],
           config: {
             systemInstruction: GTMOS_SYSTEM_INSTRUCTION,
@@ -753,11 +760,19 @@ serve(async (req) => {
             And the finalized Strategy Draft:
             ${JSON.stringify(gtmStrategyDraft, null, 2)}
 
-            Generate a highly trackable, thorough, enterprise-grade GTM Execution Action Plan.
-            The execution timeframe/period of time is given in the "timeHorizon" onboarding field as: "${onboardingData?.timeHorizon || '12-18 Months'}".
-            Make sure all initiatives, workstreams, and actions fit realistic milestones within this timeframe.
+            Enforce a strict Tactical Execution Framework for the GTM Action Plan.
+            Do not just list generic actions; instead, structure the workstreams to adhere to recognized enterprise methodologies (e.g., OKRs, MECE, RACI).
+            Ensure every action has a distinct Phase (Preparation, Phased Rollout, Scaling, Optimization).
+            The execution timeframe is given as: "${onboardingData?.timeHorizon || '12-18 Months'}". All initiatives, workstreams, and actions MUST map to realistic, strictly sequenced milestones within this timeframe. 
+            All actions must be measurable, have explicit completion criteria, and drive quantitative outcomes.
 
-            The output MUST be a JSON object conforming to the standard GTMExecutionPlan schema. Do not generate fake/placeholder text. Return actual actionable strategies.`
+            [TACTICAL AUDIT - SELF REFLECTION]
+            Before formulating the final JSON response, secretly perform a 'Tactical Audit' on your drafted plan:
+            - Does every task have an assigned prerequisite resource (prerequisiteData)?
+            - Are the success metrics measurable in the backend (successMetric)? 
+            - If any task is vague, rewrite it immediately to be concrete and time-bound.
+
+            The output MUST be a JSON object conforming to the standard GTMExecutionPlan schema. Do not generate fake/placeholder text. Return actual actionable tactical frameworks.`
           ],
           config: {
             systemInstruction: GTMOS_SYSTEM_INSTRUCTION,
@@ -814,9 +829,13 @@ serve(async (req) => {
                                   dueDate: { type: Type.STRING },
                                   dependencies: { type: Type.STRING },
                                   completionCriteria: { type: Type.STRING },
-                                  status: { type: Type.STRING }
+                                  status: { type: Type.STRING },
+                                  effortEstimateDays: { type: Type.INTEGER },
+                                  linkedStrategyGoal: { type: Type.STRING },
+                                  successMetric: { type: Type.STRING },
+                                  prerequisiteData: { type: Type.STRING }
                                 },
-                                required: ["id", "actionName", "description", "taskType", "owner", "startDate", "dueDate", "dependencies", "completionCriteria", "status"]
+                                required: ["id", "actionName", "description", "taskType", "owner", "startDate", "dueDate", "dependencies", "completionCriteria", "status", "effortEstimateDays", "linkedStrategyGoal", "successMetric", "prerequisiteData"]
                               }
                             },
                             kpis: {

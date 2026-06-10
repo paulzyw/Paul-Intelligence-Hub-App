@@ -1588,6 +1588,36 @@ export const GTMExecutionEngine: React.FC<GTMExecutionEngineProps> = ({
                                 <p className="text-[10px] text-text-secondary font-sans leading-relaxed">{act.description}</p>
                               </div>
                             </div>
+                            
+                            {act.linkedStrategyGoal && (
+                              <div className="mt-2 flex items-center gap-1.5 text-[9px] text-accent/80 font-mono">
+                                <Target className="h-3 w-3" />
+                                <span>{act.linkedStrategyGoal}</span>
+                              </div>
+                            )}
+                            
+                            {(act.effortEstimateDays || act.successMetric || act.prerequisiteData) && (
+                              <div className="mt-2.5 pt-2 border-t border-border/20 grid grid-cols-2 gap-2 text-[9px] font-sans">
+                                {act.effortEstimateDays ? (
+                                  <div className="flex gap-1.5 items-start">
+                                    <span className="text-text-secondary opacity-70">Effort:</span>
+                                    <span className="text-text-primary font-medium">{act.effortEstimateDays} Days</span>
+                                  </div>
+                                ) : <div />}
+                                {act.prerequisiteData && (
+                                  <div className="flex gap-1.5 items-start col-span-2">
+                                    <span className="text-text-secondary opacity-70 whitespace-nowrap min-w-max">Requires:</span>
+                                    <span className="text-text-primary col-span-1">{act.prerequisiteData}</span>
+                                  </div>
+                                )}
+                                {act.successMetric && (
+                                  <div className="flex gap-1.5 items-start col-span-2">
+                                    <span className="text-text-secondary opacity-70 whitespace-nowrap min-w-max">Metric:</span>
+                                    <span className="text-text-primary font-medium">{act.successMetric}</span>
+                                  </div>
+                                )}
+                              </div>
+                            )}
 
                             <div className="mt-3 pt-2.5 border-t border-border/40 flex justify-between items-center text-[9px] text-text-secondary/80 font-mono">
                               <div>Owner: <span className="text-text-primary font-bold">{act.owner}</span></div>
