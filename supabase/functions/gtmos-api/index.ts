@@ -749,30 +749,107 @@ serve(async (req) => {
         return new Response(response.text || "{}", { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
       }
 
-      case "generate-execution-engine": {
+      case "generate-revenue-decomposition": {
+        const { config } = rawBody;
         const response = await ai.models.generateContent({
           model: "gemini-3.1-flash-lite",
           contents: [
-            `Role: You are an elite enterprise Revenue Operations Architect and Chief Growth Officer.
-            Based on the onboarding information:
-            ${JSON.stringify(onboardingData, null, 2)}
+            `Role: You are an elite Revenue Operations Architect and Financial Modeler.
+            You are tasked with breaking down a top-level revenue target into functional operational requirements (Revenue Decomposition).
+            
+            Input Configuration:
+            ${JSON.stringify(config, null, 2)}
+            
+            Calculate and synthesize the required volumes and capacity according to the standard GTM pipeline math model:
+            For example:
+            1. Deals Required = Revenue Target / ACV
+            2. Opportunities Required = Deals Required / Win Rate
+            3. Pipeline Required = Total value of Opps (or Revenue Target * Coverage Ratio)
+            4. SQLs Required = Opportunities Required / SQL-to-Opp Conversion Rate
+            5. MQLs Required = SQLs Required / MQL-to-SQL Conversion Rate
+            6. Capacity: Approximate the FTE headcount or capacity levels needed based on standard B2B SaaS benchmarks to handle these volumes.
+            
+            Output MUST be exactly mapped to the provided JSON schema. Ensure the outputs are formatted nicely as strings (e.g., "$1,000,000", "80 Opportunities", "4 Reps", etc.). Do not include extraneous narrative, return valid JSON only.`
+          ],
+          config: {
+            systemInstruction: GTMOS_SYSTEM_INSTRUCTION,
+            responseMimeType: "application/json",
+            responseSchema: {
+              type: Type.OBJECT,
+              properties: {
+                customersRequired: { type: Type.STRING },
+                dealsRequired: { type: Type.STRING },
+                pipelineRequired: { type: Type.STRING },
+                opportunitiesRequired: { type: Type.STRING },
+                sqlRequired: { type: Type.STRING },
+                mqlRequired: { type: Type.STRING },
+                marketingCapacityRequired: { type: Type.STRING },
+                salesCapacityRequired: { type: Type.STRING },
+                partnerCapacityRequired: { type: Type.STRING },
+                customerSuccessCapacityRequired: { type: Type.STRING }
+              },
+              required: [
+                "customersRequired", "dealsRequired", "pipelineRequired",
+                "opportunitiesRequired", "sqlRequired", "mqlRequired",
+                "marketingCapacityRequired", "salesCapacityRequired",
+                "partnerCapacityRequired", "customerSuccessCapacityRequired"
+              ]
+            }
+          }
+        });
+        return new Response(response.text || "{}", { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+      }
 
-            And the finalized Strategy Draft:
-            ${JSON.stringify(gtmStrategyDraft, null, 2)}
+      case "generate-execution-engine": {
+        const { onboardingData, gtmStrategyDraft, revenueDecomposition } = rawBody;
+        const response = await ai.models.generateContent({
+          model: "gemini-3.1-flash-lite",
+          contents: [
+            `Role: You are an elite AI Systems Architect, Enterprise SaaS Product Architect, Revenue Operations Leader, Chief Revenue Officer, and GTM Execution Expert.
 
-            Enforce a strict Tactical Execution Framework for the GTM Action Plan.
-            Do not just list generic actions; instead, structure the workstreams to adhere to recognized enterprise methodologies (e.g., OKRs, MECE, RACI).
-            Ensure every action has a distinct Phase (Preparation, Phased Rollout, Scaling, Optimization).
-            The execution timeframe is given as: "${onboardingData?.timeHorizon || '12-18 Months'}". All initiatives, workstreams, and actions MUST map to realistic, strictly sequenced milestones within this timeframe. 
-            All actions must be measurable, have explicit completion criteria, and drive quantitative outcomes.
+            Your task is to transform the finalized GTM strategy into a realistic, execution-ready action plan capable of supporting the defined revenue goals.
+
+            INPUT CONTEXT:
+            1. Strategy Draft: ${JSON.stringify(gtmStrategyDraft, null, 2)}
+            2. Revenue Decomposition & Capacity: ${JSON.stringify(revenueDecomposition, null, 2)}
+            3. Onboarding/Goals: ${JSON.stringify(onboardingData, null, 2)}
+
+            ARCHITECTURE MANDATE (Revenue-Aware Execution System):
+            Execute the following multi-stage reasoning to generate the plan:
+
+            Stage 2: Strategic Operationalization Engine
+            - Operationalize the 9-Pillar Framework. Ensure ALL pillars are covered by supporting workstreams, initiatives, and actions.
+            
+            Stage 3: Workstream Generation Engine
+            - Proportionality Guideline based on Revenue Goal:
+              < $500K: 1-3 workstreams
+              $500K-$2M: 3-6 workstreams
+              $2M-$10M: 6-10 workstreams
+              > $10M: 10-12 workstreams
+            - Each Workstream MUST include its revenue contribution hypothesis.
+
+            Stage 4: Initiative Generation Engine
+            - Generate 1-3 initiatives per workstream.
+
+            Stage 5: Action Generation Engine
+            - Generate 2-5 actions per initiative. Each action must include a concrete Deliverable.
+
+            Stage 6: Execution Sufficiency Assessment Engine
+            - Assess if the plan is sufficient to hit the revenue objective.
+            - Evaluate Revenue Coverage, Demand Coverage, Sales Coverage, Channel Coverage, Enablement Coverage, Measurement Coverage.
+            - Output an Execution Sufficiency Score (0-100). (0-60: Insufficient, 61-80: Moderate Risk, 81-95: Sufficient, 96-100: High Confidence).
+
+            Stage 7 & Stage 8: Gap Analysis & Expansion
+            - If your initial thought process yields a score < 90, expand the plan internally before finalizing. Generate additional workstreams, initiatives, and actions until the sufficiency meets the revenue model!
+            - You will output the final 'enhanced' plan along with the final Sufficiency Assessment and identified gaps.
 
             [TACTICAL AUDIT - SELF REFLECTION]
-            Before formulating the final JSON response, secretly perform a 'Tactical Audit' on your drafted plan:
+            Before formulating the JSON:
             - Does every task have an assigned prerequisite resource (prerequisiteData)?
             - Are the success metrics measurable in the backend (successMetric)? 
             - If any task is vague, rewrite it immediately to be concrete and time-bound.
-
-            The output MUST be a JSON object conforming to the standard GTMExecutionPlan schema. Do not generate fake/placeholder text. Return actual actionable tactical frameworks.`
+            
+            The output MUST strictly conform to the GTMExecutionPlan schema. Do not generate fake/placeholder text. Provide a fully comprehensive, Revenue-Aware plan.`
           ],
           config: {
             systemInstruction: GTMOS_SYSTEM_INSTRUCTION,
@@ -796,10 +873,43 @@ serve(async (req) => {
                       id: { type: Type.STRING },
                       workstreamName: { type: Type.STRING },
                       purpose: { type: Type.STRING },
+                      revenueContributionHypothesis: { type: Type.STRING },
                       relatedGtmPillar: { type: Type.STRING },
                       priority: { type: Type.STRING },
                       timeline: { type: Type.STRING },
                       owner: { type: Type.STRING },
+                      risks: {
+                        type: Type.ARRAY,
+                        items: {
+                          type: Type.OBJECT,
+                          properties: {
+                            id: { type: Type.STRING },
+                            riskName: { type: Type.STRING },
+                            description: { type: Type.STRING },
+                            probability: { type: Type.STRING },
+                            impact: { type: Type.STRING },
+                            riskScore: { type: Type.NUMBER },
+                            mitigationPlan: { type: Type.STRING },
+                            owner: { type: Type.STRING }
+                          },
+                          required: ["id", "riskName", "description", "probability", "impact", "riskScore", "mitigationPlan", "owner"]
+                        }
+                      },
+                      dependencies: {
+                        type: Type.ARRAY,
+                        items: {
+                          type: Type.OBJECT,
+                          properties: {
+                            id: { type: Type.STRING },
+                            dependencyType: { type: Type.STRING },
+                            blockingInitiative: { type: Type.STRING },
+                            blockedInitiative: { type: Type.STRING },
+                            impactDescription: { type: Type.STRING }
+                          },
+                          required: ["id", "dependencyType", "blockingInitiative", "blockedInitiative", "impactDescription"]
+                        }
+                      },
+                      successMetrics: { type: Type.STRING },
                       initiatives: {
                         type: Type.ARRAY,
                         items: {
@@ -833,9 +943,10 @@ serve(async (req) => {
                                   effortEstimateDays: { type: Type.INTEGER },
                                   linkedStrategyGoal: { type: Type.STRING },
                                   successMetric: { type: Type.STRING },
-                                  prerequisiteData: { type: Type.STRING }
+                                  prerequisiteData: { type: Type.STRING },
+                                  deliverable: { type: Type.STRING }
                                 },
-                                required: ["id", "actionName", "description", "taskType", "owner", "startDate", "dueDate", "dependencies", "completionCriteria", "status", "effortEstimateDays", "linkedStrategyGoal", "successMetric", "prerequisiteData"]
+                                required: ["id", "actionName", "description", "taskType", "owner", "startDate", "dueDate", "dependencies", "completionCriteria", "status", "effortEstimateDays", "linkedStrategyGoal", "successMetric", "prerequisiteData", "deliverable"]
                               }
                             },
                             kpis: {
@@ -906,7 +1017,7 @@ serve(async (req) => {
                         }
                       }
                     },
-                    required: ["id", "workstreamName", "purpose", "relatedGtmPillar", "priority", "timeline", "owner", "initiatives"]
+                    required: ["id", "workstreamName", "purpose", "revenueContributionHypothesis", "successMetrics", "relatedGtmPillar", "priority", "timeline", "owner", "initiatives"]
                   }
                 },
                 governance: {
@@ -918,9 +1029,36 @@ serve(async (req) => {
                   },
                   required: ["raciAssignment", "reviewCadence", "escalationPath"]
                 },
+                sufficiencyAssessment: {
+                  type: Type.OBJECT,
+                  properties: {
+                    score: { type: Type.NUMBER },
+                    coverageAnalysis: {
+                      type: Type.OBJECT,
+                      properties: {
+                        revenueCoverage: { type: Type.STRING },
+                        demandCoverage: { type: Type.STRING },
+                        salesCoverage: { type: Type.STRING },
+                        channelCoverage: { type: Type.STRING },
+                        enablementCoverage: { type: Type.STRING },
+                        measurementCoverage: { type: Type.STRING }
+                      },
+                      required: ["revenueCoverage", "demandCoverage", "salesCoverage", "channelCoverage", "enablementCoverage", "measurementCoverage"]
+                    },
+                    identifiedGaps: {
+                      type: Type.ARRAY,
+                      items: { type: Type.STRING }
+                    },
+                    aiRecommendations: {
+                      type: Type.ARRAY,
+                      items: { type: Type.STRING }
+                    }
+                  },
+                  required: ["score", "coverageAnalysis", "identifiedGaps", "aiRecommendations"]
+                },
                 executiveSummary: { type: Type.STRING }
               },
-              required: ["programName", "description", "strategicObjective", "revenueGoal", "businessGoal", "launchPeriod", "status", "executiveSponsor", "workstreams", "governance", "executiveSummary"]
+              required: ["programName", "description", "strategicObjective", "revenueGoal", "businessGoal", "launchPeriod", "status", "executiveSponsor", "workstreams", "governance", "sufficiencyAssessment", "executiveSummary"]
             }
           }
         });

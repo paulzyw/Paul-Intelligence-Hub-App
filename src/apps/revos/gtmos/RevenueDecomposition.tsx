@@ -1,0 +1,207 @@
+import React, { useState } from 'react';
+import { motion } from 'motion/react';
+import { Calculator, Target, Zap, TrendingUp, Save, BarChart3, Database, Loader2, Sparkles } from 'lucide-react';
+import { GTMOSProject, RevenueDecompositionConfig, RevenueDecompositionData } from './types';
+import { supabase } from '../../../lib/supabase';
+
+interface RevenueDecompositionProps {
+  project: GTMOSProject;
+  updateProject: (updates: Partial<GTMOSProject>) => void;
+  nextStep: () => void;
+  prevStep: () => void;
+}
+
+const invokeGtmApi = async (action: string, payload: Record<string, any> = {}) => {
+  if (!supabase) throw new Error("Supabase client is not initialized.");
+  const { data, error } = await supabase.functions.invoke('gtmos-api', {
+    body: { action, ...payload }
+  });
+  if (error) {
+    console.error(`Supabase edge function error for action '${action}':`, error);
+    throw error;
+  }
+  return data;
+};
+
+export const RevenueDecomposition: React.FC<RevenueDecompositionProps> = ({ project, updateProject, nextStep, prevStep }) => {
+  const existingConfig = project.revenueDecomposition?.config;
+  
+  const [config, setConfig] = useState<RevenueDecompositionConfig>({
+    revenueTarget: existingConfig?.revenueTarget || project.onboarding?.revenueTarget || '',
+    timeHorizon: existingConfig?.timeHorizon || project.onboarding?.timeHorizon || '',
+    acv: existingConfig?.acv || '',
+    winRate: existingConfig?.winRate || project.onboarding?.winRates || project.onboarding?.winRate || '',
+    pipelineCoverageRatio: existingConfig?.pipelineCoverageRatio || '4x',
+    sqlConversionRate: existingConfig?.sqlConversionRate || '30%',
+    mqlConversionRate: existingConfig?.mqlConversionRate || '20%',
+    marketingCapacity: existingConfig?.marketingCapacity || project.onboarding?.marketingTeamSize || '',
+    salesCapacity: existingConfig?.salesCapacity || project.onboarding?.salesTeamSize || '',
+    partnerCapacity: existingConfig?.partnerCapacity || project.onboarding?.partnerTeamSize || '',
+    customerSuccessCapacity: existingConfig?.customerSuccessCapacity || project.onboarding?.customerSuccessTeamSize || ''
+  });
+  
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [errorMsg, setErrorMsg] = useState('');
+
+  const handleConfigChange = (field: keyof RevenueDecompositionConfig, value: string) => {
+    setConfig(prev => ({ ...prev, [field]: value }));
+  };
+
+  const handleSaveConfig = () => {
+    const updatedData: RevenueDecompositionData = {
+      config,
+      result: project.revenueDecomposition?.result || null
+    };
+    updateProject({ revenueDecomposition: updatedData });
+  };
+
+  const generateDecomposition = async () => {
+    setIsGenerating(true);
+    setErrorMsg('');
+    
+    // Save latest config before generating
+    const updatedData: RevenueDecompositionData = {
+      config,
+      result: project.revenueDecomposition?.result || null
+    };
+    updateProject({ revenueDecomposition: updatedData });
+
+    try {
+      const response = await invokeGtmApi('generate-revenue-decomposition', { config });
+      
+      const newRefinedData: RevenueDecompositionData = {
+        config,
+        result: response
+      };
+      
+      updateProject({ revenueDecomposition: newRefinedData });
+    } catch (err: any) {
+      console.error(err);
+      setErrorMsg(err.message || 'Failed to generate revenue decomposition.');
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
+  return (
+    <div className="space-y-6">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+        <div>
+          <h2 className="text-xl font-black text-text-primary uppercase tracking-tight flex items-center gap-2">
+            <Calculator className="h-6 w-6 text-accent" />
+            Revenue Decomposition Engine
+          </h2>
+          <p className="text-xs text-text-secondary mt-1 max-w-2xl">
+            Deconstruct top-level ARR targets into tactical operational metrics (MQLs, SQLs, Pipeline Volume, Capacity) to feed the execution logic.
+          </p>
+        </div>
+        
+        <div className="flex gap-2">
+           <button 
+             onClick={handleSaveConfig}
+             title="Save to Supabase"
+             className="flex items-center gap-1.5 px-4 py-2 bg-bg-surface border border-border hover:border-accent/50 text-text-primary text-xs font-bold uppercase rounded-lg transition-all"
+           >
+             <Save className="h-4 w-4" />
+             Save
+           </button>
+           <button 
+            onClick={generateDecomposition}
+            disabled={isGenerating}
+            className="flex items-center gap-1.5 px-4 py-2 bg-accent/10 border border-accent/20 hover:bg-accent hover:text-black text-accent text-xs font-bold uppercase rounded-lg transition-all"
+          >
+            {isGenerating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+            {isGenerating ? 'Synthesizing...' : 'Calculate Decomposition'}
+          </button>
+        </div>
+      </div>
+      
+      {errorMsg && (
+        <div className="p-3 bg-red-500/10 border border-red-500/30 text-red-500 text-xs font-bold rounded-lg truncate">
+          {errorMsg}
+        </div>
+      )}
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Input Configuration Panel */}
+        <div className="p-5 rounded-2xl bg-bg-surface/50 border border-border space-y-5">
+           <div className="flex justify-between items-center border-b border-border pb-3">
+             <h3 className="font-bold text-xs uppercase text-text-primary flex items-center gap-1.5">
+               <Database className="h-4 w-4 text-accent" /> Base Metrics Input
+             </h3>
+             <button onClick={handleSaveConfig} title="Save Base Metrics" className="text-text-secondary hover:text-accent transition-colors"><Save className="h-4 w-4" /></button>
+           </div>
+           
+           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+             {[
+               { field: 'revenueTarget', label: 'Revenue Target (ARR)' },
+               { field: 'timeHorizon', label: 'Time Horizon' },
+               { field: 'acv', label: 'Expected ACV ($)' },
+               { field: 'winRate', label: 'Win Rate (%)' },
+               { field: 'pipelineCoverageRatio', label: 'Pipeline Coverage Ratio' },
+               { field: 'sqlConversionRate', label: 'SQL -> Opp Conversion' },
+               { field: 'mqlConversionRate', label: 'MQL -> SQL Conversion' },
+               { field: 'marketingCapacity', label: 'Marketing Team Capacity' },
+               { field: 'salesCapacity', label: 'Sales Team Capacity' },
+               { field: 'partnerCapacity', label: 'Partner Channel Capacity' },
+               { field: 'customerSuccessCapacity', label: 'CS Capacity' },
+             ].map(({ field, label }) => (
+               <div key={field} className="space-y-1">
+                 <label className="text-[10px] font-bold text-text-secondary uppercase">{label}</label>
+                 <input 
+                   type="text"
+                   value={(config as any)[field]}
+                   onChange={(e) => handleConfigChange(field as keyof RevenueDecompositionConfig, e.target.value)}
+                   onBlur={handleSaveConfig}
+                   className="w-full bg-bg-primary/50 text-text-primary text-xs border border-border/80 focus:border-accent/50 rounded-lg px-3 py-2 outline-none font-mono"
+                 />
+               </div>
+             ))}
+           </div>
+        </div>
+
+        {/* AI Output Generation Panel */}
+        <div className="p-5 rounded-2xl bg-bg-surface/50 border border-[url] overflow-hidden space-y-4 shadow-xl">
+           <h3 className="font-bold text-xs uppercase text-text-primary flex items-center gap-1.5 border-b border-border pb-3">
+             <BarChart3 className="h-4 w-4 text-accent" /> Required Volume & Capacity Requirements
+           </h3>
+           
+           {!project.revenueDecomposition?.result ? (
+               <div className="flex flex-col items-center justify-center p-8 text-center text-text-secondary space-y-3">
+                  <Target className="h-10 w-10 opacity-20" />
+                  <p className="text-xs max-w-sm">
+                    Enter your base metrics to the left and click "Calculate Decomposition" to generate structural funnel requirements.
+                  </p>
+               </div>
+           ) : (
+               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-left">
+                  {Object.entries({
+                    'Customers Required': project.revenueDecomposition.result.customersRequired,
+                    'Deals Required': project.revenueDecomposition.result.dealsRequired,
+                    'Pipeline Required': project.revenueDecomposition.result.pipelineRequired,
+                    'Opportunities Required': project.revenueDecomposition.result.opportunitiesRequired,
+                    'SQLs Required': project.revenueDecomposition.result.sqlRequired,
+                    'MQLs Required': project.revenueDecomposition.result.mqlRequired,
+                    'Marketing Capacity': project.revenueDecomposition.result.marketingCapacityRequired,
+                    'Sales Capacity': project.revenueDecomposition.result.salesCapacityRequired,
+                    'Partner Capacity': project.revenueDecomposition.result.partnerCapacityRequired,
+                    'CS Capacity': project.revenueDecomposition.result.customerSuccessCapacityRequired
+                  }).map(([label, value], idx) => (
+                    <motion.div 
+                      key={label}
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: idx * 0.05 }}
+                      className="p-3 bg-bg-primary/60 border border-border/50 rounded-xl space-y-1"
+                    >
+                      <span className="text-[10px] font-mono font-bold text-accent uppercase tracking-wider block">{label}</span>
+                      <span className="text-sm font-black text-text-primary block">{value}</span>
+                    </motion.div>
+                  ))}
+               </div>
+           )}
+        </div>
+      </div>
+    </div>
+  );
+};

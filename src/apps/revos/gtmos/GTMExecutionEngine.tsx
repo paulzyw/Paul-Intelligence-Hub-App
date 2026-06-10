@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { 
   Sparkles, Bot, Save, Archive, Plus, Trash2, Edit2, Check, CheckCircle, 
-  AlertTriangle, Gauge, Users, Target, TrendingUp, Clock, ArrowRight, 
+  AlertTriangle, Gauge, Users, Target, TrendingUp, Clock, ArrowRight, Lightbulb,
   Activity, Eye, Lock, Unlock, Zap, ChevronRight, ShieldAlert, CheckSquare, RefreshCw
 } from 'lucide-react';
 import { 
@@ -51,6 +51,7 @@ export const GTMExecutionEngine: React.FC<GTMExecutionEngineProps> = ({
   const [newActionOwner, setNewActionOwner] = useState('Associate Core Team');
   const [newActionDueDate, setNewActionDueDate] = useState('');
   const [newActionCriteria, setNewActionCriteria] = useState('Verified output');
+  const [newActionDeliverable, setNewActionDeliverable] = useState('');
 
   // Form states for adding/editing KPI
   const [newKpiName, setNewKpiName] = useState('');
@@ -97,7 +98,8 @@ export const GTMExecutionEngine: React.FC<GTMExecutionEngineProps> = ({
         taskType: newActionType,
         owner: newActionOwner,
         dueDate: newActionDueDate || act.dueDate,
-        completionCriteria: newActionCriteria
+        completionCriteria: newActionCriteria,
+        deliverable: newActionDeliverable
       } : act);
     } else {
       const newAct: GTMActionItem = {
@@ -110,6 +112,7 @@ export const GTMExecutionEngine: React.FC<GTMExecutionEngineProps> = ({
         dueDate: newActionDueDate || new Date(Date.now() + 14*24*60*60*1000).toISOString().split('T')[0],
         dependencies: "None",
         completionCriteria: newActionCriteria,
+        deliverable: newActionDeliverable,
         status: "todo"
       };
       finalActions = [...currentActions, newAct];
@@ -1251,11 +1254,26 @@ export const GTMExecutionEngine: React.FC<GTMExecutionEngineProps> = ({
                             }}
                             onBlur={() => { if (draftPlan) onSavePlan(draftPlan); }}
                           />
+                          <textarea
+                            placeholder="Revenue hypothesis..."
+                            rows={1}
+                            className="w-full text-[10px] p-1 font-sans bg-bg-surface border border-border/80 text-text-secondary rounded leading-normal resize-none focus:ring-1 focus:ring-[#00f090]"
+                            value={ws.revenueContributionHypothesis || ''}
+                            onChange={e => {
+                              const cloned = [...activePlan.workstreams];
+                              cloned[wsIdx].revenueContributionHypothesis = e.target.value;
+                              updateDraft({ ...activePlan, workstreams: cloned });
+                            }}
+                            onBlur={() => { if (draftPlan) onSavePlan(draftPlan); }}
+                          />
                         </div>
                       ) : (
                         <div>
                           <h4 className="text-xs font-black text-text-primary mt-1 line-clamp-1">{ws.workstreamName}</h4>
                           <p className="text-[10px] text-text-secondary/80 font-sans mt-0.5 max-w-full leading-normal">{ws.purpose}</p>
+                          {ws.revenueContributionHypothesis && (
+                            <p className="text-[9px] text-[#00f090]/80 font-sans mt-0.5 max-w-full leading-normal truncate"><span className="font-bold">REV HYP:</span> {ws.revenueContributionHypothesis}</p>
+                          )}
                         </div>
                       )}
                     </button>
@@ -1401,19 +1419,39 @@ export const GTMExecutionEngine: React.FC<GTMExecutionEngineProps> = ({
                   </div>
 
                   {!isLocked ? (
-                    <textarea
-                      rows={2}
-                      className="w-full text-xs p-2 rounded bg-bg-surface border border-border text-text-primary font-sans leading-normal"
-                      value={currentInitiative.description}
-                      onChange={e => {
-                        const cloned = [...activePlan.workstreams];
-                        cloned[selectedWsIndex].initiatives[selectedInitIndex].description = e.target.value;
-                        updateDraft({ ...activePlan, workstreams: cloned });
-                      }}
-                      onBlur={() => { if (draftPlan) onSavePlan(draftPlan); }}
-                    />
+                    <div className="space-y-2">
+                      <textarea
+                        rows={2}
+                        className="w-full text-xs p-2 rounded bg-bg-surface border border-border text-text-primary font-sans leading-normal placeholder-text-secondary/50"
+                        placeholder="Initiative Description..."
+                        value={currentInitiative.description}
+                        onChange={e => {
+                          const cloned = [...activePlan.workstreams];
+                          cloned[selectedWsIndex].initiatives[selectedInitIndex].description = e.target.value;
+                          updateDraft({ ...activePlan, workstreams: cloned });
+                        }}
+                        onBlur={() => { if (draftPlan) onSavePlan(draftPlan); }}
+                      />
+                      <textarea
+                        rows={1}
+                        className="w-full text-xs p-2 rounded bg-bg-surface border border-border text-text-primary font-sans leading-normal placeholder-text-secondary/50"
+                        placeholder="Expected Outcomes..."
+                        value={currentInitiative.expectedOutcome || ''}
+                        onChange={e => {
+                          const cloned = [...activePlan.workstreams];
+                          cloned[selectedWsIndex].initiatives[selectedInitIndex].expectedOutcome = e.target.value;
+                          updateDraft({ ...activePlan, workstreams: cloned });
+                        }}
+                        onBlur={() => { if (draftPlan) onSavePlan(draftPlan); }}
+                      />
+                    </div>
                   ) : (
-                    <p className="text-xs text-text-secondary leading-relaxed font-sans">{currentInitiative.description}</p>
+                    <div className="space-y-1.5">
+                      <p className="text-xs text-text-secondary leading-relaxed font-sans">{currentInitiative.description}</p>
+                      {currentInitiative.expectedOutcome && (
+                        <p className="text-[11px] text-[#00F090]/90 leading-relaxed font-sans"><span className="font-bold">OUTCOME: </span>{currentInitiative.expectedOutcome}</p>
+                      )}
+                    </div>
                   )}
 
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 pt-4 border-t border-border/50 text-[11px] font-sans">
@@ -1563,6 +1601,7 @@ export const GTMExecutionEngine: React.FC<GTMExecutionEngineProps> = ({
                                           setNewActionOwner(act.owner);
                                           setNewActionDueDate(act.dueDate);
                                           setNewActionCriteria(act.completionCriteria || '');
+                                          setNewActionDeliverable(act.deliverable || '');
                                           setEditingItemId(act.id);
                                           setActiveModal('action');
                                         }}
@@ -1586,6 +1625,12 @@ export const GTMExecutionEngine: React.FC<GTMExecutionEngineProps> = ({
                               <div className="space-y-0.5">
                                 <h5 className="text-xs font-black text-text-primary leading-tight">{act.actionName}</h5>
                                 <p className="text-[10px] text-text-secondary font-sans leading-relaxed">{act.description}</p>
+                                {act.deliverable && (
+                                  <div className="mt-1 flex items-center gap-1.5 text-[9px] text-[#00F090]/80 font-mono">
+                                    <Archive className="h-3 w-3" />
+                                    <span>Deliverable: {act.deliverable}</span>
+                                  </div>
+                                )}
                               </div>
                             </div>
                             
@@ -2070,6 +2115,72 @@ export const GTMExecutionEngine: React.FC<GTMExecutionEngineProps> = ({
         </div>
       )}
 
+      {/* STAGE 6, 7, 8: EXECUTION SUFFICIENCY ASSESSMENT ENGINE */}
+      {activePlan?.sufficiencyAssessment && (
+        <div className="mt-8 p-6 rounded-3xl bg-bg-surface/40 border border-border space-y-6">
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b border-border/50 pb-4">
+            <div>
+              <h3 className="text-sm font-black text-text-primary uppercase tracking-wider flex items-center gap-2">
+                <ShieldAlert className="h-5 w-5 text-accent" /> Execution Sufficiency Assessment
+              </h3>
+              <p className="text-[11px] text-text-secondary mt-1 max-w-xl font-sans">
+                Algorithmic evaluation of plan comprehensiveness and proportional sufficiency relative to defined revenue objectives.
+              </p>
+            </div>
+            
+            <div className="flex items-center gap-4 bg-bg-primary/50 py-2 px-4 rounded-2xl border border-border/50">
+              <span className="text-[10px] font-mono text-text-secondary uppercase">Sufficiency Score</span>
+              <span className={`text-2xl font-black ${
+                activePlan.sufficiencyAssessment.score >= 90 ? 'text-[#00F090]' : 
+                activePlan.sufficiencyAssessment.score >= 80 ? 'text-yellow-400' : 'text-red-400'
+              }`}>
+                {activePlan.sufficiencyAssessment.score}
+              </span>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 font-sans">
+            {Object.entries(activePlan.sufficiencyAssessment.coverageAnalysis || {}).map(([key, value]) => {
+              const label = key.replace(/([A-Z])/g, ' $1').trim().replace('Coverage', ' Coverage');
+              return (
+                <div key={key} className="p-4 rounded-xl bg-bg-primary/30 border border-border/40 space-y-2">
+                  <span className="text-[10px] font-mono text-text-secondary uppercase">{label}</span>
+                  <p className="text-[11px] text-text-primary leading-relaxed">{value as string}</p>
+                </div>
+              );
+            })}
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+             {activePlan.sufficiencyAssessment.identifiedGaps?.length > 0 && (
+               <div className="space-y-3 p-4 rounded-2xl border border-red-500/20 bg-red-500/5 font-sans">
+                 <h4 className="text-[10px] font-bold uppercase text-red-400 flex items-center gap-1.5 border-b border-red-500/20 pb-2">
+                   <Target className="h-3 w-3" /> Execution Gaps Identified
+                 </h4>
+                 <ul className="space-y-2 list-disc list-inside text-[11px] text-text-primary">
+                   {activePlan.sufficiencyAssessment.identifiedGaps.map((gap, i) => (
+                     <li key={i} className="leading-relaxed">{gap}</li>
+                   ))}
+                 </ul>
+               </div>
+             )}
+
+             {activePlan.sufficiencyAssessment.aiRecommendations?.length > 0 && (
+               <div className="space-y-3 p-4 rounded-2xl border border-accent/20 bg-accent/5 font-sans">
+                 <h4 className="text-[10px] font-bold uppercase text-accent flex items-center gap-1.5 border-b border-accent/20 pb-2">
+                   <Lightbulb className="h-3 w-3" /> AI Gap Expansion & Recommendations
+                 </h4>
+                 <ul className="space-y-2 list-disc list-inside text-[11px] text-text-primary">
+                   {activePlan.sufficiencyAssessment.aiRecommendations.map((rec, i) => (
+                     <li key={i} className="leading-relaxed">{rec}</li>
+                   ))}
+                 </ul>
+               </div>
+             )}
+          </div>
+        </div>
+      )}
+
       {/* MODAL DIALOGS FOR DYNAMIC SUB-ITEMS ADDITION */}
       {activeModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4 animate-in fade-in duration-200">
@@ -2150,6 +2261,17 @@ export const GTMExecutionEngine: React.FC<GTMExecutionEngineProps> = ({
                       className="w-full p-2.5 rounded-xl bg-bg-surface border border-border text-text-primary focus:ring-1 focus:ring-accent leading-normal font-sans text-xs"
                       value={newActionDesc}
                       onChange={e => setNewActionDesc(e.target.value)}
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-mono text-text-secondary uppercase">Execution Deliverable</label>
+                    <input 
+                      type="text" 
+                      placeholder="e.g. Finalize 3-page enablement guide PDF"
+                      className="w-full p-2.5 rounded-xl bg-bg-surface border border-border text-text-primary focus:ring-1 focus:ring-accent font-sans text-xs"
+                      value={newActionDeliverable}
+                      onChange={e => setNewActionDeliverable(e.target.value)}
                     />
                   </div>
 

@@ -51,6 +51,7 @@ import { GTMExecutionEngine } from './GTMExecutionEngine';
 import { GTMExecutionPlan } from './types';
 import { ExecutionPipeline } from './ExecutionPipeline';
 import { ExecutionDashboard } from './ExecutionDashboard';
+import { RevenueDecomposition } from './RevenueDecomposition';
 import ReactMarkdown from 'react-markdown';
 
 const PILLARS_METADATA = [
@@ -1149,6 +1150,7 @@ export function GTMOSModule() {
       const planData = await invokeGtmApi('generate-execution-engine', {
         onboardingData: currentProject.onboarding,
         gtmStrategyDraft: currentProject.pillars,
+        revenueDecomposition: currentProject.revenueDecomposition?.result,
         projectName: currentProject.title
       });
 
@@ -1248,17 +1250,18 @@ export function GTMOSModule() {
     { num: 12, name: 'GTM Strategy Canvas' },
     { num: 13, name: 'GTM Simulation' },
     { num: 14, name: 'Forecast Sandbox' },
-    { num: 15, name: 'GTM Execution Engine' },
-    { num: 16, name: 'Execution Pipeline' },
-    { num: 17, name: 'Execution Dashboard' },
-    { num: 18, name: 'Pillar Refiner' },
-    { num: 19, name: 'Execution Draft' },
-    { num: 20, name: 'Tactical Refiner' },
-    { num: 21, name: 'Kanban Sprint' },
-    { num: 22, name: 'Live Telemetry' },
-    { num: 23, name: 'Defense Audit' },
-    { num: 24, name: 'Pivotal Actions' },
-    { num: 25, name: 'ARR Forecast' }
+    { num: 15, name: 'Revenue Decomposition' },
+    { num: 16, name: 'GTM Execution Engine' },
+    { num: 17, name: 'Execution Pipeline' },
+    { num: 18, name: 'Execution Dashboard' },
+    { num: 19, name: 'Pillar Refiner' },
+    { num: 20, name: 'Execution Draft' },
+    { num: 21, name: 'Tactical Refiner' },
+    { num: 22, name: 'Kanban Sprint' },
+    { num: 23, name: 'Live Telemetry' },
+    { num: 24, name: 'Defense Audit' },
+    { num: 25, name: 'Pivotal Actions' },
+    { num: 26, name: 'ARR Forecast' }
   ];
 
   const currentOnboardingCategory = CATEGORY_SPECS.find(c => c.stepNumber === activeStep);
@@ -2172,8 +2175,22 @@ export function GTMOSModule() {
               />
             )}
 
-            {/* Step 15: GTM Execution Engine */}
+            {/* Step 15: Revenue Decomposition */}
             {activeStep === 15 && (
+              <RevenueDecomposition
+                project={currentProject}
+                updateProject={(updates) => {
+                  const updatedProject = { ...currentProject, ...updates };
+                  const nextList = projectsList.map(p => p.id === currentProjectId ? updatedProject : p);
+                  syncWithCloud(nextList, currentProjectId);
+                }}
+                nextStep={() => handleStepChange(16)}
+                prevStep={() => handleStepChange(14)}
+              />
+            )}
+
+            {/* Step 16: GTM Execution Engine */}
+            {activeStep === 16 && (
               <GTMExecutionEngine
                 project={currentProject}
                 onSavePlan={handleSaveExecutionPlan}
@@ -2183,8 +2200,8 @@ export function GTMOSModule() {
               />
             )}
 
-            {/* Step 16: Execution Pipeline */}
-            {activeStep === 16 && (
+            {/* Step 17: Execution Pipeline */}
+            {activeStep === 17 && (
               <ExecutionPipeline
                 projects={projectsList}
                 currentProjectId={currentProjectId}
@@ -2192,24 +2209,24 @@ export function GTMOSModule() {
               />
             )}
 
-            {/* Step 17: Execution Dashboard */}
-            {activeStep === 17 && (
+            {/* Step 18: Execution Dashboard */}
+            {activeStep === 18 && (
               <ExecutionDashboard
                 projects={projectsList}
                 currentProjectId={currentProjectId}
               />
             )}
 
-            {/* Step 18: Review & Refine Strategic pillars */}
-            {activeStep === 18 && (
+            {/* Step 19: Review & Refine Strategic pillars */}
+            {activeStep === 19 && (
               <PillarRefiner
                 pillars={currentProject.pillars || DEFAULT_PILLARS}
                 onSavePillars={handleSavePillars}
               />
             )}
 
-            {/* Step 19: Execution plan generation Draft */}
-            {activeStep === 19 && (
+            {/* Step 20: Execution plan generation Draft */}
+            {activeStep === 20 && (
               <div className="space-y-6 text-center py-6">
                 {currentProject.tasks.length === 0 ? (
                   <div className="max-w-md mx-auto p-8 rounded-3xl bg-bg-surface/50 border border-border space-y-5">
@@ -2236,7 +2253,7 @@ export function GTMOSModule() {
                   <div className="space-y-5 text-left">
                     <div className="p-4 rounded-xl bg-accent/5 border border-accent/20 text-xs text-accent text-left flex gap-2 items-center">
                       <CheckCircle className="h-5 w-5 text-accent" />
-                      <span>{currentProject.tasks.length} initiatives active. Click timeline step <span className="font-bold">"20. Tactical Refiner"</span> to customize specific cells.</span>
+                      <span>{currentProject.tasks.length} initiatives active. Click timeline step <span className="font-bold">"21. Tactical Refiner"</span> to customize specific cells.</span>
                     </div>
 
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
@@ -2258,8 +2275,8 @@ export function GTMOSModule() {
               </div>
             )}
 
-            {/* Step 20: Review and Refine Execution Action Spreadsheet */}
-            {activeStep === 20 && (
+            {/* Step 21: Review and Refine Execution Action Spreadsheet */}
+            {activeStep === 21 && (
               <ExecutionManager
                 tasks={currentProject.tasks}
                 onSaveTasks={handleSaveTasks}
@@ -2268,8 +2285,8 @@ export function GTMOSModule() {
               />
             )}
 
-            {/* Step 21: Operational Kanban Board Sprint tracker */}
-            {activeStep === 21 && (
+            {/* Step 22: Operational Kanban Board Sprint tracker */}
+            {activeStep === 22 && (
               <ExecutionManager
                 tasks={currentProject.tasks}
                 onSaveTasks={handleSaveTasks}
@@ -2278,13 +2295,13 @@ export function GTMOSModule() {
               />
             )}
 
-            {/* Step 22: Performance Monitoring & Live telemetry */}
-            {activeStep === 22 && (
+            {/* Step 23: Performance Monitoring & Live telemetry */}
+            {activeStep === 23 && (
               <div className="space-y-6 text-left">
                 <div className="p-4 rounded-xl bg-accent/5 border border-accent/20 flex gap-2.5">
                   <Activity className="h-5 w-5 text-accent shrink-0 mt-0.5 animate-pulse" />
                   <p className="text-xs">
-                    <span className="font-bold text-accent">Active Telemetry Tracker (Step 22): </span> 
+                    <span className="font-bold text-accent">Active Telemetry Tracker (Step 23): </span> 
                     Displays live pipeline health ratings calculated by comparing active sales velocities against core operational variables inside onboarding Categories 1-8.
                   </p>
                 </div>
@@ -2339,8 +2356,8 @@ export function GTMOSModule() {
               </div>
             )}
 
-            {/* Step 23: Risk Detection */}
-            {activeStep === 23 && (
+            {/* Step 24: Risk Detection */}
+            {activeStep === 24 && (
               <div className="space-y-6 text-left">
                 <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center p-4 rounded-xl bg-accent/5 border border-accent/20 gap-4">
                   <div className="flex gap-2.5 items-start">
@@ -2405,13 +2422,13 @@ export function GTMOSModule() {
               </div>
             )}
 
-            {/* Step 24: AI Optimization recommendations */}
-            {activeStep === 24 && (
+            {/* Step 25: AI Optimization recommendations */}
+            {activeStep === 25 && (
               <div className="space-y-6 text-left">
                 <div className="p-4 rounded-xl bg-accent/5 border border-accent/20 flex gap-2.5">
                   <Bookmark className="h-5 w-5 text-accent shrink-0 mt-0.5" />
                   <p className="text-xs">
-                    <span className="font-bold text-accent">Active Pivot center (Step 24): </span> 
+                    <span className="font-bold text-accent">Active Pivot center (Step 25): </span> 
                     Lists recommended operational GTM optimization vectors cued to accelerate transaction velocity and secure margins.
                   </p>
                 </div>
@@ -2460,8 +2477,8 @@ export function GTMOSModule() {
               </div>
             )}
 
-            {/* Step 25: Predictive Revenue Forecasting curves */}
-            {activeStep === 25 && (
+            {/* Step 26: Predictive Revenue Forecasting curves */}
+            {activeStep === 26 && (
               <SimulationTab
                 config={currentProject.simulationConfig}
                 onChange={handleSimulationConfigChange}

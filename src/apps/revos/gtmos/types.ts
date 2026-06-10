@@ -162,6 +162,7 @@ export interface GTMActionItem {
   linkedStrategyGoal?: string;
   successMetric?: string;
   prerequisiteData?: string;
+  deliverable?: string;
 }
 
 export interface GTMKPI {
@@ -225,11 +226,29 @@ export interface GTMWorkstream {
   id: string;
   workstreamName: string;
   purpose: string;
+  revenueContributionHypothesis?: string;
   relatedGtmPillar: string;
   priority: 'low' | 'medium' | 'high';
   timeline: string;
   owner: string;
+  risks?: GTMRisk[];
+  dependencies?: GTMDependency[];
+  successMetrics?: string;
   initiatives: GTMInitiative[];
+}
+
+export interface ExecutionSufficiencyAssessment {
+  score: number;
+  coverageAnalysis: {
+    revenueCoverage: string;
+    demandCoverage: string;
+    salesCoverage: string;
+    channelCoverage: string;
+    enablementCoverage: string;
+    measurementCoverage: string;
+  };
+  identifiedGaps: string[];
+  aiRecommendations: string[];
 }
 
 export interface GTMExecutionPlan {
@@ -247,7 +266,40 @@ export interface GTMExecutionPlan {
     reviewCadence: string;
     escalationPath: string;
   };
+  sufficiencyAssessment?: ExecutionSufficiencyAssessment;
   executiveSummary: string;
+}
+
+export interface RevenueDecompositionConfig {
+  revenueTarget: string;
+  timeHorizon: string;
+  acv: string;
+  winRate: string;
+  pipelineCoverageRatio: string;
+  sqlConversionRate: string;
+  mqlConversionRate: string;
+  marketingCapacity: string;
+  salesCapacity: string;
+  partnerCapacity: string;
+  customerSuccessCapacity: string;
+}
+
+export interface RevenueDecompositionResult {
+  customersRequired: string;
+  dealsRequired: string;
+  pipelineRequired: string;
+  opportunitiesRequired: string;
+  sqlRequired: string;
+  mqlRequired: string;
+  marketingCapacityRequired: string;
+  salesCapacityRequired: string;
+  partnerCapacityRequired: string;
+  customerSuccessCapacityRequired: string;
+}
+
+export interface RevenueDecompositionData {
+  config: RevenueDecompositionConfig;
+  result: RevenueDecompositionResult | null;
 }
 
 export interface GTMOSProject {
@@ -270,4 +322,5 @@ export interface GTMOSProject {
   gtmCanvas?: Record<string, string> | null;
   gtmExecutionPlan?: GTMExecutionPlan | null;
   archivedExecutionPlan?: GTMExecutionPlan | null;
+  revenueDecomposition?: RevenueDecompositionData | null;
 }
