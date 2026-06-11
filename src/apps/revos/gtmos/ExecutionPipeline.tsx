@@ -2,7 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { 
   Briefcase, CheckCircle, Clock, AlertCircle, ArrowUpRight, Search, 
   Filter, TrendingUp, Users, Target, Save, CheckSquare, ChevronRight, 
-  RefreshCw, Layers, Award, Activity, SearchIcon
+  RefreshCw, Layers, Award, Activity, SearchIcon, Trash2
 } from 'lucide-react';
 import { GTMOSProject, GTMExecutionPlan, GTMWorkstream, GTMInitiative, GTMActionItem, GTMKPI } from './types';
 
@@ -36,6 +36,7 @@ export const ExecutionPipeline: React.FC<ExecutionPipelineProps> = ({
   const [searchTerm, setSearchTerm] = useState<string>('');
   const [saveSuccess, setSaveSuccess] = useState<boolean>(false);
   const [editingKpiValue, setEditingKpiValue] = useState<{ kpiId: string; value: string } | null>(null);
+  const [actionToDelete, setActionToDelete] = useState<ActionRow | null>(null);
 
   // Parse all archived execution plans and flatten them into action rows
   const allActionRows = useMemo(() => {
@@ -260,6 +261,78 @@ export const ExecutionPipeline: React.FC<ExecutionPipelineProps> = ({
     };
 
     onUpdateProjectPlan(row.projectId, finalPlan);
+    triggerFeedback();
+  };
+
+  const requestDeleteAction = (row: ActionRow) => {
+    setActionToDelete(row);
+  };
+
+  const confirmDeleteAction = () => {
+    if (!actionToDelete) return;
+    const row = actionToDelete;
+
+    const targetProj = projects.find(p => p.id === row.projectId);
+    if (!targetProj || !targetProj.archivedExecutionPlan) {
+      setActionToDelete(null);
+      return;
+    }
+
+    const originalPlan = targetProj.archivedExecutionPlan;
+
+    const parseValueHelper = (val: string) => {
+      if (!val) return { num: 0, hasPercent: false, hasDollar: false };
+      const cleaned = val.replace(/[^0-9.]/g, '');
+      const num = parseFloat(cleaned) || 0;
+      return { num, hasPercent: val.includes('%'), hasDollar: val.includes('$') };
+    };
+
+    const formatValueHelper = (num: number, hasPercent: boolean, hasDollar: boolean) => {
+      let formatted = num.toFixed(0);
+      if (hasDollar) {
+        if (num >= 1000) formatted = Math.round(num).toLocaleString('en-US');
+        return `$${formatted}`;
+      }
+      if (hasPercent) return `${formatted}%`;
+      return formatted;
+    };
+
+    const updatedWorkstreams = originalPlan.workstreams.map(ws => {
+      if (ws.id !== row.workstreamId) return ws;
+      
+      return {
+        ...ws,
+        initiatives: ws.initiatives.map(init => {
+          if (init.id !== row.initiativeId) return init;
+
+          const nextActions = init.actions.filter(act => act.id !== row.action.id);
+
+          const totalActions = nextActions.length;
+          const completedActions = nextActions.filter(a => a.status === 'completed').length;
+          const progressMultiplier = totalActions > 0 ? (completedActions / totalActions) : 0;
+
+          const updatedKPIs = init.kpis.map(kpi => {
+            const baseInfo = parseValueHelper(kpi.baseline);
+            const targetInfo = parseValueHelper(kpi.target);
+            const nextValNum = baseInfo.num + (targetInfo.num - baseInfo.num) * progressMultiplier;
+            const updatedVal = formatValueHelper(nextValNum, targetInfo.hasPercent, targetInfo.hasDollar);
+            return { ...kpi, currentValue: updatedVal };
+          });
+
+          return {
+            ...init,
+            actions: nextActions,
+            kpis: updatedKPIs
+          };
+        })
+      };
+    });
+
+    onUpdateProjectPlan(row.projectId, {
+      ...originalPlan,
+      workstreams: updatedWorkstreams
+    });
+    setActionToDelete(null);
     triggerFeedback();
   };
 
@@ -493,18 +566,18 @@ export const ExecutionPipeline: React.FC<ExecutionPipelineProps> = ({
                     </td>
 
                     {/* Column 3: Live interactive status selector */}
-                    <td className="py-3 px-4 align-top">
+                    <td className="py-3 px-4 align-top space-y-3">
                       <div className="relative inline-block w-full">
                         <select
                           value={row.action.status}
                           onChange={(e) => handleUpdateStatus(row, e.target.value as any)}
                           className={`w-full text-[10px] font-bold py-1.5 px-2 rounded-xl focus:outline-none border select-none tracking-wider uppercase transition-all ${
                             row.action.status === 'completed'
-                              ? 'bg-status-success-bg/25 border-status-success/30 text-status-success'
+                              ? 'bg-green-500/20 border-green-500/30 text-green-500'
                               : row.action.status === 'in_progress'
-                              ? 'bg-status-progress-bg/25 border-status-progress/30 text-status-progress'
+                              ? 'bg-blue-500/20 border-blue-500/30 text-blue-500'
                               : row.action.status === 'blocked'
-                              ? 'bg-status-danger-bg/25 border-status-danger/30 text-status-danger font-semibold'
+                              ? 'bg-red-500/20 border-red-500/30 text-red-500 font-semibold'
                               : 'bg-bg-surface border-border text-text-secondary'
                           }`}
                         >
@@ -514,6 +587,14 @@ export const ExecutionPipeline: React.FC<ExecutionPipelineProps> = ({
                           <option value="blocked">Blocked</option>
                         </select>
                       </div>
+
+                      <button 
+                        onClick={() => requestDeleteAction(row)}
+                        className="w-full py-1.5 px-2 rounded-xl border border-border bg-bg-surface hover:bg-red-500/10 hover:border-red-500/30 hover:text-red-500 transition-colors text-[10px] font-bold text-text-secondary uppercase flex items-center justify-center gap-1.5 group"
+                        title="Delete Action Item"
+                      >
+                         <Trash2 className="h-3.5 w-3.5 text-text-secondary/60 group-hover:text-red-500 transition-colors" /> Delete
+                      </button>
                     </td>
 
                     {/* Column 4: Associated KPI Goal Tracker & direct achievement inputs */}
@@ -608,6 +689,41 @@ export const ExecutionPipeline: React.FC<ExecutionPipelineProps> = ({
           </table>
         </div>
       </div>
+
+      {/* Delete Confirmation Modal */}
+      {actionToDelete && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-bg-base/80 backdrop-blur-sm p-4 animate-fade-in text-left">
+          <div className="bg-bg-surface border border-border rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden flex flex-col">
+            <div className="p-5 border-b border-border/50 flex items-center gap-3 bg-red-500/10 text-red-500">
+              <AlertCircle className="h-5 w-5 shrink-0" />
+              <h4 className="text-sm font-black uppercase tracking-wider">Confirm Action</h4>
+            </div>
+            <div className="p-6 space-y-4 text-sm text-text-secondary">
+              <p>
+                Are you sure you want to permanently delete the following action?
+              </p>
+              <div className="bg-bg-base border border-border p-3 rounded-xl">
+                 <div className="text-[10px] uppercase font-mono text-text-secondary/70 mb-1">Action Title</div>
+                 <div className="font-bold text-text-primary text-xs">{actionToDelete.action.actionName}</div>
+              </div>
+            </div>
+            <div className="p-4 border-t border-border/50 bg-bg-surface/50 flex justify-end gap-3 shrink-0">
+              <button 
+                onClick={() => setActionToDelete(null)}
+                className="px-4 py-2 rounded-xl text-xs font-bold text-text-secondary hover:text-text-primary hover:bg-bg-base transition-colors"
+              >
+                Cancel
+              </button>
+              <button 
+                onClick={confirmDeleteAction}
+                className="px-4 py-2 rounded-xl text-xs font-bold bg-red-500/10 text-red-500 border border-red-500/30 hover:bg-red-500/20 transition-colors flex items-center gap-2 group"
+              >
+                <Trash2 className="h-4 w-4 group-hover:scale-110 transition-transform" /> Delete Action
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

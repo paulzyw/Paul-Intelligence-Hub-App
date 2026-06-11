@@ -49,9 +49,13 @@ export const GTMExecutionEngine: React.FC<GTMExecutionEngineProps> = ({
   const [newActionType, setNewActionType] = useState('Asset Creation');
   const [newActionDesc, setNewActionDesc] = useState('Perform target delivery of operations assets.');
   const [newActionOwner, setNewActionOwner] = useState('Associate Core Team');
+  const [newActionStartDate, setNewActionStartDate] = useState('');
   const [newActionDueDate, setNewActionDueDate] = useState('');
   const [newActionCriteria, setNewActionCriteria] = useState('Verified output');
   const [newActionDeliverable, setNewActionDeliverable] = useState('');
+  const [newActionEffort, setNewActionEffort] = useState('');
+  const [newActionRequires, setNewActionRequires] = useState('');
+  const [newActionMetric, setNewActionMetric] = useState('');
 
   // Form states for adding/editing KPI
   const [newKpiName, setNewKpiName] = useState('');
@@ -97,9 +101,13 @@ export const GTMExecutionEngine: React.FC<GTMExecutionEngineProps> = ({
         description: newActionDesc,
         taskType: newActionType,
         owner: newActionOwner,
+        startDate: newActionStartDate || act.startDate || new Date().toISOString().split('T')[0],
         dueDate: newActionDueDate || act.dueDate,
         completionCriteria: newActionCriteria,
-        deliverable: newActionDeliverable
+        deliverable: newActionDeliverable,
+        effortEstimateDays: Number(newActionEffort) || undefined,
+        prerequisiteData: newActionRequires,
+        successMetric: newActionMetric
       } : act);
     } else {
       const newAct: GTMActionItem = {
@@ -108,12 +116,15 @@ export const GTMExecutionEngine: React.FC<GTMExecutionEngineProps> = ({
         description: newActionDesc,
         taskType: newActionType,
         owner: newActionOwner,
-        startDate: new Date().toISOString().split('T')[0],
+        startDate: newActionStartDate || new Date().toISOString().split('T')[0],
         dueDate: newActionDueDate || new Date(Date.now() + 14*24*60*60*1000).toISOString().split('T')[0],
         dependencies: "None",
         completionCriteria: newActionCriteria,
         deliverable: newActionDeliverable,
-        status: "todo"
+        status: "todo",
+        effortEstimateDays: Number(newActionEffort) || undefined,
+        prerequisiteData: newActionRequires,
+        successMetric: newActionMetric
       };
       finalActions = [...currentActions, newAct];
     }
@@ -1223,9 +1234,37 @@ export const GTMExecutionEngine: React.FC<GTMExecutionEngineProps> = ({
                     >
                       <div className="flex items-center gap-1.5">
                         <span className="text-[8px] font-mono font-bold tracking-widest text-[#00F090] uppercase">WS {wsIdx + 1}</span>
-                        <span className={`px-1 rounded text-[8px] uppercase font-bold ${
-                          ws.priority === 'high' ? 'bg-red-500/10 text-red-400' : 'bg-amber-500/10 text-amber-500'
-                        }`}>{ws.priority}</span>
+                        {!isLocked && wsIdx === selectedWsIndex ? (
+                          <div onClick={e => e.stopPropagation()}>
+                            <select
+                              value={ws.priority}
+                              onChange={e => {
+                                const cloned = [...activePlan.workstreams];
+                                cloned[wsIdx].priority = e.target.value as 'low' | 'medium' | 'high' | 'critical';
+                                updateDraft({ ...activePlan, workstreams: cloned });
+                              }}
+                              onBlur={() => { if (draftPlan) onSavePlan(draftPlan); }}
+                              className={`px-1 py-0.5 rounded text-[8px] uppercase font-bold focus:ring-1 focus:ring-accent bg-bg-surface border border-border/80 cursor-pointer ${
+                                ws.priority === 'critical' ? 'text-purple-400' :
+                                ws.priority === 'high' ? 'text-red-400' : 
+                                ws.priority === 'medium' ? 'text-amber-500' : 
+                                'text-blue-400'
+                              }`}
+                            >
+                              <option value="low">Low</option>
+                              <option value="medium">Medium</option>
+                              <option value="high">High</option>
+                              <option value="critical">Critical</option>
+                            </select>
+                          </div>
+                        ) : (
+                          <span className={`px-1 rounded text-[8px] uppercase font-bold ${
+                            ws.priority === 'critical' ? 'bg-purple-500/10 text-purple-400' :
+                            ws.priority === 'high' ? 'bg-red-500/10 text-red-400' : 
+                            ws.priority === 'medium' ? 'bg-amber-500/10 text-amber-500' : 
+                            'bg-blue-500/10 text-blue-400'
+                          }`}>{ws.priority}</span>
+                        )}
                       </div>
                       
                       {!isLocked && wsIdx === selectedWsIndex ? (
@@ -1355,7 +1394,7 @@ export const GTMExecutionEngine: React.FC<GTMExecutionEngineProps> = ({
                               value={currentInitiative.priority}
                               onChange={e => {
                                 const cloned = [...activePlan.workstreams];
-                                cloned[selectedWsIndex].initiatives[selectedInitIndex].priority = e.target.value as 'low' | 'medium' | 'high';
+                                cloned[selectedWsIndex].initiatives[selectedInitIndex].priority = e.target.value as 'low' | 'medium' | 'high' | 'critical';
                                 updateDraft({ ...activePlan, workstreams: cloned });
                               }}
                               onBlur={() => { if (draftPlan) onSavePlan(draftPlan); }}
@@ -1364,6 +1403,7 @@ export const GTMExecutionEngine: React.FC<GTMExecutionEngineProps> = ({
                               <option value="low">Low Priority</option>
                               <option value="medium">Medium Priority</option>
                               <option value="high">High Priority</option>
+                              <option value="critical">Critical Priority</option>
                             </select>
 
                             <select
@@ -1543,11 +1583,15 @@ export const GTMExecutionEngine: React.FC<GTMExecutionEngineProps> = ({
                       <button
                         onClick={() => {
                           setNewActionName('');
-                          setNewActionType('Asset Creation');
+                          setNewActionType('Market Penetration');
                           setNewActionDesc('Perform target delivery of operations assets.');
                           setNewActionOwner('Associate Core Team');
+                          setNewActionStartDate(new Date().toISOString().split('T')[0]);
                           setNewActionDueDate(new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]);
                           setNewActionCriteria('Verified output');
+                          setNewActionEffort('5');
+                          setNewActionRequires('');
+                          setNewActionMetric('');
                           setActiveModal('action');
                         }}
                         className="py-1 px-2.5 rounded-lg bg-bg-surface border border-border hover:border-accent hover:text-accent font-bold text-[10px] text-text-secondary flex items-center gap-1 transition-all"
@@ -1599,9 +1643,13 @@ export const GTMExecutionEngine: React.FC<GTMExecutionEngineProps> = ({
                                           setNewActionType(act.taskType);
                                           setNewActionDesc(act.description);
                                           setNewActionOwner(act.owner);
+                                          setNewActionStartDate(act.startDate || '');
                                           setNewActionDueDate(act.dueDate);
                                           setNewActionCriteria(act.completionCriteria || '');
                                           setNewActionDeliverable(act.deliverable || '');
+                                          setNewActionEffort(act.effortEstimateDays ? String(act.effortEstimateDays) : '');
+                                          setNewActionRequires(act.prerequisiteData || '');
+                                          setNewActionMetric(act.successMetric || '');
                                           setEditingItemId(act.id);
                                           setActiveModal('action');
                                         }}
@@ -1666,7 +1714,12 @@ export const GTMExecutionEngine: React.FC<GTMExecutionEngineProps> = ({
 
                             <div className="mt-3 pt-2.5 border-t border-border/40 flex justify-between items-center text-[9px] text-text-secondary/80 font-mono">
                               <div>Owner: <span className="text-text-primary font-bold">{act.owner}</span></div>
-                              <div className="text-right">Due: <span className="text-text-primary font-bold">{act.dueDate}</span></div>
+                              <div className="flex gap-2">
+                                {act.startDate && (
+                                  <div className="text-right">Start: <span className="text-text-primary font-bold">{act.startDate}</span></div>
+                                )}
+                                <div className="text-right">Due: <span className="text-text-primary font-bold">{act.dueDate}</span></div>
+                              </div>
                             </div>
                             
                             {act.completionCriteria && (
@@ -2225,18 +2278,22 @@ export const GTMExecutionEngine: React.FC<GTMExecutionEngineProps> = ({
 
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-1">
-                      <label className="text-[10px] font-mono text-text-secondary uppercase">Task Type/Category</label>
+                      <label className="text-[10px] font-mono text-text-secondary uppercase">Objective</label>
                       <select 
                         className="w-full p-2.5 rounded-xl bg-bg-surface border border-border text-text-primary focus:ring-1 focus:ring-accent focus:border-accent font-sans text-xs"
                         value={newActionType}
                         onChange={e => setNewActionType(e.target.value)}
                       >
+                        <option value="Market Penetration">Market Penetration</option>
+                        <option value="Positioning">Positioning</option>
+                        <option value="Inbound/ABM">Inbound/ABM</option>
+                        <option value="Pipeline Growth">Pipeline Growth</option>
+                        <option value="Outbound Event">Outbound Event</option>
+                        <option value="Pricing & Packaging">Pricing & Packaging</option>
+                        <option value="Channel Expansion">Channel Expansion</option>
+                        <option value="Customer Success/Retention">Customer Success/Retention</option>
                         <option value="Asset Creation">Asset Creation</option>
                         <option value="Systems Integration">Systems Integration</option>
-                        <option value="Campaign Setup">Campaign Setup</option>
-                        <option value="Analytics & BI">Analytics & BI</option>
-                        <option value="Enablement Training">Enablement Training</option>
-                        <option value="Operational Audit">Operational Audit</option>
                       </select>
                     </div>
 
@@ -2275,7 +2332,50 @@ export const GTMExecutionEngine: React.FC<GTMExecutionEngineProps> = ({
                     />
                   </div>
 
+                  <div className="grid grid-cols-3 gap-4">
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-mono text-text-secondary uppercase">Effort (Days)</label>
+                      <input 
+                        type="text" 
+                        placeholder="e.g. 5"
+                        className="w-full p-2.5 rounded-xl bg-bg-surface border border-border text-text-primary focus:ring-1 focus:ring-accent font-sans text-xs"
+                        value={newActionEffort}
+                        onChange={e => setNewActionEffort(e.target.value)}
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-mono text-text-secondary uppercase">Requires</label>
+                      <input 
+                        type="text" 
+                        placeholder="e.g. ICP definitions"
+                        className="w-full p-2.5 rounded-xl bg-bg-surface border border-border text-text-primary focus:ring-1 focus:ring-accent font-sans text-xs"
+                        value={newActionRequires}
+                        onChange={e => setNewActionRequires(e.target.value)}
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-mono text-text-secondary uppercase">Metric</label>
+                      <input 
+                        type="text" 
+                        placeholder="e.g. 500 verified accounts"
+                        className="w-full p-2.5 rounded-xl bg-bg-surface border border-border text-text-primary focus:ring-1 focus:ring-accent font-sans text-xs"
+                        value={newActionMetric}
+                        onChange={e => setNewActionMetric(e.target.value)}
+                      />
+                    </div>
+                  </div>
+
                   <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-mono text-text-secondary uppercase">Start Date</label>
+                      <input 
+                        type="date" 
+                        required
+                        className="w-full p-2.5 rounded-xl bg-bg-surface border border-border text-text-primary focus:ring-1 focus:ring-accent font-sans text-xs"
+                        value={newActionStartDate}
+                        onChange={e => setNewActionStartDate(e.target.value)}
+                      />
+                    </div>
                     <div className="space-y-1">
                       <label className="text-[10px] font-mono text-text-secondary uppercase">Target Due Date</label>
                       <input 
@@ -2286,18 +2386,18 @@ export const GTMExecutionEngine: React.FC<GTMExecutionEngineProps> = ({
                         onChange={e => setNewActionDueDate(e.target.value)}
                       />
                     </div>
+                  </div>
 
-                    <div className="space-y-1">
-                      <label className="text-[10px] font-mono text-text-secondary uppercase">Done Completion Criteria</label>
-                      <input 
-                        type="text" 
-                        required
-                        placeholder="e.g. Signed sign-off from CRM owner"
-                        className="w-full p-2.5 rounded-xl bg-bg-surface border border-border text-text-primary focus:ring-1 focus:ring-accent font-sans text-xs"
-                        value={newActionCriteria}
-                        onChange={e => setNewActionCriteria(e.target.value)}
-                      />
-                    </div>
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-mono text-text-secondary uppercase">Done Completion Criteria</label>
+                    <input 
+                      type="text" 
+                      required
+                      placeholder="e.g. Signed sign-off from CRM owner"
+                      className="w-full p-2.5 rounded-xl bg-bg-surface border border-border text-text-primary focus:ring-1 focus:ring-accent font-sans text-xs"
+                      value={newActionCriteria}
+                      onChange={e => setNewActionCriteria(e.target.value)}
+                    />
                   </div>
 
                   <div className="pt-4 border-t border-border/50 flex justify-end gap-3">

@@ -116,7 +116,7 @@ export interface GTMOSActionTask {
   owner: string;
   dueDate: string;
   status: 'todo' | 'in_progress' | 'completed';
-  priority: 'low' | 'medium' | 'high';
+  priority: 'low' | 'medium' | 'high' | 'critical';
 }
 
 export interface GTMOSSimulationState {
@@ -210,7 +210,7 @@ export interface GTMInitiative {
   description: string;
   strategicObjective: string;
   expectedOutcome: string;
-  priority: 'low' | 'medium' | 'high';
+  priority: 'low' | 'medium' | 'high' | 'critical';
   timeline: string;
   owner: string;
   budget: string;
@@ -228,7 +228,7 @@ export interface GTMWorkstream {
   purpose: string;
   revenueContributionHypothesis?: string;
   relatedGtmPillar: string;
-  priority: 'low' | 'medium' | 'high';
+  priority: 'low' | 'medium' | 'high' | 'critical';
   timeline: string;
   owner: string;
   risks?: GTMRisk[];

@@ -257,7 +257,6 @@ export function GTMOSModule() {
   const [activeStep, setActiveStep] = useState<number>(1);
   const [isGeneratingPillars, setIsGeneratingPillars] = useState<boolean>(false);
   const [isGeneratingExecutionPlan, setIsGeneratingExecutionPlan] = useState<boolean>(false);
-  const [isGeneratingTasks, setIsGeneratingTasks] = useState<boolean>(false);
   const [isSyncingDb, setIsSyncingDb] = useState<boolean>(false);
   const [dbStatusMsg, setDbStatusMsg] = useState<string>('Local Cache Buffer');
   const [saveState, setSaveState] = useState<'idle' | 'saving' | 'saved' | 'dirty'>('idle');
@@ -533,6 +532,7 @@ export function GTMOSModule() {
             tasks: target.tasks,
             simulationConfig: target.simulationConfig,
             gtmStrategyDraft: target.gtmStrategyDraft || null,
+            gtmCanvas: target.gtmCanvas || null,
             gtmExecutionPlan: target.gtmExecutionPlan || null,
             archivedExecutionPlan: target.archivedExecutionPlan || null,
             revenueDecomposition: target.revenueDecomposition || null
@@ -1122,30 +1122,6 @@ export function GTMOSModule() {
     syncWithCloud(nextList, currentProjectId);
   };
 
-  // Step 16: AI Action Plan / Task Generation
-  const runTaskGeneration = async () => {
-    setIsGeneratingTasks(true);
-    try {
-      const taskData = await invokeGtmApi('generate-execution', {
-        strategyData: currentProject.pillars || DEFAULT_PILLARS,
-        projectName: currentProject.title
-      });
-
-      const nextList = projectsList.map(p => (p.id === currentProjectId ? { ...p, tasks: taskData } : p));
-      await syncWithCloud(nextList, currentProjectId);
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setIsGeneratingTasks(false);
-    }
-  };
-
-  // Steps 15 - 16: Save Action Tasks back to Project state
-  const handleSaveTasks = (updatedTasks: GTMOSActionTask[]) => {
-    const nextList = projectsList.map(p => (p.id === currentProjectId ? { ...p, tasks: updatedTasks } : p));
-    syncWithCloud(nextList, currentProjectId);
-  };
-
   // Step 15: GTM Execution Engine Generation & Archive handlers
   const runExecutionEngineGeneration = async () => {
     setIsGeneratingExecutionPlan(true);
@@ -1258,13 +1234,10 @@ export function GTMOSModule() {
     { num: 17, name: 'Execution Pipeline' },
     { num: 18, name: 'Execution Dashboard' },
     { num: 19, name: 'Pillar Refiner' },
-    { num: 20, name: 'Execution Draft' },
-    { num: 21, name: 'Tactical Refiner' },
-    { num: 22, name: 'Kanban Sprint' },
-    { num: 23, name: 'Live Telemetry' },
-    { num: 24, name: 'Defense Audit' },
-    { num: 25, name: 'Pivotal Actions' },
-    { num: 26, name: 'ARR Forecast' }
+    { num: 20, name: 'Live Telemetry' },
+    { num: 21, name: 'Defense Audit' },
+    { num: 22, name: 'Pivotal Actions' },
+    { num: 23, name: 'ARR Forecast' }
   ];
 
   const currentOnboardingCategory = CATEGORY_SPECS.find(c => c.stepNumber === activeStep);
@@ -2042,7 +2015,7 @@ export function GTMOSModule() {
                       className="px-5 py-3 bg-accent text-black font-extrabold text-xs rounded-xl hover:scale-105 active:scale-95 transition-all flex items-center justify-center gap-2 shadow-lg shadow-accent/5 disabled:opacity-40"
                     >
                       {isGeneratingCanvas ? <Loader2 className="h-4 w-4 animate-spin" /> : <Bot className="h-4 w-4" />}
-                      {currentProject.gtmCanvas ? 'Regenerate Canvas Summaries' : 'Compile Strategy Canvas'}
+                      {currentProject.gtmCanvas ? 'Update Strategy Canvas' : 'Compile Strategy Canvas'}
                     </button>
                   </div>
                 </div>
@@ -2228,83 +2201,13 @@ export function GTMOSModule() {
               />
             )}
 
-            {/* Step 20: Execution plan generation Draft */}
+            {/* Step 20: Performance Monitoring & Live telemetry */}
             {activeStep === 20 && (
-              <div className="space-y-6 text-center py-6">
-                {currentProject.tasks.length === 0 ? (
-                  <div className="max-w-md mx-auto p-8 rounded-3xl bg-bg-surface/50 border border-border space-y-5">
-                    <div className="p-4 rounded-2xl bg-accent/10 border border-accent/20 w-fit mx-auto">
-                      <CheckSquare className="h-8 w-8 text-accent animate-pulse" />
-                    </div>
-                    <div>
-                      <h3 className="text-sm font-black text-text-primary uppercase tracking-wider">Synthesize Action Initiatives</h3>
-                      <p className="text-xs text-text-secondary mt-1 max-w-sm mx-auto leading-relaxed">
-                        Maps out the strategic focus directives to compile exactly 4 distinct operational tasks with owners, priority levels, and deadlines.
-                      </p>
-                    </div>
-
-                    <button
-                      onClick={runTaskGeneration}
-                      disabled={isGeneratingTasks}
-                      className="px-6 py-3.5 bg-accent text-black font-extrabold text-xs rounded-2xl ml-auto mr-auto transition-all hover:scale-105 active:scale-95 flex items-center gap-1.5 justify-center disabled:opacity-45"
-                    >
-                      {isGeneratingTasks ? <Loader2 className="h-4 w-4 animate-spin" /> : <Bot className="h-4 w-4 font-bold" />}
-                      Generate GTM Action Items
-                    </button>
-                  </div>
-                ) : (
-                  <div className="space-y-5 text-left">
-                    <div className="p-4 rounded-xl bg-accent/5 border border-accent/20 text-xs text-accent text-left flex gap-2 items-center">
-                      <CheckCircle className="h-5 w-5 text-accent" />
-                      <span>{currentProject.tasks.length} initiatives active. Click timeline step <span className="font-bold">"21. Tactical Refiner"</span> to customize specific cells.</span>
-                    </div>
-
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-                      {currentProject.tasks.map(t => (
-                        <div key={t.id} className="p-5 rounded-2xl bg-bg-surface/50 border border-border">
-                          <span className="text-[9px] font-mono font-bold tracking-wider text-accent uppercase">{t.program}</span>
-                          <h4 className="text-xs font-bold text-text-primary mt-1 mb-1.5">{t.title}</h4>
-                          <p className="text-[11px] text-text-secondary leading-normal font-sans mb-3">{t.description}</p>
-                          
-                          <div className="flex justify-between items-center pt-2 border-t border-border/40 text-[10px] text-text-secondary/60">
-                            <div>Owner: <span className="font-bold text-text-primary">{t.owner}</span></div>
-                            <div>Date: <span className="font-mono font-bold text-text-primary">{t.dueDate}</span></div>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* Step 21: Review and Refine Execution Action Spreadsheet */}
-            {activeStep === 21 && (
-              <ExecutionManager
-                tasks={currentProject.tasks}
-                onSaveTasks={handleSaveTasks}
-                subMode="refine"
-                projectName={currentProject.title}
-              />
-            )}
-
-            {/* Step 22: Operational Kanban Board Sprint tracker */}
-            {activeStep === 22 && (
-              <ExecutionManager
-                tasks={currentProject.tasks}
-                onSaveTasks={handleSaveTasks}
-                subMode="board"
-                projectName={currentProject.title}
-              />
-            )}
-
-            {/* Step 23: Performance Monitoring & Live telemetry */}
-            {activeStep === 23 && (
               <div className="space-y-6 text-left">
                 <div className="p-4 rounded-xl bg-accent/5 border border-accent/20 flex gap-2.5">
                   <Activity className="h-5 w-5 text-accent shrink-0 mt-0.5 animate-pulse" />
                   <p className="text-xs">
-                    <span className="font-bold text-accent">Active Telemetry Tracker (Step 23): </span> 
+                    <span className="font-bold text-accent">Active Telemetry Tracker (Step 20): </span> 
                     Displays live pipeline health ratings calculated by comparing active sales velocities against core operational variables inside onboarding Categories 1-8.
                   </p>
                 </div>
@@ -2359,8 +2262,8 @@ export function GTMOSModule() {
               </div>
             )}
 
-            {/* Step 24: Risk Detection */}
-            {activeStep === 24 && (
+            {/* Step 21: Risk Detection */}
+            {activeStep === 21 && (
               <div className="space-y-6 text-left">
                 <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center p-4 rounded-xl bg-accent/5 border border-accent/20 gap-4">
                   <div className="flex gap-2.5 items-start">
@@ -2425,13 +2328,13 @@ export function GTMOSModule() {
               </div>
             )}
 
-            {/* Step 25: AI Optimization recommendations */}
-            {activeStep === 25 && (
+            {/* Step 22: AI Optimization recommendations */}
+            {activeStep === 22 && (
               <div className="space-y-6 text-left">
                 <div className="p-4 rounded-xl bg-accent/5 border border-accent/20 flex gap-2.5">
                   <Bookmark className="h-5 w-5 text-accent shrink-0 mt-0.5" />
                   <p className="text-xs">
-                    <span className="font-bold text-accent">Active Pivot center (Step 25): </span> 
+                    <span className="font-bold text-accent">Active Pivot center (Step 22): </span> 
                     Lists recommended operational GTM optimization vectors cued to accelerate transaction velocity and secure margins.
                   </p>
                 </div>
@@ -2480,8 +2383,8 @@ export function GTMOSModule() {
               </div>
             )}
 
-            {/* Step 26: Predictive Revenue Forecasting curves */}
-            {activeStep === 26 && (
+            {/* Step 23: Predictive Revenue Forecasting curves */}
+            {activeStep === 23 && (
               <SimulationTab
                 config={currentProject.simulationConfig}
                 onChange={handleSimulationConfigChange}

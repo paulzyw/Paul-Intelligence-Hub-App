@@ -463,49 +463,6 @@ serve(async (req) => {
         return new Response(response.text || "{}", { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
       }
 
-      case "generate-execution": {
-        const response = await ai.models.generateContent({
-          model: "gemini-3.1-flash-lite",
-          contents: [
-            `Based on this completed GTM Operating System strategy context for "${projectName}":
-            ${JSON.stringify(strategyData)}
-
-            Create an execution plan with exactly 4 distinct, highly granular commercial actions/initiatives. Set realistic timelines, professional roles (e.g., CRO, Head of RevOps, Demand Generation Lead), and correct priority weights.
-
-            FEW-SHOT INITIATIVES EXAMPLE:
-            - "Title": "Deploy Targeted Outbound ABM sequences"
-            - "Description": "Leverage HubSpot CRM data to design personalized outreach campaigns targeting typical buyer personas, addressing the main pain point of team silo latency with bespoke video assets and custom audit checklists."
-            - "Owner": "Heads of RevOps & Demand Generation"
-            - "Priority": "high"
-            - "DueDate": "2026-06-30"
-            - "Program": "Demand Generation"
-            - "Status": "todo"`
-          ],
-          config: {
-            systemInstruction: GTMOS_SYSTEM_INSTRUCTION,
-            responseMimeType: "application/json",
-            responseSchema: {
-              type: Type.ARRAY,
-              items: {
-                type: Type.OBJECT,
-                properties: {
-                  id: { type: Type.STRING },
-                  program: { type: Type.STRING },
-                  title: { type: Type.STRING },
-                  description: { type: Type.STRING },
-                  owner: { type: Type.STRING },
-                  dueDate: { type: Type.STRING },
-                  status: { type: Type.STRING },
-                  priority: { type: Type.STRING }
-                },
-                required: ["id", "program", "title", "description", "owner", "dueDate", "status", "priority"]
-              }
-            }
-          }
-        });
-        return new Response(response.text || "[]", { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
-      }
-
       case "risks-recommendations": {
         const response = await ai.models.generateContent({
           model: "gemini-3.1-flash-lite",
