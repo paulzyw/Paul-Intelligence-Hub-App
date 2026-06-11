@@ -390,7 +390,8 @@ export function GTMOSModule() {
               gtmStrategyDraft: raw.gtmStrategyDraft || null,
               gtmCanvas: raw.gtmCanvas || null,
               gtmExecutionPlan: raw.gtmExecutionPlan || null,
-              archivedExecutionPlan: raw.archivedExecutionPlan || null
+              archivedExecutionPlan: raw.archivedExecutionPlan || null,
+              revenueDecomposition: raw.revenueDecomposition || null
             };
           });
 
@@ -533,7 +534,8 @@ export function GTMOSModule() {
             simulationConfig: target.simulationConfig,
             gtmStrategyDraft: target.gtmStrategyDraft || null,
             gtmExecutionPlan: target.gtmExecutionPlan || null,
-            archivedExecutionPlan: target.archivedExecutionPlan || null
+            archivedExecutionPlan: target.archivedExecutionPlan || null,
+            revenueDecomposition: target.revenueDecomposition || null
           },
           structured_intelligence: {
             aiReasoning: target.aiReasoning,
@@ -588,7 +590,8 @@ export function GTMOSModule() {
           gtmStrategyDraft: raw.gtmStrategyDraft || null,
           gtmCanvas: raw.gtmCanvas || null,
           gtmExecutionPlan: raw.gtmExecutionPlan || null,
-          archivedExecutionPlan: raw.archivedExecutionPlan || null
+          archivedExecutionPlan: raw.archivedExecutionPlan || null,
+          revenueDecomposition: raw.revenueDecomposition || null
         };
 
         const nextList = projectsList.map(p => p.id === currentProjectId ? updatedProject : p);

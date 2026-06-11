@@ -815,40 +815,41 @@ serve(async (req) => {
             3. Onboarding/Goals: ${JSON.stringify(onboardingData, null, 2)}
 
             ARCHITECTURE MANDATE (Revenue-Aware Execution System):
+
+            PRINCIPLES:
+            - Principle 1 (Revenue Requirements Take Precedence): The Revenue Requirement Model shall serve as the primary quantitative constraint for execution planning.
+            - Principle 2 (Strategy Determines Execution Type): The finalized GTM Strategy shall determine the nature and design of execution activities required to satisfy the Revenue Requirement Model.
+            - Principle 3 (Execution Plans Must Be Revenue-Sufficient): Execution plans shall not be finalized solely because they are strategically aligned. Execution plans must demonstrate sufficient execution coverage to support achievement of the Revenue Requirement Model.
+            - Principle 4 (Detect Misalignment): If the generated execution plan does not provide adequate support for the Revenue Requirement Model, additional workstreams, initiatives, and actions must be generated automatically until sufficient coverage is achieved or constraints are identified.
+            - Principle 5 (Timeline Feasibility): All milestones must fit strictly within the defined time horizon from the onboarding input.
+
+            PRIORITY HIERARCHY:
+            1. Priority 1: Revenue Decomposition Results (What level of commercial outcomes must be achieved?)
+            1.5 Priority 1.5: Resource Allocation vs Revenue Contribution Hypothesis (Ensuring bandwidth aligns with impact).
+            2. Priority 2: Finalized GTM Strategy (How should those outcomes be achieved?)
+            3. Priority 3: Organizational Capacity and Constraints in the Revenue Decomposition Results (What execution approaches are feasible?)
+            4. Priority 4: Execution Sufficiency Assessment (Is the generated plan adequate?)
+
+            CONSTRAINTS:
+            - Constraint 1 (Strategic Alignment): Every workstream, initiative, and action must be traceable back to the finalized GTM strategy.
+            - Constraint 2 (Realism): The plan must consider organizational maturity, available resources, budget constraints, and execution capacity.
+            - Constraint 3 (Completeness): Operationalize all strategic decisions embedded within the finalized GTM strategy.
+            - Constraint 4 (Explainability): The reasoning behind recommendations must be explainable.
+            - Constraint 5 (Minimum Workstream Constraint): Less than $500K ARR: 1–3 workstreams. $500K–$2M ARR: 3–6 workstreams. $2M–$10M ARR: 6–10 workstreams. > $10M ARR: 10–12 workstreams.
+            - Constraint 6 (Initiative Constraint): Each workstream should contain 2–5 initiatives.
+            - Constraint 7 (Action Constraint): Each initiative should contain 4–10 actions.
+            - Constraint 8 (Metric Verification): All actions must have distinct, quantifiable success metrics.
+            - Constraint 9 (Dependency Mapping): Prerequisite data and dependencies must be mapped appropriately.
+            - Constraint 10 (Deliverable Specificity): Every action must specify a highly tangible deliverable.
+
+            EXECUTION GENERATION WORKFLOW:
             Execute the following multi-stage reasoning to generate the plan:
+            Stage 1: Workstream Generation Engine (Apply Constraint 5)
+            Stage 2: Initiative Generation Engine (Apply Constraint 6)
+            Stage 3: Action Generation Engine (Apply Constraint 7, 8, 9, 10)
+            Stage 4: Execution Sufficiency Assessment Engine (Produce an Execution Sufficiency Score 0-100)
+            Stage 5: Gap Analysis & Expansion (If score < 90, expand internal generation to close gaps)
 
-            Stage 2: Strategic Operationalization Engine
-            - Operationalize the 9-Pillar Framework. Ensure ALL pillars are covered by supporting workstreams, initiatives, and actions.
-            
-            Stage 3: Workstream Generation Engine
-            - Proportionality Guideline based on Revenue Goal:
-              < $500K: 1-3 workstreams
-              $500K-$2M: 3-6 workstreams
-              $2M-$10M: 6-10 workstreams
-              > $10M: 10-12 workstreams
-            - Each Workstream MUST include its revenue contribution hypothesis.
-
-            Stage 4: Initiative Generation Engine
-            - Generate 1-3 initiatives per workstream.
-
-            Stage 5: Action Generation Engine
-            - Generate 2-5 actions per initiative. Each action must include a concrete Deliverable.
-
-            Stage 6: Execution Sufficiency Assessment Engine
-            - Assess if the plan is sufficient to hit the revenue objective.
-            - Evaluate Revenue Coverage, Demand Coverage, Sales Coverage, Channel Coverage, Enablement Coverage, Measurement Coverage.
-            - Output an Execution Sufficiency Score (0-100). (0-60: Insufficient, 61-80: Moderate Risk, 81-95: Sufficient, 96-100: High Confidence).
-
-            Stage 7 & Stage 8: Gap Analysis & Expansion
-            - If your initial thought process yields a score < 90, expand the plan internally before finalizing. Generate additional workstreams, initiatives, and actions until the sufficiency meets the revenue model!
-            - You will output the final 'enhanced' plan along with the final Sufficiency Assessment and identified gaps.
-
-            [TACTICAL AUDIT - SELF REFLECTION]
-            Before formulating the JSON:
-            - Does every task have an assigned prerequisite resource (prerequisiteData)?
-            - Are the success metrics measurable in the backend (successMetric)? 
-            - If any task is vague, rewrite it immediately to be concrete and time-bound.
-            
             The output MUST strictly conform to the GTMExecutionPlan schema. Do not generate fake/placeholder text. Provide a fully comprehensive, Revenue-Aware plan.`
           ],
           config: {

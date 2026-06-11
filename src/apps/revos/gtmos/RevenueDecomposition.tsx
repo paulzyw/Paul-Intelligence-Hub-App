@@ -122,7 +122,7 @@ export const RevenueDecomposition: React.FC<RevenueDecompositionProps> = ({ proj
         </div>
       )}
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="flex flex-col gap-8">
         {/* Input Configuration Panel */}
         <div className="p-5 rounded-2xl bg-bg-surface/50 border border-border space-y-5">
            <div className="flex justify-between items-center border-b border-border pb-3">
@@ -132,7 +132,7 @@ export const RevenueDecomposition: React.FC<RevenueDecompositionProps> = ({ proj
              <button onClick={handleSaveConfig} title="Save Base Metrics" className="text-text-secondary hover:text-accent transition-colors"><Save className="h-4 w-4" /></button>
            </div>
            
-           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+           <div className="grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-4 gap-4">
              {[
                { field: 'revenueTarget', label: 'Revenue Target (ARR)' },
                { field: 'timeHorizon', label: 'Time Horizon' },
@@ -161,20 +161,20 @@ export const RevenueDecomposition: React.FC<RevenueDecompositionProps> = ({ proj
         </div>
 
         {/* AI Output Generation Panel */}
-        <div className="p-5 rounded-2xl bg-bg-surface/50 border border-[url] overflow-hidden space-y-4 shadow-xl">
-           <h3 className="font-bold text-xs uppercase text-text-primary flex items-center gap-1.5 border-b border-border pb-3">
-             <BarChart3 className="h-4 w-4 text-accent" /> Required Volume & Capacity Requirements
+        <div className="p-6 rounded-2xl bg-bg-surface/50 border border-[url] overflow-hidden space-y-6 shadow-xl w-full">
+           <h3 className="font-bold text-sm uppercase text-text-primary flex items-center gap-2 border-b border-border pb-4">
+             <BarChart3 className="h-5 w-5 text-accent" /> Decomposition Results
            </h3>
            
            {!project.revenueDecomposition?.result ? (
-               <div className="flex flex-col items-center justify-center p-8 text-center text-text-secondary space-y-3">
-                  <Target className="h-10 w-10 opacity-20" />
-                  <p className="text-xs max-w-sm">
-                    Enter your base metrics to the left and click "Calculate Decomposition" to generate structural funnel requirements.
+               <div className="flex flex-col items-center justify-center p-12 text-center text-text-secondary space-y-4 bg-bg-primary/20 rounded-xl border border-dashed border-border">
+                  <Target className="h-12 w-12 opacity-20" />
+                  <p className="text-sm max-w-md">
+                    Enter your base metrics in the workspace above and click "Calculate Decomposition" to generate structural funnel requirements.
                   </p>
                </div>
            ) : (
-               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-left">
+               <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4 text-left">
                   {Object.entries({
                     'Customers Required': project.revenueDecomposition.result.customersRequired,
                     'Deals Required': project.revenueDecomposition.result.dealsRequired,
@@ -192,10 +192,10 @@ export const RevenueDecomposition: React.FC<RevenueDecompositionProps> = ({ proj
                       initial={{ opacity: 0, y: 10 }}
                       animate={{ opacity: 1, y: 0 }}
                       transition={{ delay: idx * 0.05 }}
-                      className="p-3 bg-bg-primary/60 border border-border/50 rounded-xl space-y-1"
+                      className="p-4 bg-bg-primary/60 border border-border/50 rounded-xl space-y-2 hover:border-accent/30 transition-colors"
                     >
                       <span className="text-[10px] font-mono font-bold text-accent uppercase tracking-wider block">{label}</span>
-                      <span className="text-sm font-black text-text-primary block">{value}</span>
+                      <span className="text-lg font-black text-text-primary block tracking-tight">{value}</span>
                     </motion.div>
                   ))}
                </div>
