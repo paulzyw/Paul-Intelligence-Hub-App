@@ -195,7 +195,7 @@ export const RevenueDecomposition: React.FC<RevenueDecompositionProps> = ({ proj
                       className="p-4 bg-bg-primary/60 border border-border/50 rounded-xl space-y-2 hover:border-accent/30 transition-colors"
                     >
                       <span className="text-[10px] font-mono font-bold text-accent uppercase tracking-wider block">{label}</span>
-                      <span className="text-lg font-black text-text-primary block tracking-tight">{value}</span>
+                      <span className="text-base font-medium text-text-primary block tracking-tight">{value}</span>
                     </motion.div>
                   ))}
                </div>

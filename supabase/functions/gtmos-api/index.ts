@@ -7,8 +7,29 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-const GTMOS_SYSTEM_INSTRUCTION = `You are an elite Chief Growth Officer (CGO), world-class enterprise Go-to-Market (GTM) architect, and expert commercial analyst. 
-Your expertise lies in B2B SaaS, developer tooling, highly sophisticated deep-tech systems, and value-based enterprise software commercialization.
+function buildDynamicCGOInstruction(onboardingData: any = {}) {
+  const context = {
+    primaryIndustry: onboardingData.industry || "B2B Software",
+    productName: onboardingData.productName || onboardingData.productCategory || "the core product",
+    targetCustomers: onboardingData.targetIndustries || onboardingData.bestCustomers || "your target sectors",
+    businessModel: onboardingData.businessModel || "B2B enterprise",
+    geographies: onboardingData.targetGeographies || onboardingData.countriesServed || "Global",
+    competitors: onboardingData.competitorList || "legacy solutions"
+  };
+
+  return `You are an elite Chief Growth Officer (CGO), world-class Go-to-Market (GTM) architect, and expert commercial analyst.
+
+Your expertise is uniquely specialized for the exact organization you are advising. You deeply understand their ecosystem based on the following profile:
+- Primary Industry Segment: ${context.primaryIndustry}
+- Core Product/Service: ${context.productName}
+- Target Customer Sectors: ${context.targetCustomers}
+- Revenue/Business Model: ${context.businessModel}
+- Primary Geographies: ${context.geographies}
+- Key Market Competitors: ${context.competitors}
+
+Your mandate is to design highly sophisticated, actionable, and value-based strategies tailored specifically to sell ${context.productName} to ${context.targetCustomers} in ${context.geographies}. 
+You must output professional, high-impact C-suite-level advice that considers the nuances of their business model and directly addresses how to outmaneuver their specific competitors.
+
 Your tone is deeply analytical, authoritative, highly professional, precise, and devoid of generic marketing fluff, slogans, or hype. 
 Avoid cliche buzzwords unless they correspond directly to specific, recognized commercial frameworks (e.g., LTV/CAC ratio, NRR expansion paths, PLG velocity, multi-threaded buyer engagement, ROI benchmarking).
 Analyze the provided organizational, financial, and product parameters meticulously to design tactical steps and insights that are directly actionable, distinct, and tailor-fit to the user's operational constraints and assets.
@@ -19,6 +40,7 @@ Every execution plan must be generated using the following constraints:
 2. DEPENDENCY MAPPING: For every action, explicitly list required [Data/Resources] (e.g., "Requires Supabase lead list," "Requires final pricing table").
 3. RESOURCE CONSTRAINTS: Tailor the effort level to the team size and timeframe provided in the input. If the timeline is short, prioritize "High-Impact/Low-Effort" tactics.
 4. MEASURABILITY: Every action must be tied to a specific KPI that can be tracked in our backend. Do not suggest abstract actions like "improve brand awareness" without a linked tracking metric.`;
+}
 
 function buildRichContext(onboardingData: any, projectName?: string): string {
   const o = onboardingData || {};
@@ -68,6 +90,8 @@ serve(async (req) => {
     const rawBody = await req.json();
     const { action, onboardingData, strategyData, projectName, categoryId, companyName, industry, currentFields, buyerType, pitchFormat, gtmStrategyDraft, activeScenario, activeParams } = rawBody;
 
+    const GTMOS_SYSTEM_INSTRUCTION = buildDynamicCGOInstruction(onboardingData);
+
     const geminiKey = Deno.env.get('GEMINI_API_KEY');
     if (!geminiKey) {
       throw new Error("GEMINI_API_KEY environment variable is not active on this environment.");
@@ -78,7 +102,7 @@ serve(async (req) => {
     switch (action) {
       case "enrich": {
         const response = await ai.models.generateContent({
-          model: "gemini-3.5-flash",
+          model: "gemini-3.1-flash-lite",
           contents: [
             `You are a top-tier revenue consultant. We are onboarding a company into the GTMOS (Go-To-Market Operating System).
             Company: ${companyName || "A B2B enterprise"}
@@ -357,7 +381,7 @@ serve(async (req) => {
             `You are an elite Chief Operating Officer and GTM architect. Generate a highly detailed Draft Go-to-Market Strategy for the project "${projectName}" using the collected data:
             ${buildRichContext(onboardingData, projectName)}
 
-            And using your vast, advanced knowledge of best-in-class B2B SaaS commercial execution patterns.
+            And using your vast, advanced knowledge of best-in-class ${onboardingData?.industry || 'B2B'} ${onboardingData?.businessModel || 'enterprise'} commercial execution patterns.
             
             You MUST output an object containing exactly 9 pillars representing our fundamental business framework.
             For each pillar, the resulting array must contain exactly the listed items in that exact order, and each item MUST be strictly prefixed with the specific Commercial Output name followed by a colon and a space (e.g. "Commercial Output Name: Detailed strategic analysis").
@@ -724,7 +748,7 @@ serve(async (req) => {
             3. Pipeline Required = Total value of Opps (or Revenue Target * Coverage Ratio)
             4. SQLs Required = Opportunities Required / SQL-to-Opp Conversion Rate
             5. MQLs Required = SQLs Required / MQL-to-SQL Conversion Rate
-            6. Capacity: Approximate the FTE headcount or capacity levels needed based on standard B2B SaaS benchmarks to handle these volumes.
+            6. Capacity: Approximate the FTE headcount or capacity levels needed based on standard ${onboardingData?.industry || 'B2B'} ${onboardingData?.businessModel || 'enterprise'} benchmarks to handle these volumes.
             
             Output MUST be exactly mapped to the provided JSON schema. Ensure the outputs are formatted nicely as strings (e.g., "$1,000,000", "80 Opportunities", "4 Reps", etc.). Do not include extraneous narrative, return valid JSON only.`
           ],
@@ -762,7 +786,7 @@ serve(async (req) => {
         const response = await ai.models.generateContent({
           model: "gemini-3.1-flash-lite",
           contents: [
-            `Role: You are an elite AI Systems Architect, Enterprise SaaS Product Architect, Revenue Operations Leader, Chief Revenue Officer, and GTM Execution Expert.
+            `Role: You are an elite Chief Operating Officer, ${onboardingData?.industry || 'Enterprise'} Product Architect, Revenue Operations Leader, Chief Revenue Officer,  Senior Operations Strategist and Execution Expert, and GTM Execution Expert.
 
             Your task is to transform the finalized GTM strategy into a realistic, execution-ready action plan capable of supporting the defined revenue goals.
 

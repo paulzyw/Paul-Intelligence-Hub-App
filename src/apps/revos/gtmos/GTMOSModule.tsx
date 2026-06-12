@@ -44,8 +44,6 @@ import { OnboardingCategoryFields, StrategyPillar, GTMOSActionTask, GTMOSSimulat
 import { CATEGORY_SPECS, INITIAL_ONBOARDING_FIELDS, EMPTY_ONBOARDING_FIELDS, SEED_PROJECTS, DEFAULT_PILLARS } from './initialState';
 import { OnboardingForms } from './OnboardingForms';
 import { SimulationTab } from './SimulationTab';
-import { PillarRefiner } from './PillarRefiner';
-import { ExecutionManager } from './ExecutionManager';
 import { GTMSimulationEngine } from './GTMSimulationEngine';
 import { GTMExecutionEngine } from './GTMExecutionEngine';
 import { GTMExecutionPlan } from './types';
@@ -1233,11 +1231,10 @@ export function GTMOSModule() {
     { num: 16, name: 'GTM Execution Engine' },
     { num: 17, name: 'Execution Pipeline' },
     { num: 18, name: 'Execution Dashboard' },
-    { num: 19, name: 'Pillar Refiner' },
-    { num: 20, name: 'Live Telemetry' },
-    { num: 21, name: 'Defense Audit' },
-    { num: 22, name: 'Pivotal Actions' },
-    { num: 23, name: 'ARR Forecast' }
+    { num: 19, name: 'Live Telemetry' },
+    { num: 20, name: 'Defense Audit' },
+    { num: 21, name: 'Pivotal Actions' },
+    { num: 22, name: 'ARR Forecast' }
   ];
 
   const currentOnboardingCategory = CATEGORY_SPECS.find(c => c.stepNumber === activeStep);
@@ -2193,21 +2190,13 @@ export function GTMOSModule() {
               />
             )}
 
-            {/* Step 19: Review & Refine Strategic pillars */}
+            {/* Step 19: Performance Monitoring & Live telemetry */}
             {activeStep === 19 && (
-              <PillarRefiner
-                pillars={currentProject.pillars || DEFAULT_PILLARS}
-                onSavePillars={handleSavePillars}
-              />
-            )}
-
-            {/* Step 20: Performance Monitoring & Live telemetry */}
-            {activeStep === 20 && (
               <div className="space-y-6 text-left">
                 <div className="p-4 rounded-xl bg-accent/5 border border-accent/20 flex gap-2.5">
                   <Activity className="h-5 w-5 text-accent shrink-0 mt-0.5 animate-pulse" />
                   <p className="text-xs">
-                    <span className="font-bold text-accent">Active Telemetry Tracker (Step 20): </span> 
+                    <span className="font-bold text-accent">Active Telemetry Tracker (Step 19): </span> 
                     Displays live pipeline health ratings calculated by comparing active sales velocities against core operational variables inside onboarding Categories 1-8.
                   </p>
                 </div>
@@ -2262,8 +2251,8 @@ export function GTMOSModule() {
               </div>
             )}
 
-            {/* Step 21: Risk Detection */}
-            {activeStep === 21 && (
+            {/* Step 20: Risk Detection */}
+            {activeStep === 20 && (
               <div className="space-y-6 text-left">
                 <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center p-4 rounded-xl bg-accent/5 border border-accent/20 gap-4">
                   <div className="flex gap-2.5 items-start">
@@ -2328,13 +2317,13 @@ export function GTMOSModule() {
               </div>
             )}
 
-            {/* Step 22: AI Optimization recommendations */}
-            {activeStep === 22 && (
+            {/* Step 21: AI Optimization recommendations */}
+            {activeStep === 21 && (
               <div className="space-y-6 text-left">
                 <div className="p-4 rounded-xl bg-accent/5 border border-accent/20 flex gap-2.5">
                   <Bookmark className="h-5 w-5 text-accent shrink-0 mt-0.5" />
                   <p className="text-xs">
-                    <span className="font-bold text-accent">Active Pivot center (Step 22): </span> 
+                    <span className="font-bold text-accent">Active Pivot center (Step 21): </span> 
                     Lists recommended operational GTM optimization vectors cued to accelerate transaction velocity and secure margins.
                   </p>
                 </div>
@@ -2383,8 +2372,8 @@ export function GTMOSModule() {
               </div>
             )}
 
-            {/* Step 23: Predictive Revenue Forecasting curves */}
-            {activeStep === 23 && (
+            {/* Step 22: Predictive Revenue Forecasting curves */}
+            {activeStep === 22 && (
               <SimulationTab
                 config={currentProject.simulationConfig}
                 onChange={handleSimulationConfigChange}
@@ -2465,7 +2454,7 @@ export function GTMOSModule() {
                 ? handleSaveAndContinueGlobal
                 : () => handleStepChange(activeStep + 1)
             }
-            disabled={activeStep >= 25 || saveState === 'saving'}
+            disabled={activeStep >= 22 || saveState === 'saving'}
             className="px-5 py-2 bg-accent hover:bg-accent/90 text-black font-extrabold text-xs rounded-xl disabled:opacity-30 disabled:pointer-events-none transition-all flex items-center gap-1.5 shadow h-10 cursor-pointer"
           >
             {activeStep >= 2 && activeStep <= 9 && saveState === 'dirty' ? (
