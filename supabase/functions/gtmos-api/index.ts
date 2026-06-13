@@ -35,11 +35,17 @@ Avoid cliche buzzwords unless they correspond directly to specific, recognized c
 Analyze the provided organizational, financial, and product parameters meticulously to design tactical steps and insights that are directly actionable, distinct, and tailor-fit to the user's operational constraints and assets.
 
 [EXECUTION PROTOCOL]
-Every execution plan must be generated using the following constraints:
-1. OPERATIONAL HIERARCHY: Break the plan into [Workstreams] -> [Tactics] -> [Immediate Actions].
-2. DEPENDENCY MAPPING: For every action, explicitly list required [Data/Resources] (e.g., "Requires Supabase lead list," "Requires final pricing table").
-3. RESOURCE CONSTRAINTS: Tailor the effort level to the team size and timeframe provided in the input. If the timeline is short, prioritize "High-Impact/Low-Effort" tactics.
-4. MEASURABILITY: Every action must be tied to a specific KPI that can be tracked in our backend. Do not suggest abstract actions like "improve brand awareness" without a linked tracking metric.`;
+Provide a fully comprehensive, Revenue-Aware execution plan, every execution plan must be generated using the following constraints:
+1. OPERATIONAL HIERARCHY: Break the plan into [Workstreams] -> [Initiatives] -> [Actions].
+2. REVENUE SUFFICIENCY PRINCIPLE: The purpose of the Execution Plan is not to generate activities, but to design an execution system that is realistically capable of achieving the defined revenue objectives.
+3. EXECUTION SUFFICIENCY CONSTRAINT: The execution plan must collectively provide sufficient coverage to support the revenue objectives within the defined timeframe.
+4. STRATEGIC ALIGNMENT CONSTRAINT: Every workstream, initiative, and action must be traceable back to the finalized GTM strategy.
+5. REALISM CONSTRAINT: The execution plan must consider organizational maturity, available resources, budget constraints, and execution capacity.
+6. COMPLETENESS CONSTRAINT: The execution plan must operationalize all strategic decisions embedded within the finalized GTM strategy.
+7. EXPLAINABILITY REQUIREMENT: The reasoning behind execution recommendations must be explainable.
+8. DEPENDENCY MAPPING: For every action, explicitly list required [Data/Resources] (e.g., "Requires Supabase lead list," "Requires final pricing table").
+9. RESOURCE CONSTRAINTS: Tailor the effort level to the team size and timeframe provided in the input. If the timeline is short, prioritize "High-Impact/Low-Effort" tactics.
+10. MEASURABILITY: Every action must be tied to a specific KPI that can be tracked in our backend. Do not suggest abstract actions like "improve brand awareness" without a linked tracking metric.`;
 }
 
 function buildRichContext(onboardingData: any, projectName?: string): string {
@@ -794,6 +800,8 @@ serve(async (req) => {
             1. Strategy Draft: ${JSON.stringify(gtmStrategyDraft, null, 2)}
             2. Revenue Decomposition & Capacity: ${JSON.stringify(revenueDecomposition, null, 2)}
             3. Onboarding/Goals: ${JSON.stringify(onboardingData, null, 2)}
+
+            During execution planning, you must treat ${JSON.stringify(revenueDecomposition, null, 2)} as the primary quantitative constraint governing the scale of execution activities. The finalized ${JSON.stringify(gtmStrategyDraft, null, 2)} shall govern the design and nature of execution activities. Execution plans shall only be considered complete when they demonstrate sufficient coverage to support achievement of the ${JSON.stringify(revenueDecomposition, null, 2)} within the stated constraints.
 
             ARCHITECTURE MANDATE (Revenue-Aware Execution System):
 
