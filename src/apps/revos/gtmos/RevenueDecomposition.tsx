@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { motion } from 'motion/react';
-import { Calculator, Target, Zap, TrendingUp, Save, BarChart3, Database, Loader2, Sparkles } from 'lucide-react';
+import { Calculator, Target, Zap, TrendingUp, Save, BarChart3, Database, Loader2, Sparkles, RefreshCw } from 'lucide-react';
 import { GTMOSProject, RevenueDecompositionConfig, RevenueDecompositionData } from './types';
 import { supabase } from '../../../lib/supabase';
 
@@ -42,6 +42,68 @@ export const RevenueDecomposition: React.FC<RevenueDecompositionProps> = ({ proj
   
   const [isGenerating, setIsGenerating] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
+
+  const prevOnboardingRef = useRef(project.onboarding || {});
+
+  useEffect(() => {
+    const currentOnb = (project.onboarding || {}) as any;
+    const prevOnb = prevOnboardingRef.current as any;
+    
+    let hasChanges = false;
+    const updates: Partial<RevenueDecompositionConfig> = {};
+
+    if (currentOnb.revenueTarget !== prevOnb.revenueTarget) {
+      updates.revenueTarget = currentOnb.revenueTarget || '';
+      hasChanges = true;
+    }
+    if (currentOnb.timeHorizon !== prevOnb.timeHorizon) {
+      updates.timeHorizon = currentOnb.timeHorizon || '';
+      hasChanges = true;
+    }
+    const currentWinRate = currentOnb.winRates || currentOnb.winRate;
+    const prevWinRate = prevOnb.winRates || prevOnb.winRate;
+    if (currentWinRate !== prevWinRate) {
+      updates.winRate = currentWinRate || '';
+      hasChanges = true;
+    }
+    if (currentOnb.marketingTeamSize !== prevOnb.marketingTeamSize) {
+      updates.marketingCapacity = currentOnb.marketingTeamSize || '';
+      hasChanges = true;
+    }
+    if (currentOnb.salesTeamSize !== prevOnb.salesTeamSize) {
+      updates.salesCapacity = currentOnb.salesTeamSize || '';
+      hasChanges = true;
+    }
+    if (currentOnb.partnerTeamSize !== prevOnb.partnerTeamSize) {
+      updates.partnerCapacity = currentOnb.partnerTeamSize || '';
+      hasChanges = true;
+    }
+    if (currentOnb.customerSuccessTeamSize !== prevOnb.customerSuccessTeamSize) {
+      updates.customerSuccessCapacity = currentOnb.customerSuccessTeamSize || '';
+      hasChanges = true;
+    }
+
+    if (hasChanges) {
+      setConfig(prevConfig => ({ ...prevConfig, ...updates }));
+      prevOnboardingRef.current = currentOnb;
+    }
+  }, [project.onboarding]);
+
+  const handleManualSync = () => {
+    const currentOnb = (project.onboarding || {}) as any;
+    const currentWinRate = currentOnb.winRates || currentOnb.winRate;
+    
+    setConfig(prev => ({
+      ...prev,
+      revenueTarget: currentOnb.revenueTarget || prev.revenueTarget,
+      timeHorizon: currentOnb.timeHorizon || prev.timeHorizon,
+      winRate: currentWinRate || prev.winRate,
+      marketingCapacity: currentOnb.marketingTeamSize || prev.marketingCapacity,
+      salesCapacity: currentOnb.salesTeamSize || prev.salesCapacity,
+      partnerCapacity: currentOnb.partnerTeamSize || prev.partnerCapacity,
+      customerSuccessCapacity: currentOnb.customerSuccessTeamSize || prev.customerSuccessCapacity
+    }));
+  };
 
   const handleConfigChange = (field: keyof RevenueDecompositionConfig, value: string) => {
     setConfig(prev => ({ ...prev, [field]: value }));
@@ -129,7 +191,14 @@ export const RevenueDecomposition: React.FC<RevenueDecompositionProps> = ({ proj
              <h3 className="font-bold text-xs uppercase text-text-primary flex items-center gap-1.5">
                <Database className="h-4 w-4 text-accent" /> Base Metrics Input
              </h3>
-             <button onClick={handleSaveConfig} title="Save Base Metrics" className="text-text-secondary hover:text-accent transition-colors"><Save className="h-4 w-4" /></button>
+             <div className="flex items-center gap-2">
+               <button onClick={handleManualSync} title="Sync from Onboarding" className="text-text-secondary hover:text-accent transition-colors flex items-center gap-1 text-[10px] uppercase font-bold tracking-wider px-2 py-1 rounded bg-bg-primary/50 border border-border">
+                 <RefreshCw className="h-3 w-3" /> Sync
+               </button>
+               <button onClick={handleSaveConfig} title="Save Base Metrics" className="text-text-secondary hover:text-accent transition-colors">
+                 <Save className="h-4 w-4" />
+               </button>
+             </div>
            </div>
            
            <div className="grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-4 gap-4">

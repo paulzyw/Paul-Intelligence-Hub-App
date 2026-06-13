@@ -1225,9 +1225,9 @@ export function GTMOSModule() {
     { num: 10, name: 'AI Reasoning' },
     { num: 11, name: 'GTM Strategy Draft' },
     { num: 12, name: 'GTM Strategy Canvas' },
-    { num: 13, name: 'GTM Simulation' },
-    { num: 14, name: 'Forecast Sandbox' },
-    { num: 15, name: 'Revenue Decomposition' },
+    { num: 13, name: 'Forecast Sandbox' },
+    { num: 14, name: 'Revenue Decomposition' },
+    { num: 15, name: 'GTM Simulation' },
     { num: 16, name: 'GTM Execution Engine' },
     { num: 17, name: 'Execution Pipeline' },
     { num: 18, name: 'Execution Dashboard' },
@@ -2127,18 +2127,8 @@ export function GTMOSModule() {
               </div>
             )}
 
-            {/* Step 13: GTM Simulation */}
+            {/* Step 13: Forecast Playground Sandbox */}
             {activeStep === 13 && (
-              <GTMSimulationEngine
-                currentProject={currentProject}
-                projectsList={projectsList}
-                setProjectsList={setProjectsList}
-                syncWithCloud={syncWithCloud}
-              />
-            )}
-
-            {/* Step 14: Forecast Playground Sandbox */}
-            {activeStep === 14 && (
               <SimulationTab
                 config={currentProject.simulationConfig}
                 onChange={handleSimulationConfigChange}
@@ -2148,8 +2138,8 @@ export function GTMOSModule() {
               />
             )}
 
-            {/* Step 15: Revenue Decomposition */}
-            {activeStep === 15 && (
+            {/* Step 14: Revenue Decomposition */}
+            {activeStep === 14 && (
               <RevenueDecomposition
                 project={currentProject}
                 updateProject={(updates) => {
@@ -2157,8 +2147,18 @@ export function GTMOSModule() {
                   const nextList = projectsList.map(p => p.id === currentProjectId ? updatedProject : p);
                   syncWithCloud(nextList, currentProjectId);
                 }}
-                nextStep={() => handleStepChange(16)}
-                prevStep={() => handleStepChange(14)}
+                nextStep={() => handleStepChange(15)}
+                prevStep={() => handleStepChange(13)}
+              />
+            )}
+
+            {/* Step 15: GTM Simulation */}
+            {activeStep === 15 && (
+              <GTMSimulationEngine
+                currentProject={currentProject}
+                projectsList={projectsList}
+                setProjectsList={setProjectsList}
+                syncWithCloud={syncWithCloud}
               />
             )}
 

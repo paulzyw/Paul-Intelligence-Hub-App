@@ -961,7 +961,7 @@ export const GTMExecutionEngine: React.FC<GTMExecutionEngineProps> = ({
               </span>
             )}
           </div>
-          <h2 className="text-xl font-black text-text-primary">Step 15: GTM Execution Engine</h2>
+          <h2 className="text-xl font-black text-text-primary">Step 16: GTM Execution Engine</h2>
           <p className="text-xs text-text-secondary leading-normal max-w-2xl font-sans">
             Bridge GTM theory and dynamic execution. Converted from abstract strategic pillars into a trackable Program Hierarchy: Workstreams, Initiatives, Actions, and real-time AI Monitoring.
           </p>

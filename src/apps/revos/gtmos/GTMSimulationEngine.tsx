@@ -43,6 +43,34 @@ interface GTMSimulationEngineProps {
   syncWithCloud: (list: GTMOSProject[], activeId: string) => Promise<void>;
 }
 
+function parseFormattedNumber(val: string | number | undefined, defaultVal: number): number {
+  if (val === undefined || val === null) return defaultVal;
+  if (typeof val === 'number') return val;
+  const clean = val.trim().toLowerCase();
+  if (!clean) return defaultVal;
+  
+  // Clean commas or spaces
+  const numPartMatch = clean.replace(/,/g, '').match(/^[$\s-]*([0-9.]+)/);
+  if (!numPartMatch) return defaultVal;
+  const num = parseFloat(numPartMatch[1]);
+  if (isNaN(num)) return defaultVal;
+
+  if (clean.includes('b') || clean.includes('billion')) {
+    return num * 1000000000;
+  }
+  if (clean.includes('m') || clean.includes('million')) {
+    return num * 1000000;
+  }
+  if (clean.includes('k') || clean.includes('thousand')) {
+    return num * 1000;
+  }
+  if (clean.includes('%')) {
+    return num; // Will be treated as percentage integer context later
+  }
+
+  return num;
+}
+
 interface ScenarioDetails {
   opportunities: number;
   winRate: number; // percentage (e.g. 15 for 15%)
@@ -148,10 +176,23 @@ export const GTMSimulationEngine: React.FC<GTMSimulationEngineProps> = ({
 
   // Parameters derived from the combinations
   const calculatedMetrics = useMemo(() => {
-    let opportunities = activeScenario.baseline.opportunities;
-    let winRate = activeScenario.baseline.winRate;
-    let acv = activeScenario.baseline.acv;
-    let cycleLength = activeScenario.baseline.cycleLength;
+    const ob = currentProject?.onboarding as any;
+    const rd = currentProject?.revenueDecomposition?.config;
+    const rdResult = currentProject?.revenueDecomposition?.result as any;
+
+    // Retrieve baseline values from Onboarding and Revenue Decomposition
+    const oppsRaw = rdResult?.opportunitiesRequired || ob?.opportunities || ob?.pipeline;
+    let opportunities = parseFormattedNumber(oppsRaw, activeScenario.baseline.opportunities);
+
+    const winRateRaw = ob?.winRates || ob?.winRate || rd?.winRate;
+    let winRate = parseFormattedNumber(winRateRaw, activeScenario.baseline.winRate);
+
+    const acvRaw = rd?.acv;
+    let acv = parseFormattedNumber(acvRaw, activeScenario.baseline.acv);
+    
+    // Cycle length from onboarding pipeline performance
+    const cycleLengthRaw = ob?.pipelinePerformance;
+    let cycleLength = parseFormattedNumber(cycleLengthRaw, activeScenario.baseline.cycleLength);
 
     // Segment modifier
     if (selectedSegment === 'Enterprise') {
@@ -214,7 +255,9 @@ export const GTMSimulationEngine: React.FC<GTMSimulationEngineProps> = ({
     selectedMessaging,
     selectedSalesMotion,
     selectedChannel,
-    selectedMarketing
+    selectedMarketing,
+    currentProject?.onboarding,
+    currentProject?.revenueDecomposition
   ]);
 
   const { opportunities, winRate, acv, cycleLength } = calculatedMetrics;
@@ -368,7 +411,7 @@ export const GTMSimulationEngine: React.FC<GTMSimulationEngineProps> = ({
             <Zap className="h-4 w-4 text-accent animate-bounce" />
             Decision Sandbox & Risk Simulator
           </div>
-          <h2 className="text-xl md:text-2xl font-black text-text-primary tracking-tight">Step 13: GTM Simulation & Strategic Scenario Engine</h2>
+          <h2 className="text-xl md:text-2xl font-black text-text-primary tracking-tight">Step 15: GTM Simulation & Strategic Scenario Engine</h2>
           <p className="text-xs text-text-secondary max-w-3xl leading-relaxed">
             Evaluate how structural changes in onboarding assumptions ripple through the connected 9-pillar GTM strategy system. Project future outcomes using a stochastic Monte Carlo model integrated into our deterministic Revenue Velocity network.
           </p>
@@ -674,7 +717,23 @@ export const GTMSimulationEngine: React.FC<GTMSimulationEngineProps> = ({
           {/* Deterministic Revenue Velocity Model Formula box */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {/* The math model */}
-            <div className="md:col-span-1 p-5 rounded-2xl bg-bg-surface/50 border border-border/85 flex flex-col justify-between">
+            <div className="md:col-span-1 p-5 rounded-2xl bg-bg-surface/50 border border-border/85 flex flex-col justify-between relative">
+              <div className="absolute top-4 right-4 group">
+                <button
+                  onClick={() => {
+                    // Trigger a forced state update on activeScenarioId (no-op functionally, but feels responsive)
+                    const temp = activeScenarioId;
+                    setActiveScenarioId('');
+                    setTimeout(() => setActiveScenarioId(temp), 10);
+                  }}
+                  className="flex items-center gap-1.5 p-1.5 rounded-md hover:bg-accent/10 border border-transparent hover:border-accent/20 transition-all text-text-secondary hover:text-accent"
+                  title="Manually sync onboarding metrics"
+                >
+                  <RefreshCw className="h-3.5 w-3.5" />
+                  <span className="text-[9px] font-mono font-bold tracking-widest hidden group-hover:inline">SYNC</span>
+                </button>
+              </div>
+
               <div className="space-y-2">
                 <span className="text-[9px] font-mono text-text-secondary uppercase">Calculator Core</span>
                 <h4 className="text-xs font-bold text-text-primary tracking-wide uppercase">Velocity formula</h4>
