@@ -50,7 +50,7 @@ function parseFormattedNumber(val: string | number | undefined, defaultVal: numb
   if (!clean) return defaultVal;
   
   // Clean commas or spaces
-  const numPartMatch = clean.replace(/,/g, '').match(/^[$\s-]*([0-9.]+)/);
+  const numPartMatch = clean.replace(/,/g, '').match(/([0-9.]+)/);
   if (!numPartMatch) return defaultVal;
   const num = parseFloat(numPartMatch[1]);
   if (isNaN(num)) return defaultVal;
@@ -94,69 +94,141 @@ export const GTMSimulationEngine: React.FC<GTMSimulationEngineProps> = ({
   syncWithCloud
 }) => {
   const [showGuide, setShowGuide] = useState<boolean>(true);
-  // Scenarios and presets
-  const scenarios = useMemo(() => [
-    {
-      id: 'Scenario A: Market Penetration',
-      name: 'Scenario A: Market Penetration',
-      tag: 'Volume Velocity',
-      title: 'Broad Market Value Play',
-      baseline: { opportunities: 120, winRate: 12, acv: 45000, cycleLength: 75 },
-      complexity: 'Medium',
-      resources: '$$ (Mid-Level Direct Sales)',
-      risk: 45,
-      timeToRevenue: 3, // months
-      alignment: 'High'
-    },
-    {
-      id: 'Scenario B: Vertical Specialization',
-      name: 'Scenario B: Vertical Specialization',
-      tag: 'Premium Niche',
-      title: 'Enterprise Trust Specialized Play',
-      baseline: { opportunities: 40, winRate: 22, acv: 145000, cycleLength: 120 },
-      complexity: 'High',
-      resources: '$$$ (Senior Enterprise Reps)',
-      risk: 30,
-      timeToRevenue: 6,
-      alignment: 'Very High'
-    },
-    {
-      id: 'Scenario C: Partner-Led Growth',
-      name: 'Scenario C: Partner-Led Growth',
-      tag: 'Indirect Reach',
-      title: 'Resellers & Consultancies Alliance',
-      baseline: { opportunities: 80, winRate: 16, acv: 60000, cycleLength: 90 },
-      complexity: 'Medium-High',
-      resources: '$ (Channel Enablement & Revenue-Share)',
-      risk: 35,
-      timeToRevenue: 4,
-      alignment: 'Medium'
-    },
-    {
-      id: 'Scenario D: Product-Led Growth',
-      name: 'Scenario D: Product-Led Growth',
-      tag: 'Product Discovery',
-      title: 'Frictionless Self-Serve Sandbox',
-      baseline: { opportunities: 350, winRate: 4, acv: 12000, cycleLength: 21 },
-      complexity: 'Low-Medium',
-      resources: '$$ (Product Onboarding & Dev Rel)',
-      risk: 50,
-      timeToRevenue: 1,
-      alignment: 'High'
-    },
-    {
-      id: 'Scenario E: Hybrid Revenue Motion',
-      name: 'Scenario E: Hybrid Revenue Motion',
-      tag: 'Full Spectrum',
-      title: 'Bottom-up Usage with Top-down Sales',
-      baseline: { opportunities: 210, winRate: 9, acv: 65000, cycleLength: 60 },
-      complexity: 'Very High',
-      resources: '$$$ (Integrated Product + AE Engine)',
-      risk: 55,
-      timeToRevenue: 3,
-      alignment: 'High'
+  
+  // Real data sync state
+  const [syncedData, setSyncedData] = useState<{
+    opportunities?: number;
+    winRate?: number;
+    acv?: number;
+    cycleLength?: number;
+  }>({});
+
+  const handleManualSync = () => {
+    const ob = currentProject?.onboarding as any;
+    const rd = currentProject?.revenueDecomposition?.config;
+    const rdResult = currentProject?.revenueDecomposition?.result as any;
+
+    const oppsRaw = rdResult?.opportunitiesRequired || ob?.opportunities || ob?.pipeline;
+    const winRateRaw = ob?.winRates || ob?.winRate || rd?.winRate;
+    const acvRaw = rd?.acv;
+    const cycleLengthRaw = ob?.pipelinePerformance;
+    
+    setSyncedData({
+      opportunities: oppsRaw ? parseFormattedNumber(oppsRaw, 0) : undefined,
+      winRate: winRateRaw ? parseFormattedNumber(winRateRaw, 0) : undefined,
+      acv: acvRaw ? parseFormattedNumber(acvRaw, 0) : undefined,
+      cycleLength: cycleLengthRaw ? parseFormattedNumber(cycleLengthRaw, 0) : undefined,
+    });
+  };
+
+  useEffect(() => {
+    // Auto-sync initially if we have real data available but it isn't set
+    const hasData = currentProject?.onboarding || currentProject?.revenueDecomposition;
+    if (hasData && !syncedData.opportunities && !syncedData.acv) {
+      handleManualSync();
     }
-  ], []);
+  }, [currentProject]);
+
+  // Scenarios and presets
+  const scenarios = useMemo(() => {
+    const baseOpps = syncedData.opportunities || 120;
+    const baseWinRate = syncedData.winRate || 12;
+    const baseAcv = syncedData.acv || 45000;
+    const baseCycle = syncedData.cycleLength || 75;
+
+    const baseA = { opportunities: baseOpps, winRate: baseWinRate, acv: baseAcv, cycleLength: baseCycle };
+    const baseB = { 
+      opportunities: Math.max(5, Math.round(baseOpps * 0.33)), 
+      winRate: Math.min(95, baseWinRate + 10), 
+      acv: Math.round(baseAcv * 3.22), 
+      cycleLength: Math.round(baseCycle * 1.6) 
+    };
+    const baseC = { 
+      opportunities: Math.max(5, Math.round(baseOpps * 0.67)), 
+      winRate: Math.min(95, baseWinRate + 4), 
+      acv: Math.round(baseAcv * 1.33), 
+      cycleLength: Math.round(baseCycle * 1.2) 
+    };
+    const baseD = { 
+      opportunities: Math.max(5, Math.round(baseOpps * 2.9)), 
+      winRate: Math.max(1, Math.round(baseWinRate * 0.33)), 
+      acv: Math.max(1000, Math.round(baseAcv * 0.26)), 
+      cycleLength: Math.max(5, Math.round(baseCycle * 0.28)) 
+    };
+    const baseE = { 
+      opportunities: Math.max(5, Math.round(baseOpps * 1.75)), 
+      winRate: Math.max(1, Math.round(baseWinRate * 0.75)), 
+      acv: Math.round(baseAcv * 1.44), 
+      cycleLength: Math.round(baseCycle * 0.8) 
+    };
+
+    const calcRisk = (wr: number, factor: number) => Math.min(95, Math.max(5, Math.round((100 - wr) * factor)));
+    // Dynamically derive time to revenue in months from the simulated cycle length in days
+    const calcTime = (cl: number, delayBufferMonths: number) => Math.max(1, +(cl / 30 + delayBufferMonths).toFixed(1));
+
+    return [
+      {
+        id: 'Scenario A: Market Penetration',
+        name: 'Scenario A: Market Penetration',
+        tag: 'Volume Velocity',
+        title: 'Broad Market Value Play',
+        baseline: baseA,
+        complexity: 'Medium',
+        resources: '$$ (Mid-Level Direct Sales)',
+        risk: calcRisk(baseA.winRate, 0.51),
+        timeToRevenue: calcTime(baseA.cycleLength, 0.5), // add 15 days pipeline delay
+        alignment: 'High'
+      },
+      {
+        id: 'Scenario B: Vertical Specialization',
+        name: 'Scenario B: Vertical Specialization',
+        tag: 'Premium Niche',
+        title: 'Enterprise Trust Specialized Play',
+        baseline: baseB,
+        complexity: 'High',
+        resources: '$$$ (Senior Enterprise Reps)',
+        risk: calcRisk(baseB.winRate, 0.38),
+        timeToRevenue: calcTime(baseB.cycleLength, 2.0), // add 2 months procurement/legal delay
+        alignment: 'Very High'
+      },
+      {
+        id: 'Scenario C: Partner-Led Growth',
+        name: 'Scenario C: Partner-Led Growth',
+        tag: 'Indirect Reach',
+        title: 'Resellers & Consultancies Alliance',
+        baseline: baseC,
+        complexity: 'Medium-High',
+        resources: '$ (Channel Enablement & Revenue-Share)',
+        risk: calcRisk(baseC.winRate, 0.42),
+        timeToRevenue: calcTime(baseC.cycleLength, 1.0), // add 1 month partner enablement delay
+        alignment: 'Medium'
+      },
+      {
+        id: 'Scenario D: Product-Led Growth',
+        name: 'Scenario D: Product-Led Growth',
+        tag: 'Product Discovery',
+        title: 'Frictionless Self-Serve Sandbox',
+        baseline: baseD,
+        complexity: 'Low-Medium',
+        resources: '$$ (Product Onboarding & Dev Rel)',
+        risk: calcRisk(baseD.winRate, 0.52),
+        timeToRevenue: calcTime(baseD.cycleLength, 0), // frictionless setup
+        alignment: 'High'
+      },
+      {
+        id: 'Scenario E: Hybrid Revenue Motion',
+        name: 'Scenario E: Hybrid Revenue Motion',
+        tag: 'Full Spectrum',
+        title: 'Bottom-up Usage with Top-down Sales',
+        baseline: baseE,
+        complexity: 'Very High',
+        resources: '$$$ (Integrated Product + AE Engine)',
+        risk: calcRisk(baseE.winRate, 0.6),
+        timeToRevenue: calcTime(baseE.cycleLength, 1.0), // mix of usage and top-down
+        alignment: 'High'
+      }
+    ];
+  }, [syncedData]);
 
   // Selected scenario ID
   const [activeScenarioId, setActiveScenarioId] = useState<string>('Scenario A: Market Penetration');
@@ -176,23 +248,12 @@ export const GTMSimulationEngine: React.FC<GTMSimulationEngineProps> = ({
 
   // Parameters derived from the combinations
   const calculatedMetrics = useMemo(() => {
-    const ob = currentProject?.onboarding as any;
-    const rd = currentProject?.revenueDecomposition?.config;
-    const rdResult = currentProject?.revenueDecomposition?.result as any;
-
-    // Retrieve baseline values from Onboarding and Revenue Decomposition
-    const oppsRaw = rdResult?.opportunitiesRequired || ob?.opportunities || ob?.pipeline;
-    let opportunities = parseFormattedNumber(oppsRaw, activeScenario.baseline.opportunities);
-
-    const winRateRaw = ob?.winRates || ob?.winRate || rd?.winRate;
-    let winRate = parseFormattedNumber(winRateRaw, activeScenario.baseline.winRate);
-
-    const acvRaw = rd?.acv;
-    let acv = parseFormattedNumber(acvRaw, activeScenario.baseline.acv);
-    
-    // Cycle length from onboarding pipeline performance
-    const cycleLengthRaw = ob?.pipelinePerformance;
-    let cycleLength = parseFormattedNumber(cycleLengthRaw, activeScenario.baseline.cycleLength);
+    // Start with the baseline metrics of the currently active scenario 
+    // (which now dynamically inherits and scales based on synced real data)
+    let opportunities = activeScenario.baseline.opportunities;
+    let winRate = activeScenario.baseline.winRate;
+    let acv = activeScenario.baseline.acv;
+    let cycleLength = activeScenario.baseline.cycleLength;
 
     // Segment modifier
     if (selectedSegment === 'Enterprise') {
@@ -219,11 +280,9 @@ export const GTMSimulationEngine: React.FC<GTMSimulationEngineProps> = ({
     }
 
     // Val Prop modifier
-    if (selectedValProp === 'ROI Telemetry') {
-      winRate += 2;
-    } else if (selectedValProp === 'Sub-Millisecond Speed') {
+    if (selectedValProp === 'Sub-Millisecond Speed') {
       acv = Math.round(acv * 1.15);
-    } else {
+    } else if (selectedValProp === 'Zero Setup Cost') {
       cycleLength = Math.round(cycleLength * 0.85);
     }
 
@@ -255,9 +314,7 @@ export const GTMSimulationEngine: React.FC<GTMSimulationEngineProps> = ({
     selectedMessaging,
     selectedSalesMotion,
     selectedChannel,
-    selectedMarketing,
-    currentProject?.onboarding,
-    currentProject?.revenueDecomposition
+    selectedMarketing
   ]);
 
   const { opportunities, winRate, acv, cycleLength } = calculatedMetrics;
@@ -639,26 +696,26 @@ export const GTMSimulationEngine: React.FC<GTMSimulationEngineProps> = ({
               Scenario Constraints Checklist
             </h4>
             
-            <div className="space-y-3.5 text-[11px] font-sans">
-              <div className="flex items-start justify-between gap-2">
+            <div className="space-y-4 text-[11px] font-sans">
+              <div className="flex flex-col gap-1">
                 <div className="text-text-secondary">Segment Attractiveness:</div>
                 <div className="font-bold text-text-primary">
                   {selectedSegment === 'Enterprise' ? 'High Tier Value' : selectedSegment === 'SMB/PLG' ? 'High Velocity Pool' : 'Stable Growth Core'}
                 </div>
               </div>
-              <div className="flex items-start justify-between gap-2">
+              <div className="flex flex-col gap-1">
                 <div className="text-text-secondary">Expected Conversion Ease:</div>
                 <div className="font-bold text-text-primary">
                   {selectedSalesMotion === 'PLG Self-Serve' ? 'Frictionless Bottom-up' : 'High-Touch / Multi-Threaded'}
                 </div>
               </div>
-              <div className="flex items-start justify-between gap-2">
+              <div className="flex flex-col gap-1">
                 <div className="text-text-secondary">Competitive Differentiation:</div>
                 <div className="font-bold text-text-primary">
                   {selectedValProp === 'ROI Telemetry' ? 'High Business Impact' : 'Technical Performance Edge'}
                 </div>
               </div>
-              <div className="flex items-start justify-between gap-2">
+              <div className="flex flex-col gap-1">
                 <div className="text-text-secondary">Pricing & win-rate impact:</div>
                 <div className="font-bold text-text-primary">
                   {opportunities > 200 ? 'High Win Count, Low Price' : 'Slightly Extended Cycles, High ACV'}
@@ -830,19 +887,19 @@ export const GTMSimulationEngine: React.FC<GTMSimulationEngineProps> = ({
                 <div className="md:col-span-1 space-y-3.5 pr-2 border-r border-border/20">
                   <div className="p-2.5 rounded-lg bg-red-500/5 border border-red-500/20">
                     <span className="text-[8px] font-mono font-bold tracking-widest text-red-400 block uppercase">Worst Case (P10)</span>
-                    <span className="text-xs font-black text-white">$ {Math.round(stochasticResults.p10 * 30).toLocaleString()} <span className="text-[9px] font-normal text-text-secondary">/mo</span></span>
+                    <span className="text-xs font-black text-text-primary">$ {Math.round(stochasticResults.p10 * 30).toLocaleString()} <span className="text-[9px] font-normal text-text-secondary">/mo</span></span>
                     <p className="text-[8px] text-text-secondary mt-0.5">Minimal channel conversion, high friction.</p>
                   </div>
 
                   <div className="p-2.5 rounded-lg bg-accent/5 border border-accent/20">
                     <span className="text-[8px] font-mono font-bold tracking-widest text-accent block uppercase">Expected Case (P50)</span>
-                    <span className="text-xs font-black text-white">$ {Math.round(stochasticResults.p50 * 30).toLocaleString()} <span className="text-[9px] font-normal text-text-secondary">/mo</span></span>
+                    <span className="text-xs font-black text-text-primary">$ {Math.round(stochasticResults.p50 * 30).toLocaleString()} <span className="text-[9px] font-normal text-text-secondary">/mo</span></span>
                     <p className="text-[8px] text-text-secondary mt-0.5">Normalized base track and trend speed.</p>
                   </div>
 
                   <div className="p-2.5 rounded-lg bg-[#00F090]/5 border border-[#00F090]/20">
                     <span className="text-[8px] font-mono font-bold tracking-widest text-[#00F090] block uppercase">Best Case (P90)</span>
-                    <span className="text-xs font-black text-white">$ {Math.round(stochasticResults.p90 * 30).toLocaleString()} <span className="text-[9px] font-normal text-text-secondary">/mo</span></span>
+                    <span className="text-xs font-black text-text-primary">$ {Math.round(stochasticResults.p90 * 30).toLocaleString()} <span className="text-[9px] font-normal text-text-secondary">/mo</span></span>
                     <p className="text-[8px] text-text-secondary mt-0.5">High market resonance, rapid cycles.</p>
                   </div>
                 </div>
@@ -884,10 +941,19 @@ export const GTMSimulationEngine: React.FC<GTMSimulationEngineProps> = ({
 
       {/* Scenario Matchmaker Comparative Grid Matrix */}
       <div className="p-5 rounded-2xl bg-bg-surface/50 border border-border/85 space-y-4">
-        <h4 className="text-xs font-bold text-text-primary uppercase tracking-wider font-mono flex items-center gap-1.5">
-          <BarChart3 className="h-4 w-4 text-accent" />
-          Scenario Matrix & Competitive Modeling (A-E)
-        </h4>
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <h4 className="text-xs font-bold text-text-primary uppercase tracking-wider font-mono flex items-center gap-1.5">
+            <BarChart3 className="h-4 w-4 text-accent" />
+            Scenario Matrix & Competitive Modeling (A-E)
+          </h4>
+          <button 
+            onClick={handleManualSync} 
+            className="flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg bg-accent/10 hover:bg-accent/20 border border-accent/20 text-accent transition-colors text-[10px] font-bold font-mono tracking-widest uppercase"
+          >
+            <RefreshCw className="h-3.5 w-3.5" />
+            Sync Real Data
+          </button>
+        </div>
 
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs text-text-secondary">
