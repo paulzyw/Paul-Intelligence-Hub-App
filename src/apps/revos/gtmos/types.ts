@@ -125,6 +125,11 @@ export interface GTMOSSimulationState {
   salesCycleSpeed: number;
   conversionRate: number;
   primaryGTMPath: string;
+  // Dynamic metrics from onboarding/RD overrides
+  acv?: number;
+  salesCycle?: number;
+  opportunitiesBase?: number;
+  winRate?: number;
 }
 
 export interface GTMOSRisk {
@@ -325,6 +330,7 @@ export interface GTMOSProject {
   simulationConfig: GTMOSSimulationState;
   risks: GTMOSRisk[];
   recommendations: GTMOSRecommendation[];
+  riskReasoningLog?: string | null;
   gtmStrategyDraft?: Record<string, string[]> | null;
   gtmCanvas?: Record<string, string> | null;
   gtmExecutionPlan?: GTMExecutionPlan | null;

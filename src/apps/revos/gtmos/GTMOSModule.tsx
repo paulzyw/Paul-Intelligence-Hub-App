@@ -36,19 +36,21 @@ import {
   FolderOpen,
   Loader2,
   Save,
-  ArrowUpRight
+  ArrowUpRight,
+  BrainCircuit,
+  Zap
 } from 'lucide-react';
 import { supabase } from '../../../lib/supabase';
 import { useRevOS } from '../context/RevOSContext';
 import { OnboardingCategoryFields, StrategyPillar, GTMOSActionTask, GTMOSSimulationState, GTMOSRisk, GTMOSRecommendation, GTMOSProject, CategoryId } from './types';
 import { CATEGORY_SPECS, INITIAL_ONBOARDING_FIELDS, EMPTY_ONBOARDING_FIELDS, SEED_PROJECTS, DEFAULT_PILLARS } from './initialState';
 import { OnboardingForms } from './OnboardingForms';
-import { SimulationTab } from './SimulationTab';
 import { GTMSimulationEngine } from './GTMSimulationEngine';
 import { GTMExecutionEngine } from './GTMExecutionEngine';
 import { GTMExecutionPlan } from './types';
 import { ExecutionPipeline } from './ExecutionPipeline';
 import { ExecutionDashboard } from './ExecutionDashboard';
+import { ExecutiveDashboard } from './ExecutiveDashboard';
 import { RevenueDecomposition } from './RevenueDecomposition';
 import ReactMarkdown from 'react-markdown';
 
@@ -267,6 +269,7 @@ export function GTMOSModule() {
   const [newDraftItemText, setNewDraftItemText] = useState<string>('');
   const [selectedAddPrefix, setSelectedAddPrefix] = useState<string>('');
   const [isGeneratingGtmDraft, setIsGeneratingGtmDraft] = useState<boolean>(false);
+  const [isGeneratingAudit, setIsGeneratingAudit] = useState<boolean>(false);
 
   // Step 11 Pitch Playground States
   const [playgroundBuyerType, setPlaygroundBuyerType] = useState<string>('economic_buyer');
@@ -1260,10 +1263,14 @@ export function GTMOSModule() {
 
   // Steps 18 - 19: Risk & Recommendations Audit trigger
   const runRiskAudit = async () => {
+    setIsGeneratingAudit(true);
     try {
       const results = await invokeGtmApi('risks-recommendations', {
         onboardingData: currentProject.onboarding,
-        strategyData: currentProject.pillars
+        strategyData: currentProject.pillars,
+        revenueDecomposition: currentProject.revenueDecomposition,
+        executionPlan: currentProject.gtmExecutionPlan,
+        simulationConfig: currentProject.simulationConfig
       });
 
       const nextList = projectsList.map(p => {
@@ -1271,7 +1278,8 @@ export function GTMOSModule() {
           return {
             ...p,
             risks: results.risks || [],
-            recommendations: results.recommendations || []
+            recommendations: results.recommendations || [],
+            riskReasoningLog: results.reasoningLog || null
           };
         }
         return p;
@@ -1279,6 +1287,8 @@ export function GTMOSModule() {
       await syncWithCloud(nextList, currentProjectId);
     } catch (err) {
       console.error(err);
+    } finally {
+      setIsGeneratingAudit(false);
     }
   };
 
@@ -1296,16 +1306,14 @@ export function GTMOSModule() {
     { num: 10, name: 'AI Reasoning' },
     { num: 11, name: 'GTM Strategy Draft' },
     { num: 12, name: 'GTM Strategy Canvas' },
-    { num: 13, name: 'Forecast Sandbox' },
-    { num: 14, name: 'Revenue Decomposition' },
-    { num: 15, name: 'GTM Simulation' },
-    { num: 16, name: 'GTM Execution Engine' },
-    { num: 17, name: 'Execution Pipeline' },
-    { num: 18, name: 'Execution Dashboard' },
-    { num: 19, name: 'Live Telemetry' },
-    { num: 20, name: 'Defense Audit' },
-    { num: 21, name: 'Pivotal Actions' },
-    { num: 22, name: 'ARR Forecast' }
+    { num: 13, name: 'Revenue Decomposition' },
+    { num: 14, name: 'GTM Simulation' },
+    { num: 15, name: 'GTM Execution Engine' },
+    { num: 16, name: 'Execution Pipeline' },
+    { num: 17, name: 'Execution Dashboard' },
+    { num: 18, name: 'Defense Audit' },
+    { num: 19, name: 'Pivotal Actions' },
+    { num: 20, name: 'Boardroom Insights' }
   ];
 
   const currentOnboardingCategory = CATEGORY_SPECS.find(c => c.stepNumber === activeStep);
@@ -1331,7 +1339,7 @@ export function GTMOSModule() {
         </div>
       </div>
 
-      {/* Horizontal rolling workflow timeline stepper (Steps 1 to 21) */}
+      {/* Horizontal rolling workflow timeline stepper (Steps 1 to 20) */}
       <div className="p-4 rounded-2xl bg-bg-surface/60 border border-border/80 shadow relative">
         <div className="flex items-center justify-between pointer-events-none mb-3 border-b border-border/40 pb-2">
           <span className="text-[10px] font-mono text-text-secondary uppercase">Unified strategic lifecycle sequence</span>
@@ -2198,19 +2206,8 @@ export function GTMOSModule() {
               </div>
             )}
 
-            {/* Step 13: Forecast Playground Sandbox */}
+            {/* Step 13: Revenue Decomposition */}
             {activeStep === 13 && (
-              <SimulationTab
-                config={currentProject.simulationConfig}
-                onChange={handleSimulationConfigChange}
-                tabMode="simulation"
-                onboardingData={currentProject.onboarding}
-                onRefreshProjectFromCloud={refreshProjectFromCloud}
-              />
-            )}
-
-            {/* Step 14: Revenue Decomposition */}
-            {activeStep === 14 && (
               <RevenueDecomposition
                 project={currentProject}
                 updateProject={(updates) => {
@@ -2218,13 +2215,13 @@ export function GTMOSModule() {
                   const nextList = projectsList.map(p => p.id === currentProjectId ? updatedProject : p);
                   syncWithCloud(nextList, currentProjectId);
                 }}
-                nextStep={() => handleStepChange(15)}
-                prevStep={() => handleStepChange(13)}
+                nextStep={() => handleStepChange(14)}
+                prevStep={() => handleStepChange(12)}
               />
             )}
 
-            {/* Step 15: GTM Simulation */}
-            {activeStep === 15 && (
+            {/* Step 14: GTM Simulation */}
+            {activeStep === 14 && (
               <GTMSimulationEngine
                 currentProject={currentProject}
                 projectsList={projectsList}
@@ -2233,8 +2230,8 @@ export function GTMOSModule() {
               />
             )}
 
-            {/* Step 16: GTM Execution Engine */}
-            {activeStep === 16 && (
+            {/* Step 15: GTM Execution Engine */}
+            {activeStep === 15 && (
               <GTMExecutionEngine
                 project={currentProject}
                 onSavePlan={handleSaveExecutionPlan}
@@ -2244,8 +2241,8 @@ export function GTMOSModule() {
               />
             )}
 
-            {/* Step 17: Execution Pipeline */}
-            {activeStep === 17 && (
+            {/* Step 16: Execution Pipeline */}
+            {activeStep === 16 && (
               <ExecutionPipeline
                 projects={projectsList}
                 currentProjectId={currentProjectId}
@@ -2253,77 +2250,16 @@ export function GTMOSModule() {
               />
             )}
 
-            {/* Step 18: Execution Dashboard */}
-            {activeStep === 18 && (
+            {/* Step 17: Execution Dashboard */}
+            {activeStep === 17 && (
               <ExecutionDashboard
                 projects={projectsList}
                 currentProjectId={currentProjectId}
               />
             )}
 
-            {/* Step 19: Performance Monitoring & Live telemetry */}
-            {activeStep === 19 && (
-              <div className="space-y-6 text-left">
-                <div className="p-4 rounded-xl bg-accent/5 border border-accent/20 flex gap-2.5">
-                  <Activity className="h-5 w-5 text-accent shrink-0 mt-0.5 animate-pulse" />
-                  <p className="text-xs">
-                    <span className="font-bold text-accent">Active Telemetry Tracker (Step 19): </span> 
-                    Displays live pipeline health ratings calculated by comparing active sales velocities against core operational variables inside onboarding Categories 1-8.
-                  </p>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                  {[
-                    { id: 'arr', name: 'Ending ARR RunRate', val: currentProject.onboarding.ARR || '$24,000,000', icon: TrendingUp },
-                    { id: 'pipe', name: 'Total open Pipeline', val: currentProject.onboarding.pipeline || '$72,000,000', icon: Target },
-                    { id: 'win', name: 'Close win ratio', val: currentProject.onboarding.winRate || '22%', icon: Award },
-                    { id: 'ret', name: 'Net Retention Index', val: currentProject.onboarding.customerRetention || '95%', icon: Heart }
-                  ].map(ticker => (
-                    <div key={ticker.id} className="p-4 rounded-2xl bg-bg-surface/50 border border-border flex items-center justify-between">
-                      <div>
-                        <span className="text-[9px] font-mono text-text-secondary uppercase tracking-widest">{ticker.name}</span>
-                        <div className="text-base font-black text-text-primary mt-1">{ticker.val}</div>
-                      </div>
-                      <div className="p-2.5 rounded-xl bg-accent/10 border border-accent/25">
-                        <ticker.icon className="h-4 w-4 text-accent" />
-                      </div>
-                    </div>
-                  ))}
-                </div>
-
-                {/* Simulated Telemetry charts */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div className="p-5 rounded-2xl bg-bg-surface/50 border border-border space-y-4">
-                    <span className="text-xs font-bold text-text-primary uppercase tracking-wider block">Daily Active Pipeline Conversion volume</span>
-                    <div className="h-44 bg-bg-primary/50 rounded-xl border border-border/80 flex items-center justify-center p-4">
-                      {/* Abstract visual telemetry bars representing metrics */}
-                      <div className="flex items-end justify-between w-full h-full gap-2.5 font-mono text-[9px] text-accent">
-                        {[45, 62, 55, 78, 69, 82, 90, 88].map((v, i) => (
-                          <div key={i} className="flex-1 flex flex-col justify-end items-center h-full">
-                            <div className="w-full bg-accent/20 border-t border-accent rounded-t" style={{ height: `${v}%` }} />
-                            <div className="text-[8px] text-text-secondary mt-1">D{i+1}</div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="p-5 rounded-2xl bg-bg-surface/50 border border-border space-y-4">
-                    <span className="text-xs font-bold text-text-primary uppercase tracking-wider block">Customer Satisfaction benchmark tracking</span>
-                    <div className="h-44 bg-bg-primary/50 text-center rounded-xl border border-border/80 flex flex-col items-center justify-center space-y-2">
-                      <div className="text-3xl font-black text-accent">{currentProject.onboarding.customerSatisfaction || '94%'} CSAT</div>
-                      <p className="text-[10px] text-text-secondary font-sans max-w-xs mx-auto px-4 leading-normal">Satisfactorily matching our priority targeted contract expansions.</p>
-                      <div className="h-1 bg-border/40 w-40 rounded-full overflow-hidden">
-                        <div className="bg-[#00F090] h-full" style={{ width: '94%' }} />
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* Step 20: Risk Detection */}
-            {activeStep === 20 && (
+            {/* Step 18: Risk Detection */}
+            {activeStep === 18 && (
               <div className="space-y-6 text-left">
                 <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center p-4 rounded-xl bg-accent/5 border border-accent/20 gap-4">
                   <div className="flex gap-2.5 items-start">
@@ -2336,11 +2272,33 @@ export function GTMOSModule() {
 
                   <button
                     onClick={runRiskAudit}
-                    className="px-4 py-2 bg-accent text-black font-extrabold text-xs rounded-xl hover:scale-105 active:scale-95 transition-all shrink-0"
+                    disabled={isGeneratingAudit}
+                    className="px-4 py-2 bg-accent text-black font-extrabold text-xs rounded-xl hover:scale-105 active:scale-95 transition-all shrink-0 flex items-center justify-center gap-1.5 disabled:opacity-50 disabled:pointer-events-none"
                   >
-                    Run Risks Detection Audit
+                    {isGeneratingAudit ? (
+                      <>
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                        Generating Audit...
+                      </>
+                    ) : (
+                      'Run Risks Detection Audit'
+                    )}
                   </button>
                 </div>
+
+                {currentProject.riskReasoningLog && (
+                  <div className="p-5 rounded-2xl bg-bg-surface/30 border border-accent/20 animate-in fade-in slide-in-from-top-2 duration-300">
+                    <div className="flex items-center gap-2 mb-3 border-b border-border/40 pb-3">
+                      <div className="w-6 h-6 rounded-lg bg-accent/10 flex items-center justify-center">
+                        <BrainCircuit className="h-3.5 w-3.5 text-accent" />
+                      </div>
+                      <span className="text-xs font-black text-text-primary uppercase tracking-wider">Gemini System Reasoning</span>
+                    </div>
+                    <div className="text-xs text-text-secondary leading-relaxed font-sans prose prose-invert max-w-none prose-p:my-1 prose-headings:text-text-primary prose-a:text-accent prose-strong:text-text-primary">
+                        <ReactMarkdown>{currentProject.riskReasoningLog}</ReactMarkdown>
+                    </div>
+                  </div>
+                )}
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                   {(currentProject.risks && currentProject.risks.length > 0 ? currentProject.risks : [
@@ -2364,22 +2322,40 @@ export function GTMOSModule() {
                     }
                   ]).map(r => (
                     <div key={r.id} className="p-5 rounded-2xl bg-bg-surface/50 border border-border space-y-4">
-                      <div className="flex items-center justify-between">
-                        <span className={`px-2 py-0.5 rounded text-[9px] font-bold uppercase ${
-                          r.level === 'Red' ? 'bg-red-500/15 text-red-400 border border-red-500/25' : 
-                          r.level === 'Orange' ? 'bg-amber-500/15 text-amber-500 border border-amber-500/25' : 
-                          'bg-yellow-500/10 text-yellow-400 border border-yellow-500/20'
+                      <div className="flex flex-wrap items-center gap-2 mb-1 border-b border-border/40 pb-3">
+                        <div className={`px-2.5 py-1.5 rounded-xl border text-[10px] font-bold uppercase tracking-wider flex items-center gap-1.5 ${
+                          r.level === 'Red' ? 'bg-red-500/15 text-red-500 border-red-500/30 shadow-lg shadow-red-500/10' : 
+                          r.level === 'Orange' ? 'bg-orange-500/15 text-orange-500 border-orange-500/30 shadow-lg shadow-orange-500/10' : 
+                          'bg-amber-500/15 text-amber-500 border-amber-500/30 shadow-lg shadow-amber-500/10'
                         }`}>
-                          {r.level} Risk Level
-                        </span>
-                        <div className="text-[10px] font-mono text-text-secondary">Impact: <span className="font-bold text-text-primary">{r.impact}</span></div>
+                          <ShieldAlert className="h-3.5 w-3.5" />
+                          {r.level} Risk
+                        </div>
+                        <div className="flex items-center gap-2 ml-auto">
+                          <div className={`px-2.5 py-1.5 rounded-lg border text-[10px] font-bold uppercase tracking-wider flex items-center gap-1.5 ${
+                            r.impact === 'Critical' ? 'bg-red-500/10 border-red-500/20 text-red-400' :
+                            r.impact === 'High' ? 'bg-orange-500/10 border-orange-500/20 text-orange-400' :
+                            'bg-blue-500/10 border-blue-500/20 text-blue-400'
+                          }`}>
+                            <AlertOctagon className="h-3 w-3" />
+                            Impact: {r.impact}
+                          </div>
+                          <div className={`px-2.5 py-1.5 rounded-lg border text-[10px] font-bold uppercase tracking-wider flex items-center gap-1.5 ${
+                            r.probability === 'High' ? 'bg-red-500/10 border-red-500/20 text-red-400' :
+                            r.probability === 'Medium' ? 'bg-orange-500/10 border-orange-500/20 text-orange-400' :
+                            'bg-blue-500/10 border-blue-500/20 text-blue-400'
+                          }`}>
+                            <Activity className="h-3 w-3" />
+                            Prob: {r.probability}
+                          </div>
+                        </div>
                       </div>
 
-                      <h4 className="text-sm font-bold text-text-primary">{r.title}</h4>
+                      <h4 className="text-sm font-bold text-text-primary mt-1">{r.title}</h4>
                       <p className="text-xs text-text-secondary leading-normal font-sans">{r.description}</p>
                       
-                      <div className="p-3 bg-bg-primary/50 rounded-xl border border-border/80 text-[11px] text-text-secondary font-sans leading-relaxed">
-                        <span className="font-bold text-accent mr-1">Proactive Mitigation:</span>
+                      <div className="p-3.5 bg-bg-primary/50 text-text-secondary rounded-xl border border-border/80 text-[11px] font-sans leading-relaxed flex flex-col gap-1.5 text-left">
+                        <span className="font-bold text-accent uppercase tracking-wider text-[9px]">Proactive Mitigation</span>
                         {r.mitigation}
                       </div>
                     </div>
@@ -2388,18 +2364,49 @@ export function GTMOSModule() {
               </div>
             )}
 
-            {/* Step 21: AI Optimization recommendations */}
-            {activeStep === 21 && (
+            {/* Step 19: AI Optimization recommendations */}
+            {activeStep === 19 && (
               <div className="space-y-6 text-left">
-                <div className="p-4 rounded-xl bg-accent/5 border border-accent/20 flex gap-2.5">
-                  <Bookmark className="h-5 w-5 text-accent shrink-0 mt-0.5" />
-                  <p className="text-xs">
-                    <span className="font-bold text-accent">Active Pivot center (Step 21): </span> 
-                    Lists recommended operational GTM optimization vectors cued to accelerate transaction velocity and secure margins.
-                  </p>
+                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center p-4 rounded-xl bg-accent/5 border border-accent/20 gap-4">
+                  <div className="flex gap-2.5 items-start">
+                    <Bookmark className="h-5 w-5 text-accent shrink-0 mt-0.5 animate-pulse" />
+                    <div>
+                      <h4 className="text-xs font-bold text-text-primary">Pivotal Actions & Optimization</h4>
+                      <p className="text-[11px] text-text-secondary font-sans leading-normal">Evaluates detected risks and structural gaps to surface high-leverage growth opportunities through Gemini reasoning.</p>
+                    </div>
+                  </div>
+
+                  <button
+                    onClick={runRiskAudit}
+                    disabled={isGeneratingAudit}
+                    className="px-4 py-2 bg-accent text-black font-extrabold text-xs rounded-xl hover:scale-105 active:scale-95 transition-all shrink-0 flex items-center justify-center gap-1.5 disabled:opacity-50 disabled:pointer-events-none"
+                  >
+                    {isGeneratingAudit ? (
+                      <>
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                        Generating Pivots...
+                      </>
+                    ) : (
+                      'Run Optimization Audit'
+                    )}
+                  </button>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+                {currentProject.riskReasoningLog && (
+                  <div className="p-5 rounded-2xl bg-bg-surface/30 border border-accent/20 animate-in fade-in slide-in-from-top-2 duration-300">
+                    <div className="flex items-center gap-2 mb-3 border-b border-border/40 pb-3">
+                      <div className="w-6 h-6 rounded-lg bg-accent/10 flex items-center justify-center">
+                        <BrainCircuit className="h-3.5 w-3.5 text-accent" />
+                      </div>
+                      <span className="text-xs font-black text-text-primary uppercase tracking-wider">Gemini System Reasoning</span>
+                    </div>
+                    <div className="text-xs text-text-secondary leading-relaxed font-sans prose prose-invert max-w-none prose-p:my-1 prose-headings:text-text-primary prose-a:text-accent prose-strong:text-text-primary">
+                        <ReactMarkdown>{currentProject.riskReasoningLog}</ReactMarkdown>
+                    </div>
+                  </div>
+                )}
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                   {(currentProject.recommendations && currentProject.recommendations.length > 0 ? currentProject.recommendations : [
                     {
                       id: 'rec-std-1',
@@ -2426,32 +2433,51 @@ export function GTMOSModule() {
                       actionableSteps: 'Furnish team reps with customizable financial calculations proving 9-month LTV CAC paybacks based on tool consolidations.'
                     }
                   ]).map(rec => (
-                    <div key={rec.id} className="p-5 rounded-2xl bg-bg-surface/50 border border-border flex flex-col justify-between space-y-4">
-                      <div className="space-y-2">
-                        <span className="text-[9px] font-mono font-bold text-accent uppercase tracking-wider block">{rec.category}</span>
-                        <h4 className="text-xs font-bold text-text-primary leading-snug">{rec.title}</h4>
-                        <p className="text-xs text-text-secondary leading-normal font-sans">{rec.actionableSteps}</p>
+                    <div key={rec.id} className="p-5 rounded-2xl bg-bg-surface/50 border border-border flex flex-col space-y-4">
+                      
+                      <div className="flex flex-wrap items-center gap-2 mb-1 border-b border-border/40 pb-3">
+                        <span className="px-2.5 py-1.5 rounded-xl border border-accent/30 bg-accent/10 text-accent text-[10px] font-bold uppercase tracking-wider flex items-center gap-1.5 shadow-lg shadow-accent/10">
+                          <Bookmark className="h-3.5 w-3.5" />
+                          {rec.category}
+                        </span>
+                        
+                        <div className="flex items-center gap-2 ml-auto">
+                          <div className={`px-2.5 py-1.5 rounded-lg border text-[10px] font-bold uppercase tracking-wider flex items-center gap-1.5 ${
+                            rec.impact === 'High' ? 'bg-green-500/10 border-green-500/20 text-green-400' :
+                            rec.impact === 'Moderate' ? 'bg-blue-500/10 border-blue-500/20 text-blue-400' :
+                            'bg-gray-500/10 border-gray-500/20 text-gray-400'
+                          }`}>
+                            <TrendingUp className="h-3 w-3" />
+                            Impact: {rec.impact}
+                          </div>
+                          
+                          <div className={`px-2.5 py-1.5 rounded-lg border text-[10px] font-bold uppercase tracking-wider flex items-center gap-1.5 ${
+                            rec.effort === 'High' ? 'bg-orange-500/10 border-orange-500/20 text-orange-400' :
+                            rec.effort === 'Medium' ? 'bg-amber-500/10 border-amber-500/20 text-amber-400' :
+                            'bg-green-500/10 border-green-500/20 text-green-400'
+                          }`}>
+                            <Zap className="h-3 w-3" />
+                            Effort: {rec.effort}
+                          </div>
+                        </div>
                       </div>
 
-                      <div className="grid grid-cols-2 gap-2 pt-3 border-t border-border/40 text-[10px]">
-                        <div>Impact level: <span className="font-bold text-accent">{rec.impact}</span></div>
-                        <div>Effort level: <span className="font-bold text-text-primary">{rec.effort}</span></div>
+                      <h4 className="text-sm font-bold text-text-primary mt-1">{rec.title}</h4>
+                      
+                      <div className="p-3.5 bg-bg-primary/50 text-text-secondary rounded-xl border border-border/80 text-[11px] font-sans leading-relaxed flex flex-col gap-1.5 text-left">
+                        <span className="font-bold text-accent uppercase tracking-wider text-[9px]">Actionable Pivot</span>
+                        {rec.actionableSteps}
                       </div>
+
                     </div>
                   ))}
                 </div>
               </div>
             )}
 
-            {/* Step 22: Predictive Revenue Forecasting curves */}
-            {activeStep === 22 && (
-              <SimulationTab
-                config={currentProject.simulationConfig}
-                onChange={handleSimulationConfigChange}
-                tabMode="forecast"
-                onboardingData={currentProject.onboarding}
-                onRefreshProjectFromCloud={refreshProjectFromCloud}
-              />
+            {/* Step 20: Executive/Boardroom Insights */}
+            {activeStep === 20 && (
+              <ExecutiveDashboard project={currentProject} />
             )}
           </motion.div>
         </AnimatePresence>
@@ -2525,7 +2551,7 @@ export function GTMOSModule() {
                 ? handleSaveAndContinueGlobal
                 : () => handleStepChange(activeStep + 1)
             }
-            disabled={activeStep >= 22 || saveState === 'saving'}
+            disabled={activeStep >= 20 || saveState === 'saving'}
             className="px-5 py-2 bg-accent hover:bg-accent/90 text-black font-extrabold text-xs rounded-xl disabled:opacity-30 disabled:pointer-events-none transition-all flex items-center gap-1.5 shadow h-10 cursor-pointer"
           >
             {activeStep >= 2 && activeStep <= 9 && saveState === 'dirty' ? (

@@ -94,7 +94,7 @@ serve(async (req) => {
 
   try {
     const rawBody = await req.json();
-    const { action, onboardingData, strategyData, projectName, categoryId, companyName, industry, currentFields, buyerType, pitchFormat, gtmStrategyDraft, activeScenario, activeParams } = rawBody;
+    const { action, onboardingData, strategyData, projectName, categoryId, companyName, industry, currentFields, buyerType, pitchFormat, gtmStrategyDraft, activeScenario, activeParams, revenueDecomposition, executionPlan, simulationConfig } = rawBody;
 
     const GTMOS_SYSTEM_INSTRUCTION = buildDynamicCGOInstruction(onboardingData);
 
@@ -497,16 +497,19 @@ serve(async (req) => {
         const response = await ai.models.generateContent({
           model: "gemini-3.1-flash-lite",
           contents: [
-            `Conduct an enterprise-grade Risk Detection (Step 18) and Optimization Recommendation (Step 19) audit for this GTM strategy.
-            Data: ${JSON.stringify({ onboardingData, strategyData })}
+            `Conduct an enterprise-grade Risk Detection (Step 19) and Optimization Recommendation (Step 20) audit for this GTM strategy.
+            You must deeply analyze the alignment (or mismatch) between the business targets, the execution plan, simulated projections, and current telemetry metrics.
+            
+            Data: ${JSON.stringify({ onboardingData, strategyData, revenueDecomposition, executionPlan, simulationConfig }, null, 2)}
 
-            Return exactly 3 risks with a matching title, probability ('High', 'Medium', 'Low'), impact ('Critical', 'High', 'Moderate'), and a detailed mitigation plan. Also return 3 actionable operational optimization recommendations.
+            Output a highly analytical assessment evaluating the quality of these plans. Clearly articulate the systemic reasoning. Then, return exactly 3 operationally detected risks with matching title, probability ('High', 'Medium', 'Low'), impact ('Critical', 'High', 'Moderate'), and a detailed mitigation plan. Also return 3 actionable operational optimization recommendations.
 
             FEW-SHOT EXAMPLE RISK:
             - "Title": "CRM Process Tracking Leakage"
+            - "Level": "Red"
             - "Probability": "High"
             - "Impact": "High"
-            - "Description": "Sloppy CRM onboarding leads to critical sales velocity calculation gaps."
+            - "Description": "Sloppy CRM onboarding leads to critical sales velocity calculation gaps, risking the $10M pipeline target."
             - "Mitigation": "Deploy native CRM validation gatekeepers to block stage progression without verified metrics."`
           ],
           config: {
@@ -515,6 +518,7 @@ serve(async (req) => {
             responseSchema: {
               type: Type.OBJECT,
               properties: {
+                reasoningLog: { type: Type.STRING, description: "Detailed reasoning logic to support your assessment of the execution plans and strategy." },
                 risks: {
                   type: Type.ARRAY,
                   items: {
@@ -547,7 +551,7 @@ serve(async (req) => {
                   }
                 }
               },
-              required: ["risks", "recommendations"]
+              required: ["reasoningLog", "risks", "recommendations"]
             }
           }
         });

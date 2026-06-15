@@ -95,39 +95,50 @@ export const GTMSimulationEngine: React.FC<GTMSimulationEngineProps> = ({
 }) => {
   const [showGuide, setShowGuide] = useState<boolean>(true);
   
-  // Real data sync state
-  const [syncedData, setSyncedData] = useState<{
-    opportunities?: number;
-    winRate?: number;
-    acv?: number;
-    cycleLength?: number;
-  }>({});
-
-  const handleManualSync = () => {
+  // Dynamically derive synced data reactively from onboarding input and revenue decomposition
+  const syncedData = useMemo(() => {
     const ob = currentProject?.onboarding as any;
     const rd = currentProject?.revenueDecomposition?.config;
     const rdResult = currentProject?.revenueDecomposition?.result as any;
 
     const oppsRaw = rdResult?.opportunitiesRequired || ob?.opportunities || ob?.pipeline;
-    const winRateRaw = ob?.winRates || ob?.winRate || rd?.winRate;
+    const winRateRaw = rd?.winRate || ob?.winRates || ob?.winRate;
     const acvRaw = rd?.acv;
     const cycleLengthRaw = ob?.pipelinePerformance;
-    
-    setSyncedData({
-      opportunities: oppsRaw ? parseFormattedNumber(oppsRaw, 0) : undefined,
-      winRate: winRateRaw ? parseFormattedNumber(winRateRaw, 0) : undefined,
-      acv: acvRaw ? parseFormattedNumber(acvRaw, 0) : undefined,
-      cycleLength: cycleLengthRaw ? parseFormattedNumber(cycleLengthRaw, 0) : undefined,
-    });
-  };
+    const rawSpend = ob?.availableBudget;
+
+    let derivedSpend = parseFormattedNumber(rawSpend, 15000);
+    if (derivedSpend > 120000) {
+      derivedSpend = Math.round(derivedSpend / 12);
+    }
+
+    return {
+      opportunities: oppsRaw ? parseFormattedNumber(oppsRaw, 120) : 120,
+      winRate: winRateRaw ? parseFormattedNumber(winRateRaw, 12) : 12,
+      acv: acvRaw ? parseFormattedNumber(acvRaw, 45000) : 45000,
+      cycleLength: cycleLengthRaw ? parseFormattedNumber(cycleLengthRaw, 75) : 75,
+      gtmSpend: derivedSpend
+    };
+  }, [currentProject]);
+
+  const [manualOpportunities, setManualOpportunities] = useState<number>(0);
+  const [manualWinRate, setManualWinRate] = useState<number>(0);
+  const [manualAcv, setManualAcv] = useState<number>(0);
+  const [manualCycleLength, setManualCycleLength] = useState<number>(0);
 
   useEffect(() => {
-    // Auto-sync initially if we have real data available but it isn't set
-    const hasData = currentProject?.onboarding || currentProject?.revenueDecomposition;
-    if (hasData && !syncedData.opportunities && !syncedData.acv) {
-      handleManualSync();
-    }
-  }, [currentProject]);
+    if (syncedData.opportunities) setManualOpportunities(syncedData.opportunities);
+    if (syncedData.winRate) setManualWinRate(syncedData.winRate);
+    if (syncedData.acv) setManualAcv(syncedData.acv);
+    if (syncedData.cycleLength) setManualCycleLength(syncedData.cycleLength);
+  }, [syncedData]);
+
+  const handleManualSync = () => {
+    setManualOpportunities(syncedData.opportunities);
+    setManualWinRate(syncedData.winRate);
+    setManualAcv(syncedData.acv);
+    setManualCycleLength(syncedData.cycleLength);
+  };
 
   // Scenarios and presets
   const scenarios = useMemo(() => {
@@ -289,10 +300,10 @@ export const GTMSimulationEngine: React.FC<GTMSimulationEngineProps> = ({
 
   // Parameters derived from the combinations
   const calculatedMetrics = useMemo(() => {
-    let opportunities = activeScenario.baseline.opportunities;
-    let winRate = activeScenario.baseline.winRate;
-    let acv = activeScenario.baseline.acv;
-    let cycleLength = activeScenario.baseline.cycleLength;
+    let opportunities = manualOpportunities || activeScenario.baseline.opportunities;
+    let winRate = manualWinRate || activeScenario.baseline.winRate;
+    let acv = manualAcv || activeScenario.baseline.acv;
+    let cycleLength = manualCycleLength || activeScenario.baseline.cycleLength;
 
     const heuristics = currentProject.simulationHeuristics;
 
@@ -664,6 +675,10 @@ export const GTMSimulationEngine: React.FC<GTMSimulationEngineProps> = ({
                   setSelectedSalesMotionIdx(0);
                   setSelectedChannelIdx(1);
                   setSelectedMarketingIdx(0);
+                  setManualOpportunities(syncedData.opportunities || 0);
+                  setManualWinRate(syncedData.winRate || 0);
+                  setManualAcv(syncedData.acv || 0);
+                  setManualCycleLength(syncedData.cycleLength || 0);
                 }}
                 className="text-[9px] font-mono text-text-secondary/60 hover:text-accent font-bold uppercase transition-colors"
               >
@@ -672,6 +687,26 @@ export const GTMSimulationEngine: React.FC<GTMSimulationEngineProps> = ({
             </div>
 
             <div className="space-y-4">
+              {/* Parameter Overrides */}
+              <div className="space-y-2">
+                <label className="text-[10px] font-mono text-text-secondary uppercase">Opportunities Base: {manualOpportunities}</label>
+                <input type="range" min="5" max="1000" value={manualOpportunities} onChange={e => setManualOpportunities(parseInt(e.target.value))} className="w-full h-1.5 bg-border rounded-lg appearance-none cursor-pointer accent-accent" />
+              </div>
+              <div className="space-y-2">
+                <label className="text-[10px] font-mono text-text-secondary uppercase">Win Rate %: {manualWinRate}</label>
+                <input type="range" min="1" max="95" value={manualWinRate} onChange={e => setManualWinRate(parseInt(e.target.value))} className="w-full h-1.5 bg-border rounded-lg appearance-none cursor-pointer accent-accent" />
+              </div>
+              <div className="space-y-2">
+                <label className="text-[10px] font-mono text-text-secondary uppercase">ACV: ${manualAcv.toLocaleString()}</label>
+                <input type="range" min="1000" max="1000000" step="5000" value={manualAcv} onChange={e => setManualAcv(parseInt(e.target.value))} className="w-full h-1.5 bg-border rounded-lg appearance-none cursor-pointer accent-accent" />
+              </div>
+              <div className="space-y-2">
+                <label className="text-[10px] font-mono text-text-secondary uppercase">Cycle Length (days): {manualCycleLength}</label>
+                <input type="range" min="5" max="365" value={manualCycleLength} onChange={e => setManualCycleLength(parseInt(e.target.value))} className="w-full h-1.5 bg-border rounded-lg appearance-none cursor-pointer accent-accent" />
+              </div>
+
+              <div className="my-6 border-b border-border/30" />
+
               {/* Parameter 1: Segment */}
               <div className="space-y-1.5">
                 <label className="text-[10px] font-mono text-text-secondary uppercase">1. Segment Selection</label>

@@ -1,11 +1,12 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { RevOSState, RevOSProfile, RevOSOrg } from '../types';
+import { RevOSState, RevOSProfile, RevOSOrg, GTMOSStrategy } from '../types';
 import { supabase } from '../../../lib/supabase';
 import { useAuth } from '../../../hooks/useAuth';
 
 interface RevOSContextType extends RevOSState {
   refreshProfile: () => Promise<void>;
   signOut: () => Promise<void>;
+  currentStrategy: GTMOSStrategy | null;
 }
 
 const RevOSContext = createContext<RevOSContextType | undefined>(undefined);
@@ -18,6 +19,7 @@ export function RevOSProvider({ children }: { children: React.ReactNode }) {
     isLoading: true,
     error: null,
   });
+  const [currentStrategy, setCurrentStrategy] = useState<GTMOSStrategy | null>(null);
 
   const fetchOrgDetails = async (profile: any) => {
     if (!profile) {
@@ -37,6 +39,16 @@ export function RevOSProvider({ children }: { children: React.ReactNode }) {
           .single();
         org = orgData;
       }
+      
+      let strategy = null;
+      if (profile.org_id) {
+        const { data: strategyData } = await supabase
+          .from('gtmos_strategies') // Assuming a table named gtmos_strategies
+          .select('*')
+          .eq('org_id', profile.org_id)
+          .maybeSingle(); // Maybe handle multiple if the app supports it
+        strategy = strategyData;
+      }
 
       setState({
         profile: profile as RevOSProfile,
@@ -44,6 +56,7 @@ export function RevOSProvider({ children }: { children: React.ReactNode }) {
         isLoading: false,
         error: null,
       });
+      setCurrentStrategy(strategy);
     } catch (err: any) {
       console.error('Error fetching RevOS org details:', err);
       setState({
@@ -93,7 +106,7 @@ export function RevOSProvider({ children }: { children: React.ReactNode }) {
   };
 
   return (
-    <RevOSContext.Provider value={{ ...state, refreshProfile: () => fetchOrgDetails(authProfile), signOut }}>
+    <RevOSContext.Provider value={{ ...state, refreshProfile: () => fetchOrgDetails(authProfile), signOut, currentStrategy }}>
       {children}
     </RevOSContext.Provider>
   );
