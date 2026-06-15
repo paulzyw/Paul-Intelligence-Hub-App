@@ -302,6 +302,13 @@ export interface RevenueDecompositionData {
   result: RevenueDecompositionResult | null;
 }
 
+export interface SimulationHeuristicModifiers {
+  opportunities: number;
+  winRate: number;
+  acv: number;
+  cycleLength: number;
+}
+
 export interface GTMOSProject {
   id: string;
   title: string;
@@ -323,4 +330,6 @@ export interface GTMOSProject {
   gtmExecutionPlan?: GTMExecutionPlan | null;
   archivedExecutionPlan?: GTMExecutionPlan | null;
   revenueDecomposition?: RevenueDecompositionData | null;
+  simulationStrategicOptions?: Record<string, string[]>;
+  simulationHeuristics?: Record<string, SimulationHeuristicModifiers[]>;
 }

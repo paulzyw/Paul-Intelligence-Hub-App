@@ -765,28 +765,16 @@ export function GTMOSModule() {
   // Step 11 Draft Strategy Mutators & Generators
   const runGtmDraftGeneration = async () => {
     setIsGeneratingGtmDraft(true);
+    let strategyDraftResult: any = null;
+
     try {
-      const data = await invokeGtmApi('generate-gtm-draft', {
+      strategyDraftResult = await invokeGtmApi('generate-gtm-draft', {
         onboardingData: currentProject.onboarding,
         projectName: currentProject.title
       });
-
-      const nextList = projectsList.map(p => {
-        if (p.id === currentProjectId) {
-          return {
-            ...p,
-            gtmStrategyDraft: data,
-            currentStep: 11
-          };
-        }
-        return p;
-      });
-
-      await syncWithCloud(nextList, currentProjectId);
-      setActiveStep(11);
     } catch (err) {
       console.error('GTM Draft generation error, applying fallback:', err);
-      const fallback = {
+      strategyDraftResult = {
         pillar_1_market_segmentation: [
           `Market Segments: B2B Enterprise Software environments within ${currentProject.onboarding.targetIndustries || 'high-growth SaaS and enterprise tech'} sectors.`,
           `Segment Prioritization: Prioritized targeting of ${currentProject.onboarding.customerSizes || '100 - 500 employee companies'} showing high immediate need.`,
@@ -855,22 +843,44 @@ export function GTMOSModule() {
           `Continuous Improvement Framework: Iterative optimization of active enforcement rules based on actual win-loss trends.`
         ]
       };
-
-      const nextList = projectsList.map(p => {
-        if (p.id === currentProjectId) {
-          return {
-            ...p,
-            gtmStrategyDraft: fallback,
-            currentStep: 11
-          };
-        }
-        return p;
-      });
-      await syncWithCloud(nextList, currentProjectId);
-      setActiveStep(11);
-    } finally {
-      setIsGeneratingGtmDraft(false);
     }
+
+    let finalProjData: any = null;
+    let nextList = projectsList.map(p => {
+      if (p.id === currentProjectId) {
+        const tempProj = {
+          ...p,
+          gtmStrategyDraft: strategyDraftResult,
+          currentStep: 11
+        };
+        finalProjData = {
+          ...tempProj,
+          simulationStrategicOptions: extractSnapshotOptions(tempProj)
+        };
+        return finalProjData;
+      }
+      return p;
+    });
+
+    if (finalProjData) {
+      const heuristicsData = await invokeGtmApi('generate-simulation-heuristics', {
+        options: finalProjData.simulationStrategicOptions
+      }).catch((e) => {
+        console.error("Heuristics API failure:", e);
+        return null;
+      });
+
+      if (heuristicsData && heuristicsData.segments) {
+        nextList = nextList.map(p => 
+          p.id === currentProjectId ? { ...p, simulationHeuristics: heuristicsData } : p
+        );
+      }
+    }
+
+    setProjectsList(nextList);
+    await syncWithCloud(nextList, currentProjectId);
+    setActiveStep(11);
+    setIsGeneratingGtmDraft(false);
   };
 
   const handleUpdateDraftItem = (pillarKey: string, index: number, newText: string) => {
@@ -1013,10 +1023,71 @@ export function GTMOSModule() {
     }
   };
 
+  const extractSnapshotOptions = (proj: Pick<GTMOSProject, 'onboarding' | 'gtmStrategyDraft'>) => {
+    const ob = proj.onboarding || {} as any;
+    const draft = proj.gtmStrategyDraft || {};
+    
+    // We can enrich onboarding texts with draft first items.
+    const getStr = (obStr: string | undefined, draftKey: string) => {
+      let base = obStr || '';
+      if (draft && draft[draftKey] && draft[draftKey][0]) {
+        base += `, ${draft[draftKey][0]}`;
+      }
+      return base;
+    };
+
+    const segmentsStr = getStr(ob.targetIndustries, 'pillar_1_market_segmentation');
+    const icpsStr = getStr(ob.bestCustomers, 'pillar_2_icp');
+    const personasStr = getStr(ob.typicalBuyers, 'pillar_3_buyer_personas');
+    const valPropsStr = getStr(ob.uniqueDifferentiators, 'pillar_4_value_proposition');
+    const motionsStr = getStr(ob.currentSalesMotion, 'pillar_6_sales_motion');
+    const channelsStr = getStr(ob.currentChannels, 'pillar_5_distribution_channels');
+    const marketingStr = getStr(ob.currentMarketingActivities, 'pillar_5_distribution_channels');
+
+    const getOptions = (field: string | undefined, fallbacks: string[]) => {
+      if (!field || field.trim() === '') return fallbacks;
+      const parts = field.split(/[,;\n|]/).map(s => s.trim()).filter(Boolean);
+      const opts = [];
+      if (parts.length >= 1) opts.push(parts[0].substring(0, 24)); else opts.push(fallbacks[0]);
+      if (parts.length >= 2) opts.push(parts[1].substring(0, 24)); else opts.push(fallbacks[1]);
+      if (parts.length >= 3) opts.push(parts[2].substring(0, 24)); else opts.push(fallbacks[2]);
+      return opts;
+    };
+
+    return {
+      segments: getOptions(segmentsStr, ['Enterprise', 'Mid-Market', 'SMB/PLG']),
+      icps: getOptions(icpsStr, ['Enterprise Scaling', 'Developer Groups', 'Legacy Migrations']),
+      personas: getOptions(personasStr, ['Economic Buyer', 'Technical Evaluator', 'Head of Ops']),
+      valProps: getOptions(valPropsStr, ['ROI Telemetry', 'Sub-Millisecond Speed', 'Zero Setup Cost']),
+      messaging: getOptions(ob.painPoints, ['Business/Outcome', 'Technical/Deep', 'Operational/Easy']),
+      motions: getOptions(motionsStr, ['Direct Outbound', 'PLG Self-Serve', 'Indirect Partner']),
+      channels: getOptions(channelsStr, ['CRM Marketplace', 'Direct Sales Force', 'Inbound Search']),
+      marketing: getOptions(marketingStr, ['Paid Campaigns', 'Strategic Events', 'Viral Growth'])
+    };
+  };
+
   const handleSaveDraftStrategyGlobal = async () => {
     setSaveState('saving');
     try {
-      await syncWithCloud(projectsList, currentProjectId);
+      const snapshot = extractSnapshotOptions(currentProject);
+      let heuristics = currentProject.simulationHeuristics;
+      
+      const heuristicsData = await invokeGtmApi('generate-simulation-heuristics', {
+        options: snapshot
+      }).catch(err => {
+        console.error("Failed to generate simulation heuristics", err);
+        return null; // fallback gracefully
+      });
+      
+      if (heuristicsData && heuristicsData.segments) {
+        heuristics = heuristicsData;
+      }
+
+      const nextList = projectsList.map(p => 
+        p.id === currentProjectId ? { ...p, simulationStrategicOptions: snapshot, simulationHeuristics: heuristics } : p
+      );
+      setProjectsList(nextList);
+      await syncWithCloud(nextList, currentProjectId);
       setSaveState('saved');
     } catch (err) {
       console.error(err);

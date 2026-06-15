@@ -236,66 +236,130 @@ export const GTMSimulationEngine: React.FC<GTMSimulationEngineProps> = ({
     return scenarios.find(s => s.id === activeScenarioId) || scenarios[0];
   }, [activeScenarioId, scenarios]);
 
+  // Dynamic Option Generator based on onboarding data or saved snapshot
+  const dynamicOptions = useMemo(() => {
+    if (currentProject.simulationStrategicOptions) {
+      return {
+        segments: currentProject.simulationStrategicOptions.segments || ['Enterprise', 'Mid-Market', 'SMB/PLG'],
+        icps: currentProject.simulationStrategicOptions.icps || ['Enterprise Scaling', 'Developer Groups', 'Legacy Migrations'],
+        personas: currentProject.simulationStrategicOptions.personas || ['Economic Buyer', 'Technical Evaluator', 'Head of Ops'],
+        valProps: currentProject.simulationStrategicOptions.valProps || ['ROI Telemetry', 'Sub-Millisecond Speed', 'Zero Setup Cost'],
+        messaging: currentProject.simulationStrategicOptions.messaging || ['Business/Outcome', 'Technical/Deep', 'Operational/Easy'],
+        motions: currentProject.simulationStrategicOptions.motions || ['Direct Outbound', 'PLG Self-Serve', 'Indirect Partner'],
+        channels: currentProject.simulationStrategicOptions.channels || ['CRM Marketplace', 'Direct Sales Force', 'Inbound Search'],
+        marketing: currentProject.simulationStrategicOptions.marketing || ['Paid Campaigns', 'Strategic Events', 'Viral Growth']
+      };
+    }
+
+    const ob = currentProject.onboarding || {} as any;
+    
+    // Helper to safely extract exact 3 options from comma-separated text or default to fallbacks
+    const getOptions = (field: string | undefined, fallbacks: string[]) => {
+      if (!field || field.trim() === '') return fallbacks;
+      // split by common delimiters
+      const parts = field.split(/[,;\n|]/).map(s => s.trim()).filter(Boolean);
+      const opts = [];
+      if (parts.length >= 1) opts.push(parts[0].substring(0, 24)); else opts.push(fallbacks[0]);
+      if (parts.length >= 2) opts.push(parts[1].substring(0, 24)); else opts.push(fallbacks[1]);
+      if (parts.length >= 3) opts.push(parts[2].substring(0, 24)); else opts.push(fallbacks[2]);
+      return opts;
+    };
+
+    return {
+      segments: getOptions(ob.targetIndustries, ['Enterprise', 'Mid-Market', 'SMB/PLG']),
+      icps: getOptions(ob.bestCustomers, ['Enterprise Scaling', 'Developer Groups', 'Legacy Migrations']),
+      personas: getOptions(ob.typicalBuyers, ['Economic Buyer', 'Technical Evaluator', 'Head of Ops']),
+      valProps: getOptions(ob.uniqueDifferentiators, ['ROI Telemetry', 'Sub-Millisecond Speed', 'Zero Setup Cost']),
+      messaging: getOptions(ob.painPoints, ['Business/Outcome', 'Technical/Deep', 'Operational/Easy']),
+      motions: getOptions(ob.currentSalesMotion, ['Direct Outbound', 'PLG Self-Serve', 'Indirect Partner']),
+      channels: getOptions(ob.currentChannels, ['CRM Marketplace', 'Direct Sales Force', 'Inbound Search']),
+      marketing: getOptions(ob.currentMarketingActivities, ['Paid Campaigns', 'Strategic Events', 'Viral Growth'])
+    };
+  }, [currentProject.onboarding]);
+
   // Strategic Option overrides & parameters
-  const [selectedSegment, setSelectedSegment] = useState<'Enterprise' | 'Mid-Market' | 'SMB/PLG'>('Mid-Market');
-  const [selectedIcp, setSelectedIcp] = useState<'Enterprise Scaling' | 'Developer Groups' | 'Legacy Migrations'>('Enterprise Scaling');
-  const [selectedPersona, setSelectedPersona] = useState<'Economic Buyer' | 'Technical Evaluator' | 'Head of Ops'>('Economic Buyer');
-  const [selectedValProp, setSelectedValProp] = useState<'ROI Telemetry' | 'Sub-Millisecond Speed' | 'Zero Setup Cost'>('ROI Telemetry');
-  const [selectedMessaging, setSelectedMessaging] = useState<'Business/Outcome' | 'Technical/Deep' | 'Operational/Easy'>('Business/Outcome');
-  const [selectedSalesMotion, setSelectedSalesMotion] = useState<'Direct Outbound' | 'PLG Self-Serve' | 'Indirect Partner'>('Direct Outbound');
-  const [selectedChannel, setSelectedChannel] = useState<'CRM Marketplace' | 'Direct Sales Force' | 'Inbound Search'>('Direct Sales Force');
-  const [selectedMarketing, setSelectedMarketing] = useState<'Paid Campaigns' | 'Strategic Events' | 'Viral Growth'>('Paid Campaigns');
+  const [selectedSegmentIdx, setSelectedSegmentIdx] = useState<number>(1);
+  const [selectedIcpIdx, setSelectedIcpIdx] = useState<number>(0);
+  const [selectedPersonaIdx, setSelectedPersonaIdx] = useState<number>(0);
+  const [selectedValPropIdx, setSelectedValPropIdx] = useState<number>(0);
+  const [selectedMessagingIdx, setSelectedMessagingIdx] = useState<number>(0);
+  const [selectedSalesMotionIdx, setSelectedSalesMotionIdx] = useState<number>(0);
+  const [selectedChannelIdx, setSelectedChannelIdx] = useState<number>(1);
+  const [selectedMarketingIdx, setSelectedMarketingIdx] = useState<number>(0);
 
   // Parameters derived from the combinations
   const calculatedMetrics = useMemo(() => {
-    // Start with the baseline metrics of the currently active scenario 
-    // (which now dynamically inherits and scales based on synced real data)
     let opportunities = activeScenario.baseline.opportunities;
     let winRate = activeScenario.baseline.winRate;
     let acv = activeScenario.baseline.acv;
     let cycleLength = activeScenario.baseline.cycleLength;
 
-    // Segment modifier
-    if (selectedSegment === 'Enterprise') {
-      opportunities = Math.round(opportunities * 0.4);
-      acv = Math.round(acv * 2.8);
-      cycleLength = Math.round(cycleLength * 1.5);
-      winRate -= 2;
-    } else if (selectedSegment === 'SMB/PLG') {
-      opportunities = Math.round(opportunities * 2.5);
-      acv = Math.round(acv * 0.35);
-      cycleLength = Math.round(cycleLength * 0.4);
-      winRate += 4;
-    }
+    const heuristics = currentProject.simulationHeuristics;
 
-    // ICP modifier
-    if (selectedIcp === 'Developer Groups') {
-      opportunities = Math.round(opportunities * 1.3);
-      acv = Math.round(acv * 0.7);
-      winRate += 3;
-    } else if (selectedIcp === 'Legacy Migrations') {
-      acv = Math.round(acv * 1.4);
-      cycleLength = Math.round(cycleLength * 1.3);
-      winRate -= 1;
-    }
+    if (heuristics) {
+      const applyHeuristic = (categoryName: string, idx: number) => {
+        const catHeuristics = heuristics[categoryName];
+        if (catHeuristics && catHeuristics[idx]) {
+          const mod = catHeuristics[idx];
+          opportunities = Math.round(opportunities * (mod.opportunities ?? 1));
+          acv = Math.round(acv * (mod.acv ?? 1));
+          cycleLength = Math.round(cycleLength * (mod.cycleLength ?? 1));
+          winRate += (mod.winRate ?? 0);
+        }
+      };
 
-    // Val Prop modifier
-    if (selectedValProp === 'Sub-Millisecond Speed') {
-      acv = Math.round(acv * 1.15);
-    } else if (selectedValProp === 'Zero Setup Cost') {
-      cycleLength = Math.round(cycleLength * 0.85);
-    }
+      applyHeuristic('segments', selectedSegmentIdx);
+      applyHeuristic('icps', selectedIcpIdx);
+      applyHeuristic('personas', selectedPersonaIdx);
+      applyHeuristic('valProps', selectedValPropIdx);
+      applyHeuristic('messaging', selectedMessagingIdx);
+      applyHeuristic('motions', selectedSalesMotionIdx);
+      applyHeuristic('channels', selectedChannelIdx);
+      applyHeuristic('marketing', selectedMarketingIdx);
+    } else {
+      // Fallback heuristics
+      // Segment modifier
+      if (selectedSegmentIdx === 0) {
+        opportunities = Math.round(opportunities * 0.4);
+        acv = Math.round(acv * 2.8);
+        cycleLength = Math.round(cycleLength * 1.5);
+        winRate -= 2;
+      } else if (selectedSegmentIdx === 2) {
+        opportunities = Math.round(opportunities * 2.5);
+        acv = Math.round(acv * 0.35);
+        cycleLength = Math.round(cycleLength * 0.4);
+        winRate += 4;
+      }
 
-    // Sales Motion modifiers
-    if (selectedSalesMotion === 'PLG Self-Serve') {
-      opportunities = Math.round(opportunities * 2.1);
-      acv = Math.round(acv * 0.25);
-      cycleLength = Math.round(cycleLength * 0.35);
-      winRate = Math.max(2, winRate - 6);
-    } else if (selectedSalesMotion === 'Indirect Partner') {
-      opportunities = Math.round(opportunities * 0.8);
-      winRate += 3;
-      cycleLength = Math.round(cycleLength * 0.9);
+      // ICP modifier
+      if (selectedIcpIdx === 1) {
+        opportunities = Math.round(opportunities * 1.3);
+        acv = Math.round(acv * 0.7);
+        winRate += 3;
+      } else if (selectedIcpIdx === 2) {
+        acv = Math.round(acv * 1.4);
+        cycleLength = Math.round(cycleLength * 1.3);
+        winRate -= 1;
+      }
+
+      // Val Prop modifier
+      if (selectedValPropIdx === 1) {
+        acv = Math.round(acv * 1.15);
+      } else if (selectedValPropIdx === 2) {
+        cycleLength = Math.round(cycleLength * 0.85);
+      }
+
+      // Sales Motion modifiers
+      if (selectedSalesMotionIdx === 1) {
+        opportunities = Math.round(opportunities * 2.1);
+        acv = Math.round(acv * 0.25);
+        cycleLength = Math.round(cycleLength * 0.35);
+        winRate = Math.max(2, winRate - 6);
+      } else if (selectedSalesMotionIdx === 2) {
+        opportunities = Math.round(opportunities * 0.8);
+        winRate += 3;
+        cycleLength = Math.round(cycleLength * 0.9);
+      }
     }
 
     // Sanity clamps
@@ -307,14 +371,15 @@ export const GTMSimulationEngine: React.FC<GTMSimulationEngineProps> = ({
     return { opportunities, winRate, acv, cycleLength };
   }, [
     activeScenario,
-    selectedSegment,
-    selectedIcp,
-    selectedPersona,
-    selectedValProp,
-    selectedMessaging,
-    selectedSalesMotion,
-    selectedChannel,
-    selectedMarketing
+    currentProject.simulationHeuristics,
+    selectedSegmentIdx,
+    selectedIcpIdx,
+    selectedPersonaIdx,
+    selectedValPropIdx,
+    selectedMessagingIdx,
+    selectedSalesMotionIdx,
+    selectedChannelIdx,
+    selectedMarketingIdx
   ]);
 
   const { opportunities, winRate, acv, cycleLength } = calculatedMetrics;
@@ -547,14 +612,14 @@ export const GTMSimulationEngine: React.FC<GTMSimulationEngineProps> = ({
                   setActiveScenarioId(s.id);
                   // preset resets
                   if (s.id === 'Scenario D: Product-Led Growth') {
-                    setSelectedSegment('SMB/PLG');
-                    setSelectedSalesMotion('PLG Self-Serve');
+                    setSelectedSegmentIdx(2);
+                    setSelectedSalesMotionIdx(1);
                   } else if (s.id === 'Scenario B: Vertical Specialization') {
-                    setSelectedSegment('Enterprise');
-                    setSelectedSalesMotion('Direct Outbound');
+                    setSelectedSegmentIdx(0);
+                    setSelectedSalesMotionIdx(0);
                   } else {
-                    setSelectedSegment('Mid-Market');
-                    setSelectedSalesMotion('Direct Outbound');
+                    setSelectedSegmentIdx(1);
+                    setSelectedSalesMotionIdx(0);
                   }
                 }}
                 className={`p-4 rounded-xl text-left border transition-all flex flex-col justify-between cursor-pointer group ${
@@ -591,14 +656,14 @@ export const GTMSimulationEngine: React.FC<GTMSimulationEngineProps> = ({
               </div>
               <button
                 onClick={() => {
-                  setSelectedSegment('Mid-Market');
-                  setSelectedIcp('Enterprise Scaling');
-                  setSelectedPersona('Economic Buyer');
-                  setSelectedValProp('ROI Telemetry');
-                  setSelectedMessaging('Business/Outcome');
-                  setSelectedSalesMotion('Direct Outbound');
-                  setSelectedChannel('Direct Sales Force');
-                  setSelectedMarketing('Paid Campaigns');
+                  setSelectedSegmentIdx(1);
+                  setSelectedIcpIdx(0);
+                  setSelectedPersonaIdx(0);
+                  setSelectedValPropIdx(0);
+                  setSelectedMessagingIdx(0);
+                  setSelectedSalesMotionIdx(0);
+                  setSelectedChannelIdx(1);
+                  setSelectedMarketingIdx(0);
                 }}
                 className="text-[9px] font-mono text-text-secondary/60 hover:text-accent font-bold uppercase transition-colors"
               >
@@ -611,15 +676,16 @@ export const GTMSimulationEngine: React.FC<GTMSimulationEngineProps> = ({
               <div className="space-y-1.5">
                 <label className="text-[10px] font-mono text-text-secondary uppercase">1. Segment Selection</label>
                 <div className="grid grid-cols-3 gap-1.5">
-                  {(['Enterprise', 'Mid-Market', 'SMB/PLG'] as const).map(opt => (
+                  {dynamicOptions.segments.map((opt, idx) => (
                     <button
-                      key={opt}
-                      onClick={() => setSelectedSegment(opt)}
-                      className={`py-1.5 rounded-lg text-[9px] font-black border transition-all text-center cursor-pointer ${
-                        selectedSegment === opt
+                      key={idx}
+                      onClick={() => setSelectedSegmentIdx(idx)}
+                      className={`truncate px-1 py-1.5 rounded-lg text-[9px] font-black border transition-all text-center cursor-pointer ${
+                        selectedSegmentIdx === idx
                           ? 'bg-accent/15 border-accent text-accent'
                           : 'bg-bg-primary/50 border-border text-text-secondary hover:text-text-primary'
                       }`}
+                      title={opt}
                     >
                       {opt}
                     </button>
@@ -631,15 +697,16 @@ export const GTMSimulationEngine: React.FC<GTMSimulationEngineProps> = ({
               <div className="space-y-1.5">
                 <label className="text-[10px] font-mono text-text-secondary uppercase">2. Ideal Customer Profile</label>
                 <div className="grid grid-cols-3 gap-1.5">
-                  {(['Enterprise Scaling', 'Developer Groups', 'Legacy Migrations'] as const).map(opt => (
+                  {dynamicOptions.icps.map((opt, idx) => (
                     <button
-                      key={opt}
-                      onClick={() => setSelectedIcp(opt)}
-                      className={`py-1.5 rounded-lg text-[9px] font-black border transition-all text-center cursor-pointer ${
-                        selectedIcp === opt
+                      key={idx}
+                      onClick={() => setSelectedIcpIdx(idx)}
+                      className={`truncate px-1 py-1.5 rounded-lg text-[9px] font-black border transition-all text-center cursor-pointer ${
+                        selectedIcpIdx === idx
                           ? 'bg-accent/15 border-accent text-accent'
                           : 'bg-bg-primary/50 border-border text-text-secondary hover:text-text-primary'
                       }`}
+                      title={opt}
                     >
                       {opt}
                     </button>
@@ -651,15 +718,16 @@ export const GTMSimulationEngine: React.FC<GTMSimulationEngineProps> = ({
               <div className="space-y-1.5">
                 <label className="text-[10px] font-mono text-text-secondary uppercase">3. Core Value Proposition</label>
                 <div className="grid grid-cols-3 gap-1.5">
-                  {(['ROI Telemetry', 'Sub-Millisecond Speed', 'Zero Setup Cost'] as const).map(opt => (
+                  {dynamicOptions.valProps.map((opt, idx) => (
                     <button
-                      key={opt}
-                      onClick={() => setSelectedValProp(opt)}
-                      className={`py-1.5 rounded-lg text-[9px] font-black border transition-all text-center cursor-pointer ${
-                        selectedValProp === opt
+                      key={idx}
+                      onClick={() => setSelectedValPropIdx(idx)}
+                      className={`truncate px-1 py-1.5 rounded-lg text-[9px] font-black border transition-all text-center cursor-pointer ${
+                        selectedValPropIdx === idx
                           ? 'bg-accent/15 border-accent text-accent'
                           : 'bg-bg-primary/50 border-border text-text-secondary hover:text-text-primary'
                       }`}
+                      title={opt}
                     >
                       {opt}
                     </button>
@@ -671,15 +739,16 @@ export const GTMSimulationEngine: React.FC<GTMSimulationEngineProps> = ({
               <div className="space-y-1.5">
                 <label className="text-[10px] font-mono text-text-secondary uppercase">4. Core Sales Motion</label>
                 <div className="grid grid-cols-3 gap-1.5">
-                  {(['Direct Outbound', 'PLG Self-Serve', 'Indirect Partner'] as const).map(opt => (
+                  {dynamicOptions.motions.map((opt, idx) => (
                     <button
-                      key={opt}
-                      onClick={() => setSelectedSalesMotion(opt)}
-                      className={`py-1.5 rounded-lg text-[9px] font-black border transition-all text-center cursor-pointer ${
-                        selectedSalesMotion === opt
+                      key={idx}
+                      onClick={() => setSelectedSalesMotionIdx(idx)}
+                      className={`truncate px-1 py-1.5 rounded-lg text-[9px] font-black border transition-all text-center cursor-pointer ${
+                        selectedSalesMotionIdx === idx
                           ? 'bg-accent/15 border-accent text-accent'
                           : 'bg-bg-primary/50 border-border text-text-secondary hover:text-text-primary'
                       }`}
+                      title={opt}
                     >
                       {opt}
                     </button>
@@ -700,20 +769,19 @@ export const GTMSimulationEngine: React.FC<GTMSimulationEngineProps> = ({
               <div className="flex flex-col gap-1">
                 <div className="text-text-secondary">Segment Attractiveness:</div>
                 <div className="font-bold text-text-primary">
-                  {selectedSegment === 'Enterprise' ? 'High Tier Value' : selectedSegment === 'SMB/PLG' ? 'High Velocity Pool' : 'Stable Growth Core'}
+                  {selectedSegmentIdx === 0 ? 'High Tier Value' : selectedSegmentIdx === 2 ? 'High Velocity Pool' : 'Stable Growth Core'}
                 </div>
               </div>
               <div className="flex flex-col gap-1">
                 <div className="text-text-secondary">Expected Conversion Ease:</div>
                 <div className="font-bold text-text-primary">
-                  {selectedSalesMotion === 'PLG Self-Serve' ? 'Frictionless Bottom-up' : 'High-Touch / Multi-Threaded'}
+                  {selectedSalesMotionIdx === 1 ? 'Frictionless Bottom-up' : 'High-Touch / Multi-Threaded'}
                 </div>
               </div>
               <div className="flex flex-col gap-1">
                 <div className="text-text-secondary">Competitive Differentiation:</div>
                 <div className="font-bold text-text-primary">
-                  {selectedValProp === 'ROI Telemetry' ? 'High Business Impact' : 'Technical Performance Edge'}
-                </div>
+                  {selectedValPropIdx === 0 ? 'High Business Impact' : 'Technical Performance Edge'}                </div>
               </div>
               <div className="flex flex-col gap-1">
                 <div className="text-text-secondary">Pricing & win-rate impact:</div>
@@ -740,10 +808,10 @@ export const GTMSimulationEngine: React.FC<GTMSimulationEngineProps> = ({
             {/* Custom crafted layout with horizontal flow indicators */}
             <div className="grid grid-cols-2 sm:grid-cols-4 xl:grid-cols-4 gap-3 relative">
               {[
-                { label: 'Segment', value: selectedSegment, desc: 'Market selection' },
-                { label: 'ICP Target', value: selectedIcp, desc: 'Targeting profile' },
-                { label: 'Value Prop', value: selectedValProp, desc: 'Resonance factor' },
-                { label: 'Sales Motion', value: selectedSalesMotion, desc: 'Revenue path' }
+                { label: 'Segment', value: dynamicOptions.segments[selectedSegmentIdx], desc: 'Market selection' },
+                { label: 'ICP Target', value: dynamicOptions.icps[selectedIcpIdx], desc: 'Targeting profile' },
+                { label: 'Value Prop', value: dynamicOptions.valProps[selectedValPropIdx], desc: 'Resonance factor' },
+                { label: 'Sales Motion', value: dynamicOptions.motions[selectedSalesMotionIdx], desc: 'Revenue path' }
               ].map((node, index) => (
                 <div
                   key={node.label}

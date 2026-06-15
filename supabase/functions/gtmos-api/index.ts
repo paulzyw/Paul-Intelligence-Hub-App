@@ -679,6 +679,46 @@ serve(async (req) => {
         return new Response(response.text || "{}", { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
       }
 
+      case "generate-simulation-heuristics": {
+        const { options } = rawBody;
+        const response = await ai.models.generateContent({
+          model: "gemini-3.1-flash-lite",
+          contents: [
+            `You are an elite quantitative Go-To-Market analyst building a Monte Carlo revenue simulation.
+            I will provide you with 8 strategic categories, each containing 3 different operational choices (options) based on our company's GTM strategy.
+            
+            For EACH of the 3 options in EACH of the 8 categories, you must determine its realistic multiplicative impact on 4 core sales velocity metrics:
+            - opportunities (N): How does this option scale pipe volume? (e.g., PLG = 2.5x, Enterprise = 0.4x)
+            - winRate (W): Provide a flat percentage point adjustment, positive or negative. (e.g., indirect partner = +3, complex enterprise = -2)
+            - acv (A): How does this option affect Average Contract Value? (e.g., Enterprise = 2.8x, SMB = 0.35x)
+            - cycleLength (L): How does this option scale the sales cycle duration? (e.g., Enterprise = 1.5x, PLG = 0.35x)
+            
+            Return floating point multipliers centered around 1.0 (for opportunities, acv, and cycleLength) and absolute number for winRate (centered around 0).
+            Category choices provided:
+            ${JSON.stringify(options, null, 2)}`
+          ],
+          config: {
+            systemInstruction: GTMOS_SYSTEM_INSTRUCTION,
+            responseMimeType: "application/json",
+            responseSchema: {
+              type: Type.OBJECT,
+              properties: {
+                segments: { type: Type.ARRAY, items: { type: Type.OBJECT, properties: { opportunities: { type: Type.NUMBER }, winRate: { type: Type.NUMBER }, acv: { type: Type.NUMBER }, cycleLength: { type: Type.NUMBER } }, required: ["opportunities", "winRate", "acv", "cycleLength"] } },
+                icps: { type: Type.ARRAY, items: { type: Type.OBJECT, properties: { opportunities: { type: Type.NUMBER }, winRate: { type: Type.NUMBER }, acv: { type: Type.NUMBER }, cycleLength: { type: Type.NUMBER } }, required: ["opportunities", "winRate", "acv", "cycleLength"] } },
+                personas: { type: Type.ARRAY, items: { type: Type.OBJECT, properties: { opportunities: { type: Type.NUMBER }, winRate: { type: Type.NUMBER }, acv: { type: Type.NUMBER }, cycleLength: { type: Type.NUMBER } }, required: ["opportunities", "winRate", "acv", "cycleLength"] } },
+                valProps: { type: Type.ARRAY, items: { type: Type.OBJECT, properties: { opportunities: { type: Type.NUMBER }, winRate: { type: Type.NUMBER }, acv: { type: Type.NUMBER }, cycleLength: { type: Type.NUMBER } }, required: ["opportunities", "winRate", "acv", "cycleLength"] } },
+                messaging: { type: Type.ARRAY, items: { type: Type.OBJECT, properties: { opportunities: { type: Type.NUMBER }, winRate: { type: Type.NUMBER }, acv: { type: Type.NUMBER }, cycleLength: { type: Type.NUMBER } }, required: ["opportunities", "winRate", "acv", "cycleLength"] } },
+                motions: { type: Type.ARRAY, items: { type: Type.OBJECT, properties: { opportunities: { type: Type.NUMBER }, winRate: { type: Type.NUMBER }, acv: { type: Type.NUMBER }, cycleLength: { type: Type.NUMBER } }, required: ["opportunities", "winRate", "acv", "cycleLength"] } },
+                channels: { type: Type.ARRAY, items: { type: Type.OBJECT, properties: { opportunities: { type: Type.NUMBER }, winRate: { type: Type.NUMBER }, acv: { type: Type.NUMBER }, cycleLength: { type: Type.NUMBER } }, required: ["opportunities", "winRate", "acv", "cycleLength"] } },
+                marketing: { type: Type.ARRAY, items: { type: Type.OBJECT, properties: { opportunities: { type: Type.NUMBER }, winRate: { type: Type.NUMBER }, acv: { type: Type.NUMBER }, cycleLength: { type: Type.NUMBER } }, required: ["opportunities", "winRate", "acv", "cycleLength"] } }
+              },
+              required: ["segments", "icps", "personas", "valProps", "messaging", "motions", "channels", "marketing"]
+            }
+          }
+        });
+        return new Response(response.text || "{}", { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+      }
+
       case "generate-initiative-intelligence": {
         const { initiativeName, description, strategicObjective } = rawBody;
         const response = await ai.models.generateContent({
