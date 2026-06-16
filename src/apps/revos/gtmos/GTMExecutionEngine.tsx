@@ -310,7 +310,7 @@ export const GTMExecutionEngine: React.FC<GTMExecutionEngineProps> = ({
 
   // Initialize draft when project fields update, without clobbering local changes
   useEffect(() => {
-    if (project.gtmExecutionPlan) {
+    if (project.gtmExecutionPlan && project.gtmExecutionPlan.workstreams && Array.isArray(project.gtmExecutionPlan.workstreams)) {
       const parentStr = JSON.stringify(project.gtmExecutionPlan);
       setDraftPlan(prev => {
         if (!prev || JSON.stringify(prev) !== parentStr) {
@@ -336,7 +336,36 @@ export const GTMExecutionEngine: React.FC<GTMExecutionEngineProps> = ({
     ? project.archivedExecutionPlan 
     : draftPlan;
 
+  const isPlanValid = !!(
+    activePlan && 
+    activePlan.workstreams && 
+    Array.isArray(activePlan.workstreams) && 
+    activePlan.workstreams.length > 0
+  );
+
   const isLocked = activeStage === 'execution';
+
+  // Ensure selected workstream and initiative index remain within bounds of the active plan
+  useEffect(() => {
+    if (activePlan && activePlan.workstreams && Array.isArray(activePlan.workstreams)) {
+      if (selectedWsIndex >= activePlan.workstreams.length) {
+        setSelectedWsIndex(Math.max(0, activePlan.workstreams.length - 1));
+        setSelectedInitIndex(0);
+      } else {
+        const ws = activePlan.workstreams[selectedWsIndex];
+        if (ws && ws.initiatives && Array.isArray(ws.initiatives)) {
+          if (selectedInitIndex >= ws.initiatives.length) {
+            setSelectedInitIndex(Math.max(0, ws.initiatives.length - 1));
+          }
+        } else {
+          setSelectedInitIndex(0);
+        }
+      }
+    } else {
+      setSelectedWsIndex(0);
+      setSelectedInitIndex(0);
+    }
+  }, [activePlan, selectedWsIndex, selectedInitIndex]);
 
   // State update helpers for draft plan
   const updateDraft = (updated: GTMExecutionPlan) => {
@@ -466,24 +495,41 @@ export const GTMExecutionEngine: React.FC<GTMExecutionEngineProps> = ({
   };
 
   // Safe getter for active item lists
-  const currentWorkstream: GTMWorkstream | undefined = activePlan?.workstreams?.[selectedWsIndex];
-  const currentInitiative: GTMInitiative | undefined = currentWorkstream?.initiatives?.[selectedInitIndex];
+  const rawWorkstream = activePlan?.workstreams?.[selectedWsIndex];
+  const currentWorkstream: GTMWorkstream | undefined = rawWorkstream ? {
+    ...rawWorkstream,
+    initiatives: rawWorkstream.initiatives || []
+  } : undefined;
+
+  const rawInitiative = currentWorkstream?.initiatives?.[selectedInitIndex];
+  const currentInitiative: GTMInitiative | undefined = rawInitiative ? {
+    ...rawInitiative,
+    actions: rawInitiative.actions || [],
+    kpis: rawInitiative.kpis || [],
+    risks: rawInitiative.risks || [],
+    dependencies: rawInitiative.dependencies || [],
+    aiMonitoringRules: rawInitiative.aiMonitoringRules || []
+  } : undefined;
 
   // Calculations for execution compliance scores
   const getProgressStats = (plan: GTMExecutionPlan | null) => {
-    if (!plan || !plan.workstreams) return { total: 0, completed: 0, percent: 0 };
+    if (!plan || !plan.workstreams || !Array.isArray(plan.workstreams)) return { total: 0, completed: 0, percent: 0 };
     let totalActions = 0;
     let completedActions = 0;
 
     plan.workstreams.forEach(ws => {
-      ws.initiatives.forEach(init => {
-        init.actions.forEach(act => {
-          totalActions++;
-          if (act.status === 'completed') {
-            completedActions++;
+      if (ws && ws.initiatives) {
+        ws.initiatives.forEach(init => {
+          if (init && init.actions) {
+            init.actions.forEach(act => {
+              totalActions++;
+              if (act && act.status === 'completed') {
+                completedActions++;
+              }
+            });
           }
         });
-      });
+      }
     });
 
     return {
@@ -494,23 +540,31 @@ export const GTMExecutionEngine: React.FC<GTMExecutionEngineProps> = ({
   };
 
   const getKPIAchievements = (plan: GTMExecutionPlan | null) => {
-    if (!plan || !plan.workstreams) return { total: 0, achieved: 0, percent: 0 };
+    if (!plan || !plan.workstreams || !Array.isArray(plan.workstreams)) return { total: 0, achieved: 0, percent: 0 };
     let totalKpis = 0;
     let achievedKpis = 0;
 
     plan.workstreams.forEach(ws => {
-      ws.initiatives.forEach(init => {
-        init.kpis.forEach(k => {
-          totalKpis++;
-          const targetNum = parseFloat(k.target.replace(/[^0-9.]/g, '')) || 0;
-          const currentNum = parseFloat(k.currentValue.replace(/[^0-9.]/g, '')) || 0;
-          if (targetNum > 0 && currentNum >= targetNum) {
-            achievedKpis++;
-          } else if (targetNum === 0 && k.currentValue === k.target) {
-            achievedKpis++;
+      if (ws && ws.initiatives) {
+        ws.initiatives.forEach(init => {
+          if (init && init.kpis) {
+            init.kpis.forEach(k => {
+              if (k) {
+                totalKpis++;
+                const targetStr = typeof k.target === 'string' ? k.target : '';
+                const currentValueStr = typeof k.currentValue === 'string' ? k.currentValue : '';
+                const targetNum = parseFloat(targetStr.replace(/[^0-9.]/g, '')) || 0;
+                const currentNum = parseFloat(currentValueStr.replace(/[^0-9.]/g, '')) || 0;
+                if (targetNum > 0 && currentNum >= targetNum) {
+                  achievedKpis++;
+                } else if (targetNum === 0 && currentValueStr === targetStr) {
+                  achievedKpis++;
+                }
+              }
+            });
           }
         });
-      });
+      }
     });
 
     return {
@@ -1052,7 +1106,7 @@ export const GTMExecutionEngine: React.FC<GTMExecutionEngineProps> = ({
       </div>
 
       {/* METRIC PERFORMANCE AND SCOREBAR BANNER */}
-      {activePlan && (
+      {isPlanValid && (
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4 animate-in slide-in-from-bottom-2 duration-300">
           <div className="p-4 rounded-2xl bg-bg-surface/40 border border-border/80 flex items-center gap-3">
             <div className="p-3 bg-accent/10 rounded-xl">
@@ -1110,7 +1164,7 @@ export const GTMExecutionEngine: React.FC<GTMExecutionEngineProps> = ({
       )}
 
       {/* CORE WORKSPACE SPLIT LAYOUT */}
-      {!activePlan ? (
+      {!isPlanValid ? (
         <div className="p-16 rounded-3xl bg-bg-surface/30 border border-border/80 text-center space-y-4">
           <div className="p-4 bg-accent/5 border border-accent/10 rounded-2xl w-fit mx-auto animate-pulse">
             <Bot className="h-10 w-10 text-accent" />
@@ -1224,13 +1278,13 @@ export const GTMExecutionEngine: React.FC<GTMExecutionEngineProps> = ({
                       : 'bg-bg-surface/30 border-border hover:bg-bg-surface/40'
                   }`}
                 >
-                  <div className="flex justify-between items-start gap-2">
+                  <div className="flex justify-between items-start gap-2 min-w-0 w-full">
                     <button
                       onClick={() => {
                         setSelectedWsIndex(wsIdx);
                         setSelectedInitIndex(0);
                       }}
-                      className="text-left flex-1"
+                      className="text-left flex-1 min-w-0 w-full"
                     >
                       <div className="flex items-center gap-1.5">
                         <span className="text-[8px] font-mono font-bold tracking-widest text-[#00F090] uppercase">WS {wsIdx + 1}</span>
@@ -1309,9 +1363,14 @@ export const GTMExecutionEngine: React.FC<GTMExecutionEngineProps> = ({
                       ) : (
                         <div>
                           <h4 className="text-xs font-black text-text-primary mt-1 line-clamp-1">{ws.workstreamName}</h4>
-                          <p className="text-[10px] text-text-secondary/80 font-sans mt-0.5 max-w-full leading-normal">{ws.purpose}</p>
+                          <p className="text-[10px] text-text-secondary/80 font-sans mt-0.5 max-w-full leading-normal break-words">{ws.purpose}</p>
                           {ws.revenueContributionHypothesis && (
-                            <p className="text-[9px] text-[#00f090]/80 font-sans mt-0.5 max-w-full leading-normal truncate"><span className="font-bold">REV HYP:</span> {ws.revenueContributionHypothesis}</p>
+                            <div className="mt-2 pl-2 border-l-2 border-[#00f090]/40 text-left">
+                              <p className="text-[10px] text-[#00f090]/90 font-sans leading-normal break-words">
+                                <span className="font-bold text-[#00f090] text-[9.5px] uppercase tracking-wider block mb-0.5">REV HYP</span>
+                                {ws.revenueContributionHypothesis}
+                              </p>
+                            </div>
                           )}
                         </div>
                       )}
@@ -2205,7 +2264,7 @@ export const GTMExecutionEngine: React.FC<GTMExecutionEngineProps> = ({
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-             {activePlan.sufficiencyAssessment.identifiedGaps?.length > 0 && (
+             {Array.isArray(activePlan.sufficiencyAssessment.identifiedGaps) && activePlan.sufficiencyAssessment.identifiedGaps.length > 0 && (
                <div className="space-y-3 p-4 rounded-2xl border border-red-500/20 bg-red-500/5 font-sans">
                  <h4 className="text-[10px] font-bold uppercase text-red-400 flex items-center gap-1.5 border-b border-red-500/20 pb-2">
                    <Target className="h-3 w-3" /> Execution Gaps Identified
@@ -2218,7 +2277,7 @@ export const GTMExecutionEngine: React.FC<GTMExecutionEngineProps> = ({
                </div>
              )}
 
-             {activePlan.sufficiencyAssessment.aiRecommendations?.length > 0 && (
+             {Array.isArray(activePlan.sufficiencyAssessment.aiRecommendations) && activePlan.sufficiencyAssessment.aiRecommendations.length > 0 && (
                <div className="space-y-3 p-4 rounded-2xl border border-accent/20 bg-accent/5 font-sans">
                  <h4 className="text-[10px] font-bold uppercase text-accent flex items-center gap-1.5 border-b border-accent/20 pb-2">
                    <Lightbulb className="h-3 w-3" /> AI Gap Expansion & Recommendations

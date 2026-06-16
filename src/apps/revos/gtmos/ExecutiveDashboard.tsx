@@ -18,15 +18,18 @@ import {
   ShieldCheck,
   CheckCircle,
   Clock,
-  AlertTriangle
+  AlertTriangle,
+  RefreshCw
 } from 'lucide-react';
 import { GTMOSProject, RevenueDecompositionData, OnboardingCategoryFields } from './types';
 
 interface ExecutiveDashboardProps {
   project: GTMOSProject;
+  onRefresh?: () => Promise<void>;
+  isRefreshing?: boolean;
 }
 
-export const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({ project }) => {
+export const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({ project, onRefresh, isRefreshing }) => {
   const { 
     onboarding, 
     revenueDecomposition, 
@@ -99,31 +102,37 @@ export const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({ project 
       return isNaN(parsed) ? 0 : parsed;
     };
 
-    executionPlan.workstreams.forEach(ws => {
-      if (ws.initiatives) {
+    (executionPlan.workstreams || []).forEach(ws => {
+      if (ws && ws.initiatives) {
         ws.initiatives.forEach(init => {
-          // Actions
-          init.actions?.forEach((act) => {
-            totalActions++;
-            if (act.status === 'completed') completedActions++;
-            else if (act.status === 'in_progress') inProgressActions++;
-            else if (act.status === 'blocked') blockedActions++;
-          });
+          if (init) {
+            // Actions
+            init.actions?.forEach((act) => {
+              if (act) {
+                totalActions++;
+                if (act.status === 'completed') completedActions++;
+                else if (act.status === 'in_progress') inProgressActions++;
+                else if (act.status === 'blocked') blockedActions++;
+              }
+            });
 
-          // KPIs
-          init.kpis?.forEach((kpi) => {
-            totalKpis++;
-            const base = parseValueHelper(kpi.baseline);
-            const target = parseValueHelper(kpi.target);
-            const curr = parseValueHelper(kpi.currentValue);
+            // KPIs
+            init.kpis?.forEach((kpi) => {
+              if (kpi) {
+                totalKpis++;
+                const base = parseValueHelper(kpi.baseline);
+                const target = parseValueHelper(kpi.target);
+                const curr = parseValueHelper(kpi.currentValue);
 
-            if (Math.abs(target - base) > 0) {
-              const attainment = Math.min(Math.max((curr - base) / (target - base), 0), 1) * 100;
-              accumulatedKpiAttainment += attainment;
-            } else {
-              accumulatedKpiAttainment += 100; // instant baseline target match
-            }
-          });
+                if (Math.abs(target - base) > 0) {
+                  const attainment = Math.min(Math.max((curr - base) / (target - base), 0), 1) * 100;
+                  accumulatedKpiAttainment += attainment;
+                } else {
+                  accumulatedKpiAttainment += 100; // instant baseline target match
+                }
+              }
+            });
+          }
         });
       }
     });
@@ -138,7 +147,7 @@ export const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({ project 
       blockedActions,
       completionRate,
       avgKpiAttainment,
-      totalWorkstreams: executionPlan.workstreams.length
+      totalWorkstreams: (executionPlan.workstreams || []).length
     };
   }, [executionPlan]);
 
@@ -157,16 +166,28 @@ export const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({ project 
           </p>
         </div>
 
-        <div className="flex items-center gap-4 relative z-10">
-          <div className="p-4 rounded-xl border border-border bg-bg-primary shadow-sm text-center min-w-[120px]">
-            <span className="text-[10px] font-mono font-bold text-text-secondary uppercase tracking-wider block mb-1">Target Revenue</span>
-            <span className="text-lg font-black text-accent">{targetRevenue}</span>
-          </div>
-          <div className="p-4 rounded-xl border border-border bg-bg-primary shadow-sm text-center min-w-[120px]">
-            <span className="text-[10px] font-mono font-bold text-text-secondary uppercase tracking-wider block mb-1">GTM Health</span>
-            <div className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-lg ${health.bg} ${health.color}`}>
-              <Activity className="h-4 w-4" />
-              <span className="text-lg font-black">{readinessScore}%</span>
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-4 relative z-10 w-full md:w-auto">
+          {onRefresh && (
+            <button
+              onClick={onRefresh}
+              disabled={isRefreshing}
+              className="px-4 py-3 border border-border hover:border-accent/40 bg-bg-primary/80 hover:bg-accent/5 text-text-secondary hover:text-text-primary disabled:opacity-40 rounded-xl transition-all font-bold text-xs flex items-center gap-2 justify-center cursor-pointer shrink-0"
+            >
+              <RefreshCw className={`h-4 w-4 ${isRefreshing ? 'animate-spin text-accent' : 'text-text-secondary'}`} />
+              {isRefreshing ? 'Refreshing Insights...' : 'Refresh Intelligence'}
+            </button>
+          )}
+          <div className="flex items-center gap-4 shrink-0 justify-end">
+            <div className="p-4 rounded-xl border border-border bg-bg-primary shadow-sm text-center min-w-[120px]">
+              <span className="text-[10px] font-mono font-bold text-text-secondary uppercase tracking-wider block mb-1">Target Revenue</span>
+              <span className="text-lg font-black text-accent">{targetRevenue}</span>
+            </div>
+            <div className="p-4 rounded-xl border border-border bg-bg-primary shadow-sm text-center min-w-[120px]">
+              <span className="text-[10px] font-mono font-bold text-text-secondary uppercase tracking-wider block mb-1">GTM Health</span>
+              <div className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-lg ${health.bg} ${health.color}`}>
+                <Activity className="h-4 w-4" />
+                <span className="text-lg font-black">{readinessScore}%</span>
+              </div>
             </div>
           </div>
         </div>

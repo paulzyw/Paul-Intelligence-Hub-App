@@ -2477,7 +2477,11 @@ export function GTMOSModule() {
 
             {/* Step 20: Executive/Boardroom Insights */}
             {activeStep === 20 && (
-              <ExecutiveDashboard project={currentProject} />
+              <ExecutiveDashboard 
+                project={currentProject} 
+                onRefresh={runRiskAudit} 
+                isRefreshing={isGeneratingAudit} 
+              />
             )}
           </motion.div>
         </AnimatePresence>

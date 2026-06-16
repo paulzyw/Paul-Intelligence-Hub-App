@@ -125,19 +125,15 @@ export const GTMSimulationEngine: React.FC<GTMSimulationEngineProps> = ({
   const [manualWinRate, setManualWinRate] = useState<number>(0);
   const [manualAcv, setManualAcv] = useState<number>(0);
   const [manualCycleLength, setManualCycleLength] = useState<number>(0);
-
-  useEffect(() => {
-    if (syncedData.opportunities) setManualOpportunities(syncedData.opportunities);
-    if (syncedData.winRate) setManualWinRate(syncedData.winRate);
-    if (syncedData.acv) setManualAcv(syncedData.acv);
-    if (syncedData.cycleLength) setManualCycleLength(syncedData.cycleLength);
-  }, [syncedData]);
+  const [syncFeedback, setSyncFeedback] = useState<boolean>(false);
 
   const handleManualSync = () => {
     setManualOpportunities(syncedData.opportunities);
     setManualWinRate(syncedData.winRate);
     setManualAcv(syncedData.acv);
     setManualCycleLength(syncedData.cycleLength);
+    setSyncFeedback(true);
+    setTimeout(() => setSyncFeedback(false), 2000);
   };
 
   // Scenarios and presets
@@ -246,6 +242,16 @@ export const GTMSimulationEngine: React.FC<GTMSimulationEngineProps> = ({
   const activeScenario = useMemo(() => {
     return scenarios.find(s => s.id === activeScenarioId) || scenarios[0];
   }, [activeScenarioId, scenarios]);
+
+  // Synchronize manual sliders to the active scenario's baseline values when they change
+  useEffect(() => {
+    if (activeScenario && activeScenario.baseline) {
+      setManualOpportunities(activeScenario.baseline.opportunities);
+      setManualWinRate(activeScenario.baseline.winRate);
+      setManualAcv(activeScenario.baseline.acv);
+      setManualCycleLength(activeScenario.baseline.cycleLength);
+    }
+  }, [activeScenario]);
 
   // Dynamic Option Generator based on onboarding data or saved snapshot
   const dynamicOptions = useMemo(() => {
@@ -390,7 +396,11 @@ export const GTMSimulationEngine: React.FC<GTMSimulationEngineProps> = ({
     selectedMessagingIdx,
     selectedSalesMotionIdx,
     selectedChannelIdx,
-    selectedMarketingIdx
+    selectedMarketingIdx,
+    manualOpportunities,
+    manualWinRate,
+    manualAcv,
+    manualCycleLength
   ]);
 
   const { opportunities, winRate, acv, cycleLength } = calculatedMetrics;
@@ -660,30 +670,44 @@ export const GTMSimulationEngine: React.FC<GTMSimulationEngineProps> = ({
         {/* Scenario Controls & Strategic Overrides */}
         <div className="xl:col-span-1 space-y-6">
           <div className="p-5 rounded-2xl bg-bg-surface/50 border border-border/85 space-y-5">
-            <div className="flex items-center justify-between pb-3 border-b border-border/30">
+            <div className="flex items-center justify-between pb-3 border-b border-border/30 gap-2 flex-wrap">
               <div className="flex items-center gap-1.5">
                 <Sliders className="h-4 w-4 text-accent" />
                 <h4 className="text-xs font-bold text-text-primary tracking-wider uppercase">Strategic Parameters</h4>
               </div>
-              <button
-                onClick={() => {
-                  setSelectedSegmentIdx(1);
-                  setSelectedIcpIdx(0);
-                  setSelectedPersonaIdx(0);
-                  setSelectedValPropIdx(0);
-                  setSelectedMessagingIdx(0);
-                  setSelectedSalesMotionIdx(0);
-                  setSelectedChannelIdx(1);
-                  setSelectedMarketingIdx(0);
-                  setManualOpportunities(syncedData.opportunities || 0);
-                  setManualWinRate(syncedData.winRate || 0);
-                  setManualAcv(syncedData.acv || 0);
-                  setManualCycleLength(syncedData.cycleLength || 0);
-                }}
-                className="text-[9px] font-mono text-text-secondary/60 hover:text-accent font-bold uppercase transition-colors"
-              >
-                Reset Default
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={handleManualSync}
+                  className={`text-[9px] font-mono font-bold uppercase transition-all px-2 py-1 rounded-md border flex items-center gap-1 cursor-pointer ${
+                    syncFeedback
+                      ? 'bg-emerald-500/20 border-emerald-500 text-emerald-400'
+                      : 'bg-accent/10 hover:bg-accent/20 border-accent/20 text-accent'
+                  }`}
+                  title="Manually sync parameters to match the latest GTM Strategy and Revenue Decomposition source data"
+                >
+                  <RefreshCw className={`h-2.5 w-2.5 ${syncFeedback ? 'animate-spin' : ''}`} />
+                  {syncFeedback ? 'Synced!' : 'Sync Live'}
+                </button>
+                <button
+                  onClick={() => {
+                    setSelectedSegmentIdx(1);
+                    setSelectedIcpIdx(0);
+                    setSelectedPersonaIdx(0);
+                    setSelectedValPropIdx(0);
+                    setSelectedMessagingIdx(0);
+                    setSelectedSalesMotionIdx(0);
+                    setSelectedChannelIdx(1);
+                    setSelectedMarketingIdx(0);
+                    setManualOpportunities(syncedData.opportunities || 0);
+                    setManualWinRate(syncedData.winRate || 0);
+                    setManualAcv(syncedData.acv || 0);
+                    setManualCycleLength(syncedData.cycleLength || 0);
+                  }}
+                  className="text-[9px] font-mono text-text-secondary/60 hover:text-accent font-bold uppercase transition-colors px-1 py-1"
+                >
+                  Reset Default
+                </button>
+              </div>
             </div>
 
             <div className="space-y-4">
