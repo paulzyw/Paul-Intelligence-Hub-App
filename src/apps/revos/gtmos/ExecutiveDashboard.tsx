@@ -154,19 +154,19 @@ export const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({ project,
   return (
     <div className="space-y-6">
       {/* Executive Header */}
-      <div className="p-6 rounded-2xl bg-bg-surface/50 border border-border flex flex-col md:flex-row gap-6 justify-between items-start md:items-center relative overflow-hidden">
+      <div className="p-6 rounded-2xl bg-bg-surface/50 border border-border flex flex-col lg:flex-row gap-6 justify-between items-start lg:items-center relative overflow-hidden">
         <div className="absolute top-0 right-0 p-8 opacity-5 pointer-events-none">
           <Building2 className="w-32 h-32" />
         </div>
         
-        <div className="space-y-1 relative z-10">
+        <div className="space-y-1 relative z-10 min-w-0 flex-1">
           <h2 className="text-xl md:text-2xl font-black text-text-primary tracking-tight">Executive Boardroom Insights</h2>
           <p className="text-sm text-text-secondary font-sans leading-relaxed max-w-2xl">
             Real-time aggregate intelligence dynamically compiled from your active GTM operation across Strategy, Mechanics, Math, and Defense layers.
           </p>
         </div>
 
-        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-4 relative z-10 w-full md:w-auto">
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-4 relative z-10 w-full lg:w-auto shrink-0 lg:justify-end">
           {onRefresh && (
             <button
               onClick={onRefresh}
