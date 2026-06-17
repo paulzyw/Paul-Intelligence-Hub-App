@@ -386,81 +386,52 @@ export const GTMExecutionEngine: React.FC<GTMExecutionEngineProps> = ({
       const existingArchive = project.archivedExecutionPlan;
 
       if (existingArchive && existingArchive.workstreams) {
-        // Find the selected workstream from the draft
-        const selectedDraftWs = draftPlan.workstreams[selectedWsIndex];
+        // Combine existing archive workstreams with the newly drafted workstreams.
+        const mergedWorkstreams = [...existingArchive.workstreams];
         
-        if (selectedDraftWs) {
-          const mergedWorkstreams = draftPlan.workstreams.map((draftWs, wsIdx) => {
-            // If this is NOT the selected workstream, preserve the entire archived workstream as-is (including statuses, actions, KPIs, and risks)
-            if (draftWs.id !== selectedDraftWs.id && wsIdx !== selectedWsIndex) {
-              const existingWs = existingArchive.workstreams.find(w => w.id === draftWs.id) 
-                || existingArchive.workstreams[wsIdx];
-              if (existingWs) {
-                return JSON.parse(JSON.stringify(existingWs));
-              }
-            }
+        draftPlan.workstreams.forEach((draftWs) => {
+          const existingWsIdx = mergedWorkstreams.findIndex(w => w.id === draftWs.id);
+          const mergedWs = JSON.parse(JSON.stringify(draftWs));
 
-            // If this is the selected workstream, we merge draft changes with existing archive's progress
-            const existingWs = existingArchive.workstreams.find(w => w.id === draftWs.id)
-              || existingArchive.workstreams[wsIdx];
+          if (existingWsIdx >= 0) {
+            // It exists: merge draft changes but preserve existing archive's progress
+            const existingWs = mergedWorkstreams[existingWsIdx];
             
-            if (!existingWs) {
-              // No existing archived workstream found, keep draft structure
-              return JSON.parse(JSON.stringify(draftWs));
-            }
-
-            // Clone draft workstream
-            const mergedWs = JSON.parse(JSON.stringify(draftWs));
-
-            // Merge initiatives under this workstream
             mergedWs.initiatives = draftWs.initiatives.map(draftInit => {
               const existingInit = existingWs.initiatives.find(i => i.id === draftInit.id)
                 || existingWs.initiatives.find(i => i.initiativeName === draftInit.initiativeName);
               
               if (!existingInit) {
-                // Brand new initiative under the selected workstream, use draft
                 return draftInit;
               }
 
-              // Found matching initiative: preserve status
+              // Preserve status for initiative
               const mergedInit = {
                 ...draftInit,
                 status: existingInit.status || draftInit.status || "Not Started",
               };
 
-              // Merge actions: keep status for existing ones
+              // Merge actions
               mergedInit.actions = draftInit.actions.map(draftAct => {
                 const existingAct = existingInit.actions.find(a => a.id === draftAct.id)
                   || existingInit.actions.find(a => a.actionName === draftAct.actionName);
-                if (!existingAct) {
-                  return draftAct;
-                }
-                return {
-                  ...draftAct,
-                  status: existingAct.status || draftAct.status || "todo"
-                };
+                if (!existingAct) return draftAct;
+                return { ...draftAct, status: existingAct.status || draftAct.status || "todo" };
               });
 
-              // Merge KPIs: keep currentValue for existing ones
+              // Merge KPIs
               mergedInit.kpis = draftInit.kpis.map(draftKpi => {
                 const existingKpi = existingInit.kpis.find(k => k.id === draftKpi.id)
                   || existingInit.kpis.find(k => k.kpiName === draftKpi.kpiName);
-                if (!existingKpi) {
-                  return draftKpi;
-                }
-                return {
-                  ...draftKpi,
-                  currentValue: existingKpi.currentValue !== undefined ? existingKpi.currentValue : draftKpi.currentValue
-                };
+                if (!existingKpi) return draftKpi;
+                return { ...draftKpi, currentValue: existingKpi.currentValue !== undefined ? existingKpi.currentValue : draftKpi.currentValue };
               });
 
-              // Merge Risks: keep probability, impact, riskScore, etc.
+              // Merge Risks
               mergedInit.risks = draftInit.risks.map(draftRisk => {
                 const existingRisk = existingInit.risks.find(r => r.id === draftRisk.id)
                   || existingInit.risks.find(r => r.riskName === draftRisk.riskName);
-                if (!existingRisk) {
-                  return draftRisk;
-                }
+                if (!existingRisk) return draftRisk;
                 return {
                   ...draftRisk,
                   probability: existingRisk.probability || draftRisk.probability,
@@ -473,12 +444,15 @@ export const GTMExecutionEngine: React.FC<GTMExecutionEngineProps> = ({
 
               return mergedInit;
             });
+            
+            mergedWorkstreams[existingWsIdx] = mergedWs;
+          } else {
+            // It is brand new, append it
+            mergedWorkstreams.push(mergedWs);
+          }
+        });
 
-            return mergedWs;
-          });
-
-          archivedCopy.workstreams = mergedWorkstreams;
-        }
+        archivedCopy.workstreams = mergedWorkstreams;
       }
 
       archivedCopy.status = 'Archived for Execution';

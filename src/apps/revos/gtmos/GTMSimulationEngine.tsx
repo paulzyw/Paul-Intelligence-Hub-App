@@ -55,20 +55,17 @@ function parseFormattedNumber(val: string | number | undefined, defaultVal: numb
   const num = parseFloat(numPartMatch[1]);
   if (isNaN(num)) return defaultVal;
 
-  if (clean.includes('b') || clean.includes('billion')) {
-    return num * 1000000000;
-  }
-  if (clean.includes('m') || clean.includes('million')) {
-    return num * 1000000;
-  }
-  if (clean.includes('k') || clean.includes('thousand')) {
-    return num * 1000;
-  }
-  if (clean.includes('%')) {
-    return num; // Will be treated as percentage integer context later
+  let multiplier = 1;
+
+  if (/\b(b|billion)s?\b/.test(clean) || /[0-9]+b\b/.test(clean)) {
+    multiplier = 1000000000;
+  } else if (/\b(m|million)s?\b/.test(clean) || /[0-9]+m\b/.test(clean)) {
+    multiplier = 1000000;
+  } else if (/\b(k|thousand)s?\b/.test(clean) || /[0-9]+k\b/.test(clean)) {
+    multiplier = 1000;
   }
 
-  return num;
+  return num * multiplier;
 }
 
 interface ScenarioDetails {
@@ -255,44 +252,69 @@ export const GTMSimulationEngine: React.FC<GTMSimulationEngineProps> = ({
 
   // Dynamic Option Generator based on onboarding data or saved snapshot
   const dynamicOptions = useMemo(() => {
-    if (currentProject.simulationStrategicOptions) {
-      return {
-        segments: currentProject.simulationStrategicOptions.segments || ['Enterprise', 'Mid-Market', 'SMB/PLG'],
-        icps: currentProject.simulationStrategicOptions.icps || ['Enterprise Scaling', 'Developer Groups', 'Legacy Migrations'],
-        personas: currentProject.simulationStrategicOptions.personas || ['Economic Buyer', 'Technical Evaluator', 'Head of Ops'],
-        valProps: currentProject.simulationStrategicOptions.valProps || ['ROI Telemetry', 'Sub-Millisecond Speed', 'Zero Setup Cost'],
-        messaging: currentProject.simulationStrategicOptions.messaging || ['Business/Outcome', 'Technical/Deep', 'Operational/Easy'],
-        motions: currentProject.simulationStrategicOptions.motions || ['Direct Outbound', 'PLG Self-Serve', 'Indirect Partner'],
-        channels: currentProject.simulationStrategicOptions.channels || ['CRM Marketplace', 'Direct Sales Force', 'Inbound Search'],
-        marketing: currentProject.simulationStrategicOptions.marketing || ['Paid Campaigns', 'Strategic Events', 'Viral Growth']
-      };
-    }
-
+    // If we have simulation options saved in DB, and no active new draft, we use them.
+    // However, to ensure "live" feel, we prefer merging onboarding and GTM draft directly here:
     const ob = currentProject.onboarding || {} as any;
+    const draft = currentProject.gtmStrategyDraft || {};
     
+    const getStr = (obStr: string | undefined, draftKey: string) => {
+      let base = obStr || '';
+      if (draft && draft[draftKey] && draft[draftKey][0]) {
+        base += (base ? '; ' : '') + draft[draftKey][0];
+      }
+      return base;
+    };
+
+    const segmentsStr = getStr(ob.targetIndustries, 'pillar_1_market_segmentation');
+    const icpsStr = getStr(ob.bestCustomers, 'pillar_2_icp');
+    const personasStr = getStr(ob.typicalBuyers, 'pillar_3_buyer_personas');
+    const valPropsStr = getStr(ob.uniqueDifferentiators, 'pillar_4_value_proposition');
+    const motionsStr = getStr(ob.currentSalesMotion, 'pillar_6_sales_motion');
+    const channelsStr = getStr(ob.currentChannels, 'pillar_5_distribution_channels');
+    const marketingStr = getStr(ob.currentMarketingActivities, 'pillar_5_distribution_channels');
+
     // Helper to safely extract exact 3 options from comma-separated text or default to fallbacks
     const getOptions = (field: string | undefined, fallbacks: string[]) => {
-      if (!field || field.trim() === '') return fallbacks;
-      // split by common delimiters
-      const parts = field.split(/[,;\n|]/).map(s => s.trim()).filter(Boolean);
+      if (!field || field.trim() === '') {
+        // Fallback to simulationStrategicOptions if available
+        return currentProject.simulationStrategicOptions ? fallbacks : fallbacks; 
+        // Wait, if it's empty, we should check if simulationStrategicOptions has it? 
+        // that's handled below
+      }
+      // split by common delimiters but exclude comma because users use commas in sentences
+      const parts = field.split(/[\n|;]/).map(s => s.trim()).filter(Boolean);
       const opts = [];
-      if (parts.length >= 1) opts.push(parts[0].substring(0, 24)); else opts.push(fallbacks[0]);
-      if (parts.length >= 2) opts.push(parts[1].substring(0, 24)); else opts.push(fallbacks[1]);
-      if (parts.length >= 3) opts.push(parts[2].substring(0, 24)); else opts.push(fallbacks[2]);
+      
+      const formatStr = (s: string) => s.length > 50 ? s.substring(0, 47) + '...' : s;
+      
+      if (parts.length >= 1) opts.push(formatStr(parts[0])); else opts.push(fallbacks[0]);
+      if (parts.length >= 2) opts.push(formatStr(parts[1])); else opts.push(fallbacks[1]);
+      if (parts.length >= 3) opts.push(formatStr(parts[2])); else opts.push(fallbacks[2]);
+      
+      // If we didn't get enough parts from strict delimiters, try generic fallback safely
+      if (parts.length < 3 && !field.includes('\n') && !field.includes('|') && !field.includes(';')) {
+        // try to separate by comma if it looks like a simple list
+        const commaParts = field.split(',').map(s => s.trim()).filter(s => s.length > 0 && s.length < 60);
+        if (commaParts.length >= 3) {
+           return [formatStr(commaParts[0]), formatStr(commaParts[1]), formatStr(commaParts[2])];
+        }
+      }
       return opts;
     };
 
+    const simOps = currentProject.simulationStrategicOptions || {};
+
     return {
-      segments: getOptions(ob.targetIndustries, ['Enterprise', 'Mid-Market', 'SMB/PLG']),
-      icps: getOptions(ob.bestCustomers, ['Enterprise Scaling', 'Developer Groups', 'Legacy Migrations']),
-      personas: getOptions(ob.typicalBuyers, ['Economic Buyer', 'Technical Evaluator', 'Head of Ops']),
-      valProps: getOptions(ob.uniqueDifferentiators, ['ROI Telemetry', 'Sub-Millisecond Speed', 'Zero Setup Cost']),
-      messaging: getOptions(ob.painPoints, ['Business/Outcome', 'Technical/Deep', 'Operational/Easy']),
-      motions: getOptions(ob.currentSalesMotion, ['Direct Outbound', 'PLG Self-Serve', 'Indirect Partner']),
-      channels: getOptions(ob.currentChannels, ['CRM Marketplace', 'Direct Sales Force', 'Inbound Search']),
-      marketing: getOptions(ob.currentMarketingActivities, ['Paid Campaigns', 'Strategic Events', 'Viral Growth'])
+      segments: getOptions(segmentsStr, simOps.segments || ['Enterprise', 'Mid-Market', 'SMB/PLG']),
+      icps: getOptions(icpsStr, simOps.icps || ['Enterprise Scaling', 'Developer Groups', 'Legacy Migrations']),
+      personas: getOptions(personasStr, simOps.personas || ['Economic Buyer', 'Technical Evaluator', 'Head of Ops']),
+      valProps: getOptions(valPropsStr, simOps.valProps || ['ROI Telemetry', 'Sub-Millisecond Speed', 'Zero Setup Cost']),
+      messaging: getOptions(ob.painPoints, simOps.messaging || ['Business/Outcome', 'Technical/Deep', 'Operational/Easy']),
+      motions: getOptions(motionsStr, simOps.motions || ['Direct Outbound', 'PLG Self-Serve', 'Indirect Partner']),
+      channels: getOptions(channelsStr, simOps.channels || ['CRM Marketplace', 'Direct Sales Force', 'Inbound Search']),
+      marketing: getOptions(marketingStr, simOps.marketing || ['Paid Campaigns', 'Strategic Events', 'Viral Growth'])
     };
-  }, [currentProject.onboarding]);
+  }, [currentProject.onboarding, currentProject.gtmStrategyDraft, currentProject.simulationStrategicOptions]);
 
   // Strategic Option overrides & parameters
   const [selectedSegmentIdx, setSelectedSegmentIdx] = useState<number>(1);
@@ -313,75 +335,79 @@ export const GTMSimulationEngine: React.FC<GTMSimulationEngineProps> = ({
 
     const heuristics = currentProject.simulationHeuristics;
 
-    if (heuristics) {
-      const applyHeuristic = (categoryName: string, idx: number) => {
-        const catHeuristics = heuristics[categoryName];
-        if (catHeuristics && catHeuristics[idx]) {
-          const mod = catHeuristics[idx];
-          opportunities = Math.round(opportunities * (mod.opportunities ?? 1));
-          acv = Math.round(acv * (mod.acv ?? 1));
-          cycleLength = Math.round(cycleLength * (mod.cycleLength ?? 1));
-          winRate += (mod.winRate ?? 0);
-        }
-      };
-
-      applyHeuristic('segments', selectedSegmentIdx);
-      applyHeuristic('icps', selectedIcpIdx);
-      applyHeuristic('personas', selectedPersonaIdx);
-      applyHeuristic('valProps', selectedValPropIdx);
-      applyHeuristic('messaging', selectedMessagingIdx);
-      applyHeuristic('motions', selectedSalesMotionIdx);
-      applyHeuristic('channels', selectedChannelIdx);
-      applyHeuristic('marketing', selectedMarketingIdx);
-    } else {
-      // Fallback heuristics
-      // Segment modifier
-      if (selectedSegmentIdx === 0) {
-        opportunities = Math.round(opportunities * 0.4);
-        acv = Math.round(acv * 2.8);
-        cycleLength = Math.round(cycleLength * 1.5);
-        winRate -= 2;
-      } else if (selectedSegmentIdx === 2) {
-        opportunities = Math.round(opportunities * 2.5);
-        acv = Math.round(acv * 0.35);
-        cycleLength = Math.round(cycleLength * 0.4);
-        winRate += 4;
+    const getShiftsForState = (segmentIdx: number, icpIdx: number, personaIdx: number, valPropIdx: number, messagingIdx: number, motionIdx: number, channelIdx: number, marketingIdx: number) => {
+      let o = 0, a = 0, c = 0, w = 0;
+      if (heuristics) {
+        const applyH = (cat: string, idx: number) => {
+          if (heuristics[cat] && heuristics[cat][idx]) {
+            o += ((heuristics[cat][idx].opportunities ?? 1) - 1);
+            a += ((heuristics[cat][idx].acv ?? 1) - 1);
+            c += ((heuristics[cat][idx].cycleLength ?? 1) - 1);
+            w += (heuristics[cat][idx].winRate ?? 0);
+          }
+        };
+        applyH('segments', segmentIdx);
+        applyH('icps', icpIdx);
+        applyH('personas', personaIdx);
+        applyH('valProps', valPropIdx);
+        applyH('messaging', messagingIdx);
+        applyH('motions', motionIdx);
+        applyH('channels', channelIdx);
+        applyH('marketing', marketingIdx);
+      } else {
+        // Fallback heuristics using identical additive shift system
+        if (segmentIdx === 0) { o -= 0.6; a += 1.8; c += 0.5; w -= 2; }
+        else if (segmentIdx === 2) { o += 1.5; a -= 0.65; c -= 0.6; w += 4; }
+        
+        if (icpIdx === 1) { o += 0.3; a -= 0.3; w += 3; }
+        else if (icpIdx === 2) { a += 0.4; c += 0.3; w -= 1; }
+        
+        if (valPropIdx === 1) { a += 0.15; }
+        else if (valPropIdx === 2) { c -= 0.15; }
+        
+        if (motionIdx === 1) { o += 1.1; a -= 0.75; c -= 0.65; w -= 6; }
+        else if (motionIdx === 2) { o -= 0.2; c -= 0.1; w += 3; }
       }
+      return { o, a, c, w };
+    };
 
-      // ICP modifier
-      if (selectedIcpIdx === 1) {
-        opportunities = Math.round(opportunities * 1.3);
-        acv = Math.round(acv * 0.7);
-        winRate += 3;
-      } else if (selectedIcpIdx === 2) {
-        acv = Math.round(acv * 1.4);
-        cycleLength = Math.round(cycleLength * 1.3);
-        winRate -= 1;
-      }
+    const currentS = getShiftsForState(selectedSegmentIdx, selectedIcpIdx, selectedPersonaIdx, selectedValPropIdx, selectedMessagingIdx, selectedSalesMotionIdx, selectedChannelIdx, selectedMarketingIdx);
 
-      // Val Prop modifier
-      if (selectedValPropIdx === 1) {
-        acv = Math.round(acv * 1.15);
-      } else if (selectedValPropIdx === 2) {
-        cycleLength = Math.round(cycleLength * 0.85);
-      }
-
-      // Sales Motion modifiers
-      if (selectedSalesMotionIdx === 1) {
-        opportunities = Math.round(opportunities * 2.1);
-        acv = Math.round(acv * 0.25);
-        cycleLength = Math.round(cycleLength * 0.35);
-        winRate = Math.max(2, winRate - 6);
-      } else if (selectedSalesMotionIdx === 2) {
-        opportunities = Math.round(opportunities * 0.8);
-        winRate += 3;
-        cycleLength = Math.round(cycleLength * 0.9);
-      }
+    // Baseline default state for the currently active scenario preset
+    let defaultSegmentIdx = 1;
+    let defaultMotionIdx = 0;
+    if (activeScenario.id === 'Scenario D: Product-Led Growth') {
+      defaultSegmentIdx = 2;
+      defaultMotionIdx = 1;
+    } else if (activeScenario.id === 'Scenario B: Vertical Specialization') {
+      defaultSegmentIdx = 0;
+      defaultMotionIdx = 0;
     }
+    const defaultS = getShiftsForState(defaultSegmentIdx, 0, 0, 0, 0, defaultMotionIdx, 1, 0);
+
+    // Delta shifts: we only apply the difference between current network state and the default state
+    const oppShift = currentS.o - defaultS.o;
+    const acvShift = currentS.a - defaultS.a;
+    const cycleShift = currentS.c - defaultS.c;
+    const winRateShift = currentS.w - defaultS.w;
+
+    // Dampen extreme compounding by doing additive shifts instead of multiplicative compounding
+    const applyShift = (base: number, shift: number, minMult: number, maxMult: number) => {
+      // We dampen the shift by 50% (* 0.4) because 8 categories of shifts naturally add up significantly
+      const multiplier = Math.max(minMult, Math.min(maxMult, 1 + (shift * 0.4))); 
+      return Math.round(base * multiplier);
+    };
+
+    opportunities = applyShift(opportunities, oppShift, 0.1, 5.0);
+    acv = applyShift(acv, acvShift, 0.1, 5.0);
+    cycleLength = applyShift(cycleLength, cycleShift, 0.1, 3.0);
+    
+    // winRate is absolute points, dampen overall adjustments by 50%
+    winRate += (winRateShift * 0.4);
 
     // Sanity clamps
     opportunities = Math.max(5, opportunities);
-    winRate = Math.max(1, Math.min(95, winRate));
+    winRate = Math.max(1, Math.min(95, Math.round(winRate)));
     acv = Math.max(1000, acv);
     cycleLength = Math.max(5, cycleLength);
 

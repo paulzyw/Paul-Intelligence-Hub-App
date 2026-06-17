@@ -334,9 +334,10 @@ export function GTMOSModule() {
       }
 
       if (localCache) {
+        localCache.sort((a, b) => new Date(b.updated_at || 0).getTime() - new Date(a.updated_at || 0).getTime());
         setProjectsList(localCache);
         setCurrentProjectId(localCache[0].id);
-        setActiveStep(localCache[0].currentStep || 1);
+        setActiveStep(1);
         localStorage.setItem(cacheKey, JSON.stringify(localCache));
         setDbStatusMsg('Restored from Local Cache');
       }
@@ -348,7 +349,7 @@ export function GTMOSModule() {
 
       try {
         // Multi-tenant Security Check: Enforce user's creator_id filter so users only see their own strategies
-        let query = supabase.from('revos_gtmos_strategies').select('*');
+        let query = supabase.from('revos_gtmos_strategies').select('*').order('updated_at', { ascending: false });
         if (profile?.id) {
           query = query.eq('creator_id', profile.id);
         } else {
@@ -391,14 +392,15 @@ export function GTMOSModule() {
               gtmCanvas: raw.gtmCanvas || null,
               gtmExecutionPlan: raw.gtmExecutionPlan || null,
               archivedExecutionPlan: raw.archivedExecutionPlan || null,
-              revenueDecomposition: raw.revenueDecomposition || null
+              revenueDecomposition: raw.revenueDecomposition || null,
+              updated_at: row.updated_at || new Date().toISOString()
             };
           });
 
           setProjectsList(formattedProjects);
-          const currentValid = formattedProjects.find(p => p.id === currentProjectId) || formattedProjects[0];
-          setCurrentProjectId(currentValid.id);
-          setActiveStep(currentValid.currentStep || 1);
+          // Auto-select the most active (top) project upon returning/loading
+          setCurrentProjectId(formattedProjects[0].id);
+          setActiveStep(1);
           localStorage.setItem(cacheKey, JSON.stringify(formattedProjects));
           setDbStatusMsg('Connected with Supabase Cloud');
         } else {
@@ -421,6 +423,7 @@ export function GTMOSModule() {
                   title: freshProj.title,
                   market_segment: freshProj.market_segment,
                   strategic_objective: freshProj.strategic_objective,
+                  updated_at: freshProj.updated_at || new Date().toISOString(),
                   raw_input: {
                     currentStep: freshProj.currentStep,
                     onboarding: freshProj.onboarding,
@@ -443,7 +446,7 @@ export function GTMOSModule() {
             }
             setProjectsList(uploadedList);
             setCurrentProjectId(uploadedList[0].id);
-            setActiveStep(uploadedList[0].currentStep || 1);
+            setActiveStep(1);
             localStorage.setItem(cacheKey, JSON.stringify(uploadedList));
             setDbStatusMsg('Synced with Supabase Cloud');
           } else {
@@ -451,7 +454,8 @@ export function GTMOSModule() {
             const seedId = generateUUID();
             const seed = {
               ...SEED_PROJECTS[0],
-              id: seedId
+              id: seedId,
+              updated_at: new Date().toISOString()
             };
             const { error: insertErr } = await supabase
               .from('revos_gtmos_strategies')
@@ -462,6 +466,7 @@ export function GTMOSModule() {
                 title: seed.title,
                 market_segment: seed.market_segment,
                 strategic_objective: seed.strategic_objective,
+                updated_at: seed.updated_at,
                 raw_input: {
                   currentStep: seed.currentStep,
                   onboarding: seed.onboarding,
@@ -485,7 +490,7 @@ export function GTMOSModule() {
               const list = [seed];
               setProjectsList(list);
               setCurrentProjectId(seed.id);
-              setActiveStep(seed.currentStep || 1);
+              setActiveStep(1);
               localStorage.setItem(cacheKey, JSON.stringify(list));
               setDbStatusMsg('Synced Seed with Supabase');
             }
@@ -503,16 +508,22 @@ export function GTMOSModule() {
 
   // Sync back to database helper on mutations
   const syncWithCloud = async (updatedProjects: GTMOSProject[], targetProjId: string) => {
-    setProjectsList(updatedProjects);
+    const now = new Date().toISOString();
+    // Re-stamp the target's updated time and sort list so newest edits are at the top
+    const sortedProjects = updatedProjects
+      .map(p => p.id === targetProjId ? { ...p, updated_at: now } : p)
+      .sort((a, b) => new Date(b.updated_at || 0).getTime() - new Date(a.updated_at || 0).getTime());
+
+    setProjectsList(sortedProjects);
     const cacheKey = getCacheKey();
     // Persist immediately in Local Storage for maximum reliability
     try {
-      localStorage.setItem(cacheKey, JSON.stringify(updatedProjects));
+      localStorage.setItem(cacheKey, JSON.stringify(sortedProjects));
     } catch (e) {
       console.warn('LocalStorage save failed:', e);
     }
 
-    const target = updatedProjects.find(p => p.id === targetProjId);
+    const target = sortedProjects.find(p => p.id === targetProjId);
     if (!target) return;
 
     if (!supabase) return;
@@ -527,6 +538,7 @@ export function GTMOSModule() {
           title: target.title,
           market_segment: target.market_segment,
           strategic_objective: target.strategic_objective,
+          updated_at: target.updated_at,
           raw_input: {
             currentStep: target.currentStep,
             onboarding: target.onboarding,
@@ -592,7 +604,8 @@ export function GTMOSModule() {
           gtmCanvas: raw.gtmCanvas || null,
           gtmExecutionPlan: raw.gtmExecutionPlan || null,
           archivedExecutionPlan: raw.archivedExecutionPlan || null,
-          revenueDecomposition: raw.revenueDecomposition || null
+          revenueDecomposition: raw.revenueDecomposition || null,
+          updated_at: data.updated_at || new Date().toISOString()
         };
 
         const nextList = projectsList.map(p => p.id === currentProjectId ? updatedProject : p);
@@ -645,7 +658,8 @@ export function GTMOSModule() {
         primaryGTMPath: 'hybrid'
       },
       risks: [],
-      recommendations: []
+      recommendations: [],
+      updated_at: new Date().toISOString()
     };
 
     const nextProjects = [...projectsList, fresh];
@@ -675,7 +689,7 @@ export function GTMOSModule() {
     
     if (currentProjectId === id) {
       setCurrentProjectId(next[0].id);
-      setActiveStep(next[0].currentStep || 1);
+      setActiveStep(1);
     }
 
     if (supabase) {
@@ -1049,11 +1063,24 @@ export function GTMOSModule() {
 
     const getOptions = (field: string | undefined, fallbacks: string[]) => {
       if (!field || field.trim() === '') return fallbacks;
-      const parts = field.split(/[,;\n|]/).map(s => s.trim()).filter(Boolean);
+      // split by common delimiters but exclude comma because users use commas in sentences
+      const parts = field.split(/[\n|;]/).map(s => s.trim()).filter(Boolean);
       const opts = [];
-      if (parts.length >= 1) opts.push(parts[0].substring(0, 24)); else opts.push(fallbacks[0]);
-      if (parts.length >= 2) opts.push(parts[1].substring(0, 24)); else opts.push(fallbacks[1]);
-      if (parts.length >= 3) opts.push(parts[2].substring(0, 24)); else opts.push(fallbacks[2]);
+      
+      const formatStr = (s: string) => s.length > 50 ? s.substring(0, 47) + '...' : s;
+      
+      if (parts.length >= 1) opts.push(formatStr(parts[0])); else opts.push(fallbacks[0]);
+      if (parts.length >= 2) opts.push(formatStr(parts[1])); else opts.push(fallbacks[1]);
+      if (parts.length >= 3) opts.push(formatStr(parts[2])); else opts.push(fallbacks[2]);
+      
+      // If we didn't get enough parts from strict delimiters, try generic fallback safely
+      if (parts.length < 3 && !field.includes('\n') && !field.includes('|') && !field.includes(';')) {
+        // try to separate by comma if it looks like a simple list
+        const commaParts = field.split(',').map(s => s.trim()).filter(s => s.length > 0 && s.length < 60);
+        if (commaParts.length >= 3) {
+           return [formatStr(commaParts[0]), formatStr(commaParts[1]), formatStr(commaParts[2])];
+        }
+      }
       return opts;
     };
 
@@ -1413,7 +1440,7 @@ export function GTMOSModule() {
                           key={p.id}
                           onClick={() => {
                             setCurrentProjectId(p.id);
-                            handleStepChange(p.currentStep || 1);
+                            setActiveStep(1);
                           }}
                           className={`p-4 rounded-xl border transition-all cursor-pointer text-left relative group ${
                             p.id === currentProjectId

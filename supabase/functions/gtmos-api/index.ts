@@ -116,7 +116,10 @@ serve(async (req) => {
             Current collected fields for category "${categoryId}": ${JSON.stringify(currentFields)}
 
             Generate realistic, highly-specific, professional business-driven data values to enrich and complete this category.
-            The fields required for category "${categoryId}" are listed below. Return a JSON object matching the keys and populated with professional, contextual data. Ensure no fields are left empty.
+            CRITICAL INSTRUCTIONS:
+            1. You MUST preserve and return the exact same strings for any fields in 'currentFields' that are already populated. Do not overwrite user-provided inputs.
+            2. For fields that are empty strings ("") or missing, generate deep, professional, contextual data to fill them in.
+            3. You must return ALL keys relevant to the category. Ensure no fields are left empty.
 
             Field specs per category:
             - Category "company_info": companyName, industry, headquarters, countriesServed, employeeCount, annualRevenue, growthStage, fundingStage, businessModel, strategicPriorities
@@ -136,7 +139,7 @@ serve(async (req) => {
               properties: {
                 enrichedFields: {
                   type: Type.OBJECT,
-                  description: "The set of fields matching the requested category keys filled with expert data.",
+                  description: "The set of fields matching the requested category keys filled with expert data. You MUST return ALL keys relevant to the category.",
                   properties: {
                     companyName: { type: Type.STRING },
                     industry: { type: Type.STRING },
@@ -205,7 +208,8 @@ serve(async (req) => {
                     customerSatisfaction: { type: Type.STRING },
                     CAC: { type: Type.STRING },
                     LTV: { type: Type.STRING }
-                  }
+                  },
+                  required: Object.keys(currentFields || {})
                 }
               },
               required: ["enrichedFields"]
@@ -1172,10 +1176,15 @@ Identify the operational gaps and bottlenecks. Return a valid JSON object matchi
         const stage4System = `You are a fractional B2B Chief Revenue Officer (CRO). Your job is to translate quantitative revenue demands and qualitative strategy foundations into an execution-grade, multi-level operational blueprint.
         
         INSTRUCTIONS:
-        Analyze the incoming JSON context fabric—specifically the 'revenue_requirements' and 'gtm_strategy_context'. You must generate structural execution workstreams.
+        Analyze the incoming JSON context fabric—specifically the 'revenue_requirements' and 'gtm_strategy_context'. You must generate structural execution workstreams that GUARANTEE the generation of the required 'mqls_required'.
+        
+        CRITICAL REQUIREMENTS:
+        1. Comprehensive Campaign Coverage: You MUST generate diverse execution plans covering multiple GTM campaigns (e.g., Inbound, Outbound, ABM, Partner Co-marketing, Paid Media, Events) specifically designed to generate MQLs.
+        2. Supporting Preparation: You MUST include foundational workstreams or initiatives for preparation: messaging architecture, enablement training, sales playbooks, pitch decks, target list definition for outbound, and ABM setup.
+        3. Strict MQL Quotas: Every demand-generation initiative MUST have a strict, hard-quoted expected outcome (e.g., "Generate 250 MQLs"). The sum of these expected MQLs across all plans MUST meet and exceed the 'mqls_required' in the revenue decomposition.
         
         CONSTRAINTS:
-        - Do NOT make assumptions about actual target calculations or contribution sizing. 
+        - Do NOT make assumptions about actual target calculations or contribution sizing; state them explicitly based on the requested MQL targets.
         - Focus strictly on building operational depth: Every workstream must branch down into clear Initiatives, which must break down into Executable Actions.
         - Ensure every Action lists a precise ownership role (e.g., "Growth Marketing Lead", "SDR Manager") and a binary measurable KPI.
         - Maintain tracking links back to the 9-Pillar GTM Strategy component it honors (relatedGtmPillar).
@@ -1352,12 +1361,12 @@ Identify the operational gaps and bottlenecks. Return a valid JSON object matchi
 INSTRUCTIONS:
 Analyze the incoming JSON context fabric—specifically the revenue_requirements (the master targets) and the freshly created execution_plan.workstreams array from Stage 4 ('DRAFTED').
 
-Your objective is to model the coverage yield of each workstream across the entire lead-to-deal funnel. You are not building a precise financial forecast; you are performing an operational coverage estimation to see if the plan theoretically scales to hit the numbers.
+Your objective is to model the coverage yield of each workstream across the entire lead-to-deal funnel. You must strictly audit the MQL quotas assigned in Stage 4.
 
 You must:
-1. Evaluate every individual workstream in the execution_plan and estimate its potential contribution value toward generating MQLs, SQLs, Opportunities, and Deals.
-2. Formulate your yield estimations based on the strategic nature of the workstream (e.g., an "Enterprise Outbound Velocity" workstream will yield high-value SQLs/Opportunities but low MQL volume; an "Inbound Content Playbook" will yield high MQLs but lower downstream conversion rates).
-3. Assign a confidence_score (between 0.0 and 1.0) to each workstream's contribution based on how clearly its nested initiatives and actions support its targets. High-volume claims with vague action items must be penalized with a low confidence score.
+1. Evaluate every individual workstream in the execution_plan and estimate its potential contribution value toward generating MQLs, SQLs, Opportunities, and Deals. Read the explicit MQL quotas defined in the workstream deliverables.
+2. Formulate your yield estimations based on the strategic nature of the workstream. Ensure that the total MQL yield matches or exceeds the required MQLs (mqls_required). Sum them up explicitly in your scratchpad reasoning.
+3. Assign a confidence_score (between 0.0 and 1.0) to each workstream's contribution. If a workstream claims high MQL yield but lacks the supporting preparation (like messaging, lists, or playbooks), drastically penalize its confidence score. High-volume claims with vague action items must be penalized.
 
 CONSTRAINTS:
 - Do NOT add, remove, or modify any workstreams, initiatives, or actions. Your single responsibility is to append modeling data to the existing structures.
@@ -1416,15 +1425,18 @@ Provide the pipeline and milestone contribution estimations. Return a valid JSON
         const stage6System = `You are an unyielding Revenue Operations Analyst and Data Scientist. Your task is to calculate the operational sufficiency of a proposed GTM action plan against concrete demand constraints.
         
         INSTRUCTIONS:
-        Analyze the 'execution_plan' alongside the 'revenue_requirements' inside the incoming JSON. Calculate whether the actions listed realistically scale to produce the target pipeline volume.
+        Analyze the 'execution_plan' alongside the 'revenue_requirements' inside the incoming JSON. Calculate whether the actions listed realistically scale to produce the target pipeline volume, particularly focusing on MQL generation.
         
         Perform the following systematic evaluation using deterministic sizing parameters:
-        1. Demand Coverage: Compare estimated yields against 'sqls_required'.
-        2. Capacity Feasibility: Highlight where human hour or financial capacity parameters are structurally exceeded.
-        3. Calculate an overall mathematical balance score between 0.00 and 1.00 (where 1.00 is perfectly sufficient).
+        1. Demand Coverage: Compare estimated yields against 'mqls_required' and 'sqls_required'. Check explicitly if the sum of proposed MQL generation across all campaigns exceeds the target. 
+        2. Supporting Readiness: Explicitly check for the existence of supporting preparation workstreams (e.g., messaging, training, playbooks, pitch decks, ABM target lists). If demand-generation plans exist without corresponding preparation plans, their probability of success drops.
+        3. Capacity Feasibility: Highlight where human hour or financial capacity parameters are structurally exceeded.
+        4. Calculate an overall mathematical balance score between 0.00 and 1.00 (where 1.00 is perfectly sufficient).
         
-        CONSTRAINTS:
-        - Be conservative. If an initiative claims high yields with low operational definition, downrate the confidence scale immediately.
+        CRITICAL SCORING RULES:
+        - If the total explicit MQL yield does NOT exceed the 'mqls_required', you MUST cap the overall_sufficiency_score at 0.50.
+        - If supporting preparation workstreams are missing or vague, you MUST subtract 0.20 from the score.
+        - Be extremely conservative. Ensure the plan is truly comprehensive before scoring above 0.90.
         
         You must mutate 'current_state' to "SUFFICIENCY_ASSESSED" and populate the entire 'sufficiency_metadata' object exactly:
         {
@@ -1471,18 +1483,19 @@ Provide the pipeline and milestone contribution estimations. Return a valid JSON
 
         if (loopScore < 90) {
           console.log(`Sufficiency score below 90% threshold. Triggering Stage 7: Gap Expansion Engine.`);
-          const stage7System = `You are a highly creative yet operationally realistic Chief Revenue Officer (CRO) and Enterprise Growth Architect. Your job is to automatically intervene when a GTM execution plan falls short of revenue requirements, expanding its tactical depth and injecting high-leverage commercial initiatives to close identified pipeline gaps.
+          const stage7System = `You are a highly creative yet operationally realistic Chief Revenue Officer (CRO) and Enterprise Growth Architect. Your job is to automatically intervene when a GTM execution plan falls short of revenue requirements (particularly MQL targets), expanding its tactical depth and injecting high-leverage commercial initiatives to close identified pipeline gaps.
 
 INSTRUCTIONS:
-Analyze the incoming JSON context fabric—specifically the revenue_requirements, the existing execution_plan.workstreams, and the deficit metrics identified in sufficiency_metadata (including the overall_sufficiency_score which has failed to meet the 90% threshold).
+Analyze the incoming JSON context fabric—specifically the revenue_requirements (focusing on 'mqls_required'), the existing execution_plan.workstreams, and the deficit metrics identified in sufficiency_metadata (including the overall_sufficiency_score which has failed to meet the 90% threshold).
 
 Your objective is to systematically modify and expand the execution plan to capture the missing pipeline allocation. You must optimize the plan by reinforcing weak areas without breaking operational capacity boundaries.
 
 You must:
-1. Identify which exact funnel metrics (e.g., MQLs, SQLs, or Pipeline Coverage) are causing the sufficiency deficit.
+1. Identify which exact funnel metrics (e.g., MQLs, SQLs) and preparation pillars (e.g., messaging, sales enablement) are causing the sufficiency deficit.
 2. Ingest the remediation recommendations built during Stage 3 ('GAP_ASSESSED') and the critique from Stage 6 ('SUFFICIENCY_ASSESSED').
-3. Inject additional, highly specific Initiatives and Executable Actions into existing workstreams, or build completely new Strategic Workstreams (e.g., adding a "Co-Marketing Partner Motion" to solve a demand gap, or introducing an "Automated Sales Playbook Enablement" initiative to boost an underperforming conversion rate).
+3. Inject additional, highly specific Initiatives and Executable Actions into existing workstreams, or build completely new Strategic Workstreams to OVER-DELIVER on the MQL volumes. For example, add "ABM Outreach Blitz", "Partner Co-Marketing Engine", or "Inbound SEO Content Play" to solve demand gaps; and add specific "Sales Playbook Generation" actions to solve enablement gaps.
 4. Ensure every newly added action adheres to the strict upstream framework: Every action must clearly trace from Action ➔ Initiative ➔ Workstream ➔ Strategic Pillar ➔ Revenue Objective.
+5. You MUST ensure the expanded plan generates at least the 'mqls_required' across its newly explicitly stated quotas.
 
 CONSTRAINTS:
 - Do NOT touch or reduce the baseline revenue_requirements targets. If the plan is insufficient, you must scale up the execution depth, not lower the financial bar.

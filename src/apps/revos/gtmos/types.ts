@@ -338,4 +338,5 @@ export interface GTMOSProject {
   revenueDecomposition?: RevenueDecompositionData | null;
   simulationStrategicOptions?: Record<string, string[]>;
   simulationHeuristics?: Record<string, SimulationHeuristicModifiers[]>;
+  updated_at?: string;
 }
