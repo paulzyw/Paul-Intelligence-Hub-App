@@ -1,10 +1,19 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, Fragment } from 'react';
 import { 
-  Briefcase, CheckCircle, Clock, AlertCircle, ArrowUpRight, Search, 
-  Filter, TrendingUp, Users, Target, Save, CheckSquare, ChevronRight, 
-  RefreshCw, Layers, Award, Activity, SearchIcon, Trash2
+  CheckCircle, 
+  Clock, 
+  AlertCircle, 
+  Activity, 
+  Search, 
+  Trash2, 
+  Target, 
+  Layers, 
+  Users,
+  CheckSquare,
+  Briefcase,
+  RefreshCw
 } from 'lucide-react';
-import { GTMOSProject, GTMExecutionPlan, GTMWorkstream, GTMInitiative, GTMActionItem, GTMKPI } from './types';
+import { GTMOSProject, GTMActionItem, GTMKPI, GTMExecutionPlan, GTMInitiative } from './types';
 
 interface ExecutionPipelineProps {
   projects: GTMOSProject[];
@@ -12,16 +21,13 @@ interface ExecutionPipelineProps {
   onUpdateProjectPlan: (projectId: string, plan: GTMExecutionPlan) => void;
 }
 
-interface ActionRow {
+interface InitiativeRow {
   projectId: string;
   projectTitle: string;
   programName: string;
   workstreamId: string;
   workstreamName: string;
-  initiativeId: string;
-  initiativeName: string;
-  action: GTMActionItem;
-  kpis: GTMKPI[];
+  initiative: GTMInitiative;
 }
 
 export const ExecutionPipeline: React.FC<ExecutionPipelineProps> = ({
@@ -32,15 +38,14 @@ export const ExecutionPipeline: React.FC<ExecutionPipelineProps> = ({
   // Filter states
   const [projectFilter, setProjectFilter] = useState<string>(currentProjectId || 'all');
   const [statusFilter, setStatusFilter] = useState<string>('all');
-  const [priorityFilter, setPriorityFilter] = useState<string>('all');
   const [searchTerm, setSearchTerm] = useState<string>('');
   const [saveSuccess, setSaveSuccess] = useState<boolean>(false);
   const [editingKpiValue, setEditingKpiValue] = useState<{ kpiId: string; value: string } | null>(null);
-  const [actionToDelete, setActionToDelete] = useState<ActionRow | null>(null);
+  const [actionToDelete, setActionToDelete] = useState<{ row: InitiativeRow, actionId: string, actionName: string } | null>(null);
 
-  // Parse all archived execution plans and flatten them into action rows
-  const allActionRows = useMemo(() => {
-    const rows: ActionRow[] = [];
+  // Parse all archived execution plans and flatten them into initiative rows
+  const allInitiativeRows = useMemo(() => {
+    const rows: InitiativeRow[] = [];
     
     projects.forEach(proj => {
       const plan = proj.archivedExecutionPlan;
@@ -49,19 +54,13 @@ export const ExecutionPipeline: React.FC<ExecutionPipelineProps> = ({
       plan.workstreams.forEach((ws) => {
         if (!ws.initiatives) return;
         ws.initiatives.forEach((init) => {
-          if (!init.actions) return;
-          init.actions.forEach((act) => {
-            rows.push({
-              projectId: proj.id,
-              projectTitle: proj.title,
-              programName: plan.programName || 'GTM Strategy',
-              workstreamId: ws.id,
-              workstreamName: ws.workstreamName,
-              initiativeId: init.id,
-              initiativeName: init.initiativeName,
-              action: act,
-              kpis: init.kpis || []
-            });
+          rows.push({
+            projectId: proj.id,
+            projectTitle: proj.title,
+            programName: plan.programName || 'GTM Strategy',
+            workstreamId: ws.id,
+            workstreamName: ws.workstreamName,
+            initiative: init
           });
         });
       });
@@ -72,67 +71,125 @@ export const ExecutionPipeline: React.FC<ExecutionPipelineProps> = ({
 
   // Filtered rows
   const filteredRows = useMemo(() => {
-    return allActionRows.filter(row => {
-      // Project filter
-      if (projectFilter !== 'all' && row.projectId !== projectFilter) {
-        return false;
-      }
+    return allInitiativeRows.map(row => {
+      let filteredActions = row.initiative.actions || [];
+
       // Status filter
-      if (statusFilter !== 'all' && row.action.status !== statusFilter) {
-        return false;
-      }
-      // Priority filter
-      if (priorityFilter !== 'all' && row.action.taskType?.toLowerCase() !== priorityFilter.toLowerCase()) {
-        // Fallback checks for priority in initiatives or action level info
-        const matchesType = row.action.taskType?.toLowerCase() === priorityFilter.toLowerCase();
-        const matchesOwner = row.action.owner?.toLowerCase() === priorityFilter.toLowerCase();
-        if (!matchesType && !matchesOwner) {
-          // If filtering by "completed" etc., skip
-        }
+      if (statusFilter !== 'all') {
+        filteredActions = filteredActions.filter(act => act.status === statusFilter);
       }
       
       // Search term
       if (searchTerm.trim() !== '') {
         const query = searchTerm.toLowerCase();
-        const matchAction = row.action.actionName.toLowerCase().includes(query) || 
-                            row.action.description?.toLowerCase().includes(query) ||
-                            row.action.owner?.toLowerCase().includes(query);
-        const matchInitiative = row.initiativeName.toLowerCase().includes(query);
-        const matchWs = row.workstreamName.toLowerCase().includes(query);
-        const matchProject = row.projectTitle.toLowerCase().includes(query);
-        
-        return matchAction || matchInitiative || matchWs || matchProject;
+        filteredActions = filteredActions.filter(act => 
+          act.actionName.toLowerCase().includes(query) || 
+          act.description?.toLowerCase().includes(query) ||
+          act.owner?.toLowerCase().includes(query)
+        );
+      }
+
+      return {
+        ...row,
+        initiative: {
+          ...row.initiative,
+          actions: filteredActions
+        }
+      };
+    }).filter(row => {
+      // Project filter
+      if (projectFilter !== 'all' && row.projectId !== projectFilter) {
+        return false;
+      }
+      
+      // If we filtered actions and none matched (and we had search/status filters active), exclude the initiative
+      if ((statusFilter !== 'all' || searchTerm.trim() !== '') && row.initiative.actions.length === 0) {
+        // Wait, what if the search term matched the initiative name instead? 
+        if (searchTerm.trim() !== '') {
+           const query = searchTerm.toLowerCase();
+           const matchInitiative = row.initiative.initiativeName.toLowerCase().includes(query);
+           const matchWs = row.workstreamName.toLowerCase().includes(query);
+           const matchProject = row.projectTitle.toLowerCase().includes(query);
+           if (!matchInitiative && !matchWs && !matchProject) {
+              return false;
+           }
+        } else {
+           return false;
+        }
       }
 
       return true;
     });
-  }, [allActionRows, projectFilter, statusFilter, priorityFilter, searchTerm]);
+  }, [allInitiativeRows, projectFilter, statusFilter, searchTerm]);
 
-  // Aggregate stats across active/filtered rows
+  // Aggregate stats across active projects
   const stats = useMemo(() => {
     const activeRows = projectFilter === 'all' 
-      ? allActionRows 
-      : allActionRows.filter(r => r.projectId === projectFilter);
+      ? allInitiativeRows 
+      : allInitiativeRows.filter(r => r.projectId === projectFilter);
 
-    const total = activeRows.length;
-    const completed = activeRows.filter(r => r.action.status === 'completed').length;
-    const inProgress = activeRows.filter(r => r.action.status === 'in_progress').length;
-    const blocked = activeRows.filter(r => r.action.status === 'blocked').length;
-    const todo = activeRows.filter(r => r.action.status === 'todo').length;
+    let total = 0;
+    let completed = 0;
+    let inProgress = 0;
+    let blocked = 0;
+    let todo = 0;
+
+    activeRows.forEach(row => {
+      total += row.initiative.actions?.length || 0;
+      row.initiative.actions?.forEach(act => {
+        if (act.status === 'completed') completed++;
+        else if (act.status === 'in_progress') inProgress++;
+        else if (act.status === 'blocked') blocked++;
+        else todo++; // default to todo
+      });
+    });
 
     const completionRate = total > 0 ? Math.round((completed / total) * 100) : 0;
 
     return { total, completed, inProgress, blocked, todo, completionRate };
-  }, [allActionRows, projectFilter]);
+  }, [allInitiativeRows, projectFilter]);
 
-  // Function to helper-parse values and return progress percentages
   const parseVal = (val: string) => {
     if (!val) return 0;
     const parsed = parseFloat(val.replace(/[^0-9.]/g, ''));
     return isNaN(parsed) ? 0 : parsed;
   };
 
-  // Safe KPI attainment indicator
+  // Find highest priority KPI for the first scorecard
+  const primaryKpiStats = useMemo(() => {
+    const activeRows = projectFilter === 'all' 
+      ? allInitiativeRows 
+      : allInitiativeRows.filter(r => r.projectId === projectFilter);
+
+    const PRIORITY_PATTERNS = [
+      { type: 'Deal / Revenue', pattern: /\b(deal|deals|revenue)\b/i },
+      { type: 'Pipeline', pattern: /\bpipeline\b/i },
+      { type: 'Opportunities', pattern: /\b(opportunity|opportunities)\b/i },
+      { type: 'SQLs', pattern: /\b(sql|sqls|sales qualified)\b/i },
+      { type: 'MQLs', pattern: /\b(mql|mqls|marketing qualified)\b/i },
+    ];
+
+    for (const p of PRIORITY_PATTERNS) {
+      for (const row of activeRows) {
+        if (!row.initiative.kpis) continue;
+        const matched = row.initiative.kpis.find(k => p.pattern.test(k.kpiName));
+        if (matched) {
+          const baselineNum = parseVal(matched.baseline);
+          const targetNum = parseVal(matched.target);
+          const currentNum = parseVal(matched.currentValue);
+          let attainment = 0;
+          if (Math.abs(targetNum - baselineNum) !== 0) {
+            const progress = (currentNum - baselineNum) / (targetNum - baselineNum);
+            attainment = Math.min(Math.max(Math.round(progress * 100), 0), 100);
+          }
+          return { kpi: matched, type: p.type, attainment };
+        }
+      }
+    }
+
+    return null;
+  }, [allInitiativeRows, projectFilter]);
+
   const calculateKpiAttainment = (kpi: GTMKPI) => {
     const baselineNum = parseVal(kpi.baseline);
     const targetNum = parseVal(kpi.target);
@@ -145,38 +202,36 @@ export const ExecutionPipeline: React.FC<ExecutionPipelineProps> = ({
     return percent;
   };
 
-  // Update action status in the database
-  const handleUpdateStatus = (row: ActionRow, nextStatus: 'todo' | 'in_progress' | 'completed' | 'blocked') => {
+  const parseValueHelper = (val: string) => {
+    if (!val) return { num: 0, hasPercent: false, hasDollar: false };
+    const cleaned = val.replace(/[^0-9.]/g, '');
+    const num = parseFloat(cleaned) || 0;
+    return {
+      num,
+      hasPercent: val.includes('%'),
+      hasDollar: val.includes('$')
+    };
+  };
+
+  const formatValueHelper = (num: number, hasPercent: boolean, hasDollar: boolean) => {
+    let formatted = num.toFixed(0);
+    if (hasDollar) {
+      if (num >= 1000) {
+        formatted = Math.round(num).toLocaleString('en-US');
+      }
+      return `$${formatted}`;
+    }
+    if (hasPercent) {
+      return `${formatted}%`;
+    }
+    return formatted;
+  };
+
+  const handleUpdateActionStatus = (row: InitiativeRow, actionId: string, nextStatus: 'todo' | 'in_progress' | 'completed' | 'blocked') => {
     const targetProj = projects.find(p => p.id === row.projectId);
     if (!targetProj || !targetProj.archivedExecutionPlan) return;
 
     const originalPlan = targetProj.archivedExecutionPlan;
-
-    // Helper to format values
-    const parseValueHelper = (val: string) => {
-      if (!val) return { num: 0, hasPercent: false, hasDollar: false };
-      const cleaned = val.replace(/[^0-9.]/g, '');
-      const num = parseFloat(cleaned) || 0;
-      return {
-        num,
-        hasPercent: val.includes('%'),
-        hasDollar: val.includes('$')
-      };
-    };
-
-    const formatValueHelper = (num: number, hasPercent: boolean, hasDollar: boolean) => {
-      let formatted = num.toFixed(0);
-      if (hasDollar) {
-        if (num >= 1000) {
-          formatted = Math.round(num).toLocaleString('en-US');
-        }
-        return `$${formatted}`;
-      }
-      if (hasPercent) {
-        return `${formatted}%`;
-      }
-      return formatted;
-    };
 
     const updatedWorkstreams = originalPlan.workstreams.map(ws => {
       if (ws.id !== row.workstreamId) return ws;
@@ -184,11 +239,10 @@ export const ExecutionPipeline: React.FC<ExecutionPipelineProps> = ({
       return {
         ...ws,
         initiatives: ws.initiatives.map(init => {
-          if (init.id !== row.initiativeId) return init;
+          if (init.id !== row.initiative.id) return init;
 
-          // Update status of actual action
           const nextActions = init.actions.map(act => {
-            if (act.id === row.action.id) {
+            if (act.id === actionId) {
               return { ...act, status: nextStatus };
             }
             return act;
@@ -229,8 +283,7 @@ export const ExecutionPipeline: React.FC<ExecutionPipelineProps> = ({
     triggerFeedback();
   };
 
-  // Direct manual update of KPI value attainment
-  const handleUpdateKPIValue = (row: ActionRow, kpiId: string, value: string) => {
+  const handleUpdateKPIValue = (row: InitiativeRow, kpiId: string, value: string) => {
     const targetProj = projects.find(p => p.id === row.projectId);
     if (!targetProj || !targetProj.archivedExecutionPlan) return;
 
@@ -241,7 +294,7 @@ export const ExecutionPipeline: React.FC<ExecutionPipelineProps> = ({
       return {
         ...ws,
         initiatives: ws.initiatives.map(init => {
-          if (init.id !== row.initiativeId) return init;
+          if (init.id !== row.initiative.id) return init;
           return {
             ...init,
             kpis: init.kpis.map(kpi => {
@@ -264,13 +317,13 @@ export const ExecutionPipeline: React.FC<ExecutionPipelineProps> = ({
     triggerFeedback();
   };
 
-  const requestDeleteAction = (row: ActionRow) => {
-    setActionToDelete(row);
+  const requestDeleteAction = (row: InitiativeRow, actionId: string, actionName: string) => {
+    setActionToDelete({ row, actionId, actionName });
   };
 
   const confirmDeleteAction = () => {
     if (!actionToDelete) return;
-    const row = actionToDelete;
+    const { row, actionId } = actionToDelete;
 
     const targetProj = projects.find(p => p.id === row.projectId);
     if (!targetProj || !targetProj.archivedExecutionPlan) {
@@ -280,32 +333,15 @@ export const ExecutionPipeline: React.FC<ExecutionPipelineProps> = ({
 
     const originalPlan = targetProj.archivedExecutionPlan;
 
-    const parseValueHelper = (val: string) => {
-      if (!val) return { num: 0, hasPercent: false, hasDollar: false };
-      const cleaned = val.replace(/[^0-9.]/g, '');
-      const num = parseFloat(cleaned) || 0;
-      return { num, hasPercent: val.includes('%'), hasDollar: val.includes('$') };
-    };
-
-    const formatValueHelper = (num: number, hasPercent: boolean, hasDollar: boolean) => {
-      let formatted = num.toFixed(0);
-      if (hasDollar) {
-        if (num >= 1000) formatted = Math.round(num).toLocaleString('en-US');
-        return `$${formatted}`;
-      }
-      if (hasPercent) return `${formatted}%`;
-      return formatted;
-    };
-
     const updatedWorkstreams = originalPlan.workstreams.map(ws => {
       if (ws.id !== row.workstreamId) return ws;
       
       return {
         ...ws,
         initiatives: ws.initiatives.map(init => {
-          if (init.id !== row.initiativeId) return init;
+          if (init.id !== row.initiative.id) return init;
 
-          const nextActions = init.actions.filter(act => act.id !== row.action.id);
+          const nextActions = init.actions.filter(act => act.id !== actionId);
 
           const totalActions = nextActions.length;
           const completedActions = nextActions.filter(a => a.status === 'completed').length;
@@ -373,17 +409,36 @@ export const ExecutionPipeline: React.FC<ExecutionPipelineProps> = ({
 
       {/* Aggregate Scorecards panel */}
       <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+        {primaryKpiStats ? (
+          <div className="p-4 rounded-2xl bg-[#00F090]/5 border border-[#00F090]/20 space-y-1">
+            <div className="text-[9px] font-mono font-bold text-[#00F090] uppercase flex items-center gap-1">
+              <Target className="h-2.5 w-2.5" /> High-Priority: {primaryKpiStats.type}
+            </div>
+            <div className="flex justify-between items-end">
+              <div className="text-xl font-black text-[#00F090] leading-none">
+                {primaryKpiStats.kpi.currentValue || '0'}
+                <span className="text-[10px] font-mono opacity-60 ml-1">/ {primaryKpiStats.kpi.target}</span>
+              </div>
+              <div className="text-xs font-bold text-[#00F090] leading-none">{primaryKpiStats.attainment}%</div>
+            </div>
+            <div className="w-full bg-[#00F090]/20 rounded-full h-1 overflow-hidden mt-1.5">
+              <div 
+                className="bg-[#00F090] h-full rounded-full transition-all duration-500" 
+                style={{ width: `${primaryKpiStats.attainment}%` }} 
+              />
+            </div>
+          </div>
+        ) : (
+          <div className="p-4 rounded-2xl bg-bg-surface/40 border border-border space-y-1 text-center flex flex-col justify-center items-center">
+            <div className="text-[9px] font-mono font-bold text-text-secondary uppercase">Essential KPI Goal</div>
+            <div className="text-xs font-bold text-text-secondary/50">No pipeline KPI set</div>
+          </div>
+        )}
         <div className="p-4 rounded-2xl bg-bg-surface/40 border border-border space-y-1">
-          <div className="text-[9px] font-mono font-bold text-text-secondary uppercase">Initiative Streams</div>
+          <div className="text-[9px] font-mono font-bold text-text-secondary uppercase">Initiative Actions</div>
           <div className="text-xl font-black text-text-primary flex items-baseline gap-1">
             {stats.total} <span className="text-[10px] font-mono text-text-secondary">active actions</span>
           </div>
-        </div>
-        <div className="p-4 rounded-2xl bg-[#00F090]/5 border border-[#00F090]/10 space-y-1">
-          <div className="text-[9px] font-mono font-bold text-[#00F090] uppercase flex items-center gap-1">
-            <CheckCircle className="h-2.5 w-2.5" /> Accomplished
-          </div>
-          <div className="text-xl font-black text-[#00F090]">{stats.completed}</div>
         </div>
         <div className="p-4 rounded-2xl bg-accent/5 border border-accent/10 space-y-1">
           <div className="text-[9px] font-mono font-bold text-accent uppercase flex items-center gap-1">
@@ -467,15 +522,14 @@ export const ExecutionPipeline: React.FC<ExecutionPipelineProps> = ({
             <thead>
               <tr className="border-b border-border bg-bg-surface/60 text-[9px] font-mono uppercase tracking-wider text-text-secondary">
                 <th className="py-3 px-4 w-[250px]">Execution Stream / Workstream</th>
-                <th className="py-3 px-4 w-[280px]">Initiative & Tactical Action</th>
-                <th className="py-3 px-4 w-[120px]">Live Status</th>
-                <th className="py-3 px-4 w-[250px]">KPI Goal Target & Attainment</th>
+                <th className="py-3 px-4 w-[400px]">Initiative Details & Tactical Actions</th>
+                <th className="py-3 px-4 w-[250px]">Initiative KPI Goals & Attainment</th>
               </tr>
             </thead>
             <tbody>
               {filteredRows.length === 0 ? (
                 <tr>
-                  <td colSpan={4} className="py-12 text-center">
+                  <td colSpan={3} className="py-12 text-center">
                     <div className="max-w-md mx-auto space-y-2">
                       <Target className="h-8 w-8 text-text-secondary/40 mx-auto animate-pulse" />
                       <p className="text-xs font-bold text-text-secondary">No matching active GTM actions found</p>
@@ -488,7 +542,7 @@ export const ExecutionPipeline: React.FC<ExecutionPipelineProps> = ({
               ) : (
                 filteredRows.map((row) => (
                   <tr 
-                    key={row.action.id} 
+                    key={row.initiative.id} 
                     className="border-b border-border/70 hover:bg-bg-surface/40 transition-colors"
                   >
                     {/* Column 1: Stream Information */}
@@ -503,109 +557,96 @@ export const ExecutionPipeline: React.FC<ExecutionPipelineProps> = ({
                       </div>
                       <div className="pt-2">
                         <div className="flex items-center gap-1 text-[11px] font-black text-text-primary">
-                          <Layers className="h-3 w-3 text-text-secondary hover:text-accent" />
+                          <Layers className="h-3 w-3 text-text-secondary hover:text-accent shrink-0" />
                           <span className="line-clamp-2 leading-tight">{row.workstreamName}</span>
                         </div>
                       </div>
                     </td>
 
-                    {/* Column 2: Action details */}
-                    <td className="py-3 px-4 align-top space-y-2">
+                    {/* Column 2: Initiative details and nested Actions block */}
+                    <td className="py-3 px-4 align-top space-y-4">
+                      {/* Initiative Head */}
                       <div className="space-y-1">
                         <span className="text-[9px] font-mono text-text-secondary/80 bg-bg-surface/60 border border-border px-1.5 py-0.5 rounded-md">
-                          Initiative: {row.initiativeName}
+                          Initiative
                         </span>
-                        <h4 className="text-xs font-black text-text-primary leading-snug">
-                          {row.action.actionName}
+                        <h4 className="text-sm font-black text-text-primary leading-snug">
+                          {row.initiative.initiativeName}
                         </h4>
-                        {row.action.description && (
+                        {row.initiative.description && (
                           <p className="text-[10px] text-text-secondary/80 font-sans leading-normal">
-                            {row.action.description}
+                            {row.initiative.description}
                           </p>
                         )}
                       </div>
-                      
-                      {/* Sub row meta tags */}
-                      <div className="flex flex-wrap gap-x-3 gap-y-1 pt-1 text-[9px] font-mono text-text-secondary/70">
-                        <span className="flex items-center gap-1">
-                          <Users className="h-2.5 w-2.5 text-accent" /> {row.action.owner || 'Unassigned'}
-                        </span>
-                        {row.action.dueDate && (
-                          <span className="flex items-center gap-1">
-                            <Clock className="h-2.5 w-2.5" /> Due: {row.action.dueDate}
-                          </span>
-                        )}
-                        {row.action.effortEstimateDays && (
-                          <span className="flex items-center gap-1">
-                            Effort: {row.action.effortEstimateDays}d
-                          </span>
-                        )}
+
+                      {/* Nested Actions */}
+                      <div className="space-y-2">
+                         {row.initiative.actions.map(act => (
+                           <div key={act.id} className="p-3 bg-bg-surface/50 border border-border/60 rounded-xl space-y-2 min-w-[340px]">
+                              <div className="flex flex-col md:flex-row md:items-start justify-between gap-3">
+                                 {/* Context */}
+                                 <div className="space-y-1">
+                                    <div className="text-xs font-bold text-text-primary leading-tight">{act.actionName}</div>
+                                    <div className="flex flex-wrap gap-x-3 gap-y-1 pt-1 text-[9px] font-mono text-text-secondary/70">
+                                      <span className="flex items-center gap-1">
+                                        <Users className="h-2.5 w-2.5 text-accent" /> {act.owner || 'Unassigned'}
+                                      </span>
+                                      {act.dueDate && (
+                                        <span className="flex items-center gap-1">
+                                          <Clock className="h-2.5 w-2.5" /> Due: {act.dueDate}
+                                        </span>
+                                      )}
+                                    </div>
+                                 </div>
+                                 {/* Status & Controls */}
+                                 <div className="flex flex-col items-end gap-2 shrink-0">
+                                   <select
+                                     value={act.status}
+                                     onChange={(e) => handleUpdateActionStatus(row, act.id, e.target.value as any)}
+                                     className={`w-36 text-[9px] font-bold py-1.5 px-2 rounded-xl focus:outline-none border select-none tracking-wider uppercase transition-all ${
+                                       act.status === 'completed'
+                                         ? 'bg-green-500/20 border-green-500/30 text-green-500'
+                                         : act.status === 'in_progress'
+                                         ? 'bg-blue-500/20 border-blue-500/30 text-blue-500'
+                                         : act.status === 'blocked'
+                                         ? 'bg-red-500/20 border-red-500/30 text-red-500 font-semibold'
+                                         : 'bg-bg-surface border-border text-text-secondary'
+                                     }`}
+                                   >
+                                     <option value="todo">Todo</option>
+                                     <option value="in_progress">In Progress</option>
+                                     <option value="completed">Completed</option>
+                                     <option value="blocked">Blocked</option>
+                                   </select>
+                                   <button 
+                                      onClick={() => requestDeleteAction(row, act.id, act.actionName)}
+                                      className="text-[9px] font-bold text-text-secondary/60 uppercase hover:text-red-500 flex items-center gap-1 transition-colors"
+                                      title="Delete Action Item"
+                                    >
+                                       <Trash2 className="h-3 w-3" /> Delete
+                                    </button>
+                                 </div>
+                              </div>
+                           </div>
+                         ))}
+                         {row.initiative.actions.length === 0 && (
+                           <div className="text-[10px] text-text-secondary bg-bg-surface/40 p-2 rounded-lg border border-border/50 border-dashed text-center">
+                             No actions found
+                           </div>
+                         )}
                       </div>
-                      
-                      {row.action.linkedStrategyGoal && (
-                        <div className="pt-1.5 flex items-center gap-1.5 text-[9px] text-accent/80 font-mono">
-                          <Target className="h-3 w-3" />
-                          <span>{row.action.linkedStrategyGoal}</span>
-                        </div>
-                      )}
-                      
-                      {(row.action.prerequisiteData || row.action.successMetric) && (
-                        <div className="mt-2 text-[9px] font-sans space-y-1">
-                           {row.action.prerequisiteData && (
-                             <div className="text-text-secondary">
-                               <span className="font-semibold text-text-primary">Requires:</span> {row.action.prerequisiteData}
-                             </div>
-                           )}
-                           {row.action.successMetric && (
-                             <div className="text-text-secondary">
-                               <span className="font-semibold text-text-primary">Metric:</span> {row.action.successMetric}
-                             </div>
-                           )}
-                        </div>
-                      )}
                     </td>
 
-                    {/* Column 3: Live interactive status selector */}
-                    <td className="py-3 px-4 align-top space-y-3">
-                      <div className="relative inline-block w-full">
-                        <select
-                          value={row.action.status}
-                          onChange={(e) => handleUpdateStatus(row, e.target.value as any)}
-                          className={`w-full text-[10px] font-bold py-1.5 px-2 rounded-xl focus:outline-none border select-none tracking-wider uppercase transition-all ${
-                            row.action.status === 'completed'
-                              ? 'bg-green-500/20 border-green-500/30 text-green-500'
-                              : row.action.status === 'in_progress'
-                              ? 'bg-blue-500/20 border-blue-500/30 text-blue-500'
-                              : row.action.status === 'blocked'
-                              ? 'bg-red-500/20 border-red-500/30 text-red-500 font-semibold'
-                              : 'bg-bg-surface border-border text-text-secondary'
-                          }`}
-                        >
-                          <option value="todo">Todo</option>
-                          <option value="in_progress">In Progress</option>
-                          <option value="completed">Completed</option>
-                          <option value="blocked">Blocked</option>
-                        </select>
-                      </div>
-
-                      <button 
-                        onClick={() => requestDeleteAction(row)}
-                        className="w-full py-1.5 px-2 rounded-xl border border-border bg-bg-surface hover:bg-red-500/10 hover:border-red-500/30 hover:text-red-500 transition-colors text-[10px] font-bold text-text-secondary uppercase flex items-center justify-center gap-1.5 group"
-                        title="Delete Action Item"
-                      >
-                         <Trash2 className="h-3.5 w-3.5 text-text-secondary/60 group-hover:text-red-500 transition-colors" /> Delete
-                      </button>
-                    </td>
-
-                    {/* Column 4: Associated KPI Goal Tracker & direct achievement inputs */}
+                    {/* Column 3: Associated KPI Goal Tracker & direct achievement inputs */}
                     <td className="py-3 px-4 align-top space-y-3 w-[260px]">
-                      {row.kpis.length === 0 ? (
+                      {row.initiative.kpis.length === 0 ? (
                         <div className="text-[10px] text-text-secondary/65 italic font-sans flex items-center gap-1.5 pt-1.5">
                           <AlertCircle className="h-3 w-3 text-text-secondary/40" />
                           No direct KPI defined
                         </div>
                       ) : (
-                        row.kpis.map((kpi) => {
+                        row.initiative.kpis.map((kpi) => {
                           const attainment = calculateKpiAttainment(kpi);
                           const isEditingThisKpi = editingKpiValue?.kpiId === kpi.id;
 
@@ -704,7 +745,7 @@ export const ExecutionPipeline: React.FC<ExecutionPipelineProps> = ({
               </p>
               <div className="bg-bg-base border border-border p-3 rounded-xl">
                  <div className="text-[10px] uppercase font-mono text-text-secondary/70 mb-1">Action Title</div>
-                 <div className="font-bold text-text-primary text-xs">{actionToDelete.action.actionName}</div>
+                 <div className="font-bold text-text-primary text-xs">{actionToDelete.actionName}</div>
               </div>
             </div>
             <div className="p-4 border-t border-border/50 bg-bg-surface/50 flex justify-end gap-3 shrink-0">

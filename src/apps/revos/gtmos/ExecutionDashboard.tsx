@@ -6,7 +6,7 @@ import {
 } from 'lucide-react';
 import { 
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, 
-  LineChart, Line, Legend, ReferenceLine
+  LineChart, Line, Legend, ReferenceLine, BarChart, Bar, Cell, LabelList
 } from 'recharts';
 import { GTMOSProject, GTMExecutionPlan, GTMWorkstream, GTMInitiative, GTMActionItem, GTMKPI, GTMRisk } from './types';
 
@@ -228,6 +228,121 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = ({
     };
   }, [plan]);
 
+  // Process Gauge & Progression Data based on empirical KPI outputs
+  const revenueEngineData = useMemo(() => {
+    const config = currentProject?.revenueDecomposition?.config;
+    
+    // Default config values if missing in decomposition
+    const parseNumStr = (val: string | undefined, defaultVal: number) => {
+      if (!val) return defaultVal;
+      let multiplier = 1;
+      const lowerVal = val.toLowerCase();
+      
+      if (lowerVal.match(/[0-9.]\s*m\b/)) multiplier = 1000000;
+      else if (lowerVal.match(/[0-9.]\s*k\b/)) multiplier = 1000;
+      else if (lowerVal.match(/[0-9.]\s*b\b/)) multiplier = 1000000000;
+      else if (lowerVal.includes('million')) multiplier = 1000000;
+
+      const parsed = parseFloat(val.replace(/[^0-9.]/g, ''));
+      return isNaN(parsed) ? defaultVal : parsed * multiplier;
+    };
+
+    const targetRevenue = parseNumStr(config?.revenueTarget || currentProject?.onboarding?.revenueTarget || plan?.revenueGoal, 1000000);
+    const winRate = parseNumStr(config?.winRate, 25);
+    const sqlToOpp = parseNumStr(config?.sqlConversionRate, 40);
+    const mqlToSql = parseNumStr(config?.mqlConversionRate, 15);
+    const acv = parseNumStr(config?.acv, 50000);
+
+    const wrPct = winRate > 1 ? winRate / 100 : winRate;
+    const sqlOppPct = sqlToOpp > 1 ? sqlToOpp / 100 : sqlToOpp;
+    const mqlSqlPct = mqlToSql > 1 ? mqlToSql / 100 : mqlToSql;
+    
+    const steps: { name: string, actual: number, target: number, kpiType: string, kpiActual: number, kpiTarget: number }[] = [];
+
+    if (plan && plan.workstreams) {
+      plan.workstreams.forEach(ws => {
+        ws.initiatives?.forEach(init => {
+          const prio = [
+            { type: 'Deal', pattern: /\b(deal|deals)\b/i },
+            { type: 'Pipeline', pattern: /\bpipeline\b/i },
+            { type: 'Opportunities', pattern: /\b(opportunity|opportunities)\b/i },
+            { type: 'SQL', pattern: /\b(sql|sqls|sales qualified)\b/i },
+            { type: 'MQL', pattern: /\b(mql|mqls|marketing qualified)\b/i }
+          ];
+
+          let bestKpi = null;
+          let kpiType = '';
+
+          for (const p of prio) {
+            const match = init.kpis?.find(k => p.pattern.test(k.kpiName) || p.pattern.test(k.kpiCategory || ''));
+            if (match) {
+              bestKpi = match;
+              kpiType = p.type;
+              break;
+            }
+          }
+
+          if (bestKpi) {
+            const actualVal = parseNumStr(bestKpi.currentValue, 0);
+            const targetKpiVal = parseNumStr(bestKpi.target, 0);
+            
+            let attributedRev = 0;
+            let targetRev = 0;
+
+            if (kpiType === 'MQL') {
+                attributedRev = actualVal * mqlSqlPct * sqlOppPct * wrPct * acv;
+                targetRev = targetKpiVal * mqlSqlPct * sqlOppPct * wrPct * acv;
+            } else if (kpiType === 'SQL') {
+                attributedRev = actualVal * sqlOppPct * wrPct * acv;
+                targetRev = targetKpiVal * sqlOppPct * wrPct * acv;
+            } else if (kpiType === 'Opportunities') {
+                attributedRev = actualVal * wrPct * acv;
+                targetRev = targetKpiVal * wrPct * acv;
+            } else if (kpiType === 'Pipeline') {
+                attributedRev = actualVal * wrPct;
+                targetRev = targetKpiVal * wrPct;
+            } else if (kpiType === 'Deal') {
+                attributedRev = actualVal * acv;
+                targetRev = targetKpiVal * acv;
+            }
+
+            if (attributedRev > 0 || targetRev > 0) {
+              steps.push({
+                name: init.initiativeName,
+                actual: attributedRev,
+                target: targetRev,
+                kpiType,
+                kpiActual: actualVal,
+                kpiTarget: targetKpiVal
+              });
+            }
+          }
+        });
+      });
+    }
+
+    const finalBaseline = parseNumStr(currentProject?.onboarding?.ARR, 0);
+
+    let shiftTotal = finalBaseline;
+    steps.forEach(s => { shiftTotal += s.actual; });
+
+    const formatLabel = (val: number, isIncremental: boolean) => {
+      if (val === 0) return '0';
+      const prefix = isIncremental && val > 0 ? '+' : '';
+      if (val >= 1000000) return `${prefix}${(val / 1000000).toFixed(1)}M`;
+      if (val >= 1000) return `${prefix}${(val / 1000).toFixed(0)}k`;
+      return `${prefix}${Math.round(val)}`;
+    };
+
+    return {
+       target: targetRevenue,
+       projected: shiftTotal,
+       baseline: finalBaseline,
+       steps,
+       formatLabel
+    };
+  }, [plan, currentProject]);
+
   // Aggregate simulated baseline vs target revenue projections over 6 quarters
   const revenueChartData = useMemo(() => {
     const rawGoal = plan?.revenueGoal ? parseFloat(plan.revenueGoal.replace(/[^0-9.]/g, '')) : 10;
@@ -447,104 +562,117 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = ({
             <div className="space-y-1">
               <div className="flex items-center gap-1">
                 <span className="text-[10px] font-mono font-bold tracking-wider text-accent uppercase">Predictive GTM Modeling</span>
-                <span className="px-1.5 py-0.5 rounded-full bg-border text-[8px] font-mono text-text-secondary">6-Quarter Window</span>
+                <span className="px-1.5 py-0.5 rounded-full bg-border text-[8px] font-mono text-text-secondary">KPI Attribution</span>
               </div>
-              <h3 className="text-sm font-black text-text-primary">Executive Revenue Goal vs. Milestone Forecast</h3>
+              <h3 className="text-sm font-black text-text-primary">Revenue Attainment (Performance Gauge)</h3>
               <p className="text-[11px] text-text-secondary max-w-xl leading-normal">
-                Compares company baseline ARR modeling against target ambitions. The <strong className="text-accent">Live Execution Projected trend</strong> updates dynamically as underlying pipeline tasks transition and key indicators trigger.
+                Predictive execution gauge evaluating core baseline revenue against stretch targets, alongside individual initiative performance. Live performance of key indicators triggers dynamic recalculations based on empirical conversion baselines.
               </p>
-            </div>
-
-            {/* Interactive modifier simulation handles */}
-            <div className="flex items-center gap-2 bg-bg-primary/40 border border-border px-3 py-1.5 rounded-xl text-xs shrink-0 select-none">
-              <span className="text-[10px] font-mono text-text-secondary">Simulate Risk Factor:</span>
-              <div className="flex items-center gap-1.5">
-                <button 
-                  onClick={() => setForecastSimulationFactor(prev => Math.max(0.6, prev - 0.15))}
-                  className="px-1.5 py-0.5 rounded bg-bg-surface border border-border text-[10px] text-text-primary font-bold hover:bg-bg-surface/80"
-                  title="Simulate Market Headwinds (Decrease projected actuals)"
-                >
-                  -15%
-                </button>
-                <span className="font-mono font-bold text-accent">
-                  {Math.round(forecastSimulationFactor * 100)}%
-                </span>
-                <button 
-                  onClick={() => setForecastSimulationFactor(prev => Math.min(1.4, prev + 0.15))}
-                  className="px-1.5 py-0.5 rounded bg-bg-surface border border-border text-[10px] text-text-primary font-bold hover:bg-bg-surface/80"
-                  title="Simulate Market Tailwinds (Increase projected actuals)"
-                >
-                  +15%
-                </button>
-              </div>
             </div>
           </div>
 
-          {/* Actual chart container */}
-          <div className="h-[250px] w-full pt-4">
-            <ResponsiveContainer width="100%" height="100%">
-              <AreaChart
-                data={revenueChartData}
-                margin={{ top: 10, right: 10, left: -20, bottom: 0 }}
-              >
-                <defs>
-                  <linearGradient id="colorTarget" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="var(--color-accent)" stopOpacity={0.15}/>
-                    <stop offset="95%" stopColor="var(--color-accent)" stopOpacity={0.0}/>
-                  </linearGradient>
-                  <linearGradient id="colorActual" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#00F090" stopOpacity={0.15}/>
-                    <stop offset="95%" stopColor="#00F090" stopOpacity={0.0}/>
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
-                <XAxis 
-                  dataKey="quarter" 
-                  stroke="rgba(255,255,255,0.4)" 
-                  fontSize={10}
-                  tickLine={false}
-                />
-                <YAxis 
-                  stroke="rgba(255,255,255,0.4)" 
-                  fontSize={10} 
-                  tickLine={false}
-                  label={{ value: 'ARR ($M)', angle: -90, position: 'insideLeft', offset: 5, fill: 'rgba(255,255,255,0.4)', fontSize: 10 }}
-                />
-                <Tooltip 
-                  contentStyle={{ backgroundColor: '#121214', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '12px' }}
-                  labelStyle={{ fontSize: '10px', color: 'rgba(255,255,255,0.6)', fontWeight: 'bold' }}
-                  itemStyle={{ fontSize: '11px', color: '#FFF' }}
-                />
-                <Legend 
-                  wrapperStyle={{ fontSize: '10px', paddingTop: '10px' }} 
-                  iconType="circle"
-                />
-                <Area 
-                  type="monotone" 
-                  dataKey="Target Goal" 
-                  stroke="var(--color-accent)" 
-                  strokeWidth={2}
-                  fillOpacity={1} 
-                  fill="url(#colorTarget)" 
-                />
-                <Area 
-                  type="monotone" 
-                  dataKey="Live Execution Projected" 
-                  stroke="#00F090" 
-                  strokeWidth={2.5}
-                  fillOpacity={1} 
-                  fill="url(#colorActual)" 
-                />
-                <Line 
-                  type="monotone" 
-                  dataKey="Base Plan" 
-                  stroke="rgba(255,255,255,0.35)" 
-                  strokeDasharray="4 4" 
-                  strokeWidth={1.5}
-                  dot={false}
-                />
-              </AreaChart>
-            </ResponsiveContainer>
+          <div className="flex flex-col xl:flex-row gap-8 mt-6 w-full justify-center">
+            <div className="flex-1 flex flex-col justify-center items-center">
+              {(() => {
+                const totalTarget = revenueEngineData.baseline + revenueEngineData.target;
+                const maxVal = totalTarget * 1.25; 
+                const r = 100;
+                const circumference = Math.PI * r;
+                
+                const baselineLength = (revenueEngineData.baseline / maxVal) * circumference;
+                const targetLength = (revenueEngineData.target / maxVal) * circumference;
+                const projectedPct = Math.min(revenueEngineData.projected / maxVal, 1);
+
+                let indicatorColor = 'var(--color-status-success)';
+                let textColor = 'text-status-success';
+                const redThreshold = revenueEngineData.baseline + 0.70 * revenueEngineData.target;
+                const yellowThreshold = revenueEngineData.baseline + 0.90 * revenueEngineData.target;
+                if (revenueEngineData.projected <= redThreshold) {
+                    indicatorColor = '#F87171'; // Red
+                    textColor = 'text-[#F87171]';
+                } else if (revenueEngineData.projected < yellowThreshold) {
+                    indicatorColor = '#FBBF24'; // Yellow
+                    textColor = 'text-[#FBBF24]';
+                }
+
+                return (
+                  <div className="relative w-full max-w-[320px] mx-auto aspect-[2/1] overflow-visible">
+                    <svg viewBox="0 0 240 130" className="w-full h-full overflow-visible">
+                      <path 
+                         d="M 20 120 A 100 100 0 0 1 220 120" 
+                         fill="none" 
+                         stroke="var(--color-text-secondary)" 
+                         className="text-black/5 dark:text-[#333333]"
+                         strokeWidth="16"
+                      />
+                      <path 
+                         d="M 20 120 A 100 100 0 0 1 220 120" 
+                         fill="none" 
+                         stroke="var(--color-text-secondary)" 
+                         className="text-black/10 dark:text-[#555555]"
+                         strokeWidth="16"
+                         strokeDasharray={`${baselineLength} ${circumference}`}
+                      />
+                      <path 
+                         d="M 20 120 A 100 100 0 0 1 220 120" 
+                         fill="none" 
+                         stroke="var(--color-accent)" 
+                         strokeWidth="16"
+                         strokeDasharray={`0 ${baselineLength} ${targetLength} ${circumference}`}
+                      />
+
+                      <g style={{ transformOrigin: '120px 120px', transform: `rotate(${-90 + projectedPct * 180}deg)`, transition: 'transform 1s cubic-bezier(0.16, 1, 0.3, 1)' }}>
+                         <path d="M 118 120 L 120 25 L 122 120 Z" fill={indicatorColor} />
+                         <circle cx="120" cy="120" r="5" fill={indicatorColor} />
+                      </g>
+                    </svg>
+                    <div className="absolute bottom-[-5px] left-0 right-0 flex justify-between px-6 text-[10px] text-text-secondary font-mono">
+                       <span>$0</span>
+                       <span>${revenueEngineData.formatLabel(maxVal, false)}</span>
+                    </div>
+                    <div className="absolute bottom-2 left-1/2 -translate-x-1/2 text-center flex flex-col items-center">
+                       <div className={`text-[10px] font-mono uppercase font-bold tracking-widest drop-shadow-none dark:drop-shadow-md ${textColor}`}>Projected</div>
+                       <div className="text-2xl font-black text-text-primary leading-none">${revenueEngineData.formatLabel(revenueEngineData.projected, false)}</div>
+                       {revenueEngineData.projected < totalTarget && (
+                           <div className="text-[9px] text-status-warning mt-1 font-mono">Gap: ${revenueEngineData.formatLabel(totalTarget - revenueEngineData.projected, false)}</div>
+                       )}
+                    </div>
+                  </div>
+                )
+              })()}
+              
+              <div className="flex gap-4 mt-8 pb-4 text-[10px] font-mono text-text-secondary">
+                 <div className="flex items-center gap-1.5 border border-border/50 px-2.5 py-1 rounded-md bg-bg-surface/30">
+                    <div className="w-2 h-2 rounded-sm bg-black/20 dark:bg-[#555555]" /> Baseline: ${revenueEngineData.formatLabel(revenueEngineData.baseline, false)}
+                 </div>
+                 <div className="flex items-center gap-1.5 border border-border/50 px-2.5 py-1 rounded-md bg-bg-surface/30">
+                    <div className="w-2 h-2 rounded-sm bg-accent" /> Target: ${revenueEngineData.formatLabel(revenueEngineData.target, false)}
+                 </div>
+              </div>
+            </div>
+            
+            <div className="flex-1 flex flex-col justify-center space-y-5 px-4 pb-6 mt-4 xl:mt-0 xl:border-l xl:border-border/40 xl:pl-8">
+              {revenueEngineData.steps.length > 0 ? revenueEngineData.steps.map((step, i) => {
+                 const pct = step.target > 0 ? Math.min(100, Math.round((step.actual / step.target) * 100)) : (step.actual > 0 ? 100 : 0);
+                 const overachieved = step.actual > step.target;
+                 return (
+                   <div key={i} className="flex flex-col mb-4">
+                      <div className="text-[10px] text-text-primary uppercase tracking-widest font-bold truncate mb-1 opacity-80" title={step.name}>{step.name}</div>
+                      <div className="flex justify-between items-end mb-2">
+                        <span className="text-3xl font-normal text-text-primary leading-[0.8] tracking-tighter">{pct}%</span>
+                        <div className="text-[11px] text-text-secondary font-mono">
+                          ${revenueEngineData.formatLabel(step.actual, false)} / ${revenueEngineData.formatLabel(step.target, false)}
+                        </div>
+                      </div>
+                      <div className="h-2.5 w-full bg-[#1e1e24] shadow-inner rounded-full overflow-hidden border border-white/5">
+                        <div className={`h-full rounded-full transition-all duration-1000 ${overachieved ? 'bg-accent shadow-[0_0_10px_rgba(0,229,255,0.4)]' : 'bg-[#00F090] shadow-[0_0_10px_rgba(0,240,144,0.4)]'}`} style={{ width: `${pct}%` }} />
+                      </div>
+                    </div>
+                 );
+              }) : (
+                 <div className="text-xs text-text-secondary italic text-center">No initiatives structured with pipeline KPIs available for performance prediction.</div>
+              )}
+            </div>
           </div>
         </div>
 
