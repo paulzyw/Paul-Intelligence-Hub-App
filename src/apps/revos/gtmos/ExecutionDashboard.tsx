@@ -588,11 +588,14 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = ({
                 const redThreshold = revenueEngineData.baseline + 0.70 * revenueEngineData.target;
                 const yellowThreshold = revenueEngineData.baseline + 0.90 * revenueEngineData.target;
                 if (revenueEngineData.projected <= redThreshold) {
-                    indicatorColor = '#F87171'; // Red
-                    textColor = 'text-[#F87171]';
+                    indicatorColor = '#f21b3f'; // Red
+                    textColor = 'text-[#f21b3f]';
                 } else if (revenueEngineData.projected < yellowThreshold) {
-                    indicatorColor = '#FBBF24'; // Yellow
-                    textColor = 'text-[#FBBF24]';
+                    indicatorColor = '#ff9914'; // Yellow
+                    textColor = 'text-[#ff9914]';
+                } else if (revenueEngineData.projected >= yellowThreshold) {
+                    indicatorColor = '#29bf12'; // green
+                    textColor = 'text-[#29bf12]';
                 }
 
                 return (
@@ -601,14 +604,14 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = ({
                       <path 
                          d="M 20 120 A 100 100 0 0 1 220 120" 
                          fill="none" 
-                         stroke="var(--color-text-secondary)" 
+                         stroke="var(--color-gauge-arc)" 
                          className="text-black/5 dark:text-[#333333]"
                          strokeWidth="16"
                       />
                       <path 
                          d="M 20 120 A 100 100 0 0 1 220 120" 
                          fill="none" 
-                         stroke="var(--color-text-secondary)" 
+                         stroke="var(--color-gauge-arc)" 
                          className="text-black/10 dark:text-[#555555]"
                          strokeWidth="16"
                          strokeDasharray={`${baselineLength} ${circumference}`}

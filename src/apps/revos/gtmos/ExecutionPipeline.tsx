@@ -155,8 +155,8 @@ export const ExecutionPipeline: React.FC<ExecutionPipelineProps> = ({
     return isNaN(parsed) ? 0 : parsed;
   };
 
-  // Find highest priority KPI for the first scorecard
-  const primaryKpiStats = useMemo(() => {
+  // Sum MQL equivalents across all active initiatives for the scorecard
+  const mqlKpiStats = useMemo(() => {
     const activeRows = projectFilter === 'all' 
       ? allInitiativeRows 
       : allInitiativeRows.filter(r => r.projectId === projectFilter);
@@ -169,26 +169,93 @@ export const ExecutionPipeline: React.FC<ExecutionPipelineProps> = ({
       { type: 'MQLs', pattern: /\b(mql|mqls|marketing qualified)\b/i },
     ];
 
-    for (const p of PRIORITY_PATTERNS) {
-      for (const row of activeRows) {
-        if (!row.initiative.kpis) continue;
+    let totalMqlBase = 0;
+    let totalMqlTarget = 0;
+    let totalMqlCurrent = 0;
+    let hasKpis = false;
+
+    // Helper functions for parsing rates/numbers from config
+    const getRate = (configVal: string | undefined, defaultRate: number) => {
+      if (!configVal) return defaultRate;
+      const parsed = parseFloat(configVal.replace(/[^0-9.]/g, ''));
+      return isNaN(parsed) || parsed === 0 ? defaultRate : parsed / 100;
+    };
+    const getNum = (configVal: string | undefined, defaultNum: number) => {
+      if (!configVal) return defaultNum;
+      const parsed = parseFloat(configVal.replace(/[^0-9.]/g, ''));
+      return isNaN(parsed) || parsed === 0 ? defaultNum : parsed;
+    };
+
+    activeRows.forEach(row => {
+      if (!row.initiative.kpis || row.initiative.kpis.length === 0) return;
+
+      const proj = projects.find(p => p.id === row.projectId);
+      const config = proj?.revenueDecomposition?.config;
+      
+      const winRate = getRate(config?.winRate, 0.2);
+      const sqlOpp = getRate(config?.sqlConversionRate, 0.3);
+      const mqlSql = getRate(config?.mqlConversionRate, 0.2);
+      const acv = getNum(config?.acv, 50000);
+
+      // Pick the single highest priority KPI from this initiative to prevent double counting
+      for (const p of PRIORITY_PATTERNS) {
         const matched = row.initiative.kpis.find(k => p.pattern.test(k.kpiName));
         if (matched) {
-          const baselineNum = parseVal(matched.baseline);
-          const targetNum = parseVal(matched.target);
-          const currentNum = parseVal(matched.currentValue);
-          let attainment = 0;
-          if (Math.abs(targetNum - baselineNum) !== 0) {
-            const progress = (currentNum - baselineNum) / (targetNum - baselineNum);
-            attainment = Math.min(Math.max(Math.round(progress * 100), 0), 100);
+          hasKpis = true;
+          let multiplier = 1;
+
+          const isDollar = (val: string) => val.includes('$');
+          const checkDollar = isDollar(matched.target) || isDollar(matched.baseline) || isDollar(matched.currentValue);
+
+          if (p.type === 'Deal / Revenue') {
+             if (checkDollar || matched.kpiName.toLowerCase().includes('revenue')) {
+                // Revenue -> Deals -> MQLs
+                multiplier = 1 / (acv * winRate * sqlOpp * mqlSql);
+             } else {
+                // Deals -> MQLs
+                multiplier = 1 / (winRate * sqlOpp * mqlSql);
+             }
+          } else if (p.type === 'Pipeline') {
+             if (checkDollar || matched.kpiName.toLowerCase().includes('pipeline')) {
+                // Pipeline ($) -> Opps -> MQLs
+                multiplier = 1 / (acv * sqlOpp * mqlSql);
+             } else {
+                multiplier = 1 / (acv * sqlOpp * mqlSql);
+             }
+          } else if (p.type === 'Opportunities') {
+             multiplier = 1 / (sqlOpp * mqlSql);
+          } else if (p.type === 'SQLs') {
+             multiplier = 1 / mqlSql;
+          } else {
+             multiplier = 1; // MQLs
           }
-          return { kpi: matched, type: p.type, attainment };
+
+          totalMqlBase += parseVal(matched.baseline) * multiplier;
+          totalMqlTarget += parseVal(matched.target) * multiplier;
+          totalMqlCurrent += parseVal(matched.currentValue) * multiplier;
+          
+          break; // Stop at highest priority KPI
         }
       }
+    });
+
+    if (!hasKpis || totalMqlTarget === 0) return null;
+
+    let attainment = 0;
+    if (Math.abs(totalMqlTarget - totalMqlBase) !== 0) {
+      const progress = (totalMqlCurrent - totalMqlBase) / (totalMqlTarget - totalMqlBase);
+      attainment = Math.min(Math.max(Math.round(progress * 100), 0), 100);
+    } else {
+      attainment = Math.min(Math.max(Math.round((totalMqlCurrent / totalMqlTarget) * 100), 0), 100);
     }
 
-    return null;
-  }, [allInitiativeRows, projectFilter]);
+    return { 
+      type: 'MQLs', 
+      currentValue: Math.round(totalMqlCurrent).toLocaleString(), 
+      target: Math.round(totalMqlTarget).toLocaleString(), 
+      attainment 
+    };
+  }, [allInitiativeRows, projectFilter, projects]);
 
   const calculateKpiAttainment = (kpi: GTMKPI) => {
     const baselineNum = parseVal(kpi.baseline);
@@ -409,22 +476,22 @@ export const ExecutionPipeline: React.FC<ExecutionPipelineProps> = ({
 
       {/* Aggregate Scorecards panel */}
       <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-        {primaryKpiStats ? (
+        {mqlKpiStats ? (
           <div className="p-4 rounded-2xl bg-[#00F090]/5 border border-[#00F090]/20 space-y-1">
             <div className="text-[9px] font-mono font-bold text-[#00F090] uppercase flex items-center gap-1">
-              <Target className="h-2.5 w-2.5" /> High-Priority: {primaryKpiStats.type}
+              <Target className="h-2.5 w-2.5" /> High-Priority: MQLs
             </div>
             <div className="flex justify-between items-end">
               <div className="text-xl font-black text-[#00F090] leading-none">
-                {primaryKpiStats.kpi.currentValue || '0'}
-                <span className="text-[10px] font-mono opacity-60 ml-1">/ {primaryKpiStats.kpi.target}</span>
+                {mqlKpiStats.currentValue || '0'}
+                <span className="text-[10px] font-mono opacity-60 ml-1">/ {mqlKpiStats.target}</span>
               </div>
-              <div className="text-xs font-bold text-[#00F090] leading-none">{primaryKpiStats.attainment}%</div>
+              <div className="text-xs font-bold text-[#00F090] leading-none">{mqlKpiStats.attainment}%</div>
             </div>
             <div className="w-full bg-[#00F090]/20 rounded-full h-1 overflow-hidden mt-1.5">
               <div 
                 className="bg-[#00F090] h-full rounded-full transition-all duration-500" 
-                style={{ width: `${primaryKpiStats.attainment}%` }} 
+                style={{ width: `${mqlKpiStats.attainment}%` }} 
               />
             </div>
           </div>

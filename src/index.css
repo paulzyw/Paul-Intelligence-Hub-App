@@ -23,6 +23,7 @@
   --color-obsidian: #121416;
   --color-steel: #2D3748;
   --color-ivory: #F4F4F9;
+  --color-gauge-arc: var(--gauge-arc);
   
   /* Impact Dashboard Static Palette */
   --color-profit-gold: #ED8936;
@@ -56,6 +57,7 @@
     --border-hero-color: #1b2f3e;
     --paragraph-spacing: 0.8rem;
     --article-line-height: 1.25;
+    --gauge-arc: #A0AEC0;
   }
 
   .dark {
@@ -74,6 +76,7 @@
     --border-hero-color: #2d3748;
     --paragraph-spacing: 0.8rem;
     --article-line-height: 1.25;
+    --gauge-arc: #444649;
   }
 
   html, body {
