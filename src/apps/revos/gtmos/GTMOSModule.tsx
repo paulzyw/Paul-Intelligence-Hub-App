@@ -51,6 +51,7 @@ import { GTMExecutionPlan } from './types';
 import { ExecutionPipeline } from './ExecutionPipeline';
 import { ExecutionDashboard } from './ExecutionDashboard';
 import { ExecutiveDashboard } from './ExecutiveDashboard';
+import { ExecutiveDashboardEngine } from './ExecutiveDashboardEngine';
 import { RevenueDecomposition } from './RevenueDecomposition';
 import ReactMarkdown from 'react-markdown';
 
@@ -393,6 +394,7 @@ export function GTMOSModule() {
               gtmExecutionPlan: raw.gtmExecutionPlan || null,
               archivedExecutionPlan: raw.archivedExecutionPlan || null,
               revenueDecomposition: raw.revenueDecomposition || null,
+              executiveDashboardRollup: raw.executiveDashboardRollup || null,
               updated_at: row.updated_at || new Date().toISOString()
             };
           });
@@ -432,7 +434,9 @@ export function GTMOSModule() {
                     gtmStrategyDraft: freshProj.gtmStrategyDraft || null,
                     gtmCanvas: freshProj.gtmCanvas || null,
                     gtmExecutionPlan: freshProj.gtmExecutionPlan || null,
-                    archivedExecutionPlan: freshProj.archivedExecutionPlan || null
+                    archivedExecutionPlan: freshProj.archivedExecutionPlan || null,
+                    revenueDecomposition: freshProj.revenueDecomposition || null,
+                    executiveDashboardRollup: freshProj.executiveDashboardRollup || null
                   },
                   structured_intelligence: {
                     aiReasoning: freshProj.aiReasoning,
@@ -475,7 +479,9 @@ export function GTMOSModule() {
                   gtmStrategyDraft: seed.gtmStrategyDraft || null,
                   gtmCanvas: seed.gtmCanvas || null,
                   gtmExecutionPlan: seed.gtmExecutionPlan || null,
-                  archivedExecutionPlan: seed.archivedExecutionPlan || null
+                  archivedExecutionPlan: seed.archivedExecutionPlan || null,
+                  revenueDecomposition: seed.revenueDecomposition || null,
+                  executiveDashboardRollup: seed.executiveDashboardRollup || null
                 },
                 structured_intelligence: {
                   aiReasoning: seed.aiReasoning,
@@ -548,7 +554,8 @@ export function GTMOSModule() {
             gtmCanvas: target.gtmCanvas || null,
             gtmExecutionPlan: target.gtmExecutionPlan || null,
             archivedExecutionPlan: target.archivedExecutionPlan || null,
-            revenueDecomposition: target.revenueDecomposition || null
+            revenueDecomposition: target.revenueDecomposition || null,
+            executiveDashboardRollup: target.executiveDashboardRollup || null
           },
           structured_intelligence: {
             aiReasoning: target.aiReasoning,
@@ -1288,6 +1295,17 @@ export function GTMOSModule() {
     syncWithCloud(nextList, currentProjectId);
   };
 
+  const handleUpdateExecutiveDashboardRollup = async (projectId: string, rollup: any) => {
+    const nextList = projectsList.map(p => {
+      if (p.id === projectId) {
+        return { ...p, executiveDashboardRollup: rollup };
+      }
+      return p;
+    });
+    // This immediately syncs and updates React state
+    await syncWithCloud(nextList, projectId);
+  };
+
   // Steps 18 - 19: Risk & Recommendations Audit trigger
   const runRiskAudit = async () => {
     setIsGeneratingAudit(true);
@@ -1340,7 +1358,8 @@ export function GTMOSModule() {
     { num: 17, name: 'Execution Dashboard' },
     { num: 18, name: 'Defense Audit' },
     { num: 19, name: 'Pivotal Actions' },
-    { num: 20, name: 'Boardroom Insights' }
+    { num: 20, name: 'Execution Insights' },
+    { num: 21, name: 'Executive Dashboard' }
   ];
 
   const currentOnboardingCategory = CATEGORY_SPECS.find(c => c.stepNumber === activeStep);
@@ -2510,6 +2529,11 @@ export function GTMOSModule() {
                 isRefreshing={isGeneratingAudit} 
               />
             )}
+
+            {/* Step 21: Executive Dashboard Engine */}
+            {activeStep === 21 && (
+              <ExecutiveDashboardEngine project={currentProject} onUpdate={handleUpdateExecutiveDashboardRollup} />
+            )}
           </motion.div>
         </AnimatePresence>
       </div>
@@ -2582,7 +2606,7 @@ export function GTMOSModule() {
                 ? handleSaveAndContinueGlobal
                 : () => handleStepChange(activeStep + 1)
             }
-            disabled={activeStep >= 20 || saveState === 'saving'}
+            disabled={activeStep >= 21 || saveState === 'saving'}
             className="px-5 py-2 bg-accent hover:bg-accent/90 text-black font-extrabold text-xs rounded-xl disabled:opacity-30 disabled:pointer-events-none transition-all flex items-center gap-1.5 shadow h-10 cursor-pointer"
           >
             {activeStep >= 2 && activeStep <= 9 && saveState === 'dirty' ? (

@@ -1698,6 +1698,117 @@ Optimize and refine the GTM execution plan. Return a valid JSON matching this sc
         return new Response(JSON.stringify(finalPlan), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
       }
 
+      case "generate-executive-dashboard": {
+        const response = await ai.models.generateContent({
+          model: "gemini-3.1-flash-lite",
+          contents: [
+            `You are the GTMOS Automated Chief of Staff. Synthesize raw execution data into a high-signal executive narrative. You must populate the JSON schema by applying the following reasoning models to the input data:
+
+1. For Section A (Attainment): Calculate overall health. Write a 2-sentence maximum narrative summarizing current revenue velocity versus target.
+2. For Section B (Deltas): Compare the strategic pillars against live execution task completion. Explicitly articulate WHY a variance exists, not just that it exists.
+3. For Section C (Risks): Identify execution tasks that are behind schedule and threaten major goals. Generate an actionable, tactical mitigation pivot to recover the timeline.
+4. For Section D (Forecast): Project the current completion rate forward. Provide 1-2 interactive "scenario levers" (e.g., "If we add X resources, impact will be Y").
+5. For Section F (Friction): Analyze time-in-stage for all execution tasks. Identify the primary organizational bottleneck (e.g., Legal, Content Creation) and recommend an unblocking action.
+6. For Section G (Market): Evaluate internal execution pacing against known external competitor benchmarks or market timing windows.
+
+ORGANIZATIONAL CONTEXT:
+${buildRichContext(onboardingData, projectName || 'your product')}
+
+EXECUTION PIPELINE DATA (Tasks, Statuses, Metrics):
+${executionPlan ? JSON.stringify(executionPlan, null, 2) : "None yet"}
+
+REVENUE/BUSINESS TARGETS:
+${revenueDecomposition ? JSON.stringify(revenueDecomposition, null, 2) : "None yet"}`
+          ],
+          config: {
+            systemInstruction: GTMOS_SYSTEM_INSTRUCTION,
+            responseMimeType: "application/json",
+            responseSchema: {
+              type: Type.OBJECT,
+              properties: {
+                section_a_attainment: {
+                  type: Type.OBJECT,
+                  properties: {
+                    health_score: { type: Type.INTEGER },
+                    narrative_brief: { type: Type.STRING }
+                  },
+                  required: ["health_score", "narrative_brief"]
+                },
+                section_b_strategic_deltas: {
+                  type: Type.ARRAY,
+                  items: {
+                    type: Type.OBJECT,
+                    properties: {
+                      strategic_pillar: { type: Type.STRING },
+                      target_metric: { type: Type.STRING },
+                      current_execution_status: { type: Type.STRING },
+                      variance_explanation: { type: Type.STRING }
+                    },
+                    required: ["strategic_pillar", "target_metric", "current_execution_status", "variance_explanation"]
+                  }
+                },
+                section_c_risk_radar: {
+                  type: Type.ARRAY,
+                  items: {
+                    type: Type.OBJECT,
+                    properties: {
+                      risk_id: { type: Type.STRING },
+                      severity: { type: Type.STRING },
+                      threat_description: { type: Type.STRING },
+                      impacted_goal: { type: Type.STRING },
+                      suggested_mitigation_pivot: { type: Type.STRING }
+                    },
+                    required: ["risk_id", "severity", "threat_description", "impacted_goal", "suggested_mitigation_pivot"]
+                  }
+                },
+                section_d_predictive_forecast: {
+                  type: Type.OBJECT,
+                  properties: {
+                    predicted_attainment_percentage: { type: Type.INTEGER },
+                    trajectory_narrative: { type: Type.STRING },
+                    scenario_levers: {
+                      type: Type.ARRAY,
+                      items: {
+                        type: Type.OBJECT,
+                        properties: {
+                          action: { type: Type.STRING },
+                          projected_impact: { type: Type.STRING }
+                        },
+                        required: ["action", "projected_impact"]
+                      }
+                    }
+                  },
+                  required: ["predicted_attainment_percentage", "trajectory_narrative", "scenario_levers"]
+                },
+                section_f_friction_analysis: {
+                  type: Type.OBJECT,
+                  properties: {
+                    primary_bottleneck_node: { type: Type.STRING },
+                    average_delay_days: { type: Type.INTEGER },
+                    unblocking_recommendation: { type: Type.STRING }
+                  },
+                  required: ["primary_bottleneck_node", "average_delay_days", "unblocking_recommendation"]
+                },
+                section_g_market_signals: {
+                  type: Type.OBJECT,
+                  properties: {
+                    competitor_dynamic: { type: Type.STRING },
+                    execution_pacing_gap: { type: Type.STRING },
+                    strategic_pivot_recommendation: { type: Type.STRING }
+                  },
+                  required: ["competitor_dynamic", "execution_pacing_gap", "strategic_pivot_recommendation"]
+                }
+              },
+              required: [
+                "section_a_attainment", "section_b_strategic_deltas", "section_c_risk_radar", 
+                "section_d_predictive_forecast", "section_f_friction_analysis", "section_g_market_signals"
+              ]
+            }
+          }
+        });
+        return new Response(response.text || "{}", { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+      }
+
       default:
         return new Response(JSON.stringify({ error: `Action ${action} not found.` }), { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }

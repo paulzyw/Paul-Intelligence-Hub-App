@@ -40,22 +40,48 @@ export const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({ project,
   } = project;
 
   // Extract necessary data, providing fallbacks if some engine parts haven't been completed
-  const rawTargetARR = revenueDecomposition?.config?.revenueTarget || onboarding?.['financial_targets']?.target_arr || 'N/A';
-  const formatInThousands = (val: string) => {
-    if (!val || val === 'N/A') return 'N/A';
-    const num = parseFloat(val.replace(/[^0-9.-]+/g, ''));
-    if (isNaN(num)) return val;
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
-      maximumFractionDigits: 0
-    }).format(num / 1000) + 'k';
+  const plan = project.archivedExecutionPlan || project.gtmExecutionPlan;
+  const rawTargetARR = revenueDecomposition?.config?.revenueTarget || onboarding?.['financial_targets']?.target_arr || plan?.revenueGoal || 'N/A';
+  
+  const parseNumStr = (val: string | undefined): number | null => {
+    if (!val || val === 'N/A') return null;
+    let multiplier = 1;
+    const lowerVal = val.toLowerCase();
+    
+    if (lowerVal.match(/[0-9.]\s*m\b/)) multiplier = 1000000;
+    else if (lowerVal.match(/[0-9.]\s*k\b/)) multiplier = 1000;
+    else if (lowerVal.match(/[0-9.]\s*b\b/)) multiplier = 1000000000;
+    else if (lowerVal.includes('million')) multiplier = 1000000;
+
+    const parsed = parseFloat(val.replace(/[^0-9.]/g, ''));
+    return isNaN(parsed) ? null : parsed * multiplier;
   };
-  const targetRevenue = formatInThousands(rawTargetARR);
+
+  const formatCurrency = (val: string | undefined) => {
+    if (!val || val === 'N/A') return 'N/A';
+    const num = parseNumStr(val);
+    if (num === null) return val;
+    
+    if (num >= 1000000) {
+      return new Intl.NumberFormat('en-US', {
+        style: 'currency',
+        currency: 'USD',
+        maximumFractionDigits: 1
+      }).format(num / 1000000) + 'M';
+    } else {
+      return new Intl.NumberFormat('en-US', {
+        style: 'currency',
+        currency: 'USD',
+        maximumFractionDigits: 0
+      }).format(num / 1000) + 'k';
+    }
+  };
+
+  const targetRevenue = formatCurrency(rawTargetARR);
   
   const timeframe = revenueDecomposition?.config?.timeHorizon || onboarding?.['financial_targets']?.timeframe || '12 Months';
   const rawAcv = revenueDecomposition?.config?.acv || onboarding?.['financial_targets']?.avg_acv || 'N/A';
-  const acv = formatInThousands(rawAcv);
+  const acv = formatCurrency(rawAcv);
   
   const pipelineRequired = revenueDecomposition?.result?.pipelineRequired || 'N/A';
   const sqlRequired = revenueDecomposition?.result?.sqlRequired || 'N/A';

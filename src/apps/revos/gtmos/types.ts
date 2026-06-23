@@ -338,5 +338,44 @@ export interface GTMOSProject {
   revenueDecomposition?: RevenueDecompositionData | null;
   simulationStrategicOptions?: Record<string, string[]>;
   simulationHeuristics?: Record<string, SimulationHeuristicModifiers[]>;
+  executiveDashboardRollup?: ExecutiveDashboardRollup;
   updated_at?: string;
+}
+
+export interface ExecutiveDashboardRollup {
+  section_a_attainment: {
+    health_score: number; // 0-100
+    narrative_brief: string; 
+  };
+  section_b_strategic_deltas: Array<{
+    strategic_pillar: string;
+    target_metric: string;
+    current_execution_status: "Ahead" | "On Track" | "Behind Schedule";
+    variance_explanation: string;
+  }>;
+  section_c_risk_radar: Array<{
+    risk_id: string;
+    severity: "CRITICAL" | "HIGH" | "MEDIUM";
+    threat_description: string;
+    impacted_goal: string;
+    suggested_mitigation_pivot: string;
+  }>;
+  section_d_predictive_forecast: {
+    predicted_attainment_percentage: number;
+    trajectory_narrative: string;
+    scenario_levers: Array<{
+       action: string;
+       projected_impact: string;
+    }>;
+  };
+  section_f_friction_analysis: {
+    primary_bottleneck_node: string; 
+    average_delay_days: number;
+    unblocking_recommendation: string;
+  };
+  section_g_market_signals: {
+    competitor_dynamic: string;
+    execution_pacing_gap: string;
+    strategic_pivot_recommendation: string;
+  };
 }

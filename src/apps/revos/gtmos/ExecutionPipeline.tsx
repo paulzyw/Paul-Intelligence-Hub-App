@@ -11,7 +11,11 @@ import {
   Users,
   CheckSquare,
   Briefcase,
-  RefreshCw
+  RefreshCw,
+  ChevronDown,
+  ChevronUp,
+  BarChartHorizontal,
+  Calendar
 } from 'lucide-react';
 import { GTMOSProject, GTMActionItem, GTMKPI, GTMExecutionPlan, GTMInitiative } from './types';
 
@@ -39,6 +43,7 @@ export const ExecutionPipeline: React.FC<ExecutionPipelineProps> = ({
   const [projectFilter, setProjectFilter] = useState<string>(currentProjectId || 'all');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [searchTerm, setSearchTerm] = useState<string>('');
+  const [showGanttChart, setShowGanttChart] = useState<boolean>(false);
   const [saveSuccess, setSaveSuccess] = useState<boolean>(false);
   const [editingKpiValue, setEditingKpiValue] = useState<{ kpiId: string; value: string } | null>(null);
   const [actionToDelete, setActionToDelete] = useState<{ row: InitiativeRow, actionId: string, actionName: string } | null>(null);
@@ -444,6 +449,90 @@ export const ExecutionPipeline: React.FC<ExecutionPipelineProps> = ({
     setTimeout(() => setSaveSuccess(false), 2000);
   };
 
+  // --- Gantt Chart Logic ---
+  const { normalizedActions, timelineMarkers } = useMemo(() => {
+    let minMs = Infinity;
+    let maxMs = -Infinity;
+    
+    const actionsWithDates: Array<{
+      id: string;
+      initiativeName: string;
+      actionName: string;
+      status: string;
+      owner: string;
+      startDateStr: string;
+      dueDateStr: string;
+      sMs: number;
+      dMs: number;
+    }> = [];
+
+    const fallbackMs = Date.now();
+
+    filteredRows.forEach(row => {
+      row.initiative.actions?.forEach(act => {
+        let sMs = act.startDate ? new Date(act.startDate).getTime() : fallbackMs;
+        let dMs = act.dueDate ? new Date(act.dueDate).getTime() : sMs + 7 * 24 * 60 * 60 * 1000;
+
+        if (isNaN(sMs)) sMs = fallbackMs;
+        if (isNaN(dMs)) dMs = sMs + 7 * 24 * 60 * 60 * 1000;
+        
+        if (dMs < sMs) dMs = sMs;
+
+        if (sMs < minMs) minMs = sMs;
+        if (dMs > maxMs) maxMs = dMs;
+
+        actionsWithDates.push({
+          id: act.id,
+          initiativeName: row.initiative.initiativeName,
+          actionName: act.actionName,
+          status: act.status,
+          owner: act.owner || 'Unassigned',
+          startDateStr: act.startDate || new Date(sMs).toISOString().split('T')[0],
+          dueDateStr: act.dueDate || new Date(dMs).toISOString().split('T')[0],
+          sMs,
+          dMs
+        });
+      });
+    });
+
+    if (minMs === Infinity || actionsWithDates.length === 0) {
+       minMs = fallbackMs;
+       maxMs = fallbackMs + 30 * 24 * 60 * 60 * 1000;
+    }
+    
+    let span = maxMs - minMs;
+    if (span === 0) span = 7 * 24 * 60 * 60 * 1000;
+    
+    // Add visual padding ~ 5%
+    const viewMinMs = minMs - span * 0.05;
+    const viewMaxMs = maxMs + span * 0.05;
+
+    const normActions = actionsWithDates.map(a => {
+      const leftPct = ((a.sMs - viewMinMs) / (viewMaxMs - viewMinMs)) * 100;
+      const widthPct = ((a.dMs - a.sMs) / (viewMaxMs - viewMinMs)) * 100;
+      return {
+         ...a,
+         leftPct: Math.max(0, leftPct),
+         widthPct: Math.max(0.5, widthPct)
+      };
+    }).sort((a,b) => a.sMs - b.sMs); // Sort by start date
+
+    // Create markers
+    const markers = [];
+    const steps = 6;
+    for (let i = 0; i <= steps; i++) {
+        const ms = viewMinMs + (viewMaxMs - viewMinMs) * (i / steps);
+        const d = new Date(ms);
+        const name = d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+        markers.push({ pct: (i / steps) * 100, label: name });
+    }
+
+    return { 
+      normalizedActions: normActions,
+      timelineMarkers: markers
+    };
+  }, [filteredRows]);
+
   return (
     <div className="space-y-6 animate-fade-in">
       {/* Title block */}
@@ -796,6 +885,109 @@ export const ExecutionPipeline: React.FC<ExecutionPipelineProps> = ({
             </tbody>
           </table>
         </div>
+      </div>
+
+      {/* Gantt Chart Section */}
+      <div className="border border-border rounded-2xl overflow-hidden bg-bg-surface/20 relative">
+        <div 
+          className="p-4 bg-bg-surface/60 border-b border-border flex justify-between items-center cursor-pointer hover:bg-bg-surface/80 transition-colors"
+          onClick={() => setShowGanttChart(!showGanttChart)}
+        >
+          <div className="flex items-center gap-3">
+             {showGanttChart ? (
+                 <ChevronUp className="h-5 w-5 text-text-secondary" />
+             ) : (
+                 <ChevronDown className="h-5 w-5 text-text-secondary" />
+             )}
+            <div className="p-2 rounded-xl bg-accent/10 border border-accent/20 text-accent">
+              <BarChartHorizontal className="h-4 w-4" />
+            </div>
+            <div>
+              <h3 className="text-sm font-black text-text-primary tracking-wide">Execution Timeline (Gantt View)</h3>
+              <p className="text-[10px] text-text-secondary">Visual layout of active operational tasks across the execution horizon.</p>
+            </div>
+          </div>
+          {normalizedActions.length > 0 && (
+              <div className="flex items-center gap-2 text-[10px] font-mono text-text-secondary">
+                  <span className="flex items-center gap-1"><Calendar className="h-3 w-3" /> {normalizedActions.length} Actions</span>
+              </div>
+          )}
+        </div>
+        
+        {showGanttChart && (
+          <div className="flex bg-bg-base overflow-x-auto relative">
+             <div className="w-[300px] shrink-0 border-r border-border/60 bg-bg-surface/30 z-20">
+                <div className="h-10 border-b border-border/50 px-4 flex items-center">
+                   <span className="text-[10px] font-black uppercase text-text-secondary tracking-widest">Tactical Actions</span>
+                </div>
+                <div className="py-2">
+                   {normalizedActions.map((act) => (
+                      <div key={'label-'+act.id} className="h-10 px-4 flex flex-col justify-center border-b border-border/20 group">
+                         <div className="text-[11px] font-black text-text-primary truncate">{act.actionName}</div>
+                         <div className="text-[9px] font-mono text-text-secondary/70 truncate flex justify-between">
+                            <span>{act.initiativeName}</span>
+                            {act.owner && <span className="text-accent/80 opacity-0 group-hover:opacity-100 transition-opacity">{act.owner}</span>}
+                         </div>
+                      </div>
+                   ))}
+                </div>
+             </div>
+             
+             <div className="min-w-[600px] flex-grow relative">
+                <div className="h-10 border-b border-border/50 relative bg-bg-surface/10">
+                   {timelineMarkers.map((marker, idx) => (
+                      <div 
+                        key={idx} 
+                        className="absolute bottom-1 text-[9px] font-mono text-text-secondary/80 -translate-x-1/2 whitespace-nowrap"
+                        style={{ left: `${marker.pct}%` }}
+                      >
+                        {marker.label}
+                      </div>
+                    ))}
+                </div>
+                
+                {/* Grid */}
+                <div className="absolute top-10 bottom-0 left-0 right-0 pointer-events-none">
+                    {timelineMarkers.map((marker, idx) => (
+                        <div 
+                          key={`grid-${idx}`}
+                          className="absolute top-0 bottom-0 border-l border-border/20 border-dashed"
+                          style={{ left: `${marker.pct}%` }}
+                        />
+                    ))}
+                </div>
+
+                <div className="py-2 relative w-full z-10">
+                   {normalizedActions.map((act) => {
+                      let colorClasses = 'bg-border/40 border-border/60 text-text-secondary';
+                      if (act.status === 'completed') colorClasses = 'bg-[#00F090]/30 border-[#00F090]/50 text-[#00F090]';
+                      if (act.status === 'in_progress') colorClasses = 'bg-[#7000FF]/30 border-[#7000FF]/50 text-[#7000FF]';
+                      if (act.status === 'blocked') colorClasses = 'bg-[#f21b3f]/30 border-[#f21b3f]/50 text-[#f21b3f]';
+
+                      return (
+                         <div key={'bar-'+act.id} className="h-10 border-b border-border/20 flex items-center relative group">
+                            <div 
+                               className={`absolute h-[18px] rounded-md border flex items-center overflow-hidden transition-all hover:brightness-125 ${colorClasses} shadow-[0_0_10px_rgba(0,0,0,0.1)]`}
+                               style={{ left: `${act.leftPct}%`, width: `${act.widthPct}%` }}
+                               title={`Start: ${act.startDateStr}\nDue: ${act.dueDateStr}\nStatus: ${act.status}`}
+                            >
+                               {/* Optional progress indicator chunk */}
+                               {act.status === 'in_progress' && (
+                                   <div className="absolute left-0 top-0 bottom-0 bg-white/10 w-1/2" />
+                               )}
+                            </div>
+                         </div>
+                      )
+                   })}
+                   {normalizedActions.length === 0 && (
+                       <div className="h-32 flex items-center justify-center">
+                           <span className="text-xs font-mono text-text-secondary/50">No actions to display on timeline.</span>
+                       </div>
+                   )}
+                </div>
+             </div>
+          </div>
+        )}
       </div>
 
       {/* Delete Confirmation Modal */}
