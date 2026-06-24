@@ -53,6 +53,7 @@ import { ExecutionDashboard } from './ExecutionDashboard';
 import { ExecutiveDashboard } from './ExecutiveDashboard';
 import { ExecutiveDashboardEngine } from './ExecutiveDashboardEngine';
 import { RevenueDecomposition } from './RevenueDecomposition';
+import { GTMReportReviewModal } from './components/GTMReportReviewModal';
 import ReactMarkdown from 'react-markdown';
 
 const PILLARS_METADATA = [
@@ -290,6 +291,15 @@ export function GTMOSModule() {
   } | null>(null);
   const [targetAccountsSuccessMsg, setTargetAccountsSuccessMsg] = useState<string>('');
 
+  // Pillar 5 Messaging Playground States
+  const [messagingPlaygroundType, setMessagingPlaygroundType] = useState<string>('positioning_statement');
+  const [isGeneratingMessaging, setIsGeneratingMessaging] = useState<boolean>(false);
+  const [generatedMessagingResult, setGeneratedMessagingResult] = useState<{
+    messaging: string;
+    keyPoints: string[];
+  } | null>(null);
+  const [messagingSuccessMsg, setMessagingSuccessMsg] = useState<string>('');
+
   // Step 12 GTM Strategy Canvas States
   const [isGeneratingCanvas, setIsGeneratingCanvas] = useState<boolean>(false);
   const [canvasSuccessMsg, setCanvasSuccessMsg] = useState<string>('');
@@ -299,6 +309,9 @@ export function GTMOSModule() {
   const [newProjTitle, setNewProjTitle] = useState('');
   const [newProjSegment, setNewProjSegment] = useState('');
   const [newProjObj, setNewProjObj] = useState('');
+
+  // Report Modal State
+  const [isReportModalOpen, setIsReportModalOpen] = useState(false);
 
   // Loaded project reference helper
   const currentProject = projectsList.find(p => p.id === currentProjectId) || projectsList[0];
@@ -1019,6 +1032,55 @@ export function GTMOSModule() {
     setTimeout(() => setTargetAccountsSuccessMsg(''), 3000);
   };
 
+  const handleGenerateMessaging = async () => {
+    setIsGeneratingMessaging(true);
+    setMessagingSuccessMsg('');
+    try {
+      const draft = currentProject.gtmStrategyDraft || {};
+      const data = await invokeGtmApi('generate-messaging', {
+        onboardingData: currentProject.onboarding,
+        projectName: currentProject.title,
+        messagingType: messagingPlaygroundType,
+        pillar1Data: draft['pillar_1_market_segmentation'] || [],
+        pillar2Data: draft['pillar_2_icp'] || [],
+        pillar3Data: draft['pillar_3_buyer_personas'] || [],
+        pillar4Data: draft['pillar_4_value_proposition'] || [],
+        pillar5Data: draft['pillar_5_messaging_positioning'] || []
+      });
+      if (data) {
+        setGeneratedMessagingResult(data);
+      }
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setIsGeneratingMessaging(false);
+    }
+  };
+
+  const handleApplyMessaging = () => {
+    if (!generatedMessagingResult?.messaging) return;
+    const bulletText = `Message (${messagingPlaygroundType}): ${generatedMessagingResult.messaging}`;
+    
+    const draft = { ...(currentProject.gtmStrategyDraft || {}) } as Record<string, string[]>;
+    if (!draft.pillar_5_messaging_positioning) draft.pillar_5_messaging_positioning = [];
+    draft.pillar_5_messaging_positioning = [...draft.pillar_5_messaging_positioning, bulletText];
+
+    const nextList = projectsList.map(p => {
+      if (p.id === currentProjectId) {
+        return {
+          ...p,
+          gtmStrategyDraft: draft
+        };
+      }
+      return p;
+    });
+    setProjectsList(nextList);
+    setSaveState('dirty');
+
+    setMessagingSuccessMsg('Added to Strategy Lines!');
+    setTimeout(() => setMessagingSuccessMsg(''), 3000);
+  };
+
   const handleRegeneratePlaygroundPitch = async () => {
     setIsGeneratingPlaygroundPitch(true);
     setPitchSuccessMsg('');
@@ -1411,7 +1473,8 @@ export function GTMOSModule() {
     { num: 18, name: 'Defense Audit' },
     { num: 19, name: 'Pivotal Actions' },
     { num: 20, name: 'Execution Insights' },
-    { num: 21, name: 'Executive Dashboard' }
+    { num: 21, name: 'Executive Dashboard' },
+    { num: 22, name: 'GTM Report' }
   ];
 
   const currentOnboardingCategory = CATEGORY_SPECS.find(c => c.stepNumber === activeStep);
@@ -2022,6 +2085,123 @@ export function GTMOSModule() {
                                         <button
                                           type="button"
                                           onClick={handleApplyTargetAccounts}
+                                          className="px-4 py-2 bg-[#00F090]/15 border border-[#00F090]/30 hover:bg-[#00F090] text-[#00F090] hover:text-black text-xs font-black rounded-xl transition-all select-none cursor-pointer flex items-center gap-1 shadow-lg shadow-[#00F090]/5"
+                                        >
+                                          <Check className="h-4 w-4" />
+                                          Apply to Strategy Lines list
+                                        </button>
+                                      </div>
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Interactive Messaging Playground for Pillar 5 */}
+                          {selectedDraftPillar === 'pillar_5_messaging_positioning' && (
+                            <div className="pt-6 border-t border-border/60 space-y-4">
+                              <div className="p-5.5 rounded-2xl bg-accent/5 border border-accent/20 space-y-4">
+                                {/* Title block */}
+                                <div className="flex items-center gap-2">
+                                  <Sparkles className="h-5 w-5 text-accent" />
+                                  <div>
+                                    <h4 className="text-xs font-black text-accent uppercase tracking-wider">
+                                      ⚡ Messaging & Positioning Playground
+                                    </h4>
+                                    <p className="text-[11px] text-text-secondary">
+                                      Dynamically synthesize outcome-based messaging grounded directly in your defined strategy pillars.
+                                    </p>
+                                  </div>
+                                </div>
+
+                                <div className="space-y-4">
+                                  <div className="space-y-2">
+                                    <span className="text-[9px] font-mono text-text-secondary uppercase tracking-wider font-bold">Messaging Type</span>
+                                    <div className="grid grid-cols-2 lg:grid-cols-4 gap-2">
+                                      {[
+                                        { id: 'positioning_statement', label: 'Positioning Statement' },
+                                        { id: 'core_messaging', label: 'Core Messaging' },
+                                        { id: 'economic_buyers', label: 'Economic Buyers' },
+                                        { id: 'technical_buyers', label: 'Technical Buyers' },
+                                        { id: 'business_buyers', label: 'Business Buyers' },
+                                        { id: 'influencers', label: 'Influencers' },
+                                        { id: 'major_competitors', label: 'Major Competitors' },
+                                        { id: 'outcome_based', label: 'Outcome-Based' }
+                                      ].map(type => (
+                                        <button
+                                          key={type.id}
+                                          type="button"
+                                          onClick={() => setMessagingPlaygroundType(type.id)}
+                                          className={`px-3 py-2 rounded-xl text-xs font-bold transition-all ${messagingPlaygroundType === type.id ? 'bg-accent text-black shadow-lg shadow-accent/20' : 'bg-bg-primary border border-border/60 text-text-secondary hover:text-text-primary hover:border-border/80'}`}
+                                        >
+                                          {type.label}
+                                        </button>
+                                      ))}
+                                    </div>
+                                  </div>
+                                </div>
+
+                                <div className="flex items-center justify-between pt-1 border-t border-border/30">
+                                  <span className="text-[9px] font-mono text-text-secondary/60">
+                                    Grounded via gemini-3.1-flash-lite
+                                  </span>
+                                  <button
+                                    type="button"
+                                    onClick={handleGenerateMessaging}
+                                    disabled={isGeneratingMessaging}
+                                    className="px-4.5 py-2.5 bg-accent/20 border border-accent/30 hover:bg-accent hover:text-black hover:scale-105 active:scale-95 transition-all text-accent text-xs font-black rounded-xl select-none cursor-pointer flex items-center justify-center gap-1.5 shrink-0"
+                                  >
+                                    {isGeneratingMessaging ? (
+                                      <>
+                                        <Loader2 className="h-4 w-4 animate-spin" />
+                                        Generating Messaging...
+                                      </>
+                                    ) : (
+                                      <>
+                                        <Bot className="h-4 w-4" />
+                                        Generate Messaging
+                                      </>
+                                    )}
+                                  </button>
+                                </div>
+
+                                {/* Generated output visual desk */}
+                                {generatedMessagingResult && (
+                                  <div className="p-4.5 rounded-xl bg-bg-primary/60 border border-border/80 space-y-4.5 text-left transition-all duration-300">
+                                    <span className="text-[9px] font-mono text-text-secondary uppercase tracking-wider font-bold block">
+                                      GENERATED MESSAGING
+                                    </span>
+                                    <div className="p-4 bg-bg-surface border border-border/40 rounded-xl space-y-3 shadow-inner">
+                                      <p className="text-sm font-medium text-text-primary leading-relaxed whitespace-pre-wrap">
+                                        "{generatedMessagingResult.messaging}"
+                                      </p>
+                                    </div>
+                                    <div className="space-y-2">
+                                      <span className="text-[9px] font-mono text-text-secondary uppercase tracking-wider font-bold block">
+                                        Key Points
+                                      </span>
+                                      <ul className="space-y-1.5">
+                                        {generatedMessagingResult.keyPoints.map((point, idx) => (
+                                          <li key={idx} className="flex items-start gap-2">
+                                            <div className="h-1.5 w-1.5 rounded-full bg-accent/60 mt-1.5" />
+                                            <span className="text-xs text-text-secondary">{point}</span>
+                                          </li>
+                                        ))}
+                                      </ul>
+                                    </div>
+
+                                    {/* Integrate controls */}
+                                    <div className="pt-2.5 border-t border-border/30 flex flex-col sm:flex-row items-center justify-end gap-3">
+                                      <div className="flex items-center gap-2.5">
+                                        {messagingSuccessMsg && (
+                                          <span className="text-[11px] text-[#00F090] font-bold animate-pulse">
+                                            {messagingSuccessMsg}
+                                          </span>
+                                        )}
+                                        <button
+                                          type="button"
+                                          onClick={handleApplyMessaging}
                                           className="px-4 py-2 bg-[#00F090]/15 border border-[#00F090]/30 hover:bg-[#00F090] text-[#00F090] hover:text-black text-xs font-black rounded-xl transition-all select-none cursor-pointer flex items-center gap-1 shadow-lg shadow-[#00F090]/5"
                                         >
                                           <Check className="h-4 w-4" />
@@ -2668,6 +2848,28 @@ export function GTMOSModule() {
             {/* Step 21: Executive Dashboard Engine */}
             {activeStep === 21 && (
               <ExecutiveDashboardEngine project={currentProject} onUpdate={handleUpdateExecutiveDashboardRollup} />
+            )}
+
+            {/* Step 22: GTM Report */}
+            {activeStep === 22 && (
+              <div className="flex flex-col items-center justify-center h-full min-h-[400px] space-y-6">
+                <div className="text-center space-y-2">
+                  <h2 className="text-3xl font-black text-text-primary">GTM Report System</h2>
+                  <p className="text-text-secondary max-w-lg mx-auto">
+                    Generate a comprehensive PDF report combining intelligence from all modules.
+                    Configure the components you wish to include, review the layout, and save or print the final document.
+                  </p>
+                </div>
+                <button
+                  onClick={() => setIsReportModalOpen(true)}
+                  className="px-8 py-4 bg-accent text-black font-black text-lg rounded-2xl hover:bg-accent/90 transition-all shadow-xl shadow-accent/20 hover:scale-105 active:scale-95"
+                >
+                  Configure & Generate Report
+                </button>
+                {isReportModalOpen && (
+                  <GTMReportReviewModal project={currentProject} onClose={() => setIsReportModalOpen(false)} />
+                )}
+              </div>
             )}
           </motion.div>
         </AnimatePresence>

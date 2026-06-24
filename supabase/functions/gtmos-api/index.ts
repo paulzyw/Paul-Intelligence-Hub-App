@@ -614,6 +614,67 @@ serve(async (req) => {
         return new Response(response.text || "{}", { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
       }
 
+      case "generate-messaging": {
+        const { pillar1Data, pillar2Data, pillar3Data, pillar4Data, pillar5Data, messagingType } = rawBody;
+        
+        const typeLabels: Record<string, string> = {
+          positioning_statement: "Positioning Statement",
+          core_messaging: "Core Messaging",
+          economic_buyers: "Messaging against Economic Buyers",
+          technical_buyers: "Messaging against Technical Buyers",
+          business_buyers: "Messaging against Business Buyers",
+          influencers: "Messaging against Influencers",
+          major_competitors: "Messaging against Major Competitors",
+          outcome_based: "Outcome-Based Messaging"
+        };
+        const targetType = typeLabels[messagingType] || "Messaging";
+
+        const response = await ai.models.generateContent({
+          model: "gemini-3.1-flash-lite",
+          contents: [
+            `You are an elite product marketing and Go-to-Market messaging expert. Based on the finalized strategies in Pillars 1-4 and the current Pillar 5 strategy lines, generate a highly effective and concise ${targetType}.
+            
+            Pillar 1: Market Segmentation:
+            ${Array.isArray(pillar1Data) ? pillar1Data.join('\n') : "None"}
+
+            Pillar 2: ICP:
+            ${Array.isArray(pillar2Data) ? pillar2Data.join('\n') : "None"}
+
+            Pillar 3: Buyer Personas:
+            ${Array.isArray(pillar3Data) ? pillar3Data.join('\n') : "None"}
+
+            Pillar 4: Value Proposition:
+            ${Array.isArray(pillar4Data) ? pillar4Data.join('\n') : "None"}
+
+            Pillar 5: Existing Messaging Strategy Lines:
+            ${Array.isArray(pillar5Data) ? pillar5Data.join('\n') : "None"}
+
+            ORGANIZATIONAL CONTEXT:
+            ${buildRichContext(onboardingData, projectName)}
+
+            Create a highly polished, professional, and targeted ${targetType} that perfectly aligns with this strategy.
+            Keep the primary message concise, punchy, and outcome-oriented.`
+          ],
+          config: {
+            systemInstruction: GTMOS_SYSTEM_INSTRUCTION,
+            responseMimeType: "application/json",
+            responseSchema: {
+              type: Type.OBJECT,
+              properties: {
+                messaging: { type: Type.STRING, description: `The actual synthesized ${targetType} text.` },
+                keyPoints: { 
+                  type: Type.ARRAY, 
+                  items: { type: Type.STRING }, 
+                  description: "2-3 short bullet points highlighting why this messaging is effective based on the strategy."
+                }
+              },
+              required: ["messaging", "keyPoints"]
+            }
+          }
+        });
+        return new Response(response.text || "{}", { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+      }
+
       case "generate-pitch": {
         const buyerLabel = {
           economic_buyer: "Economic Buyer (focused on CAC, ROI, TCO, conversion metrics, budgeting, and commercial payback)",
