@@ -283,6 +283,13 @@ export function GTMOSModule() {
   } | null>(null);
   const [pitchSuccessMsg, setPitchSuccessMsg] = useState<string>('');
 
+  // Pillar 1 Target Accounts Playground States
+  const [isGeneratingTargetAccounts, setIsGeneratingTargetAccounts] = useState<boolean>(false);
+  const [generatedTargetAccountsResult, setGeneratedTargetAccountsResult] = useState<{
+    accounts: Array<{ name: string; rationale: string; expectedValue: string }>;
+  } | null>(null);
+  const [targetAccountsSuccessMsg, setTargetAccountsSuccessMsg] = useState<string>('');
+
   // Step 12 GTM Strategy Canvas States
   const [isGeneratingCanvas, setIsGeneratingCanvas] = useState<boolean>(false);
   const [canvasSuccessMsg, setCanvasSuccessMsg] = useState<string>('');
@@ -965,6 +972,51 @@ export function GTMOSModule() {
     setNewDraftItemText('');
     setSelectedAddPrefix(''); // Reset prefix after successful addition
     setSaveState('dirty');
+  };
+
+  const handleGenerateTargetAccounts = async () => {
+    setIsGeneratingTargetAccounts(true);
+    setTargetAccountsSuccessMsg('');
+    try {
+      const pillar1Data = currentProject.gtmStrategyDraft?.['pillar_1_market_segmentation'] || [];
+      const data = await invokeGtmApi('generate-target-accounts', {
+        onboardingData: currentProject.onboarding,
+        projectName: currentProject.title,
+        marketSegmentationData: pillar1Data
+      });
+      if (data) {
+        setGeneratedTargetAccountsResult(data);
+      }
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setIsGeneratingTargetAccounts(false);
+    }
+  };
+
+  const handleApplyTargetAccounts = () => {
+    if (!generatedTargetAccountsResult) return;
+    const itemsToAdd = generatedTargetAccountsResult.accounts.map(
+      (a) => `Target Account: ${a.name} - ${a.rationale} (Est Value: ${a.expectedValue})`
+    );
+    const draft = { ...(currentProject.gtmStrategyDraft || {}) } as Record<string, string[]>;
+    if (!draft.pillar_1_market_segmentation) draft.pillar_1_market_segmentation = [];
+    draft.pillar_1_market_segmentation = [...draft.pillar_1_market_segmentation, ...itemsToAdd];
+
+    const nextList = projectsList.map(p => {
+      if (p.id === currentProjectId) {
+        return {
+          ...p,
+          gtmStrategyDraft: draft
+        };
+      }
+      return p;
+    });
+    setProjectsList(nextList);
+    setSaveState('dirty');
+
+    setTargetAccountsSuccessMsg('Added to Strategy Lines!');
+    setTimeout(() => setTargetAccountsSuccessMsg(''), 3000);
   };
 
   const handleRegeneratePlaygroundPitch = async () => {
@@ -1899,6 +1951,89 @@ export function GTMOSModule() {
                               </div>
                             )}
                           </div>
+
+                          {/* Interactive Target Accounts Playground for Pillar 1 */}
+                          {selectedDraftPillar === 'pillar_1_market_segmentation' && (
+                            <div className="pt-6 border-t border-border/60 space-y-4">
+                              <div className="p-5.5 rounded-2xl bg-accent/5 border border-accent/20 space-y-4">
+                                {/* Title block */}
+                                <div className="flex items-center gap-2">
+                                  <Sparkles className="h-5 w-5 text-accent" />
+                                  <div>
+                                    <h4 className="text-xs font-black text-accent uppercase tracking-wider">
+                                      ⚡ Target Accounts Recommendation
+                                    </h4>
+                                    <p className="text-[11px] text-text-secondary">
+                                      Dynamically synthesize top 5 target accounts grounded directly in your defined market segmentation strategy.
+                                    </p>
+                                  </div>
+                                </div>
+
+                                <div className="flex items-center justify-between pt-1 border-t border-border/30">
+                                  <span className="text-[9px] font-mono text-text-secondary/60">
+                                    Grounded via gemini-3.1-flash-lite
+                                  </span>
+                                  <button
+                                    type="button"
+                                    onClick={handleGenerateTargetAccounts}
+                                    disabled={isGeneratingTargetAccounts}
+                                    className="px-4.5 py-2.5 bg-accent/20 border border-accent/30 hover:bg-accent hover:text-black hover:scale-105 active:scale-95 transition-all text-accent text-xs font-black rounded-xl select-none cursor-pointer flex items-center justify-center gap-1.5 shrink-0"
+                                  >
+                                    {isGeneratingTargetAccounts ? (
+                                      <>
+                                        <Loader2 className="h-4 w-4 animate-spin" />
+                                        Generating Accounts...
+                                      </>
+                                    ) : (
+                                      <>
+                                        <Bot className="h-4 w-4" />
+                                        Generate Target Accounts
+                                      </>
+                                    )}
+                                  </button>
+                                </div>
+
+                                {/* Generated output visual desk */}
+                                {generatedTargetAccountsResult && (
+                                  <div className="p-4.5 rounded-xl bg-bg-primary/60 border border-border/80 space-y-4.5 text-left transition-all duration-300">
+                                    <span className="text-[9px] font-mono text-text-secondary uppercase tracking-wider font-bold block">
+                                      RECOMMENDED TOP 5 TARGET ACCOUNTS
+                                    </span>
+                                    <div className="space-y-3">
+                                      {generatedTargetAccountsResult.accounts.map((account, idx) => (
+                                        <div key={idx} className="p-3 border border-border/50 rounded-lg space-y-1.5">
+                                          <div className="flex items-center justify-between">
+                                            <span className="text-sm font-bold text-text-primary">{account.name}</span>
+                                            <span className="text-[10px] font-mono text-accent bg-accent/10 px-2 py-0.5 rounded-full">{account.expectedValue}</span>
+                                          </div>
+                                          <p className="text-xs text-text-secondary font-sans leading-relaxed">{account.rationale}</p>
+                                        </div>
+                                      ))}
+                                    </div>
+
+                                    {/* Integrate controls */}
+                                    <div className="pt-2.5 border-t border-border/30 flex flex-col sm:flex-row items-center justify-end gap-3">
+                                      <div className="flex items-center gap-2.5">
+                                        {targetAccountsSuccessMsg && (
+                                          <span className="text-[11px] text-[#00F090] font-bold animate-pulse">
+                                            {targetAccountsSuccessMsg}
+                                          </span>
+                                        )}
+                                        <button
+                                          type="button"
+                                          onClick={handleApplyTargetAccounts}
+                                          className="px-4 py-2 bg-[#00F090]/15 border border-[#00F090]/30 hover:bg-[#00F090] text-[#00F090] hover:text-black text-xs font-black rounded-xl transition-all select-none cursor-pointer flex items-center gap-1 shadow-lg shadow-[#00F090]/5"
+                                        >
+                                          <Check className="h-4 w-4" />
+                                          Apply to Strategy Lines list
+                                        </button>
+                                      </div>
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          )}
 
                           {/* Interactive Cognitive Pitch Playground for Pillar 8 */}
                           {selectedDraftPillar === 'pillar_8_enablement_execution' && (

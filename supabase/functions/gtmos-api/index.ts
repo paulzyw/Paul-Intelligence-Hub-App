@@ -573,6 +573,47 @@ serve(async (req) => {
         return new Response(response.text || "{}", { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
       }
 
+      case "generate-target-accounts": {
+        const { marketSegmentationData } = rawBody;
+        const response = await ai.models.generateContent({
+          model: "gemini-3.1-flash-lite",
+          contents: [
+            `You are an elite commercial Go-to-Market strategist. Based on the provided target market selection, market opportunity analysis, segment prioritization, and market segments, recommend the top 5 target accounts to pursue immediately.
+            
+            MARKET SEGMENTATION STRATEGY:
+            ${Array.isArray(marketSegmentationData) ? marketSegmentationData.join('\n') : "None"}
+
+            ORGANIZATIONAL CONTEXT:
+            ${buildRichContext(onboardingData, projectName)}
+
+            Return the top 5 specific, realistic target account profiles or company names that perfectly fit this criteria, along with a strategic rationale and an expected value range (e.g. "$150k - $300k").`
+          ],
+          config: {
+            systemInstruction: GTMOS_SYSTEM_INSTRUCTION,
+            responseMimeType: "application/json",
+            responseSchema: {
+              type: Type.OBJECT,
+              properties: {
+                accounts: {
+                  type: Type.ARRAY,
+                  items: {
+                    type: Type.OBJECT,
+                    properties: {
+                      name: { type: Type.STRING, description: "Name or specific profile of the target account" },
+                      rationale: { type: Type.STRING, description: "Strategic rationale for why they are a top target based on the strategy" },
+                      expectedValue: { type: Type.STRING, description: "Estimated deal value or range" }
+                    },
+                    required: ["name", "rationale", "expectedValue"]
+                  }
+                }
+              },
+              required: ["accounts"]
+            }
+          }
+        });
+        return new Response(response.text || "{}", { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+      }
+
       case "generate-pitch": {
         const buyerLabel = {
           economic_buyer: "Economic Buyer (focused on CAC, ROI, TCO, conversion metrics, budgeting, and commercial payback)",
