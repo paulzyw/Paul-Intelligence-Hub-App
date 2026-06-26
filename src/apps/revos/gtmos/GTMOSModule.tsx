@@ -647,11 +647,21 @@ export function GTMOSModule() {
     }
   };
 
+  const topRef = useRef<HTMLDivElement>(null);
+
   // Set step state on tick
   const handleStepChange = (step: number) => {
     setActiveStep(step);
     const nextList = projectsList.map(p => (p.id === currentProjectId ? { ...p, currentStep: step } : p));
     syncWithCloud(nextList, currentProjectId);
+    
+    // Defer scrolling until after the DOM has updated with the new step content
+    setTimeout(() => {
+      // Find the main scrolling container in the app layout and scroll it to the top
+      const scrollContainer = document.querySelector('.overflow-y-auto') || window;
+      scrollContainer.scrollTo({ top: 0, behavior: 'smooth' });
+      topRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 100);
   };
 
   // Step 1: Create Custom Project Strategic Registry
@@ -1480,7 +1490,7 @@ export function GTMOSModule() {
   const currentOnboardingCategory = CATEGORY_SPECS.find(c => c.stepNumber === activeStep);
 
   return (
-    <div className="flex flex-col min-h-screen bg-bg-primary text-text-primary px-4 sm:px-6 md:px-8 py-6 max-w-7xl mx-auto space-y-6">
+    <div ref={topRef} className="flex flex-col min-h-screen bg-bg-primary text-text-primary px-4 sm:px-6 md:px-8 py-6 max-w-7xl mx-auto space-y-6">
       {/* Module Title Header panel */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b border-border pb-5">
         <div>
@@ -1550,44 +1560,44 @@ export function GTMOSModule() {
           >
             {/* Step 1: Establish Workspace */}
             {activeStep === 1 && (
-              <div className="space-y-6">
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <div className="space-y-4 sm:space-y-6">
+                <div className="flex flex-col lg:grid lg:grid-cols-12 gap-4 sm:gap-6">
                   {/* Strategic context select rail */}
-                  <div className="md:col-span-1 p-5 rounded-2xl bg-bg-surface/50 border border-border space-y-4">
-                    <div className="flex items-center justify-between border-b border-border pb-3">
-                      <h3 className="font-bold text-xs text-text-primary uppercase tracking-wider flex items-center gap-1.5">
+                  <div className="w-full lg:col-span-4 p-4 sm:p-5 rounded-2xl bg-bg-surface/50 border border-border flex flex-col">
+                    <div className="flex items-center justify-between border-b border-border pb-3 mb-3 sm:mb-4">
+                      <h3 className="font-bold text-[11px] sm:text-xs text-text-primary uppercase tracking-wider flex items-center gap-1.5">
                         <FolderOpen className="h-4 w-4 text-accent" />
                         GTM Strategy List
                       </h3>
                       <button
                         onClick={() => setShowNewProjDialog(true)}
-                        className="p-1.5 rounded-lg bg-accent/15 border border-accent/20 hover:bg-accent hover:text-black hover:border-accent text-accent transition-all"
+                        className="p-1.5 sm:p-2 rounded-lg bg-accent/15 border border-accent/20 hover:bg-accent hover:text-black hover:border-accent text-accent transition-all shrink-0"
                         title="Initialize fresh strategy blueprint"
                       >
-                        <Plus className="h-4 w-4" />
+                        <Plus className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
                       </button>
                     </div>
 
-                    <div className="space-y-2 max-h-80 overflow-y-auto scrollbar-none pr-1">
+                    <div className="space-y-2 overflow-y-auto scrollbar-none pr-1 max-h-[40vh] lg:max-h-[50vh]">
                       {projectsList.map(p => (
                         <div
                           key={p.id}
                           onClick={() => {
                             setCurrentProjectId(p.id);
-                            setActiveStep(1);
+                            handleStepChange(1);
                           }}
-                          className={`p-4 rounded-xl border transition-all cursor-pointer text-left relative group ${
+                          className={`p-3 sm:p-4 rounded-xl border transition-all cursor-pointer text-left relative group ${
                             p.id === currentProjectId
                               ? 'bg-accent/15 border-accent text-accent'
                               : 'bg-bg-primary/60 border-border/80 text-text-secondary hover:border-text-secondary/25'
                           }`}
                         >
-                          <h4 className="text-xs font-black leading-snug pr-6 truncate">{p.title}</h4>
-                          <span className="text-[9px] font-mono text-text-secondary uppercase block mt-1">{p.market_segment}</span>
+                          <h4 className="text-[11px] sm:text-xs font-black leading-snug pr-6 truncate">{p.title}</h4>
+                          <span className="text-[8px] sm:text-[9px] font-mono uppercase block mt-1 opacity-80 truncate">{p.market_segment}</span>
                           
                           <button
                             onClick={(e) => handleDeleteProject(p.id, e)}
-                            className="absolute right-3 top-3.5 p-1 rounded-lg border border-transparent hover:border-red-500/20 text-text-secondary hover:text-red-400 opacity-0 group-hover:opacity-100 transition-all duration-200"
+                            className="absolute right-2 sm:right-3 top-2 sm:top-3.5 p-1.5 rounded-lg border border-transparent hover:border-red-500/20 text-text-secondary hover:text-red-400 opacity-0 group-hover:opacity-100 transition-all duration-200"
                             title="Purge strategy row"
                           >
                             <Trash2 className="h-3 w-3" />
@@ -1598,37 +1608,39 @@ export function GTMOSModule() {
                   </div>
 
                   {/* Active Strategy config focus sheet */}
-                  <div className="md:col-span-2 p-6 rounded-2xl bg-bg-surface/50 border border-border space-y-5 text-left">
-                    <div className="border-b border-border pb-3">
-                      <span className="text-[9px] font-mono text-accent uppercase tracking-widest block mb-1">Target strategy context</span>
-                      <h2 className="text-base font-black text-text-primary leading-tight">{currentProject.title}</h2>
+                  <div className="w-full lg:col-span-8 p-4 sm:p-6 rounded-2xl bg-bg-surface/50 border border-border flex flex-col justify-center text-left">
+                    <div className="border-b border-border pb-3 sm:pb-4 mb-4 sm:mb-5">
+                      <span className="text-[8px] sm:text-[9px] font-mono text-accent uppercase tracking-widest block mb-1.5">Target strategy context</span>
+                      <h2 className="text-sm sm:text-base md:text-lg font-black text-text-primary leading-tight">{currentProject.title}</h2>
                     </div>
 
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                      <div>
-                        <span className="text-[10px] font-bold text-text-secondary uppercase">Market Segment / Vertical</span>
-                        <div className="p-3 bg-bg-primary/60 border border-border/80 text-xs font-bold text-text-primary rounded-xl mt-1">{currentProject.market_segment}</div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 mb-4 sm:mb-5">
+                      <div className="flex flex-col min-w-0">
+                        <span className="text-[9px] sm:text-[10px] font-bold text-text-secondary uppercase mb-1">Market Segment / Vertical</span>
+                        <div className="p-2.5 sm:p-3 bg-bg-primary/60 border border-border/80 text-[11px] sm:text-xs font-bold text-text-primary rounded-xl truncate">{currentProject.market_segment}</div>
                       </div>
-                      <div>
-                        <span className="text-[10px] font-bold text-text-secondary uppercase">Enterprise strategic Priorities</span>
-                        <div className="p-3 bg-bg-primary/60 border border-border/80 text-xs text-text-primary rounded-xl mt-1 truncate">{currentProject.strategic_objective}</div>
+                      <div className="flex flex-col min-w-0">
+                        <span className="text-[9px] sm:text-[10px] font-bold text-text-secondary uppercase mb-1">Enterprise strategic Priorities</span>
+                        <div className="p-2.5 sm:p-3 bg-bg-primary/60 border border-border/80 text-[11px] sm:text-xs text-text-primary rounded-xl truncate">{currentProject.strategic_objective}</div>
                       </div>
                     </div>
 
-                    <div className="p-4 rounded-xl bg-accent/5 border border-accent/20 flex gap-2">
-                      <Bot className="h-5 w-5 text-accent shrink-0 mt-0.5 animate-pulse" />
-                      <p className="text-xs leading-normal">
+                    <div className="p-3 sm:p-4 rounded-xl bg-accent/5 border border-accent/20 flex gap-2.5 sm:gap-3 mb-4 sm:mb-5 items-start">
+                      <Bot className="h-4 w-4 sm:h-5 sm:w-5 text-accent shrink-0 mt-0.5 animate-pulse" />
+                      <p className="text-[11px] sm:text-xs leading-relaxed text-text-secondary">
                         Selecting this strategy mounts the respective onboarding variables and compiles all steps. Click <span className="font-bold text-accent">"Primary Onboarding Phase"</span> below to initiate Company onboarding metrics.
                       </p>
                     </div>
 
-                    <button
-                      onClick={() => handleStepChange(2)}
-                      className="inline-flex items-center gap-1.5 px-6 py-3 bg-accent text-black font-extrabold rounded-2xl text-xs hover:scale-105 transition-all mt-4"
-                    >
-                      Primary Onboarding Phase
-                      <ChevronRight className="h-4 w-4" />
-                    </button>
+                    <div className="mt-auto pt-2">
+                      <button
+                        onClick={() => handleStepChange(2)}
+                        className="w-full sm:w-auto inline-flex items-center justify-center sm:justify-start gap-2 px-5 sm:px-6 py-2.5 sm:py-3 bg-accent text-black font-extrabold rounded-2xl text-[11px] sm:text-xs hover:scale-[1.02] active:scale-[0.98] transition-all shadow-md shadow-accent/10 hover:shadow-accent/25"
+                      >
+                        Primary Onboarding Phase
+                        <ChevronRight className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                      </button>
+                    </div>
                   </div>
                 </div>
 
@@ -1714,54 +1726,54 @@ export function GTMOSModule() {
 
             {/* Step 10: Multi-Agent Strategic Reasoning */}
             {activeStep === 10 && (
-              <div className="space-y-6 text-left">
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              <div className="space-y-4 sm:space-y-6 text-left">
+                <div className="flex flex-col lg:grid lg:grid-cols-3 gap-4 sm:gap-6">
                   {/* Trigger Controller panel */}
-                  <div className="lg:col-span-1 p-5 rounded-2xl bg-bg-surface/50 border border-border/80 space-y-5">
+                  <div className="w-full lg:col-span-1 p-4 sm:p-5 rounded-2xl bg-bg-surface/50 border border-border/80 space-y-4 sm:space-y-5">
                     <div className="border-b border-border pb-3">
-                      <span className="text-[9px] font-mono text-[#00F090] uppercase font-bold block mb-1">Commercial alignment score</span>
-                      <h3 className="font-extrabold text-sm text-text-primary">L2 Strategic Readiness Assessment</h3>
+                      <span className="text-[8px] sm:text-[9px] font-mono text-[#00F090] uppercase font-bold block mb-1">Commercial alignment score</span>
+                      <h3 className="font-extrabold text-xs sm:text-sm text-text-primary">L2 Strategic Readiness Assessment</h3>
                     </div>
 
-                    <div className="flex flex-col items-center justify-center p-6 bg-bg-primary/50 rounded-2xl border border-border relative">
-                      <div className="text-[10px] font-mono text-text-secondary uppercase absolute top-4 left-4">Readiness Index</div>
-                      <div className="text-4xl sm:text-5xl font-black text-accent mt-4 select-none">
+                    <div className="flex flex-col items-center justify-center p-5 sm:p-6 bg-bg-primary/50 rounded-2xl border border-border relative">
+                      <div className="text-[9px] sm:text-[10px] font-mono text-text-secondary uppercase absolute top-3 sm:top-4 left-3 sm:left-4">Readiness Index</div>
+                      <div className="text-3xl sm:text-4xl md:text-5xl font-black text-accent mt-4 select-none">
                         {currentProject.readinessScore}%
                       </div>
-                      <div className="text-[10px] text-text-secondary/60 uppercase mt-2 font-mono">Normalized GTM parameters</div>
+                      <div className="text-[9px] sm:text-[10px] text-text-secondary/60 uppercase mt-2 font-mono text-center">Normalized GTM parameters</div>
                     </div>
 
                     <div className="space-y-2">
-                      <span className="text-[10px] font-bold text-text-secondary uppercase">Initiate model audit</span>
+                      <span className="text-[9px] sm:text-[10px] font-bold text-text-secondary uppercase">Initiate model audit</span>
                       <button
                         onClick={runStrategicReasoning}
                         disabled={isReasoning}
-                        className="w-full py-3 bg-accent text-black font-extrabold text-xs rounded-xl hover:scale-[1.02] active:scale-95 disabled:opacity-40 disabled:pointer-events-none transition-all flex items-center justify-center gap-2 shadow-lg shadow-accent/10"
+                        className="w-full py-2.5 sm:py-3 bg-accent text-black font-extrabold text-[11px] sm:text-xs rounded-xl hover:scale-[1.02] active:scale-95 disabled:opacity-40 disabled:pointer-events-none transition-all flex items-center justify-center gap-2 shadow-lg shadow-accent/10"
                       >
-                        {isReasoning ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4" />}
+                        {isReasoning ? <RefreshCw className="h-3.5 w-3.5 sm:h-4 sm:w-4 animate-spin" /> : <Play className="h-3.5 w-3.5 sm:h-4 sm:w-4" />}
                         Execute Alignment Reasoners
                       </button>
                     </div>
 
                     {currentProject.aiReasoning && (
-                      <div className="space-y-2 pt-4 border-t border-border/40 animate-in fade-in slide-in-from-bottom-2 duration-300">
-                        <span className="text-[10px] font-bold text-accent uppercase tracking-wider flex items-center gap-1">
+                      <div className="space-y-2 pt-3 sm:pt-4 border-t border-border/40 animate-in fade-in slide-in-from-bottom-2 duration-300">
+                        <span className="text-[9px] sm:text-[10px] font-bold text-accent uppercase tracking-wider flex items-center gap-1">
                           <Sparkles className="h-3 w-3 text-accent animate-pulse" />
                           GTM Strategy Ready
                         </span>
                         <button
                           onClick={runGtmDraftGeneration}
                           disabled={isGeneratingGtmDraft}
-                          className="w-full py-3 bg-[#00F090] text-black font-black text-xs rounded-xl hover:scale-[1.02] active:scale-95 disabled:opacity-40 disabled:pointer-events-none transition-all flex items-center justify-center gap-2 shadow-lg shadow-[#00F090]/15"
+                          className="w-full py-2.5 sm:py-3 bg-[#00F090] text-black font-black text-[11px] sm:text-xs rounded-xl hover:scale-[1.02] active:scale-95 disabled:opacity-40 disabled:pointer-events-none transition-all flex items-center justify-center gap-2 shadow-lg shadow-[#00F090]/15"
                         >
                           {isGeneratingGtmDraft ? (
                             <>
-                              <Loader2 className="h-4 w-4 animate-spin" />
+                              <Loader2 className="h-3.5 w-3.5 sm:h-4 sm:w-4 animate-spin" />
                               Generating Strategy...
                             </>
                           ) : (
                             <>
-                              <Sparkles className="h-4 w-4" />
+                              <Sparkles className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
                               Generate GTM Strategy Draft
                             </>
                           )}
@@ -1771,8 +1783,8 @@ export function GTMOSModule() {
                   </div>
 
                   {/* Operational Terminal shell logs */}
-                  <div className="lg:col-span-2 space-y-6">
-                    <div className="p-4 rounded-2xl bg-black border border-border/80 font-mono text-xs text-left h-48 overflow-y-auto scrollbar-none space-y-1.5 flex flex-col justify-end">
+                  <div className="w-full lg:col-span-2 space-y-4 sm:space-y-6">
+                    <div className="p-3 sm:p-4 rounded-2xl bg-black border border-border/80 font-mono text-[10px] sm:text-xs text-left h-40 sm:h-48 overflow-y-auto scrollbar-none space-y-1 sm:space-y-1.5 flex flex-col justify-end">
                       {consoleLogs.map((log, idx) => (
                         <div key={idx} className="text-accent/90">{log}</div>
                       ))}
@@ -1782,16 +1794,16 @@ export function GTMOSModule() {
                     </div>
 
                     {currentProject.aiReasoning && (
-                      <div className="p-5 rounded-2xl bg-bg-surface/50 border border-border/85 space-y-4">
-                        <h4 className="text-xs font-bold text-text-primary tracking-tight uppercase flex items-center gap-2">
-                          <Bot className="h-4 w-4 text-accent" />
+                      <div className="p-4 sm:p-5 rounded-2xl bg-bg-surface/50 border border-border/85 space-y-3 sm:space-y-4">
+                        <h4 className="text-[11px] sm:text-xs font-bold text-text-primary tracking-tight uppercase flex items-center gap-2">
+                          <Bot className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-accent" />
                           Consolidated Reasoning Outcomes
                         </h4>
-                        <div className="max-w-none font-sans text-[11px] text-text-secondary leading-relaxed space-y-2">
+                        <div className="max-w-none font-sans text-[10px] sm:text-[11px] text-text-secondary leading-relaxed space-y-2">
                           <ReactMarkdown
                             components={{
-                              p: ({ children }) => <p className="text-[11px] font-normal text-text-secondary leading-relaxed mb-1.5">{children}</p>,
-                              strong: ({ children }) => <strong className="text-[11px] font-bold text-text-secondary">{children}</strong>,
+                              p: ({ children }) => <p className="text-[10px] sm:text-[11px] font-normal text-text-secondary leading-relaxed mb-1.5">{children}</p>,
+                              strong: ({ children }) => <strong className="text-[10px] sm:text-[11px] font-bold text-text-secondary">{children}</strong>,
                               b: ({ children }) => <b className="text-[11px] font-bold text-text-secondary">{children}</b>,
                               h1: ({ children }) => <h1 className="text-[11px] font-bold text-text-secondary mt-2 mb-1">{children}</h1>,
                               h2: ({ children }) => <h2 className="text-[11px] font-bold text-text-secondary mt-2 mb-1">{children}</h2>,
@@ -1809,15 +1821,15 @@ export function GTMOSModule() {
                         {/* Vulnerability alerts lists */}
                         {currentProject.aiVulnerabilities.length > 0 && (
                           <div className="pt-3 border-t border-border/40 space-y-2">
-                            <span className="text-[10px] font-bold text-red-400 uppercase flex items-center gap-1.5">
+                            <span className="text-[9px] sm:text-[10px] font-bold text-red-400 uppercase flex items-center gap-1.5">
                               <AlertOctagon className="h-3.5 w-3.5" />
                               Critical Vulnerability detections
                             </span>
                             <div className="space-y-1.5">
                               {currentProject.aiVulnerabilities.map((v, i) => (
-                                <div key={i} className="text-xs text-text-secondary flex gap-2 items-start bg-red-400/5 p-2 rounded-lg border border-red-500/10">
+                                <div key={i} className="text-[10px] sm:text-xs text-text-secondary flex gap-2 items-start bg-red-400/5 p-2 rounded-lg border border-red-500/10">
                                   <span className="text-red-400 mt-0.5">•</span>
-                                  <span className="font-sans text-[11px]">{v}</span>
+                                  <span className="font-sans text-[10px] sm:text-[11px]">{v}</span>
                                 </div>
                               ))}
                             </div>
@@ -1832,13 +1844,13 @@ export function GTMOSModule() {
 
             {/* Step 11: Go-to-Market Strategy Draft */}
             {activeStep === 11 && (
-              <div className="space-y-6 text-left animate-in fade-in duration-300">
+              <div className="space-y-4 sm:space-y-6 text-left animate-in fade-in duration-300">
                 {/* Intro banner */}
-                <div className="p-5 rounded-2xl bg-bg-surface/50 border border-border flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                <div className="p-4 sm:p-5 rounded-2xl bg-bg-surface/50 border border-border flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                   <div className="space-y-1">
-                    <span className="text-[9px] font-mono font-bold tracking-widest text-[#00F090] uppercase block">Continuous Operating Enforcer</span>
-                    <h2 className="text-base font-black text-text-primary">Step 11: Go-to-Market Strategy Draft</h2>
-                    <p className="text-xs text-text-secondary leading-normal max-w-2xl font-sans">
+                    <span className="text-[8px] sm:text-[9px] font-mono font-bold tracking-widest text-[#00F090] uppercase block">Continuous Operating Enforcer</span>
+                    <h2 className="text-sm sm:text-base font-black text-text-primary">Step 11: Go-to-Market Strategy Draft</h2>
+                    <p className="text-[11px] sm:text-xs text-text-secondary leading-normal max-w-2xl font-sans">
                       Review and fine-tune your core commercial tactics mapped upon the 9-pillar GTM framework below. You can customize, delete, or append new strategy items for each individual operational lever.
                     </p>
                   </div>
@@ -1847,16 +1859,16 @@ export function GTMOSModule() {
                   <button
                     onClick={handleSaveDraftStrategyGlobal}
                     disabled={saveState === 'saving'}
-                    className="px-5 py-2.5 bg-accent hover:bg-accent/95 disabled:bg-accent/40 text-black font-extrabold text-xs rounded-xl flex items-center gap-2 transition-all shrink-0 hover:scale-[1.02]"
+                    className="w-full sm:w-auto px-4 sm:px-5 py-2.5 bg-accent hover:bg-accent/95 disabled:bg-accent/40 text-black font-extrabold text-[11px] sm:text-xs rounded-xl flex items-center justify-center gap-2 transition-all shrink-0 hover:scale-[1.02]"
                   >
                     {saveState === 'saving' ? (
                       <>
-                        <Loader2 className="h-4 w-4 animate-spin" />
+                        <Loader2 className="h-3.5 w-3.5 sm:h-4 sm:w-4 animate-spin" />
                         Saving items...
                       </>
                     ) : (
                       <>
-                        <Save className="h-4 w-4" />
+                        <Save className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
                         Save Strategy Draft
                       </>
                     )}
@@ -1865,13 +1877,13 @@ export function GTMOSModule() {
 
                 {!currentProject.gtmStrategyDraft ? (
                   /* Prompt to generate strategy if not present */
-                  <div className="max-w-md mx-auto space-y-5 p-8 rounded-3xl bg-bg-surface/50 border border-border text-center">
-                    <div className="p-4 rounded-2xl bg-accent/10 border border-accent/20 w-fit mx-auto">
-                      <Sparkles className="h-8 w-8 text-accent animate-pulse" />
+                  <div className="max-w-md mx-auto space-y-4 sm:space-y-5 p-6 sm:p-8 rounded-3xl bg-bg-surface/50 border border-border text-center">
+                    <div className="p-3 sm:p-4 rounded-2xl bg-accent/10 border border-accent/20 w-fit mx-auto">
+                      <Sparkles className="h-6 w-6 sm:h-8 sm:w-8 text-accent animate-pulse" />
                     </div>
                     <div>
-                      <h3 className="text-sm font-black text-text-primary uppercase tracking-wider">GTM Strategy Not Generated</h3>
-                      <p className="text-xs text-text-secondary mt-1 max-w-sm mx-auto leading-relaxed font-sans">
+                      <h3 className="text-xs sm:text-sm font-black text-text-primary uppercase tracking-wider">GTM Strategy Not Generated</h3>
+                      <p className="text-[11px] sm:text-xs text-text-secondary mt-1 max-w-sm mx-auto leading-relaxed font-sans">
                         Generate a comprehensive commercial roadmap matching your onboarding parameters and multi-agent alignment audit.
                       </p>
                     </div>
@@ -1879,18 +1891,18 @@ export function GTMOSModule() {
                     <button
                       onClick={runGtmDraftGeneration}
                       disabled={isGeneratingGtmDraft}
-                      className="px-6 py-3.5 bg-accent text-black font-extrabold text-xs rounded-2xl hover:scale-105 active:scale-95 transition-all flex items-center gap-2 mx-auto disabled:opacity-40"
+                      className="px-5 sm:px-6 py-3 sm:py-3.5 bg-accent text-black font-extrabold text-[11px] sm:text-xs rounded-2xl hover:scale-105 active:scale-95 transition-all flex items-center gap-2 mx-auto disabled:opacity-40"
                     >
-                      {isGeneratingGtmDraft ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+                      {isGeneratingGtmDraft ? <Loader2 className="h-3.5 w-3.5 sm:h-4 sm:w-4 animate-spin" /> : <Sparkles className="h-3.5 w-3.5 sm:h-4 sm:w-4" />}
                       Generate GTM Strategy Draft
                     </button>
                   </div>
                 ) : (
                   /* Grid view / Sidebar layout */
-                  <div className="grid grid-cols-1 md:grid-cols-12 gap-6 items-start">
+                  <div className="flex flex-col lg:grid lg:grid-cols-12 gap-4 sm:gap-6 items-start">
                     {/* Left Column: List of 9 pillars */}
-                    <div className="md:col-span-4 space-y-2">
-                      <div className="text-[10px] font-mono text-text-secondary uppercase tracking-widest pl-1 mb-2">9 Commercial Pillars</div>
+                    <div className="w-full lg:col-span-4 space-y-2">
+                      <div className="text-[9px] sm:text-[10px] font-mono text-text-secondary uppercase tracking-widest pl-1 mb-2">9 Commercial Pillars</div>
                       {PILLARS_METADATA.map((p) => {
                         const isSelected = selectedDraftPillar === p.key;
                         const itemsCount = currentProject.gtmStrategyDraft?.[p.key]?.length || 0;
@@ -1924,26 +1936,26 @@ export function GTMOSModule() {
                       const activeItems = currentProject.gtmStrategyDraft?.[selectedDraftPillar] || [];
                       
                       return (
-                        <div className="md:col-span-8 p-6 rounded-2xl bg-bg-surface/50 border border-border text-left space-y-6">
+                        <div className="w-full lg:col-span-8 p-4 sm:p-6 rounded-2xl bg-bg-surface/50 border border-border text-left space-y-4 sm:space-y-6">
                           {/* Workspace info header */}
-                          <div className="border-b border-border/80 pb-4 space-y-2">
-                            <span className="text-[9px] font-mono font-black text-accent uppercase tracking-widest bg-accent/10 px-2 py-1 rounded-md border border-accent/20">
+                          <div className="border-b border-border/80 pb-3 sm:pb-4 space-y-2">
+                            <span className="text-[8px] sm:text-[9px] font-mono font-black text-accent uppercase tracking-widest bg-accent/10 px-2 py-1 rounded-md border border-accent/20">
                               ACTIVE REFINEMENT DESK
                             </span>
-                            <h3 className="text-sm font-black text-text-primary uppercase tracking-wider pt-2">
+                            <h3 className="text-xs sm:text-sm font-black text-text-primary uppercase tracking-wider pt-2">
                               {activeMeta.name}
                             </h3>
-                            <p className="text-xs text-text-secondary font-sans leading-normal">
+                            <p className="text-[11px] sm:text-xs text-text-secondary font-sans leading-normal">
                               <strong className="text-text-primary">Purpose: </strong>
                               {activeMeta.purpose}
                             </p>
                           </div>
 
                           {/* Reference card - Outputs and guidelines */}
-                          <div className="p-4 rounded-xl bg-bg-primary/40 border border-border/60 grid grid-cols-1 sm:grid-cols-2 gap-4">
+                          <div className="p-3 sm:p-4 rounded-xl bg-bg-primary/40 border border-border/60 grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                             <div>
-                              <span className="text-[9px] font-mono text-text-secondary uppercase block mb-1.5 font-bold">Strategic Questions</span>
-                              <ul className="space-y-1 text-[11px] text-text-secondary font-sans list-disc pl-3 leading-relaxed">
+                              <span className="text-[8px] sm:text-[9px] font-mono text-text-secondary uppercase block mb-1.5 font-bold">Strategic Questions</span>
+                              <ul className="space-y-1 text-[10px] sm:text-[11px] text-text-secondary font-sans list-disc pl-3 leading-relaxed">
                                 {activeMeta.keyQuestions.map((q, idx) => (
                                   <li key={idx}>{q}</li>
                                 ))}
@@ -1951,10 +1963,10 @@ export function GTMOSModule() {
                             </div>
                             
                             <div>
-                              <span className="text-[9px] font-mono text-text-secondary uppercase block mb-1.5 font-bold">Commercial Outputs</span>
+                              <span className="text-[8px] sm:text-[9px] font-mono text-text-secondary uppercase block mb-1.5 font-bold">Commercial Outputs</span>
                               <div className="flex flex-wrap gap-1.5">
                                 {activeMeta.outputs.map((out, idx) => (
-                                  <span key={idx} className="text-[10px] font-mono bg-accent/5 text-accent/90 border border-accent/15 px-2 py-0.5 rounded-md font-bold">
+                                  <span key={idx} className="text-[9px] sm:text-[10px] font-mono bg-accent/5 text-accent/90 border border-accent/15 px-2 py-0.5 rounded-md font-bold">
                                     {out}
                                   </span>
                                 ))}
@@ -1963,14 +1975,14 @@ export function GTMOSModule() {
                           </div>
 
                           {/* Interactive list of strategy items */}
-                          <div className="space-y-3 pt-2">
-                            <div className="text-[10px] font-mono text-text-secondary uppercase tracking-wider pl-1 font-bold">Draft Strategy Lines</div>
+                          <div className="space-y-2 sm:space-y-3 pt-1 sm:pt-2">
+                            <div className="text-[9px] sm:text-[10px] font-mono text-text-secondary uppercase tracking-wider pl-1 font-bold">Draft Strategy Lines</div>
                             {activeItems.length === 0 ? (
-                              <div className="p-6 text-center text-xs text-text-secondary/40 italic rounded-xl border border-dashed border-border">
+                              <div className="p-4 sm:p-6 text-center text-[11px] sm:text-xs text-text-secondary/40 italic rounded-xl border border-dashed border-border">
                                 No strategy lines formulated. Add custom items below or regenerate draft.
                               </div>
                             ) : (
-                              <div className="space-y-2.5">
+                              <div className="space-y-2 sm:space-y-2.5">
                                 {activeItems.map((item, index) => {
                                   const colonIdx = item.indexOf(': ');
                                   const hasPrefix = colonIdx !== -1;
@@ -1999,14 +2011,12 @@ export function GTMOSModule() {
                                         }}
                                         className="flex-1 bg-transparent border-none text-xs text-text-primary focus:outline-none focus:ring-0 select-text leading-relaxed font-sans placeholder-text-secondary/30 p-0 w-full min-h-[1.5rem]"
                                         placeholder="Refine strategic item text..."
-                                      />
-
-                                      <button
+                                      />                                       <button
                                         onClick={() => handleDeleteDraftItem(selectedDraftPillar, index)}
-                                        className="p-1.5 rounded-lg border border-transparent hover:border-red-500/20 text-text-secondary hover:text-red-400 sm:opacity-60 group-hover:opacity-100 transition-all shrink-0 self-start -mt-1"
+                                        className="p-2 sm:p-1.5 rounded-lg border border-transparent hover:border-red-500/20 text-text-secondary hover:text-red-400 opacity-60 hover:opacity-100 transition-all shrink-0 self-start sm:-mt-1"
                                         title="Purge strategy row"
                                       >
-                                        <Trash2 className="h-3.5 w-3.5" />
+                                        <Trash2 className="h-4 w-4 sm:h-3.5 sm:w-3.5" />
                                       </button>
                                     </div>
                                   );
@@ -2017,39 +2027,39 @@ export function GTMOSModule() {
 
                           {/* Interactive Target Accounts Playground for Pillar 1 */}
                           {selectedDraftPillar === 'pillar_1_market_segmentation' && (
-                            <div className="pt-6 border-t border-border/60 space-y-4">
-                              <div className="p-5.5 rounded-2xl bg-accent/5 border border-accent/20 space-y-4">
+                            <div className="pt-4 sm:pt-6 border-t border-border/60 space-y-4">
+                              <div className="p-4 sm:p-5.5 rounded-2xl bg-accent/5 border border-accent/20 space-y-3 sm:space-y-4">
                                 {/* Title block */}
-                                <div className="flex items-center gap-2">
-                                  <Sparkles className="h-5 w-5 text-accent" />
+                                <div className="flex items-start sm:items-center gap-2.5">
+                                  <Sparkles className="h-4 w-4 sm:h-5 sm:w-5 text-accent shrink-0 mt-0.5 sm:mt-0" />
                                   <div>
-                                    <h4 className="text-xs font-black text-accent uppercase tracking-wider">
+                                    <h4 className="text-[11px] sm:text-xs font-black text-accent uppercase tracking-wider">
                                       ⚡ Target Accounts Recommendation
                                     </h4>
-                                    <p className="text-[11px] text-text-secondary">
+                                    <p className="text-[10px] sm:text-[11px] text-text-secondary leading-snug">
                                       Dynamically synthesize top 5 target accounts grounded directly in your defined market segmentation strategy.
                                     </p>
                                   </div>
                                 </div>
 
-                                <div className="flex items-center justify-between pt-1 border-t border-border/30">
-                                  <span className="text-[9px] font-mono text-text-secondary/60">
+                                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pt-2 sm:pt-1 border-t border-border/30">
+                                  <span className="text-[8px] sm:text-[9px] font-mono text-text-secondary/60 block mb-2 sm:mb-0">
                                     Grounded via gemini-3.1-flash-lite
                                   </span>
                                   <button
                                     type="button"
                                     onClick={handleGenerateTargetAccounts}
                                     disabled={isGeneratingTargetAccounts}
-                                    className="px-4.5 py-2.5 bg-accent/20 border border-accent/30 hover:bg-accent hover:text-black hover:scale-105 active:scale-95 transition-all text-accent text-xs font-black rounded-xl select-none cursor-pointer flex items-center justify-center gap-1.5 shrink-0"
+                                    className="w-full sm:w-auto px-4 sm:px-4.5 py-2 sm:py-2.5 bg-accent/20 border border-accent/30 hover:bg-accent hover:text-black hover:scale-[1.02] active:scale-95 transition-all text-accent text-[11px] sm:text-xs font-black rounded-xl select-none flex items-center justify-center gap-1.5 shrink-0"
                                   >
                                     {isGeneratingTargetAccounts ? (
                                       <>
-                                        <Loader2 className="h-4 w-4 animate-spin" />
+                                        <Loader2 className="h-3.5 w-3.5 sm:h-4 sm:w-4 animate-spin" />
                                         Generating Accounts...
                                       </>
                                     ) : (
                                       <>
-                                        <Bot className="h-4 w-4" />
+                                        <Bot className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
                                         Generate Target Accounts
                                       </>
                                     )}
@@ -2058,36 +2068,36 @@ export function GTMOSModule() {
 
                                 {/* Generated output visual desk */}
                                 {generatedTargetAccountsResult && (
-                                  <div className="p-4.5 rounded-xl bg-bg-primary/60 border border-border/80 space-y-4.5 text-left transition-all duration-300">
-                                    <span className="text-[9px] font-mono text-text-secondary uppercase tracking-wider font-bold block">
+                                  <div className="p-3 sm:p-4.5 rounded-xl bg-bg-primary/60 border border-border/80 space-y-3 sm:space-y-4.5 text-left transition-all duration-300">
+                                    <span className="text-[8px] sm:text-[9px] font-mono text-text-secondary uppercase tracking-wider font-bold block">
                                       RECOMMENDED TOP 5 TARGET ACCOUNTS
                                     </span>
-                                    <div className="space-y-3">
+                                    <div className="space-y-2 sm:space-y-3">
                                       {generatedTargetAccountsResult.accounts.map((account, idx) => (
                                         <div key={idx} className="p-3 border border-border/50 rounded-lg space-y-1.5">
-                                          <div className="flex items-center justify-between">
-                                            <span className="text-sm font-bold text-text-primary">{account.name}</span>
-                                            <span className="text-[10px] font-mono text-accent bg-accent/10 px-2 py-0.5 rounded-full">{account.expectedValue}</span>
+                                          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1 sm:gap-2">
+                                            <span className="text-xs sm:text-sm font-bold text-text-primary">{account.name}</span>
+                                            <span className="text-[9px] sm:text-[10px] font-mono text-accent bg-accent/10 px-2 py-0.5 rounded-full w-fit">{account.expectedValue}</span>
                                           </div>
-                                          <p className="text-xs text-text-secondary font-sans leading-relaxed">{account.rationale}</p>
+                                          <p className="text-[11px] sm:text-xs text-text-secondary font-sans leading-relaxed">{account.rationale}</p>
                                         </div>
                                       ))}
                                     </div>
 
                                     {/* Integrate controls */}
-                                    <div className="pt-2.5 border-t border-border/30 flex flex-col sm:flex-row items-center justify-end gap-3">
-                                      <div className="flex items-center gap-2.5">
+                                    <div className="pt-3 sm:pt-2.5 border-t border-border/30 flex flex-col sm:flex-row items-center justify-end gap-3">
+                                      <div className="flex flex-col sm:flex-row items-center gap-2 sm:gap-2.5 w-full sm:w-auto">
                                         {targetAccountsSuccessMsg && (
-                                          <span className="text-[11px] text-[#00F090] font-bold animate-pulse">
+                                          <span className="text-[10px] sm:text-[11px] text-[#00F090] font-bold animate-pulse text-center w-full sm:w-auto">
                                             {targetAccountsSuccessMsg}
                                           </span>
                                         )}
                                         <button
                                           type="button"
                                           onClick={handleApplyTargetAccounts}
-                                          className="px-4 py-2 bg-[#00F090]/15 border border-[#00F090]/30 hover:bg-[#00F090] text-[#00F090] hover:text-black text-xs font-black rounded-xl transition-all select-none cursor-pointer flex items-center gap-1 shadow-lg shadow-[#00F090]/5"
+                                          className="w-full sm:w-auto px-4 py-2 bg-[#00F090]/15 border border-[#00F090]/30 hover:bg-[#00F090] text-[#00F090] hover:text-black text-[11px] sm:text-xs font-black rounded-xl transition-all select-none flex items-center justify-center gap-1 shadow-lg shadow-[#00F090]/5"
                                         >
-                                          <Check className="h-4 w-4" />
+                                          <Check className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
                                           Apply to Strategy Lines list
                                         </button>
                                       </div>
@@ -2431,47 +2441,47 @@ export function GTMOSModule() {
 
             {/* Step 12: GTM Strategy Canvas */}
             {activeStep === 12 && (
-              <div className="space-y-6">
+              <div className="space-y-4 sm:space-y-6">
                 {/* Header panel with generate / status tools */}
-                <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-bg-surface/30 border border-border/80 rounded-2xl p-5">
+                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-bg-surface/30 border border-border/80 rounded-2xl p-4 sm:p-5">
                   <div className="space-y-1">
-                    <div className="flex items-center gap-1.5 text-xs font-mono text-[#00F090] uppercase tracking-wider font-bold">
-                      <Sparkles className="h-4 w-4 text-[#00F090]" />
+                    <div className="flex items-center gap-1.5 text-[10px] sm:text-xs font-mono text-[#00F090] uppercase tracking-wider font-bold">
+                      <Sparkles className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-[#00F090]" />
                       Model-Synthesized Strategic Frame
                     </div>
-                    <h3 className="text-lg font-black text-text-primary">9-Pillar GTM Strategy Canvas</h3>
-                    <p className="text-xs text-text-secondary leading-relaxed max-w-2xl font-sans">
+                    <h3 className="text-base sm:text-lg font-black text-text-primary">9-Pillar GTM Strategy Canvas</h3>
+                    <p className="text-[11px] sm:text-xs text-text-secondary leading-relaxed max-w-2xl font-sans">
                       This canvas shows high-impact condensed executive summaries of each commercial pillar, synthesized by Gemini based on the detailed draft strategic lines finalized and stored in <span className="font-bold text-accent">Step 11: GTM Strategy Draft</span>.
                     </p>
                   </div>
 
-                  <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full md:w-auto shrink-0">
+                  <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full sm:w-auto shrink-0 mt-2 sm:mt-0">
                     <button
                       onClick={handleGenerateStrategyCanvas}
                       disabled={isGeneratingCanvas}
-                      className="px-5 py-3 bg-accent text-black font-extrabold text-xs rounded-xl hover:scale-105 active:scale-95 transition-all flex items-center justify-center gap-2 shadow-lg shadow-accent/5 disabled:opacity-40"
+                      className="w-full sm:w-auto px-4 sm:px-5 py-2.5 sm:py-3 bg-accent text-black font-extrabold text-[11px] sm:text-xs rounded-xl hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center gap-2 shadow-lg shadow-accent/5 disabled:opacity-40"
                     >
-                      {isGeneratingCanvas ? <Loader2 className="h-4 w-4 animate-spin" /> : <Bot className="h-4 w-4" />}
+                      {isGeneratingCanvas ? <Loader2 className="h-3.5 w-3.5 sm:h-4 sm:w-4 animate-spin" /> : <Bot className="h-3.5 w-3.5 sm:h-4 sm:w-4" />}
                       {currentProject.gtmCanvas ? 'Update Strategy Canvas' : 'Compile Strategy Canvas'}
                     </button>
                   </div>
                 </div>
 
                 {canvasSuccessMsg && (
-                  <div className="p-3 bg-accent/5 border border-accent/25 text-xs text-accent rounded-xl animate-in fade-in duration-200 font-sans">
+                  <div className="p-3 bg-accent/5 border border-accent/25 text-[11px] sm:text-xs text-accent rounded-xl animate-in fade-in duration-200 font-sans">
                     {canvasSuccessMsg}
                   </div>
                 )}
 
                 {/* If canvas isn't generated yet */}
                 {!currentProject.gtmCanvas ? (
-                  <div className="max-w-md mx-auto space-y-5 p-8 rounded-3xl bg-bg-surface/50 border border-border text-center my-6">
-                    <div className="p-4 rounded-2xl bg-accent/10 border border-accent/20 w-fit mx-auto">
-                      <Layers className="h-8 w-8 text-accent animate-pulse" />
+                  <div className="max-w-md mx-auto space-y-4 sm:space-y-5 p-6 sm:p-8 rounded-3xl bg-bg-surface/50 border border-border text-center my-4 sm:my-6">
+                    <div className="p-3 sm:p-4 rounded-2xl bg-accent/10 border border-accent/20 w-fit mx-auto">
+                      <Layers className="h-6 w-6 sm:h-8 sm:w-8 text-accent animate-pulse" />
                     </div>
                     <div>
-                      <h4 className="text-sm font-black text-text-primary uppercase tracking-wider">Uncompiled Strategic Canvas</h4>
-                      <p className="text-xs text-text-secondary mt-2 leading-relaxed font-sans">
+                      <h4 className="text-xs sm:text-sm font-black text-text-primary uppercase tracking-wider">Uncompiled Strategic Canvas</h4>
+                      <p className="text-[11px] sm:text-xs text-text-secondary mt-2 leading-relaxed font-sans">
                         Ready to synthesize your finalized strategy? Gemini will aggregate and summarize your GTM Strategy Draft input from Step 11 into a complete 9-pillar executive dashboard canvas.
                       </p>
                     </div>
@@ -2479,15 +2489,15 @@ export function GTMOSModule() {
                     <button
                       onClick={handleGenerateStrategyCanvas}
                       disabled={isGeneratingCanvas}
-                      className="px-6 py-3.5 bg-accent text-black font-extrabold text-xs rounded-2xl hover:scale-105 active:scale-95 transition-all flex items-center gap-2 mx-auto disabled:opacity-40"
+                      className="w-full sm:w-auto px-5 sm:px-6 py-3 sm:py-3.5 bg-accent text-black font-extrabold text-[11px] sm:text-xs rounded-2xl hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center gap-2 mx-auto disabled:opacity-40"
                     >
-                      {isGeneratingCanvas ? <Loader2 className="h-4 w-4 animate-spin" /> : <Bot className="h-4 w-4" />}
+                      {isGeneratingCanvas ? <Loader2 className="h-3.5 w-3.5 sm:h-4 sm:w-4 animate-spin" /> : <Bot className="h-3.5 w-3.5 sm:h-4 sm:w-4" />}
                       Compile Strategy Canvas
                     </button>
                   </div>
                 ) : (
                   /* 3x3 Bento Canvas Grid */
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
                     {[
                       { key: 'pillar_1_market_segmentation', name: 'Pillar 1: Market Segmentation', icon: Layers, color: 'from-blue-500/10 to-transparent' },
                       { key: 'pillar_2_icp', name: 'Pillar 2: Ideal Customer Profile (ICP)', icon: Target, color: 'from-green-500/10 to-transparent' },
@@ -2621,24 +2631,24 @@ export function GTMOSModule() {
 
             {/* Step 18: Risk Detection */}
             {activeStep === 18 && (
-              <div className="space-y-6 text-left">
+              <div className="space-y-4 sm:space-y-6 text-left">
                 <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center p-4 rounded-xl bg-accent/5 border border-accent/20 gap-4">
                   <div className="flex gap-2.5 items-start">
                     <ShieldAlert className="h-5 w-5 text-accent shrink-0 mt-0.5 animate-pulse" />
                     <div>
-                      <h4 className="text-xs font-bold text-text-primary">Operational Risks Detection audit</h4>
-                      <p className="text-[11px] text-text-secondary font-sans leading-normal">Analyzes structural discrepancies across GTM channels and highlights mitigations.</p>
+                      <h4 className="text-[11px] sm:text-xs font-bold text-text-primary">Operational Risks Detection audit</h4>
+                      <p className="text-[10px] sm:text-[11px] text-text-secondary font-sans leading-normal">Analyzes structural discrepancies across GTM channels and highlights mitigations.</p>
                     </div>
                   </div>
 
                   <button
                     onClick={runRiskAudit}
                     disabled={isGeneratingAudit}
-                    className="px-4 py-2 bg-accent text-black font-extrabold text-xs rounded-xl hover:scale-105 active:scale-95 transition-all shrink-0 flex items-center justify-center gap-1.5 disabled:opacity-50 disabled:pointer-events-none"
+                    className="w-full sm:w-auto px-4 py-2 bg-accent text-black font-extrabold text-[11px] sm:text-xs rounded-xl hover:scale-105 active:scale-95 transition-all shrink-0 flex items-center justify-center gap-1.5 disabled:opacity-50 disabled:pointer-events-none"
                   >
                     {isGeneratingAudit ? (
                       <>
-                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                        <Loader2 className="h-3.5 w-3.5 sm:h-4 sm:w-4 animate-spin" />
                         Generating Audit...
                       </>
                     ) : (
@@ -2648,20 +2658,20 @@ export function GTMOSModule() {
                 </div>
 
                 {currentProject.riskReasoningLog && (
-                  <div className="p-5 rounded-2xl bg-bg-surface/30 border border-accent/20 animate-in fade-in slide-in-from-top-2 duration-300">
+                  <div className="p-4 sm:p-5 rounded-2xl bg-bg-surface/30 border border-accent/20 animate-in fade-in slide-in-from-top-2 duration-300">
                     <div className="flex items-center gap-2 mb-3 border-b border-border/40 pb-3">
-                      <div className="w-6 h-6 rounded-lg bg-accent/10 flex items-center justify-center">
-                        <BrainCircuit className="h-3.5 w-3.5 text-accent" />
+                      <div className="w-5 h-5 sm:w-6 sm:h-6 rounded-lg bg-accent/10 flex items-center justify-center">
+                        <BrainCircuit className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-accent" />
                       </div>
-                      <span className="text-xs font-black text-text-primary uppercase tracking-wider">Gemini System Reasoning</span>
+                      <span className="text-[11px] sm:text-xs font-black text-text-primary uppercase tracking-wider">Gemini System Reasoning</span>
                     </div>
-                    <div className="text-xs text-text-secondary leading-relaxed font-sans prose prose-invert max-w-none prose-p:my-1 prose-headings:text-text-primary prose-a:text-accent prose-strong:text-text-primary">
+                    <div className="text-[11px] sm:text-xs text-text-secondary leading-relaxed font-sans prose prose-invert max-w-none prose-p:my-1 prose-headings:text-text-primary prose-a:text-accent prose-strong:text-text-primary">
                         <ReactMarkdown>{currentProject.riskReasoningLog}</ReactMarkdown>
                     </div>
                   </div>
                 )}
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-5">
                   {(currentProject.risks && currentProject.risks.length > 0 ? currentProject.risks : [
                     {
                       id: 'risk-std-1',
@@ -2682,41 +2692,41 @@ export function GTMOSModule() {
                       mitigation: 'Enable automated CRM activity tracking modules to bypass administrative logging effort.'
                     }
                   ]).map(r => (
-                    <div key={r.id} className="p-5 rounded-2xl bg-bg-surface/50 border border-border space-y-4">
-                      <div className="flex flex-wrap items-center gap-2 mb-1 border-b border-border/40 pb-3">
-                        <div className={`px-2.5 py-1.5 rounded-xl border text-[10px] font-bold uppercase tracking-wider flex items-center gap-1.5 ${
+                    <div key={r.id} className="p-4 sm:p-5 rounded-2xl bg-bg-surface/50 border border-border space-y-3 sm:space-y-4">
+                      <div className="flex flex-col sm:flex-row sm:items-center gap-3 mb-1 border-b border-border/40 pb-3">
+                        <div className={`w-fit px-2.5 py-1.5 rounded-xl border text-[9px] sm:text-[10px] font-bold uppercase tracking-wider flex items-center gap-1.5 ${
                           r.level === 'Red' ? 'bg-red-500/15 text-red-500 border-red-500/30 shadow-lg shadow-red-500/10' : 
                           r.level === 'Orange' ? 'bg-orange-500/15 text-orange-500 border-orange-500/30 shadow-lg shadow-orange-500/10' : 
                           'bg-amber-500/15 text-amber-500 border-amber-500/30 shadow-lg shadow-amber-500/10'
                         }`}>
-                          <ShieldAlert className="h-3.5 w-3.5" />
+                          <ShieldAlert className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
                           {r.level} Risk
                         </div>
-                        <div className="flex items-center gap-2 ml-auto">
-                          <div className={`px-2.5 py-1.5 rounded-lg border text-[10px] font-bold uppercase tracking-wider flex items-center gap-1.5 ${
+                        <div className="flex flex-wrap items-center gap-2 sm:ml-auto">
+                          <div className={`px-2 py-1 sm:px-2.5 sm:py-1.5 rounded-lg border text-[9px] sm:text-[10px] font-bold uppercase tracking-wider flex items-center gap-1.5 ${
                             r.impact === 'Critical' ? 'bg-red-500/10 border-red-500/20 text-red-400' :
                             r.impact === 'High' ? 'bg-orange-500/10 border-orange-500/20 text-orange-400' :
                             'bg-blue-500/10 border-blue-500/20 text-blue-400'
                           }`}>
-                            <AlertOctagon className="h-3 w-3" />
+                            <AlertOctagon className="h-2.5 w-2.5 sm:h-3 sm:w-3" />
                             Impact: {r.impact}
                           </div>
-                          <div className={`px-2.5 py-1.5 rounded-lg border text-[10px] font-bold uppercase tracking-wider flex items-center gap-1.5 ${
+                          <div className={`px-2 py-1 sm:px-2.5 sm:py-1.5 rounded-lg border text-[9px] sm:text-[10px] font-bold uppercase tracking-wider flex items-center gap-1.5 ${
                             r.probability === 'High' ? 'bg-red-500/10 border-red-500/20 text-red-400' :
                             r.probability === 'Medium' ? 'bg-orange-500/10 border-orange-500/20 text-orange-400' :
                             'bg-blue-500/10 border-blue-500/20 text-blue-400'
                           }`}>
-                            <Activity className="h-3 w-3" />
+                            <Activity className="h-2.5 w-2.5 sm:h-3 sm:w-3" />
                             Prob: {r.probability}
                           </div>
                         </div>
                       </div>
 
-                      <h4 className="text-sm font-bold text-text-primary mt-1">{r.title}</h4>
-                      <p className="text-xs text-text-secondary leading-normal font-sans">{r.description}</p>
+                      <h4 className="text-xs sm:text-sm font-bold text-text-primary mt-1">{r.title}</h4>
+                      <p className="text-[11px] sm:text-xs text-text-secondary leading-normal font-sans">{r.description}</p>
                       
-                      <div className="p-3.5 bg-bg-primary/50 text-text-secondary rounded-xl border border-border/80 text-[11px] font-sans leading-relaxed flex flex-col gap-1.5 text-left">
-                        <span className="font-bold text-accent uppercase tracking-wider text-[9px]">Proactive Mitigation</span>
+                      <div className="p-3 sm:p-3.5 bg-bg-primary/50 text-text-secondary rounded-xl border border-border/80 text-[10px] sm:text-[11px] font-sans leading-relaxed flex flex-col gap-1 sm:gap-1.5 text-left">
+                        <span className="font-bold text-accent uppercase tracking-wider text-[8px] sm:text-[9px]">Proactive Mitigation</span>
                         {r.mitigation}
                       </div>
                     </div>
@@ -2727,24 +2737,24 @@ export function GTMOSModule() {
 
             {/* Step 19: AI Optimization recommendations */}
             {activeStep === 19 && (
-              <div className="space-y-6 text-left">
+              <div className="space-y-4 sm:space-y-6 text-left">
                 <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center p-4 rounded-xl bg-accent/5 border border-accent/20 gap-4">
                   <div className="flex gap-2.5 items-start">
                     <Bookmark className="h-5 w-5 text-accent shrink-0 mt-0.5 animate-pulse" />
                     <div>
-                      <h4 className="text-xs font-bold text-text-primary">Pivotal Actions & Optimization</h4>
-                      <p className="text-[11px] text-text-secondary font-sans leading-normal">Evaluates detected risks and structural gaps to surface high-leverage growth opportunities through Gemini reasoning.</p>
+                      <h4 className="text-[11px] sm:text-xs font-bold text-text-primary">Pivotal Actions & Optimization</h4>
+                      <p className="text-[10px] sm:text-[11px] text-text-secondary font-sans leading-normal">Evaluates detected risks and structural gaps to surface high-leverage growth opportunities through Gemini reasoning.</p>
                     </div>
                   </div>
 
                   <button
                     onClick={runRiskAudit}
                     disabled={isGeneratingAudit}
-                    className="px-4 py-2 bg-accent text-black font-extrabold text-xs rounded-xl hover:scale-105 active:scale-95 transition-all shrink-0 flex items-center justify-center gap-1.5 disabled:opacity-50 disabled:pointer-events-none"
+                    className="w-full sm:w-auto px-4 py-2 bg-accent text-black font-extrabold text-[11px] sm:text-xs rounded-xl hover:scale-105 active:scale-95 transition-all shrink-0 flex items-center justify-center gap-1.5 disabled:opacity-50 disabled:pointer-events-none"
                   >
                     {isGeneratingAudit ? (
                       <>
-                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                        <Loader2 className="h-3.5 w-3.5 sm:h-4 sm:w-4 animate-spin" />
                         Generating Pivots...
                       </>
                     ) : (
@@ -2754,20 +2764,20 @@ export function GTMOSModule() {
                 </div>
 
                 {currentProject.riskReasoningLog && (
-                  <div className="p-5 rounded-2xl bg-bg-surface/30 border border-accent/20 animate-in fade-in slide-in-from-top-2 duration-300">
+                  <div className="p-4 sm:p-5 rounded-2xl bg-bg-surface/30 border border-accent/20 animate-in fade-in slide-in-from-top-2 duration-300">
                     <div className="flex items-center gap-2 mb-3 border-b border-border/40 pb-3">
-                      <div className="w-6 h-6 rounded-lg bg-accent/10 flex items-center justify-center">
-                        <BrainCircuit className="h-3.5 w-3.5 text-accent" />
+                      <div className="w-5 h-5 sm:w-6 sm:h-6 rounded-lg bg-accent/10 flex items-center justify-center">
+                        <BrainCircuit className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-accent" />
                       </div>
-                      <span className="text-xs font-black text-text-primary uppercase tracking-wider">Gemini System Reasoning</span>
+                      <span className="text-[11px] sm:text-xs font-black text-text-primary uppercase tracking-wider">Gemini System Reasoning</span>
                     </div>
-                    <div className="text-xs text-text-secondary leading-relaxed font-sans prose prose-invert max-w-none prose-p:my-1 prose-headings:text-text-primary prose-a:text-accent prose-strong:text-text-primary">
+                    <div className="text-[11px] sm:text-xs text-text-secondary leading-relaxed font-sans prose prose-invert max-w-none prose-p:my-1 prose-headings:text-text-primary prose-a:text-accent prose-strong:text-text-primary">
                         <ReactMarkdown>{currentProject.riskReasoningLog}</ReactMarkdown>
                     </div>
                   </div>
                 )}
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-5">
                   {(currentProject.recommendations && currentProject.recommendations.length > 0 ? currentProject.recommendations : [
                     {
                       id: 'rec-std-1',
@@ -2794,39 +2804,39 @@ export function GTMOSModule() {
                       actionableSteps: 'Furnish team reps with customizable financial calculations proving 9-month LTV CAC paybacks based on tool consolidations.'
                     }
                   ]).map(rec => (
-                    <div key={rec.id} className="p-5 rounded-2xl bg-bg-surface/50 border border-border flex flex-col space-y-4">
+                    <div key={rec.id} className="p-4 sm:p-5 rounded-2xl bg-bg-surface/50 border border-border flex flex-col space-y-3 sm:space-y-4">
                       
-                      <div className="flex flex-wrap items-center gap-2 mb-1 border-b border-border/40 pb-3">
-                        <span className="px-2.5 py-1.5 rounded-xl border border-accent/30 bg-accent/10 text-accent text-[10px] font-bold uppercase tracking-wider flex items-center gap-1.5 shadow-lg shadow-accent/10">
-                          <Bookmark className="h-3.5 w-3.5" />
+                      <div className="flex flex-col sm:flex-row sm:items-center gap-3 mb-1 border-b border-border/40 pb-3">
+                        <span className="w-fit px-2.5 py-1.5 rounded-xl border border-accent/30 bg-accent/10 text-accent text-[9px] sm:text-[10px] font-bold uppercase tracking-wider flex items-center gap-1.5 shadow-lg shadow-accent/10">
+                          <Bookmark className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
                           {rec.category}
                         </span>
                         
-                        <div className="flex items-center gap-2 ml-auto">
-                          <div className={`px-2.5 py-1.5 rounded-lg border text-[10px] font-bold uppercase tracking-wider flex items-center gap-1.5 ${
+                        <div className="flex flex-wrap items-center gap-2 sm:ml-auto">
+                          <div className={`px-2 py-1 sm:px-2.5 sm:py-1.5 rounded-lg border text-[9px] sm:text-[10px] font-bold uppercase tracking-wider flex items-center gap-1.5 ${
                             rec.impact === 'High' ? 'bg-green-500/10 border-green-500/20 text-green-400' :
                             rec.impact === 'Moderate' ? 'bg-blue-500/10 border-blue-500/20 text-blue-400' :
                             'bg-gray-500/10 border-gray-500/20 text-gray-400'
                           }`}>
-                            <TrendingUp className="h-3 w-3" />
+                            <TrendingUp className="h-2.5 w-2.5 sm:h-3 sm:w-3" />
                             Impact: {rec.impact}
                           </div>
                           
-                          <div className={`px-2.5 py-1.5 rounded-lg border text-[10px] font-bold uppercase tracking-wider flex items-center gap-1.5 ${
+                          <div className={`px-2 py-1 sm:px-2.5 sm:py-1.5 rounded-lg border text-[9px] sm:text-[10px] font-bold uppercase tracking-wider flex items-center gap-1.5 ${
                             rec.effort === 'High' ? 'bg-orange-500/10 border-orange-500/20 text-orange-400' :
                             rec.effort === 'Medium' ? 'bg-amber-500/10 border-amber-500/20 text-amber-400' :
                             'bg-green-500/10 border-green-500/20 text-green-400'
                           }`}>
-                            <Zap className="h-3 w-3" />
+                            <Zap className="h-2.5 w-2.5 sm:h-3 sm:w-3" />
                             Effort: {rec.effort}
                           </div>
                         </div>
                       </div>
 
-                      <h4 className="text-sm font-bold text-text-primary mt-1">{rec.title}</h4>
+                      <h4 className="text-xs sm:text-sm font-bold text-text-primary mt-1">{rec.title}</h4>
                       
-                      <div className="p-3.5 bg-bg-primary/50 text-text-secondary rounded-xl border border-border/80 text-[11px] font-sans leading-relaxed flex flex-col gap-1.5 text-left">
-                        <span className="font-bold text-accent uppercase tracking-wider text-[9px]">Actionable Pivot</span>
+                      <div className="p-3 sm:p-3.5 bg-bg-primary/50 text-text-secondary rounded-xl border border-border/80 text-[10px] sm:text-[11px] font-sans leading-relaxed flex flex-col gap-1 sm:gap-1.5 text-left">
+                        <span className="font-bold text-accent uppercase tracking-wider text-[8px] sm:text-[9px]">Actionable Pivot</span>
                         {rec.actionableSteps}
                       </div>
 
@@ -2852,17 +2862,17 @@ export function GTMOSModule() {
 
             {/* Step 22: GTM Report */}
             {activeStep === 22 && (
-              <div className="flex flex-col items-center justify-center h-full min-h-[400px] space-y-6">
+              <div className="flex flex-col items-center justify-center h-full min-h-[300px] sm:min-h-[400px] space-y-4 sm:space-y-6 px-4">
                 <div className="text-center space-y-2">
-                  <h2 className="text-3xl font-black text-text-primary">GTM Report System</h2>
-                  <p className="text-text-secondary max-w-lg mx-auto">
+                  <h2 className="text-2xl sm:text-3xl font-black text-text-primary">GTM Report System</h2>
+                  <p className="text-[11px] sm:text-xs text-text-secondary max-w-lg mx-auto">
                     Generate a comprehensive PDF report combining intelligence from all modules.
                     Configure the components you wish to include, review the layout, and save or print the final document.
                   </p>
                 </div>
                 <button
                   onClick={() => setIsReportModalOpen(true)}
-                  className="px-8 py-4 bg-accent text-black font-black text-lg rounded-2xl hover:bg-accent/90 transition-all shadow-xl shadow-accent/20 hover:scale-105 active:scale-95"
+                  className="w-full sm:w-auto px-6 sm:px-8 py-3 sm:py-4 bg-accent text-black font-black text-sm sm:text-lg rounded-2xl hover:bg-accent/90 transition-all shadow-xl shadow-accent/20 hover:scale-105 active:scale-95"
                 >
                   Configure & Generate Report
                 </button>
@@ -2876,28 +2886,28 @@ export function GTMOSModule() {
       </div>
 
       {/* Persistent Horizontal Sequential navigation bar (Back / Continue step buttons) */}
-      <div className="flex flex-col sm:flex-row justify-between items-center pt-5 border-t border-border gap-4">
+      <div className="flex flex-row justify-between items-center pt-5 border-t border-border gap-2 sm:gap-4">
         {/* Left Aligned - Back button & optional save status indicators */}
-        <div className="flex flex-wrap items-center gap-3 w-full sm:w-auto">
+        <div className="flex items-center gap-2 sm:gap-3">
           <button
             onClick={() => handleStepChange(activeStep - 1)}
             disabled={activeStep <= 1}
-            className="px-4 py-2.5 border border-border text-text-secondary hover:text-text-primary text-xs font-bold rounded-xl disabled:opacity-30 disabled:pointer-events-none transition-all flex items-center gap-1.5 cursor-pointer"
+            className="px-3 sm:px-4 py-2 sm:py-2.5 border border-border text-text-secondary hover:text-text-primary text-[10px] sm:text-xs font-bold rounded-xl disabled:opacity-30 disabled:pointer-events-none transition-all flex items-center gap-1 sm:gap-1.5 cursor-pointer"
           >
-            <ChevronLeft className="h-4 w-4" />
+            <ChevronLeft className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
             Previous Phase
           </button>
 
           {activeStep >= 2 && activeStep <= 9 && (
             <>
               {saveState === 'dirty' && (
-                <span className="text-[10px] sm:text-xs font-mono text-yellow-500 animate-pulse flex items-center gap-1.5 ml-1">
+                <span className="hidden md:flex text-[10px] sm:text-xs font-mono text-yellow-500 animate-pulse items-center gap-1.5 ml-1">
                   <span className="h-2 w-2 rounded-full bg-yellow-500" />
                   Unsaved modifications detected
                 </span>
               )}
               {saveState === 'saved' && (
-                <span className="text-[10px] sm:text-xs font-mono text-accent flex items-center gap-1.5 ml-1 animate-in fade-in slide-in-from-left-2 duration-200">
+                <span className="hidden md:flex text-[10px] sm:text-xs font-mono text-accent items-center gap-1.5 ml-1 animate-in fade-in slide-in-from-left-2 duration-200">
                   <span className="h-2 w-2 rounded-full bg-accent animate-ping" />
                   All progress securely saved
                 </span>
@@ -2907,17 +2917,17 @@ export function GTMOSModule() {
         </div>
 
         {/* Center - branding or identity */}
-        <div className="text-[10px] font-mono text-text-secondary/50 font-extrabold uppercase select-none tracking-widest hidden md:block">
+        <div className="text-[10px] font-mono text-text-secondary/50 font-extrabold uppercase select-none tracking-widest hidden lg:block">
           REVOS GTM STRATEGIC REGISTER
         </div>
 
         {/* Right Aligned - Action buttons */}
-        <div className="flex items-center gap-3 w-full sm:w-auto justify-end">
+        <div className="flex items-center gap-2 sm:gap-3 justify-end">
           {activeStep >= 2 && activeStep <= 9 && (
             <button
               onClick={handleSaveClickGlobal}
               disabled={saveState === 'saving'}
-              className={`px-5 py-2 rounded-xl text-xs font-black transition-all flex items-center justify-center gap-2 border cursor-pointer h-10 ${
+              className={`hidden sm:flex px-4 sm:px-5 py-2 rounded-xl text-[10px] sm:text-xs font-black transition-all items-center justify-center gap-1 sm:gap-2 border cursor-pointer h-9 sm:h-10 ${
                 saveState === 'dirty'
                   ? 'bg-accent/15 hover:bg-accent text-accent hover:text-black border-accent/40 shadow-lg shadow-accent/5'
                   : 'bg-bg-primary hover:bg-bg-primary/80 text-text-primary border-border/80'
@@ -2925,13 +2935,13 @@ export function GTMOSModule() {
             >
               {saveState === 'saving' ? (
                 <>
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  Saving Info...
+                  <Loader2 className="h-3.5 w-3.5 sm:h-4 sm:w-4 animate-spin" />
+                  Saving...
                 </>
               ) : (
                 <>
-                  <Save className="h-4 w-4" />
-                  Save Changes
+                  <Save className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                  Save
                 </>
               )}
             </button>
@@ -2944,17 +2954,17 @@ export function GTMOSModule() {
                 : () => handleStepChange(activeStep + 1)
             }
             disabled={activeStep >= 21 || saveState === 'saving'}
-            className="px-5 py-2 bg-accent hover:bg-accent/90 text-black font-extrabold text-xs rounded-xl disabled:opacity-30 disabled:pointer-events-none transition-all flex items-center gap-1.5 shadow h-10 cursor-pointer"
+            className="px-3 sm:px-5 py-2 bg-accent hover:bg-accent/90 text-black font-extrabold text-[10px] sm:text-xs rounded-xl disabled:opacity-30 disabled:pointer-events-none transition-all flex items-center gap-1 sm:gap-1.5 shadow h-9 sm:h-10 cursor-pointer"
           >
             {activeStep >= 2 && activeStep <= 9 && saveState === 'dirty' ? (
               <>
                 Save & Proceed
-                <ChevronRight className="h-4 w-4 text-black" />
+                <ChevronRight className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-black" />
               </>
             ) : (
               <>
-                Proceed to Next Phase
-                <ChevronRight className="h-4 w-4 text-black" />
+                Next Phase
+                <ChevronRight className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-black" />
               </>
             )}
           </button>

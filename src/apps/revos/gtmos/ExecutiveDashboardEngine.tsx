@@ -169,21 +169,21 @@ export const ExecutiveDashboardEngine: React.FC<ExecutiveDashboardEngineProps> =
   };
 
   return (
-    <div className="space-y-8 animate-fade-in">
+    <div className="space-y-6 sm:space-y-8 animate-fade-in">
       
       {/* Header / Section A: Where are we? */}
-      <div className="border border-border rounded-2xl bg-bg-surface/30 p-8 flex flex-col md:flex-row items-start md:items-center justify-between gap-6 relative overflow-hidden">
+      <div className="border border-border rounded-2xl bg-bg-surface/30 p-6 sm:p-8 flex flex-col md:flex-row items-start md:items-center justify-between gap-6 relative overflow-hidden">
         <div className="absolute top-0 right-0 p-8 opacity-5 pointer-events-none">
            <Building2 className="w-48 h-48" />
         </div>
-        <div className="relative z-10 flex-1 space-y-4">
+        <div className="relative z-10 flex-1 space-y-4 w-full text-left">
           <div className="flex items-center gap-2">
              <div className="h-6 w-6 rounded flex items-center justify-center bg-accent/20 text-accent">
                <Activity className="w-3 h-3" />
              </div>
              <h2 className="text-sm font-mono font-bold uppercase tracking-widest text-text-secondary">Sec A. Where Are We?</h2>
           </div>
-          <h1 className="text-2xl md:text-3xl font-normal text-text-primary leading-tight">
+          <h1 className="text-xl sm:text-2xl md:text-3xl font-normal text-text-primary leading-tight">
             {data.section_a_attainment.narrative_brief}
           </h1>
           <div className="pt-2 flex items-center gap-4">
@@ -192,15 +192,15 @@ export const ExecutiveDashboardEngine: React.FC<ExecutiveDashboardEngineProps> =
             </button>
           </div>
         </div>
-        <div className="relative z-10 text-center md:text-right shrink-0">
+        <div className="relative z-10 text-left md:text-right shrink-0">
           <span className="text-[10px] font-mono uppercase text-text-secondary tracking-widest block mb-2">Overall Attainment Health</span>
-          <div className={`text-6xl font-black tracking-tighter ${getHealthColor(data.section_a_attainment.health_score)}`}>
+          <div className={`text-5xl sm:text-6xl font-black tracking-tighter ${getHealthColor(data.section_a_attainment.health_score)}`}>
             {data.section_a_attainment.health_score}
           </div>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 sm:gap-8 text-left">
         
         {/* Section B: Strategy vs Execution Delta */}
         <div 
@@ -208,11 +208,11 @@ export const ExecutiveDashboardEngine: React.FC<ExecutiveDashboardEngineProps> =
           onMouseEnter={() => setActiveSection('B')}
           onMouseLeave={() => setActiveSection(null)}
         >
-          <div className="p-6 border-b border-border/40">
+          <div className="p-4 sm:p-6 border-b border-border/40">
             <h3 className="text-[10px] font-mono text-text-secondary uppercase tracking-widest mb-1">Sec B. Why are we here?</h3>
-            <h4 className="text-lg font-bold text-text-primary">Strategy vs. Execution Delta</h4>
+            <h4 className="text-base sm:text-lg font-bold text-text-primary">Strategy vs. Execution Delta</h4>
           </div>
-          <div className="p-6 space-y-5">
+          <div className="p-4 sm:p-6 space-y-5">
             {data.section_b_strategic_deltas.map((delta, idx) => {
               const dynamicStatus = getDynamicStatus(delta);
               return (

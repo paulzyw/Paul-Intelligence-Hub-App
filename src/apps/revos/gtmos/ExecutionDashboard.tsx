@@ -191,18 +191,18 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = ({
   }, [metrics.allRisks, selectedRiskFilter]);
 
   return (
-    <div className="space-y-6 animate-fade-in text-left">
+    <div className="space-y-4 sm:space-y-6 animate-fade-in text-left">
       {/* Executive Briefing top plate */}
-      <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 bg-bg-surface/30 p-6 rounded-3xl border border-border/85">
+      <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 bg-bg-surface/30 p-4 sm:p-6 rounded-3xl border border-border/85">
         <div className="space-y-1">
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <span className="text-[10px] font-mono font-bold tracking-widest text-accent uppercase block">Executive Desk Overview</span>
             <span className="px-2 py-0.5 rounded-full bg-status-success-bg/15 border border-status-success/20 text-[9px] font-mono text-status-success flex items-center gap-1">
               <ShieldCheck className="h-2.5 w-2.5" /> GTM Governance Safe
             </span>
           </div>
-          <h2 className="text-xl font-black text-text-primary tracking-tight">Step 17: GTM Strategy Execution Dashboard</h2>
-          <p className="text-xs text-text-secondary max-w-3xl leading-relaxed">
+          <h2 className="text-lg sm:text-xl font-black text-text-primary tracking-tight">Step 17: GTM Strategy Execution Dashboard</h2>
+          <p className="text-[11px] sm:text-xs text-text-secondary max-w-3xl leading-relaxed">
             Consolidates active program health indicators, direct milestone progress, ARR forecasting curves, and critical dependency mitigations for executive leadership visibility.
           </p>
         </div>

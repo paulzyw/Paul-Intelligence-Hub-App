@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { supabase } from '../lib/supabase';
+import { supabase, isSupabaseConfigured } from '../lib/supabase';
 import { UserProfile, UserRole } from '../types';
 
 interface AuthContextType {
@@ -140,6 +140,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
 
     // Initial session check
+    if (!isSupabaseConfigured) {
+      console.warn("Supabase is not configured, skipping auth initialization.");
+      if (mounted) setLoading(false);
+      return;
+    }
+
     supabase.auth.getSession().then(({ data: { session }, error }) => {
       if (error) {
         console.warn('Supabase session initialization error, clearing stale session cookies:', error.message);

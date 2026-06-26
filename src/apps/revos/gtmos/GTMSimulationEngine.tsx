@@ -570,18 +570,18 @@ export const GTMSimulationEngine: React.FC<GTMSimulationEngineProps> = ({
   return (
     <div className="space-y-6">
       {/* Banner / Step Title Box */}
-      <div className="p-6 rounded-3xl bg-gradient-to-br from-bg-surface/60 via-bg-surface/30 to-transparent border border-border/80 relative overflow-hidden">
+      <div className="p-4 sm:p-6 rounded-3xl bg-gradient-to-br from-bg-surface/60 via-bg-surface/30 to-transparent border border-border/80 relative overflow-hidden">
         <div className="absolute top-0 right-0 p-8 opacity-20 pointer-events-none">
           <Activity className="h-44 w-44 text-accent/20 animate-pulse" />
         </div>
 
         <div className="space-y-2 relative">
-          <div className="flex items-center gap-1.5 text-xs font-mono text-accent font-black uppercase tracking-widest">
-            <Zap className="h-4 w-4 text-accent animate-bounce" />
+          <div className="flex items-center gap-1.5 text-[10px] sm:text-xs font-mono text-accent font-black uppercase tracking-widest">
+            <Zap className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-accent animate-bounce" />
             Decision Sandbox & Risk Simulator
           </div>
-          <h2 className="text-xl md:text-2xl font-black text-text-primary tracking-tight">Step 15: GTM Simulation & Strategic Scenario Engine</h2>
-          <p className="text-xs text-text-secondary max-w-3xl leading-relaxed">
+          <h2 className="text-lg sm:text-xl md:text-2xl font-black text-text-primary tracking-tight">Step 15: GTM Simulation & Strategic Scenario Engine</h2>
+          <p className="text-[11px] sm:text-xs text-text-secondary max-w-3xl leading-relaxed">
             Evaluate how structural changes in onboarding assumptions ripple through the connected 9-pillar GTM strategy system. Project future outcomes using a stochastic Monte Carlo model integrated into our deterministic Revenue Velocity network.
           </p>
         </div>

@@ -1,3 +1,5 @@
+import { isSupabaseConfigured } from './supabase';
+
 /**
  * Robust fetch utility with retry logic to handle transient network errors
  */
@@ -36,6 +38,10 @@ export async function safeSupabaseQuery<T>(
   retries = 3,
   delay = 500
 ): Promise<{ data: T | null; error: any }> {
+  if (!isSupabaseConfigured) {
+    return { data: null, error: new Error('Supabase is not configured') };
+  }
+
   let lastResult: { data: T | null; error: any } = { data: null, error: null };
   
   for (let i = 0; i < retries; i++) {

@@ -1,12 +1,13 @@
 import { useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
-import { supabase } from '../lib/supabase';
+import { supabase, isSupabaseConfigured } from '../lib/supabase';
 
 export function useTrafficTracking() {
   const location = useLocation();
 
   useEffect(() => {
     const logTraffic = async () => {
+      if (!isSupabaseConfigured) return;
       try {
         // Prepare payload
         const payload = {
@@ -41,6 +42,7 @@ export function useTrafficTracking() {
  * Helper to log manual unlock events
  */
 export const logUnlockEvent = async (path: string) => {
+    if (!isSupabaseConfigured) return;
     try {
         const { error } = await supabase.functions.invoke('log-traffic', {
           body: {

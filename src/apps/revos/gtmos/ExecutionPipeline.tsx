@@ -534,18 +534,18 @@ export const ExecutionPipeline: React.FC<ExecutionPipelineProps> = ({
   }, [filteredRows]);
 
   return (
-    <div className="space-y-6 animate-fade-in">
+    <div className="space-y-4 sm:space-y-6 animate-fade-in">
       {/* Title block */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-bg-surface/30 p-6 rounded-3xl border border-border/80">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-bg-surface/30 p-4 sm:p-6 rounded-3xl border border-border/80">
         <div className="space-y-1">
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <span className="text-[10px] font-mono font-bold tracking-widest text-accent uppercase block">Live Pipeline Ledger</span>
             <span className="px-2 py-0.5 rounded-full bg-accent/10 border border-accent/20 text-[9px] font-mono text-accent flex items-center gap-1 animate-pulse">
               <Activity className="h-2.5 w-2.5" /> Integrated Tracking
             </span>
           </div>
           <h2 className="text-lg font-black text-text-primary tracking-tight">Step 16: Operational Execution Pipeline</h2>
-          <p className="text-xs text-text-secondary max-w-2xl leading-relaxed">
+          <p className="text-[11px] sm:text-xs text-text-secondary max-w-2xl leading-relaxed">
             Consolidates active actions, strategic workstreams, and indicator goals from your live executed GTM programs. Update operational readiness in real time and measure direct KPI attainment of strategic outcomes.
           </p>
         </div>

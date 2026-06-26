@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { supabase } from '../lib/supabase';
+import { supabase, isSupabaseConfigured } from '../lib/supabase';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { 
   Command,
@@ -353,6 +353,29 @@ export function Auth() {
   };
 
   const header = getHeaderContent();
+
+  if (!isSupabaseConfigured) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center bg-bg-primary py-12 px-4 xs:px-6 sm:p-6 relative overflow-hidden">
+        <Link 
+          to="/" 
+          className="sm:absolute top-4 left-4 sm:top-6 sm:left-6 md:top-8 md:left-8 flex items-center gap-2 text-text-secondary hover:text-text-primary transition-colors font-bold text-xs sm:text-sm tracking-tight mb-8 sm:mb-0"
+        >
+          <ChevronLeft className="h-4 w-4" />
+          BACK TO HOME
+        </Link>
+        <div className="w-full max-w-[440px]">
+          <div className="bg-bg-surface/80 backdrop-blur-xl p-6 xs:p-8 sm:p-10 rounded-2xl shadow-2xl border border-border/50 relative overflow-hidden ring-1 ring-white/5 text-center">
+            <AlertCircle className="w-12 h-12 text-accent mx-auto mb-4" />
+            <h2 className="text-xl font-bold text-text-primary mb-2">Configuration Required</h2>
+            <p className="text-text-secondary text-sm">
+              Authentication is currently unavailable because Supabase has not been configured. Please set up the required environment variables (VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY) in AI Studio.
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-bg-primary py-12 px-4 xs:px-6 sm:p-6 relative overflow-hidden">

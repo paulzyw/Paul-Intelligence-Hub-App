@@ -184,24 +184,24 @@ export const RevenueDecomposition: React.FC<RevenueDecompositionProps> = ({ proj
         </div>
       )}
 
-      <div className="flex flex-col gap-8">
+      <div className="flex flex-col gap-4 sm:gap-8">
         {/* Input Configuration Panel */}
-        <div className="p-5 rounded-2xl bg-bg-surface/50 border border-border space-y-5">
+        <div className="p-4 sm:p-5 rounded-2xl bg-bg-surface/50 border border-border space-y-4 sm:space-y-5">
            <div className="flex justify-between items-center border-b border-border pb-3">
-             <h3 className="font-bold text-xs uppercase text-text-primary flex items-center gap-1.5">
-               <Database className="h-4 w-4 text-accent" /> Base Metrics Input
+             <h3 className="font-bold text-[11px] sm:text-xs uppercase text-text-primary flex items-center gap-1.5">
+               <Database className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-accent" /> Base Metrics Input
              </h3>
              <div className="flex items-center gap-2">
-               <button onClick={handleManualSync} title="Sync from Onboarding" className="text-text-secondary hover:text-accent transition-colors flex items-center gap-1 text-[10px] uppercase font-bold tracking-wider px-2 py-1 rounded bg-bg-primary/50 border border-border">
-                 <RefreshCw className="h-3 w-3" /> Sync
+               <button onClick={handleManualSync} title="Sync from Onboarding" className="text-text-secondary hover:text-accent transition-colors flex items-center gap-1 text-[9px] sm:text-[10px] uppercase font-bold tracking-wider px-2 py-1 rounded bg-bg-primary/50 border border-border">
+                 <RefreshCw className="h-2.5 w-2.5 sm:h-3 sm:w-3" /> Sync
                </button>
                <button onClick={handleSaveConfig} title="Save Base Metrics" className="text-text-secondary hover:text-accent transition-colors">
-                 <Save className="h-4 w-4" />
+                 <Save className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
                </button>
              </div>
            </div>
            
-           <div className="grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4">
              {[
                { field: 'revenueTarget', label: 'Revenue Target (ARR)' },
                { field: 'timeHorizon', label: 'Time Horizon' },
@@ -216,13 +216,13 @@ export const RevenueDecomposition: React.FC<RevenueDecompositionProps> = ({ proj
                { field: 'customerSuccessCapacity', label: 'CS Capacity' },
              ].map(({ field, label }) => (
                <div key={field} className="space-y-1">
-                 <label className="text-[10px] font-bold text-text-secondary uppercase">{label}</label>
+                 <label className="text-[9px] sm:text-[10px] font-bold text-text-secondary uppercase">{label}</label>
                  <input 
                    type="text"
                    value={(config as any)[field]}
                    onChange={(e) => handleConfigChange(field as keyof RevenueDecompositionConfig, e.target.value)}
                    onBlur={handleSaveConfig}
-                   className="w-full bg-bg-primary/50 text-text-primary text-xs border border-border/80 focus:border-accent/50 rounded-lg px-3 py-2 outline-none font-mono"
+                   className="w-full bg-bg-primary/50 text-text-primary text-[16px] sm:text-xs border border-border/80 focus:border-accent/50 rounded-lg px-3 py-2 outline-none font-mono"
                  />
                </div>
              ))}
@@ -230,20 +230,20 @@ export const RevenueDecomposition: React.FC<RevenueDecompositionProps> = ({ proj
         </div>
 
         {/* AI Output Generation Panel */}
-        <div className="p-6 rounded-2xl bg-bg-surface/50 border border-[url] overflow-hidden space-y-6 shadow-xl w-full">
-           <h3 className="font-bold text-sm uppercase text-text-primary flex items-center gap-2 border-b border-border pb-4">
-             <BarChart3 className="h-5 w-5 text-accent" /> Decomposition Results
+        <div className="p-4 sm:p-6 rounded-2xl bg-bg-surface/50 border border-border overflow-hidden space-y-4 sm:space-y-6 shadow-xl w-full">
+           <h3 className="font-bold text-xs sm:text-sm uppercase text-text-primary flex items-center gap-2 border-b border-border pb-3 sm:pb-4">
+             <BarChart3 className="h-4 w-4 sm:h-5 sm:w-5 text-accent" /> Decomposition Results
            </h3>
            
            {!project.revenueDecomposition?.result ? (
-               <div className="flex flex-col items-center justify-center p-12 text-center text-text-secondary space-y-4 bg-bg-primary/20 rounded-xl border border-dashed border-border">
-                  <Target className="h-12 w-12 opacity-20" />
-                  <p className="text-sm max-w-md">
+               <div className="flex flex-col items-center justify-center p-6 sm:p-12 text-center text-text-secondary space-y-4 bg-bg-primary/20 rounded-xl border border-dashed border-border">
+                  <Target className="h-8 w-8 sm:h-12 sm:w-12 opacity-20" />
+                  <p className="text-[11px] sm:text-sm max-w-md">
                     Enter your base metrics in the workspace above and click "Calculate Decomposition" to generate structural funnel requirements.
                   </p>
                </div>
            ) : (
-               <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4 text-left">
+               <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4 text-left">
                   {Object.entries({
                     'Customers Required': project.revenueDecomposition.result.customersRequired,
                     'Deals Required': project.revenueDecomposition.result.dealsRequired,

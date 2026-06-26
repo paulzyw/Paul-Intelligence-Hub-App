@@ -427,28 +427,28 @@ export const OnboardingForms: React.FC<OnboardingFormsProps> = ({
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       {/* Category Progress Stats Bannner */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between p-4 rounded-2xl bg-bg-primary/40 border border-border/80 gap-4">
-        <div className="flex items-center gap-3">
-          <div className="p-2.5 rounded-xl bg-accent/10 border border-accent/20">
-            <FileText className="h-5 w-5 text-accent" />
+      <div className="flex flex-col md:flex-row md:items-center justify-between p-4 sm:p-5 rounded-2xl bg-bg-primary/40 border border-border/80 gap-4 sm:gap-5">
+        <div className="flex items-start sm:items-center gap-3 min-w-0">
+          <div className="p-2 sm:p-2.5 rounded-xl bg-accent/10 border border-accent/20 shrink-0 mt-1 sm:mt-0">
+            <FileText className="h-4 w-4 sm:h-5 sm:w-5 text-accent" />
           </div>
-          <div>
-            <h3 className="font-bold text-sm text-text-primary">{spec.name} Onboarding Workspace</h3>
-            <p className="text-[10px] sm:text-xs text-text-secondary">Provide precise operational inputs to feed strategic strategy templates.</p>
+          <div className="min-w-0">
+            <h3 className="font-bold text-sm sm:text-base text-text-primary truncate">{spec.name} Onboarding Workspace</h3>
+            <p className="text-[10px] sm:text-xs text-text-secondary leading-snug mt-0.5 sm:mt-1 pr-2">Provide precise operational inputs to feed strategic strategy templates.</p>
           </div>
         </div>
 
-        <div className="flex items-center gap-4 shrink-0">
-          <div className="text-right">
-            <div className="text-xs font-mono font-medium text-text-secondary">Category Readiness Check</div>
-            <div className="text-lg font-bold text-accent">{ratio}% <span className="text-xs text-text-secondary">({filledCount}/{totalCount} fields)</span></div>
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 sm:gap-4 shrink-0 w-full md:w-auto pt-3 md:pt-0 border-t border-border/30 md:border-none">
+          <div className="flex flex-row sm:flex-col justify-between sm:justify-center items-center sm:items-end text-left sm:text-right">
+            <div className="text-[10px] sm:text-xs font-mono font-medium text-text-secondary uppercase">Readiness</div>
+            <div className="text-sm sm:text-lg font-bold text-accent">{ratio}% <span className="text-[9px] sm:text-xs text-text-secondary">({filledCount}/{totalCount})</span></div>
           </div>
           <button
             onClick={handleAIEnrich}
             disabled={isEnriching}
-            className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-accent/20 to-blue-500/10 hover:from-accent hover:to-blue-500 hover:text-black border border-accent/30 hover:border-accent disabled:opacity-40 disabled:pointer-events-none rounded-xl text-xs font-bold text-accent transition-all duration-300 shadow-lg shadow-accent/5"
+            className="flex justify-center items-center gap-2 px-4 py-2.5 sm:py-2 bg-gradient-to-r from-accent/20 to-blue-500/10 hover:from-accent hover:to-blue-500 hover:text-black border border-accent/30 hover:border-accent disabled:opacity-40 disabled:pointer-events-none rounded-xl text-xs font-bold text-accent transition-all duration-300 shadow-lg shadow-accent/5 w-full sm:w-auto"
           >
             {isEnriching ? (
               <>
@@ -457,7 +457,7 @@ export const OnboardingForms: React.FC<OnboardingFormsProps> = ({
               </>
             ) : (
               <>
-                <Sparkles className="h-3.5 w-3.5" />
+                <Sparkles className="h-3.5 w-3.5 shrink-0" />
                 AI Auto-Enrich Category
               </>
             )}
@@ -473,24 +473,24 @@ export const OnboardingForms: React.FC<OnboardingFormsProps> = ({
       )}
 
       {/* Grid of Inputs */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4 md:gap-5">
         {spec.fields.map(field => {
           const fieldSpec = FIELD_LABELS[field] || { label: field, placeholder: "Type here...", helper: "" };
           const value = onboardingFields[field] || '';
           const isMissing = !value;
 
           return (
-            <div key={field} className="group flex flex-col p-4 rounded-2xl bg-bg-surface/50 border border-border group-hover:border-accent/10 transition-all space-y-1.5 focus-within:border-accent/40 focus-within:bg-bg-surface/90 duration-200">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-bold tracking-tight text-text-primary flex items-center gap-1.5">
+            <div key={field} className="group flex flex-col p-3 sm:p-4 rounded-2xl bg-bg-surface/50 border border-border group-hover:border-accent/10 transition-all space-y-2 focus-within:border-accent/40 focus-within:bg-bg-surface/90 duration-200">
+              <div className="flex items-start sm:items-center justify-between gap-2">
+                <span className="text-[11px] sm:text-xs font-bold tracking-tight text-text-primary flex items-center gap-1.5 leading-tight">
                   {fieldSpec.label}
                   {isMissing ? (
-                    <span className="h-1.5 w-1.5 rounded-full bg-yellow-500 animate-pulse" title="Incomplete requirement" />
+                    <span className="h-1.5 w-1.5 rounded-full bg-yellow-500 animate-pulse shrink-0" title="Incomplete requirement" />
                   ) : (
-                    <CheckCircle2 className="h-3.5 w-3.5 text-accent" />
+                    <CheckCircle2 className="h-3.5 w-3.5 text-accent shrink-0" />
                   )}
                 </span>
-                <span className="text-[9px] font-mono font-extrabold uppercase text-text-secondary/60">
+                <span className="text-[8px] sm:text-[9px] font-mono font-extrabold uppercase text-text-secondary/60 shrink-0 mt-0.5 sm:mt-0 max-w-[80px] sm:max-w-none truncate sm:whitespace-normal text-right">
                   {field}
                 </span>
               </div>
@@ -502,14 +502,14 @@ export const OnboardingForms: React.FC<OnboardingFormsProps> = ({
                   value={value}
                   onChange={(e) => handleFieldChange(field, e.target.value)}
                   placeholder={fieldSpec.placeholder}
-                  className="w-full bg-bg-primary border border-border/80 focus:border-accent/50 rounded-xl px-3 py-2 text-xs text-text-primary focus:outline-none focus:ring-1 focus:ring-accent/20 transition-all font-sans placeholder-text-secondary/40 resize-none h-20"
+                  className="w-full bg-bg-primary border border-border/80 focus:border-accent/50 rounded-xl px-3 py-2 text-[16px] sm:text-xs text-text-primary focus:outline-none focus:ring-1 focus:ring-accent/20 transition-all font-sans placeholder-text-secondary/40 resize-none h-20 sm:h-24"
                 />
               ) : field === 'industry' ? (
                 <select
                   id={`field-${field}`}
                   value={value}
                   onChange={(e) => handleFieldChange(field, e.target.value)}
-                  className="w-full bg-bg-primary border border-border/80 focus:border-accent/50 rounded-xl px-3 py-2.5 text-xs text-text-primary focus:outline-none focus:ring-1 focus:ring-accent/20 transition-all font-sans cursor-pointer"
+                  className="w-full bg-bg-primary border border-border/80 focus:border-accent/50 rounded-xl px-3 py-2.5 text-[16px] sm:text-xs text-text-primary focus:outline-none focus:ring-1 focus:ring-accent/20 transition-all font-sans cursor-pointer appearance-none"
                 >
                   <option value="">Select industry segment...</option>
                   {[
@@ -527,7 +527,7 @@ export const OnboardingForms: React.FC<OnboardingFormsProps> = ({
                   id={`field-${field}`}
                   value={value}
                   onChange={(e) => handleFieldChange(field, e.target.value)}
-                  className="w-full bg-bg-primary border border-border/80 focus:border-accent/50 rounded-xl px-3 py-2.5 text-xs text-text-primary focus:outline-none focus:ring-1 focus:ring-accent/20 transition-all font-sans cursor-pointer"
+                  className="w-full bg-bg-primary border border-border/80 focus:border-accent/50 rounded-xl px-3 py-2.5 text-[16px] sm:text-xs text-text-primary focus:outline-none focus:ring-1 focus:ring-accent/20 transition-all font-sans cursor-pointer appearance-none"
                 >
                   <option value="">Select growth stage...</option>
                   {[
@@ -541,7 +541,7 @@ export const OnboardingForms: React.FC<OnboardingFormsProps> = ({
                   id={`field-${field}`}
                   value={value}
                   onChange={(e) => handleFieldChange(field, e.target.value)}
-                  className="w-full bg-bg-primary border border-border/80 focus:border-accent/50 rounded-xl px-3 py-2.5 text-xs text-text-primary focus:outline-none focus:ring-1 focus:ring-accent/20 transition-all font-sans cursor-pointer"
+                  className="w-full bg-bg-primary border border-border/80 focus:border-accent/50 rounded-xl px-3 py-2.5 text-[16px] sm:text-xs text-text-primary focus:outline-none focus:ring-1 focus:ring-accent/20 transition-all font-sans cursor-pointer appearance-none"
                 >
                   <option value="">Select funding stage...</option>
                   {[
@@ -555,7 +555,7 @@ export const OnboardingForms: React.FC<OnboardingFormsProps> = ({
                   id={`field-${field}`}
                   value={value}
                   onChange={(e) => handleFieldChange(field, e.target.value)}
-                  className="w-full bg-bg-primary border border-border/80 focus:border-accent/50 rounded-xl px-3 py-2.5 text-xs text-text-primary focus:outline-none focus:ring-1 focus:ring-accent/20 transition-all font-sans cursor-pointer"
+                  className="w-full bg-bg-primary border border-border/80 focus:border-accent/50 rounded-xl px-3 py-2.5 text-[16px] sm:text-xs text-text-primary focus:outline-none focus:ring-1 focus:ring-accent/20 transition-all font-sans cursor-pointer appearance-none"
                 >
                   <option value="">Select business model...</option>
                   {[
@@ -571,7 +571,7 @@ export const OnboardingForms: React.FC<OnboardingFormsProps> = ({
                   id={`field-${field}`}
                   value={value}
                   onChange={(e) => handleFieldChange(field, e.target.value)}
-                  className="w-full bg-bg-primary border border-border/80 focus:border-accent/50 rounded-xl px-3 py-2.5 text-xs text-text-primary focus:outline-none focus:ring-1 focus:ring-accent/20 transition-all font-sans cursor-pointer"
+                  className="w-full bg-bg-primary border border-border/80 focus:border-accent/50 rounded-xl px-3 py-2.5 text-[16px] sm:text-xs text-text-primary focus:outline-none focus:ring-1 focus:ring-accent/20 transition-all font-sans cursor-pointer appearance-none"
                 >
                   <option value="">Select primary business goal...</option>
                   {[
@@ -585,7 +585,7 @@ export const OnboardingForms: React.FC<OnboardingFormsProps> = ({
                   id={`field-${field}`}
                   value={value}
                   onChange={(e) => handleFieldChange(field, e.target.value)}
-                  className="w-full bg-bg-primary border border-border/80 focus:border-accent/50 rounded-xl px-3 py-2.5 text-xs text-text-primary focus:outline-none focus:ring-1 focus:ring-accent/20 transition-all font-sans cursor-pointer"
+                  className="w-full bg-bg-primary border border-border/80 focus:border-accent/50 rounded-xl px-3 py-2.5 text-[16px] sm:text-xs text-text-primary focus:outline-none focus:ring-1 focus:ring-accent/20 transition-all font-sans cursor-pointer appearance-none"
                 >
                   <option value="">Select competitive position...</option>
                   {[
@@ -634,7 +634,7 @@ export const OnboardingForms: React.FC<OnboardingFormsProps> = ({
                   value={value}
                   onChange={(e) => handleFieldChange(field, e.target.value)}
                   placeholder={fieldSpec.placeholder}
-                  className="w-full bg-bg-primary border border-border/80 focus:border-accent/50 rounded-xl px-3 py-2 text-xs text-text-primary focus:outline-none focus:ring-1 focus:ring-accent/20 transition-all font-sans placeholder-text-secondary/40"
+                  className="w-full bg-bg-primary border border-border/80 focus:border-accent/50 rounded-xl px-3 py-2 text-[16px] sm:text-xs text-text-primary focus:outline-none focus:ring-1 focus:ring-accent/20 transition-all font-sans placeholder-text-secondary/40"
                 />
               )}
 
