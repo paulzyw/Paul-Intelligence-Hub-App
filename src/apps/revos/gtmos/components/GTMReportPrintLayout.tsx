@@ -9,7 +9,8 @@ interface Props {
 
 export const GTMReportPrintLayout: React.FC<Props> = ({ project, selectedItems }) => {
   return (
-    <div id="gtmos-printable-area" className="w-full h-full bg-white text-black font-sans">
+    <div id="gtmos-printable-area" className="w-full min-h-full bg-slate-200 print:bg-white text-black font-sans py-8 print:py-0">
+      <PrintOnlyFooter />
       
       {/* 1. Cover Page */}
       <div className="a4-page-canvas block bg-slate-50 border-b-8 border-blue-900">
@@ -79,7 +80,7 @@ export const GTMReportPrintLayout: React.FC<Props> = ({ project, selectedItems }
       {selectedItems['onboardingData'] && (
         <div className="a4-page-canvas block">
           <h2 className="text-2xl font-black text-slate-900 mb-6 pb-2 border-b-2 border-slate-200">2. Core Business Parameters</h2>
-          <div className="grid grid-cols-2 gap-4 flex-grow overflow-hidden">
+          <div className="grid grid-cols-2 gap-4 flex-grow">
             {CATEGORY_SPECS.map(cat => (
               <div key={cat.id} className="p-4 border border-slate-200 rounded-lg bg-slate-50" style={{ pageBreakInside: 'avoid' }}>
                 <h3 className="text-sm font-bold text-slate-800 mb-3 border-b border-slate-200 pb-1">{cat.name}</h3>
@@ -107,7 +108,15 @@ export const GTMReportPrintLayout: React.FC<Props> = ({ project, selectedItems }
         <div className="a4-page-canvas block">
           <h2 className="text-2xl font-black text-slate-900 mb-6 pb-2 border-b-2 border-slate-200">3. GTM Strategy Lines</h2>
           <div className="flex-grow space-y-6">
-            {Object.entries(project.gtmStrategyDraft).map(([pillarId, items]) => {
+            {Object.entries(project.gtmStrategyDraft)
+              .sort(([a], [b]) => {
+                const getPillarNum = (str: string) => {
+                  const match = str.match(/pillar_(\d+)/i) || str.match(/\d+/);
+                  return match ? parseInt(match[1] || match[0], 10) : 0;
+                };
+                return getPillarNum(a) - getPillarNum(b);
+              })
+              .map(([pillarId, items]) => {
               if (!items || items.length === 0) return null;
               return (
                 <div key={pillarId} className="page-break-inside-avoid border border-slate-200 rounded-lg p-4">
@@ -319,7 +328,14 @@ const MetricCard: React.FC<{ label: string, value: string }> = ({ label, value }
 );
 
 const RunningFooter: React.FC<{ pageNum?: number, totalPages?: string }> = ({ pageNum, totalPages }) => (
-  <div className="absolute bottom-[15mm] left-[15mm] right-[15mm] flex justify-between items-center pt-2 border-t border-slate-200">
+  <div className="absolute bottom-[12mm] left-[15mm] right-[15mm] flex justify-between items-center pt-2 border-t border-slate-200 print:hidden">
+    <span className="text-[9px] font-mono text-slate-400 uppercase tracking-widest font-bold">RevOS GTMOS Report System</span>
+    <span className="text-[9px] font-mono text-slate-400 uppercase tracking-widest font-bold">Internal / Confidential</span>
+  </div>
+);
+
+const PrintOnlyFooter: React.FC = () => (
+  <div className="print-fixed-footer">
     <span className="text-[9px] font-mono text-slate-400 uppercase tracking-widest font-bold">RevOS GTMOS Report System</span>
     <span className="text-[9px] font-mono text-slate-400 uppercase tracking-widest font-bold">Internal / Confidential</span>
   </div>

@@ -383,14 +383,18 @@
 @media screen {
   .a4-page-canvas {
     width: 210mm;
-    height: 297mm;
+    min-height: 297mm;
     position: relative;
     box-sizing: border-box;
     background: #ffffff;
     display: block;
-    margin-bottom: 2rem;
+    margin: 0 auto 2rem auto;
     box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1);
     padding: 15mm;
+    padding-bottom: 25mm;
+  }
+  .print-fixed-footer {
+    display: none;
   }
 }
 
@@ -409,17 +413,20 @@
     print-color-adjust: exact;
   }
   .a4-page-canvas {
-    width: 210mm !important;
-    height: 297mm !important;
+    width: 100% !important;
+    min-height: auto !important;
+    height: auto !important;
     page-break-after: always;
-    page-break-inside: avoid;
+    page-break-inside: auto !important;
     margin: 0 !important;
-    padding: 15mm !important;
+    padding: 0 !important;
     position: relative !important;
-    overflow: hidden !important;
+    overflow: visible !important;
     background: white !important;
     display: block !important;
     box-sizing: border-box !important;
+    border: none !important;
+    box-shadow: none !important;
   }
   .a4-page-canvas:last-child {
     page-break-after: auto;
@@ -427,9 +434,23 @@
   .page-break-inside-avoid {
     page-break-inside: avoid !important;
   }
+  .print-fixed-footer {
+    position: fixed !important;
+    bottom: 12mm !important;
+    left: 15mm !important;
+    right: 15mm !important;
+    width: auto !important;
+    display: flex !important;
+    justify-content: space-between;
+    align-items: center;
+    padding-top: 0.5rem;
+    border-top: 1px solid #e2e8f0;
+    background: transparent !important;
+    z-index: 1000;
+  }
   @page {
     size: A4 portrait;
-    margin: 0;
+    margin: 15mm 15mm 12mm 15mm;
   }
 }
 
