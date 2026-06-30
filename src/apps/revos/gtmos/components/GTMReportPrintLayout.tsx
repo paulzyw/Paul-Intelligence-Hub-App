@@ -51,7 +51,19 @@ export const GTMReportPrintLayout: React.FC<Props> = ({ project, selectedItems }
           {project.aiReasoning && (
             <div className="p-4 bg-slate-50 border-l-4 border-blue-500 mb-6">
               <h4 className="text-xs uppercase font-bold text-slate-500 tracking-wider mb-2">Strategic Intelligence Briefing</h4>
-              <p className="text-sm text-slate-700 whitespace-pre-wrap">{project.aiReasoning}</p>
+              <div className="text-sm text-slate-700">
+                {project.aiReasoning
+                  .replace(/([.!?])\s+(\d+\.)\s/g, '$1\n\n$2 ')
+                  .replace(/(:)\s+(\d+\.)\s/g, '$1\n\n$2 ')
+                  .replace(/([.!?])\s+(However,)/g, '$1\n\n$2')
+                  .split('\n')
+                  .filter(p => p.trim() !== '')
+                  .map((paragraph, index) => (
+                    <p key={index} className="mb-3 last:mb-0 leading-relaxed">
+                      {paragraph.trim()}
+                    </p>
+                  ))}
+              </div>
             </div>
           )}
         </div>
@@ -481,7 +493,7 @@ const RunningFooter: React.FC<{ pageNum?: number, totalPages?: string }> = ({ pa
 
 const PrintOnlyFooter: React.FC = () => (
   <div className="print-fixed-footer">
-    <span className="text-[9px] font-mono text-slate-400 uppercase tracking-widest font-bold">RevOS GTMOS Report System</span>
-    <span className="text-[9px] font-mono text-slate-400 uppercase tracking-widest font-bold">Internal / Confidential</span>
+    <span className="text-[9px] font-mono text-slate-400 uppercase tracking-widest font-bold flex-1 text-left">RevOS GTMOS Report System</span>
+    <span className="text-[9px] font-mono text-slate-400 uppercase tracking-widest font-bold flex-1 text-right">Internal / Confidential</span>
   </div>
 );
