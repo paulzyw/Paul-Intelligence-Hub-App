@@ -14,9 +14,14 @@ export const GTMReportPrintLayout: React.FC<Props> = ({ project, selectedItems }
 
   return (
     <div id="gtmos-printable-area" className="w-full min-h-full bg-slate-200 print:bg-white text-black font-sans py-8 print:py-0">
-      <PrintOnlyFooter />
-      
-      {/* 1. Cover Page */}
+      <table className="w-full print:table">
+        <thead className="print:table-header-group hidden">
+          <tr><td><div className="h-0"></div></td></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>
+              {/* 1. Cover Page */}
       <div className="a4-page-canvas block bg-slate-50 border-b-8 border-blue-900">
         <div className="max-w-2xl mt-32">
           <h4 className="text-blue-900 font-bold tracking-widest uppercase text-sm mb-4">RevOS GTMOS Report System</h4>
@@ -473,6 +478,21 @@ export const GTMReportPrintLayout: React.FC<Props> = ({ project, selectedItems }
           <RunningFooter />
         </div>
       )}
+
+            </td>
+          </tr>
+        </tbody>
+        <tfoot className="print:table-footer-group hidden">
+          <tr>
+            <td>
+              <div className="pt-2 border-t border-slate-200 mt-8 flex justify-between items-center w-full">
+                <span className="text-[9px] font-mono text-slate-400 uppercase tracking-widest font-bold flex-1 text-left">RevOS GTMOS Report System</span>
+                <span className="text-[9px] font-mono text-slate-400 uppercase tracking-widest font-bold flex-1 text-right">Internal / Confidential</span>
+              </div>
+            </td>
+          </tr>
+        </tfoot>
+      </table>
     </div>
   );
 };
@@ -488,12 +508,5 @@ const RunningFooter: React.FC<{ pageNum?: number, totalPages?: string }> = ({ pa
   <div className="absolute bottom-[12mm] left-[15mm] right-[15mm] flex justify-between items-center pt-2 border-t border-slate-200 print:hidden">
     <span className="text-[9px] font-mono text-slate-400 uppercase tracking-widest font-bold">RevOS GTMOS Report System</span>
     <span className="text-[9px] font-mono text-slate-400 uppercase tracking-widest font-bold">Internal / Confidential</span>
-  </div>
-);
-
-const PrintOnlyFooter: React.FC = () => (
-  <div className="print-fixed-footer">
-    <span className="text-[9px] font-mono text-slate-400 uppercase tracking-widest font-bold flex-1 text-left">RevOS GTMOS Report System</span>
-    <span className="text-[9px] font-mono text-slate-400 uppercase tracking-widest font-bold flex-1 text-right">Internal / Confidential</span>
   </div>
 );
