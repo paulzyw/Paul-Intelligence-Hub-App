@@ -1,6 +1,64 @@
-import { GTMExecutionPlan, GTMRisk } from './types';
+import { GTMExecutionPlan, GTMRisk, GTMInitiative } from './types';
+
+export function computeInitiativeStatus(init: GTMInitiative): string {
+  if (!init.actions || init.actions.length === 0) return init.status || "Not Started";
+  const allTodo = init.actions.every(a => a.status === 'todo');
+  const allCompleted = init.actions.every(a => a.status === 'completed');
+  const allBlocked = init.actions.every(a => a.status === 'blocked');
+  const anyInProgress = init.actions.some(a => a.status === 'in_progress');
+
+  if (allTodo) return "Not Started";
+  if (allCompleted) return "Completed";
+  if (allBlocked) return "Blocked";
+  if (anyInProgress) return "In Progress";
+  return "In Progress";
+}
+
+export function getDynamicStatus(delta: any, plan: GTMExecutionPlan | undefined | null) {
+  if (!plan) return delta.current_execution_status;
+
+  let bestMatchInitiative: any = null;
+  let bestMatchScore = 0;
+
+  plan.workstreams.forEach(ws => {
+    ws.initiatives.forEach(init => {
+      const pillarWords = delta.strategic_pillar.toLowerCase().split(' ');
+      const initWords = init.initiativeName.toLowerCase().split(' ');
+      
+      let score = 0;
+      pillarWords.forEach((word: string) => {
+        if (word.length > 3 && initWords.some((w: string) => w.includes(word))) {
+          score++;
+        }
+      });
+      
+      if (score > bestMatchScore) {
+        bestMatchScore = score;
+        bestMatchInitiative = init;
+      }
+    });
+  });
+
+  if (bestMatchInitiative && bestMatchScore > 0) {
+    let total = 0;
+    let completed = 0;
+    let inProgress = 0;
+    bestMatchInitiative.actions?.forEach((act: any) => {
+      total++;
+      if (act.status === 'completed') completed++;
+      else if (act.status === 'in_progress') inProgress++;
+    });
+    if (total === 0) return 'Pending Actions';
+    if (completed === total) return 'Completed';
+    if (completed > 0 || inProgress > 0) return 'In Progress';
+    return 'Not Started';
+  }
+
+  return delta.current_execution_status;
+}
 
 export function calculateExecutionMetrics(plan: GTMExecutionPlan | undefined | null) {
+
   if (!plan) {
     return {
       hasPlan: false,

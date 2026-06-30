@@ -219,7 +219,7 @@ export interface GTMInitiative {
   timeline: string;
   owner: string;
   budget: string;
-  status: 'Not Started' | 'In Progress' | 'Completed' | 'Delayed';
+  status: 'Not Started' | 'In Progress' | 'Completed' | 'Delayed' | 'Blocked';
   actions: GTMActionItem[];
   kpis: GTMKPI[];
   risks: GTMRisk[];

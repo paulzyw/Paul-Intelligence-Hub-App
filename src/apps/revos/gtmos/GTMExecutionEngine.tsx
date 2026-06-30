@@ -345,6 +345,22 @@ export const GTMExecutionEngine: React.FC<GTMExecutionEngineProps> = ({
 
   const isLocked = activeStage === 'execution';
 
+  const computeInitiativeStatus = (init: GTMInitiative): string => {
+    if (!init.actions || init.actions.length === 0) return init.status || "Not Started";
+    const allTodo = init.actions.every(a => a.status === 'todo');
+    const allCompleted = init.actions.every(a => a.status === 'completed');
+    const allBlocked = init.actions.every(a => a.status === 'blocked');
+    const anyInProgress = init.actions.some(a => a.status === 'in_progress');
+
+    if (allTodo) return "Not Started";
+    if (allCompleted) return "Completed";
+    if (allBlocked) return "Blocked";
+    if (anyInProgress) return "In Progress";
+    
+    // Mix of todo, completed, blocked -> implies it has started but not finished
+    return "In Progress";
+  };
+
   // Ensure selected workstream and initiative index remain within bounds of the active plan
   useEffect(() => {
     if (activePlan && activePlan.workstreams && Array.isArray(activePlan.workstreams)) {
@@ -1440,25 +1456,28 @@ export const GTMExecutionEngine: React.FC<GTMExecutionEngineProps> = ({
                             </select>
 
                             <select
-                              value={currentInitiative.status || "Not Started"}
+                              value={computeInitiativeStatus(currentInitiative)}
+                              disabled={currentInitiative.actions && currentInitiative.actions.length > 0}
                               onChange={e => {
                                 const cloned = [...activePlan.workstreams];
                                 cloned[selectedWsIndex].initiatives[selectedInitIndex].status = e.target.value as any;
                                 updateDraft({ ...activePlan, workstreams: cloned });
                               }}
                               onBlur={() => { if (draftPlan) onSavePlan(draftPlan); }}
-                              className="px-1.5 py-0.5 rounded border border-border/80 bg-bg-surface text-[9px] font-bold text-text-primary uppercase cursor-pointer"
+                              className={`px-1.5 py-0.5 rounded border border-border/80 text-[9px] font-bold text-text-primary uppercase ${currentInitiative.actions && currentInitiative.actions.length > 0 ? 'bg-slate-100 cursor-not-allowed opacity-75' : 'bg-bg-surface cursor-pointer'}`}
+                              title={currentInitiative.actions && currentInitiative.actions.length > 0 ? 'Status is automatically computed from Actions' : ''}
                             >
                               <option value="Not Started">Not Started</option>
                               <option value="In Progress">In Progress</option>
                               <option value="Completed">Completed</option>
                               <option value="Delayed">Delayed</option>
+                              <option value="Blocked">Blocked</option>
                             </select>
                           </div>
                         ) : (
                           <>
                             <span className="px-1.5 py-0.5 rounded bg-border text-[9px] font-bold text-text-secondary uppercase">{currentInitiative.priority} Priority</span>
-                            <span className="px-1.5 py-0.5 rounded bg-accent/10 border border-accent/20 text-[9px] font-bold text-accent uppercase">{currentInitiative.status || "Not Started"}</span>
+                            <span className="px-1.5 py-0.5 rounded bg-accent/10 border border-accent/20 text-[9px] font-bold text-accent uppercase">{computeInitiativeStatus(currentInitiative)}</span>
                           </>
                         )}
                       </div>

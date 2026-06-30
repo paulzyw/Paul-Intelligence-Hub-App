@@ -1,6 +1,7 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { GTMOSProject, CategoryId } from '../types';
 import { CATEGORY_SPECS } from '../initialState';
+import { calculateExecutionMetrics, computeInitiativeStatus, getDynamicStatus } from '../executionUtils';
 
 interface Props {
   project: GTMOSProject;
@@ -8,6 +9,9 @@ interface Props {
 }
 
 export const GTMReportPrintLayout: React.FC<Props> = ({ project, selectedItems }) => {
+  const activePlan = project.archivedExecutionPlan || project.gtmExecutionPlan;
+  const executionMetrics = useMemo(() => calculateExecutionMetrics(activePlan), [activePlan]);
+
   return (
     <div id="gtmos-printable-area" className="w-full min-h-full bg-slate-200 print:bg-white text-black font-sans py-8 print:py-0">
       <PrintOnlyFooter />
@@ -151,43 +155,132 @@ export const GTMReportPrintLayout: React.FC<Props> = ({ project, selectedItems }
       )}
 
       {/* 7. Execution Actions Pipeline (Step 16) & 8. Execution Sufficiency Assessment */}
-      {(selectedItems['executionPipeline'] || selectedItems['executionSufficiency']) && project.gtmExecutionPlan && (
+      {(selectedItems['executionPipeline'] || selectedItems['executionSufficiency']) && activePlan && (
         <div className="a4-page-canvas block">
           <h2 className="text-2xl font-black text-slate-900 mb-6 pb-2 border-b-2 border-slate-200">5. Execution Pipeline & Assessment</h2>
           
-          {selectedItems['executionSufficiency'] && project.gtmExecutionPlan.sufficiencyAssessment && (
+          {/* Program Objective & Scorecard Card */}
+          <div className="mb-8 p-6 bg-slate-50 border border-slate-200 rounded-xl">
+            <h3 className="text-sm font-bold text-slate-900 uppercase mb-4">Program Objective</h3>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <p className="text-[10px] font-bold uppercase text-slate-500 mb-1">Program Name</p>
+                <p className="text-xs text-slate-900 font-bold">{activePlan.programName}</p>
+              </div>
+              <div>
+                <p className="text-[10px] font-bold uppercase text-slate-500 mb-1">Economic Sponsor</p>
+                <p className="text-xs text-slate-900 font-bold">{activePlan.executiveSponsor}</p>
+              </div>
+              <div>
+                <p className="text-[10px] font-bold uppercase text-slate-500 mb-1">Goal Outcome</p>
+                <p className="text-xs text-slate-900 font-bold">{activePlan.revenueGoal} / {activePlan.businessGoal}</p>
+              </div>
+              <div>
+                <p className="text-[10px] font-bold uppercase text-slate-500 mb-1">Description</p>
+                <p className="text-xs text-slate-900">{activePlan.description}</p>
+              </div>
+            </div>
+            
+            <div className="mt-4 pt-4 border-t border-slate-200 grid grid-cols-2 gap-4">
+              <div>
+                <p className="text-[10px] font-bold uppercase text-slate-500 mb-1">Overall Action Progress</p>
+                <p className="text-lg font-black text-blue-600">{executionMetrics.progressPct}%</p>
+              </div>
+              <div>
+                <p className="text-[10px] font-bold uppercase text-slate-500 mb-1">KPI Achievement</p>
+                <p className="text-lg font-black text-green-600">{executionMetrics.avgKpiAttainment}%</p>
+              </div>
+            </div>
+          </div>
+
+          {selectedItems['executionSufficiency'] && activePlan.sufficiencyAssessment && (
              <div className="mb-8 p-6 bg-blue-50 border border-blue-200 rounded-xl">
                <div className="flex items-center justify-between mb-4">
                  <h3 className="text-sm font-bold text-blue-900 uppercase">Sufficiency Assessment</h3>
-                 <div className="text-2xl font-black text-blue-700">{project.gtmExecutionPlan.sufficiencyAssessment.score} / 100</div>
+                 <div className="text-2xl font-black text-blue-700">{activePlan.sufficiencyAssessment.score} / 100</div>
                </div>
-               <div className="grid grid-cols-2 gap-4">
-                 {Object.entries(project.gtmExecutionPlan.sufficiencyAssessment.coverageAnalysis).map(([k, v]) => (
+               <div className="grid grid-cols-2 gap-4 mb-6">
+                 {Object.entries(activePlan.sufficiencyAssessment.coverageAnalysis).map(([k, v]) => (
                    <div key={k}>
                      <p className="text-[10px] font-bold uppercase text-blue-800/60 mb-1">{k.replace(/([A-Z])/g, ' $1')}</p>
                      <p className="text-xs text-blue-900">{String(v)}</p>
                    </div>
                  ))}
                </div>
+               
+               {activePlan.sufficiencyAssessment.identifiedGaps && activePlan.sufficiencyAssessment.identifiedGaps.length > 0 && (
+                 <div className="mb-4">
+                   <h4 className="text-xs font-bold text-blue-900 uppercase mb-2">Execution Gaps Identified</h4>
+                   <ul className="list-disc pl-4 space-y-1">
+                     {activePlan.sufficiencyAssessment.identifiedGaps.map((gap, i) => (
+                       <li key={i} className="text-xs text-blue-800">{gap}</li>
+                     ))}
+                   </ul>
+                 </div>
+               )}
+
+               {activePlan.sufficiencyAssessment.aiRecommendations && activePlan.sufficiencyAssessment.aiRecommendations.length > 0 && (
+                 <div>
+                   <h4 className="text-xs font-bold text-blue-900 uppercase mb-2">AI Gap Expansion & Recommendations</h4>
+                   <ul className="list-disc pl-4 space-y-1">
+                     {activePlan.sufficiencyAssessment.aiRecommendations.map((rec, i) => (
+                       <li key={i} className="text-xs text-blue-800">{rec}</li>
+                     ))}
+                   </ul>
+                 </div>
+               )}
              </div>
           )}
 
           {selectedItems['executionPipeline'] && (
             <div className="space-y-6">
-              <h3 className="text-sm font-bold text-slate-900 uppercase">Strategic Workstreams</h3>
-              {project.gtmExecutionPlan.workstreams.map((ws, i) => (
-                <div key={i} className="p-4 border border-slate-200 rounded-lg page-break-inside-avoid">
-                  <h4 className="text-sm font-bold text-slate-800 mb-1">{ws.workstreamName}</h4>
-                  <p className="text-xs text-slate-600 mb-3">{ws.purpose}</p>
-                  {ws.initiatives.map((init, j) => (
-                    <div key={j} className="mb-2 last:mb-0 ml-4 p-2 bg-slate-50 border border-slate-100 rounded">
-                      <div className="flex justify-between items-center mb-1">
-                        <span className="text-xs font-semibold text-slate-800">{init.initiativeName}</span>
-                        <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-white border border-slate-200">{init.status}</span>
-                      </div>
-                      <p className="text-[10px] text-slate-500">{init.description}</p>
+              <h3 className="text-sm font-bold text-slate-900 uppercase">Strategic Initiatives</h3>
+              {activePlan.workstreams.flatMap(ws => ws.initiatives.map(init => ({ ...init, workstreamName: ws.workstreamName }))).map((init, j) => (
+                <div key={j} className="p-4 border border-slate-200 rounded-lg page-break-inside-avoid">
+                  <div className="flex justify-between items-start mb-2">
+                    <div>
+                      <p className="text-[10px] font-bold uppercase text-slate-500 mb-1">{init.workstreamName}</p>
+                      <h4 className="text-sm font-bold text-slate-800">{init.initiativeName}</h4>
                     </div>
-                  ))}
+                    <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-slate-100 border border-slate-200 font-bold uppercase">{computeInitiativeStatus(init)}</span>
+                  </div>
+                  
+                  <div className="mb-4 text-xs text-slate-600">
+                    <p className="mb-1"><span className="font-semibold text-slate-700">Description:</span> {init.description}</p>
+                    <p className="mb-1"><span className="font-semibold text-slate-700">Objective:</span> {init.strategicObjective}</p>
+                    {init.expectedOutcome && <p className="mb-1 text-green-700"><span className="font-semibold">Outcome:</span> {init.expectedOutcome}</p>}
+                    <p><span className="font-semibold text-slate-700">Task Owner:</span> {init.owner}</p>
+                  </div>
+
+                  {init.kpis && init.kpis.length > 0 && (
+                    <div className="mt-3">
+                      <h5 className="text-[10px] font-bold text-slate-900 uppercase mb-2">Metrics Ledger KPIs</h5>
+                      <div className="grid grid-cols-1 gap-2">
+                        {init.kpis.map((kpi, idx) => {
+                          const parseVal = (val: string) => {
+                            if (!val) return 0;
+                            const parsed = parseFloat(val.replace(/[^0-9.-]/g, ''));
+                            return isNaN(parsed) ? 0 : parsed;
+                          };
+                          const base = parseVal(kpi.baseline);
+                          const target = parseVal(kpi.target);
+                          const curr = parseVal(kpi.currentValue);
+                          let pct = 0;
+                          if (Math.abs(target - base) !== 0) {
+                            const progress = (curr - base) / (target - base);
+                            pct = Math.min(Math.max(Math.round(progress * 100), 0), 100);
+                          }
+                          return (
+                            <div key={idx} className="flex justify-between items-center text-[10px] p-2 bg-slate-50 border border-slate-100 rounded">
+                              <span className="font-semibold text-slate-700 w-1/3 truncate pr-2" title={kpi.kpiName}>{kpi.kpiName}</span>
+                              <span className="text-slate-500 w-1/3 text-center truncate pr-2">Target: {kpi.target}</span>
+                              <span className="font-bold text-blue-600 w-1/3 text-right">{pct}% Achieved</span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
@@ -276,7 +369,7 @@ export const GTMReportPrintLayout: React.FC<Props> = ({ project, selectedItems }
           <div className="p-6 bg-slate-900 text-white rounded-xl mb-6 page-break-inside-avoid">
             <div className="flex justify-between items-center mb-4">
               <h3 className="text-sm font-bold uppercase tracking-wider text-slate-400">Attainment Health</h3>
-              <div className="text-3xl font-black">{project.executiveDashboardRollup.section_a_attainment.health_score} / 100</div>
+              <div className="text-3xl font-black">{executionMetrics.healthScore} / 100</div>
             </div>
             <p className="text-sm text-slate-300 leading-relaxed">{project.executiveDashboardRollup.section_a_attainment.narrative_brief}</p>
           </div>
@@ -285,19 +378,22 @@ export const GTMReportPrintLayout: React.FC<Props> = ({ project, selectedItems }
             <div className="page-break-inside-avoid">
               <h3 className="text-xs uppercase font-bold text-slate-500 mb-3">Strategic Deltas</h3>
               <div className="grid grid-cols-2 gap-3">
-                {project.executiveDashboardRollup.section_b_strategic_deltas.map((delta, i) => (
+                {project.executiveDashboardRollup.section_b_strategic_deltas.map((delta, i) => {
+                  const dynamicStatus = getDynamicStatus(delta, activePlan);
+                  return (
                   <div key={i} className="p-3 border border-slate-200 rounded bg-slate-50">
                     <div className="flex justify-between items-center mb-1">
                       <span className="text-[10px] font-bold text-slate-700">{delta.strategic_pillar}</span>
                       <span className={`text-[9px] px-1.5 py-0.5 rounded font-bold uppercase ${
-                        delta.current_execution_status === 'On Track' ? 'bg-green-100 text-green-700' :
-                        delta.current_execution_status === 'Ahead' ? 'bg-blue-100 text-blue-700' :
+                        (dynamicStatus === 'On Track' || dynamicStatus === 'In Progress') ? 'bg-blue-100 text-blue-700' :
+                        (dynamicStatus === 'Ahead' || dynamicStatus === 'Completed') ? 'bg-green-100 text-green-700' :
                         'bg-red-100 text-red-700'
-                      }`}>{delta.current_execution_status}</span>
+                      }`}>{dynamicStatus}</span>
                     </div>
                     <p className="text-xs text-slate-600">{delta.variance_explanation}</p>
                   </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
             
@@ -309,8 +405,57 @@ export const GTMReportPrintLayout: React.FC<Props> = ({ project, selectedItems }
                   <span className="text-xl font-black text-blue-700">{project.executiveDashboardRollup.section_d_predictive_forecast.predicted_attainment_percentage}%</span>
                 </div>
                 <p className="text-xs text-blue-800 mb-3">{project.executiveDashboardRollup.section_d_predictive_forecast.trajectory_narrative}</p>
+                <div className="mt-3 pt-3 border-t border-blue-200/50">
+                  <h4 className="text-[10px] font-bold text-blue-800 uppercase mb-2">Scenario Levers</h4>
+                  <ul className="space-y-2">
+                    {project.executiveDashboardRollup.section_d_predictive_forecast.scenario_levers.map((lever, i) => (
+                      <li key={i} className="text-[10px] text-blue-800"><strong className="text-blue-900">{lever.action}:</strong> {lever.projected_impact}</li>
+                    ))}
+                  </ul>
+                </div>
               </div>
             </div>
+
+            <div className="page-break-inside-avoid">
+              <h3 className="text-xs uppercase font-bold text-slate-500 mb-3">Risk Radar & Mitigation</h3>
+              <div className="grid grid-cols-2 gap-3">
+                {project.executiveDashboardRollup.section_c_risk_radar.map((risk, i) => (
+                  <div key={i} className={`p-3 border rounded ${risk.severity === 'CRITICAL' ? 'bg-red-50 border-red-200' : 'bg-orange-50 border-orange-200'}`}>
+                    <div className="flex justify-between items-start mb-2">
+                      <span className={`text-[10px] font-bold ${risk.severity === 'CRITICAL' ? 'text-red-800' : 'text-orange-800'}`}>{risk.threat_description}</span>
+                      <span className={`text-[9px] px-1.5 py-0.5 rounded font-bold uppercase ${risk.severity === 'CRITICAL' ? 'bg-red-100 text-red-700' : 'bg-orange-100 text-orange-700'}`}>{risk.severity}</span>
+                    </div>
+                    <p className={`text-[10px] font-mono mb-2 ${risk.severity === 'CRITICAL' ? 'text-red-600' : 'text-orange-600'}`}>Impact: {risk.impacted_goal}</p>
+                    <div className={`mt-2 pt-2 border-t ${risk.severity === 'CRITICAL' ? 'border-red-200/50' : 'border-orange-200/50'}`}>
+                      <span className={`text-[9px] font-bold uppercase tracking-wider block mb-1 ${risk.severity === 'CRITICAL' ? 'text-red-700' : 'text-orange-700'}`}>Tactical Pivot Plan</span>
+                      <p className={`text-[10px] leading-normal ${risk.severity === 'CRITICAL' ? 'text-red-700' : 'text-orange-700'}`}>{risk.suggested_mitigation_pivot}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {project.executiveDashboardRollup.section_g_market_signals && (
+              <div className="page-break-inside-avoid">
+                <h3 className="text-xs uppercase font-bold text-slate-500 mb-3">External Signals (Market Dynamics)</h3>
+                <div className="p-4 border border-slate-200 bg-slate-50 rounded-lg">
+                  <div className="mb-3">
+                    <span className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Competitor Dynamic</span>
+                    <p className="text-xs text-slate-800">{project.executiveDashboardRollup.section_g_market_signals.competitor_dynamic}</p>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4 mt-3 pt-3 border-t border-slate-200">
+                    <div>
+                      <span className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Execution Pacing Gap</span>
+                      <p className="text-[10px] text-slate-700">{project.executiveDashboardRollup.section_g_market_signals.execution_pacing_gap}</p>
+                    </div>
+                    <div>
+                      <span className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Strategic Pivot</span>
+                      <p className="text-[10px] text-slate-700">{project.executiveDashboardRollup.section_g_market_signals.strategic_pivot_recommendation}</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
           
           <RunningFooter />
