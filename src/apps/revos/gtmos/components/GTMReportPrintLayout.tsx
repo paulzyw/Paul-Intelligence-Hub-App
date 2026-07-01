@@ -14,8 +14,15 @@ export const GTMReportPrintLayout: React.FC<Props> = ({ project, selectedItems }
 
   return (
     <div id="gtmos-printable-area" className="w-full min-h-full bg-slate-200 print:bg-white text-black font-sans py-8 print:py-0">
-      {/* 1. Cover Page */}
-      <div className="a4-page-canvas bg-slate-50 border-b-8 border-blue-900">
+      <table className="w-full print:table">
+        <thead className="print:table-header-group hidden">
+          <tr><td><div className="h-0"></div></td></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>
+              {/* 1. Cover Page */}
+      <div className="a4-page-canvas block bg-slate-50 border-b-8 border-blue-900">
         <div className="max-w-2xl mt-32">
           <h4 className="text-blue-900 font-bold tracking-widest uppercase text-sm mb-4">RevOS GTMOS Report System</h4>
           <h1 className="text-5xl font-black text-slate-900 mb-6">{project.title || 'Untitled Project'}</h1>
@@ -35,10 +42,11 @@ export const GTMReportPrintLayout: React.FC<Props> = ({ project, selectedItems }
             </div>
           </div>
         </div>
+        <RunningFooter pageNum={1} totalPages="?" />
       </div>
 
       {/* 2. Executive Briefing */}
-      <div className="a4-page-canvas">
+      <div className="a4-page-canvas block">
         <h2 className="text-2xl font-black text-slate-900 mb-6 pb-2 border-b-2 border-slate-200">Executive Briefing</h2>
         <div className="prose prose-sm max-w-none text-slate-800">
           <p className="text-sm leading-relaxed mb-4">
@@ -64,12 +72,12 @@ export const GTMReportPrintLayout: React.FC<Props> = ({ project, selectedItems }
             </div>
           )}
         </div>
-        
+        <RunningFooter />
       </div>
 
       {/* 3. Workspace Config (Step 1) */}
       {selectedItems['workspaceConfig'] && (
-        <div className="a4-page-canvas">
+        <div className="a4-page-canvas block">
           <h2 className="text-2xl font-black text-slate-900 mb-6 pb-2 border-b-2 border-slate-200">1. Workspace Config</h2>
           <div className="grid grid-cols-2 gap-6">
             <div className="p-4 border border-slate-200 rounded-lg">
@@ -85,13 +93,13 @@ export const GTMReportPrintLayout: React.FC<Props> = ({ project, selectedItems }
               <p className="text-sm font-medium text-slate-900">{project.strategic_objective}</p>
             </div>
           </div>
-        
+          <RunningFooter />
         </div>
       )}
 
       {/* 4. Onboarding Input Data (Step 2 to Step 9) */}
       {selectedItems['onboardingData'] && (
-        <div className="a4-page-canvas">
+        <div className="a4-page-canvas block">
           <h2 className="text-2xl font-black text-slate-900 mb-6 pb-2 border-b-2 border-slate-200">2. Core Business Parameters</h2>
           <div className="grid grid-cols-2 gap-4 flex-grow">
             {CATEGORY_SPECS.map(cat => (
@@ -112,13 +120,13 @@ export const GTMReportPrintLayout: React.FC<Props> = ({ project, selectedItems }
               </div>
             ))}
           </div>
-        
+          <RunningFooter />
         </div>
       )}
 
       {/* 5. GTM Strategy (Step 11) */}
       {selectedItems['gtmStrategy'] && project.gtmStrategyDraft && (
-        <div className="a4-page-canvas">
+        <div className="a4-page-canvas block">
           <h2 className="text-2xl font-black text-slate-900 mb-6 pb-2 border-b-2 border-slate-200">3. GTM Strategy Lines</h2>
           <div className="flex-grow space-y-6">
             {Object.entries(project.gtmStrategyDraft)
@@ -143,13 +151,13 @@ export const GTMReportPrintLayout: React.FC<Props> = ({ project, selectedItems }
               );
             })}
           </div>
-        
+          <RunningFooter />
         </div>
       )}
 
       {/* 6. Revenue Decomposition (Step 13) */}
       {selectedItems['revenueDecomposition'] && project.revenueDecomposition?.result && (
-        <div className="a4-page-canvas">
+        <div className="a4-page-canvas block">
           <h2 className="text-2xl font-black text-slate-900 mb-6 pb-2 border-b-2 border-slate-200">4. Revenue Decomposition</h2>
           <div className="grid grid-cols-2 gap-4">
             <MetricCard label="Customers Required" value={project.revenueDecomposition.result.customersRequired} />
@@ -159,13 +167,13 @@ export const GTMReportPrintLayout: React.FC<Props> = ({ project, selectedItems }
             <MetricCard label="SQL Required" value={project.revenueDecomposition.result.sqlRequired} />
             <MetricCard label="MQL Required" value={project.revenueDecomposition.result.mqlRequired} />
           </div>
-        
+          <RunningFooter />
         </div>
       )}
 
       {/* 7. Execution Actions Pipeline (Step 16) & 8. Execution Sufficiency Assessment */}
       {(selectedItems['executionPipeline'] || selectedItems['executionSufficiency']) && activePlan && (
-        <div className="a4-page-canvas">
+        <div className="a4-page-canvas block">
           <h2 className="text-2xl font-black text-slate-900 mb-6 pb-2 border-b-2 border-slate-200">5. Execution Pipeline & Assessment</h2>
           
           {/* Program Objective & Scorecard Card */}
@@ -294,13 +302,13 @@ export const GTMReportPrintLayout: React.FC<Props> = ({ project, selectedItems }
               ))}
             </div>
           )}
-        
+          <RunningFooter />
         </div>
       )}
 
       {/* 9. Execution Status (Step 17) */}
       {selectedItems['executionStatus'] && project.tasks && project.tasks.length > 0 && (
-        <div className="a4-page-canvas">
+        <div className="a4-page-canvas block">
           <h2 className="text-2xl font-black text-slate-900 mb-6 pb-2 border-b-2 border-slate-200">6. Execution Status</h2>
           <div className="grid grid-cols-1 gap-3">
             {project.tasks.map(task => (
@@ -321,13 +329,13 @@ export const GTMReportPrintLayout: React.FC<Props> = ({ project, selectedItems }
               </div>
             ))}
           </div>
-        
+          <RunningFooter />
         </div>
       )}
 
       {/* 10. Risks & Pivotal Actions (Step 18 & Step 19) */}
       {selectedItems['risksAndActions'] && (
-        <div className="a4-page-canvas">
+        <div className="a4-page-canvas block">
           <h2 className="text-2xl font-black text-slate-900 mb-6 pb-2 border-b-2 border-slate-200">7. Defense Audit & Pivotal Actions</h2>
           
           <div className="mb-8">
@@ -366,13 +374,13 @@ export const GTMReportPrintLayout: React.FC<Props> = ({ project, selectedItems }
               ))}
             </div>
           </div>
-        
+          <RunningFooter />
         </div>
       )}
 
       {/* 11. Executive Insights (Step 21) */}
       {selectedItems['executiveInsights'] && project.executiveDashboardRollup && (
-        <div className="a4-page-canvas">
+        <div className="a4-page-canvas block">
           <h2 className="text-2xl font-black text-slate-900 mb-6 pb-2 border-b-2 border-slate-200">8. Executive Insights</h2>
           
           <div className="p-6 bg-slate-900 text-white rounded-xl mb-6 page-break-inside-avoid">
@@ -467,10 +475,24 @@ export const GTMReportPrintLayout: React.FC<Props> = ({ project, selectedItems }
             )}
           </div>
           
-        
+          <RunningFooter />
         </div>
       )}
 
+            </td>
+          </tr>
+        </tbody>
+        <tfoot className="print:table-footer-group hidden">
+          <tr>
+            <td>
+              <div className="pt-2 border-t border-slate-200 mt-8 flex justify-between items-center w-full">
+                <span className="text-[9px] font-mono text-slate-400 uppercase tracking-widest font-bold flex-1 text-left">RevOS GTMOS Report System</span>
+                <span className="text-[9px] font-mono text-slate-400 uppercase tracking-widest font-bold flex-1 text-right">Internal / Confidential</span>
+              </div>
+            </td>
+          </tr>
+        </tfoot>
+      </table>
     </div>
   );
 };
@@ -482,4 +504,9 @@ const MetricCard: React.FC<{ label: string, value: string }> = ({ label, value }
   </div>
 );
 
-
+const RunningFooter: React.FC<{ pageNum?: number, totalPages?: string }> = ({ pageNum, totalPages }) => (
+  <div className="absolute bottom-[12mm] left-[15mm] right-[15mm] flex justify-between items-center pt-2 border-t border-slate-200 print:hidden">
+    <span className="text-[9px] font-mono text-slate-400 uppercase tracking-widest font-bold">RevOS GTMOS Report System</span>
+    <span className="text-[9px] font-mono text-slate-400 uppercase tracking-widest font-bold">Internal / Confidential</span>
+  </div>
+);
