@@ -387,11 +387,11 @@
     position: relative;
     box-sizing: border-box;
     background: #ffffff;
-    display: block;
+    display: flex;
+    flex-direction: column;
     margin: 0 auto 2rem auto;
     box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1);
     padding: 15mm;
-    padding-bottom: 25mm;
   }
   .print-fixed-footer {
     display: none;
@@ -415,7 +415,7 @@
     background: white !important;
     margin: 0 !important;
     padding: 0 !important;
-    height: auto !important;
+    width: 100% !important;
     min-height: auto !important;
     overflow: visible !important;
     -webkit-print-color-adjust: exact;
@@ -423,7 +423,7 @@
   }
   .a4-page-canvas {
     width: 100% !important;
-    min-height: auto !important;
+    min-height: 100vh !important;
     height: auto !important;
     page-break-after: always;
     page-break-inside: auto !important;
@@ -432,7 +432,8 @@
     position: relative !important;
     overflow: visible !important;
     background: white !important;
-    display: block !important;
+    display: flex !important;
+    flex-direction: column !important;
     box-sizing: border-box !important;
     border: none !important;
     box-shadow: none !important;
@@ -458,11 +459,10 @@
     z-index: 1000;
   }
   .print-page-counter::after {
-    content: counter(page) " / " counter(pages);
+    content: counter(page) ' / ' counter(pages);
   }
   @page {
     size: A4 portrait;
     margin: 15mm 15mm 12mm 15mm;
   }
 }
-
