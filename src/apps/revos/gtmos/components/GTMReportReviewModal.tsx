@@ -105,32 +105,15 @@ export const GTMReportReviewModal: React.FC<Props> = ({ project, onClose }) => {
 
         {/* Print Preview Area */}
         <div className="flex-grow overflow-y-auto bg-black/5 p-8 flex justify-center print:p-0 print:bg-white print:block print:overflow-visible print:h-auto print:w-full">
-          <div className="shadow-2xl print:shadow-none bg-white rounded-sm overflow-hidden print:overflow-visible print:w-full print:bg-white print:m-0 print:p-0">
+          <div className="shadow-2xl print:shadow-none bg-white rounded-sm overflow-hidden print:overflow-visible print:w-full print:bg-white print:m-0 print:p-0 relative">
+            
             {/* Running Footer for Print */}
             <div className="hidden print:flex print-fixed-footer">
               <span className="text-[9px] font-mono text-slate-400 uppercase tracking-widest font-bold flex-1 text-left">RevOS GTMOS Report System</span>
               <span className="text-[9px] font-mono text-slate-400 uppercase tracking-widest font-bold flex-1 text-right">Internal / Confidential</span>
             </div>
-            
-            <table className="w-full hidden print:table">
-              <thead className="table-header-group">
-                <tr><td><div className="h-4"></div></td></tr>
-              </thead>
-              <tbody className="table-row-group">
-                <tr>
-                  <td>
-                    <GTMReportPrintLayout project={project} selectedItems={selectedItems} />
-                  </td>
-                </tr>
-              </tbody>
-              <tfoot className="table-footer-group">
-                <tr><td><div className="h-12"></div></td></tr>
-              </tfoot>
-            </table>
-            
-            <div className="print:hidden">
-              <GTMReportPrintLayout project={project} selectedItems={selectedItems} />
-            </div>
+
+            <GTMReportPrintLayout project={project} selectedItems={selectedItems} />
           </div>
         </div>
       </div>
