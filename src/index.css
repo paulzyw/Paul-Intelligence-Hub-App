@@ -404,11 +404,17 @@
   }
   
   /* Prevent stacking contexts from explicit modal/overlay ancestors during print so position:fixed works for headers/footers */
-  #gtmos-print-root {
+  #gtmos-print-root, #gtmos-print-root * {
     backdrop-filter: none !important;
     -webkit-backdrop-filter: none !important;
     filter: none !important;
     transform: none !important;
+    perspective: none !important;
+    contain: none !important;
+    isolation: auto !important;
+    opacity: 1 !important;
+    mix-blend-mode: normal !important;
+    will-change: auto !important;
   }
 
   html, body {
@@ -423,7 +429,7 @@
   }
   .a4-page-canvas {
     width: 100% !important;
-    min-height: 100vh !important;
+    min-height: 0 !important;
     height: auto !important;
     page-break-after: always;
     page-break-inside: auto !important;
@@ -446,7 +452,7 @@
   }
   .print-fixed-footer {
     position: fixed !important;
-    bottom: 0 !important;
+    bottom: -3mm !important;
     left: 0 !important;
     right: 0 !important;
     width: auto !important;
@@ -454,13 +460,12 @@
     justify-content: space-between;
     align-items: center;
     padding-top: 0.5rem;
+    padding-bottom: 0.5rem;
     border-top: 1px solid #e2e8f0;
-    background: transparent !important;
+    background: white !important;
     z-index: 1000;
   }
-  .print-page-counter::after {
-    content: counter(page) ' / ' counter(pages);
-  }
+  
   @page {
     size: A4 portrait;
     margin: 15mm 15mm 12mm 15mm;

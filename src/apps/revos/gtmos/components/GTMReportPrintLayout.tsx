@@ -64,7 +64,7 @@ export const GTMReportPrintLayout: React.FC<Props> = ({ project, selectedItems }
             </div>
           )}
         </div>
-        <RunningFooter />
+        
       </div>
 
       {/* 3. Workspace Config (Step 1) */}
@@ -85,7 +85,7 @@ export const GTMReportPrintLayout: React.FC<Props> = ({ project, selectedItems }
               <p className="text-sm font-medium text-slate-900">{project.strategic_objective}</p>
             </div>
           </div>
-        <RunningFooter />
+        
         </div>
       )}
 
@@ -112,7 +112,7 @@ export const GTMReportPrintLayout: React.FC<Props> = ({ project, selectedItems }
               </div>
             ))}
           </div>
-        <RunningFooter />
+        
         </div>
       )}
 
@@ -143,7 +143,7 @@ export const GTMReportPrintLayout: React.FC<Props> = ({ project, selectedItems }
               );
             })}
           </div>
-        <RunningFooter />
+        
         </div>
       )}
 
@@ -159,7 +159,7 @@ export const GTMReportPrintLayout: React.FC<Props> = ({ project, selectedItems }
             <MetricCard label="SQL Required" value={project.revenueDecomposition.result.sqlRequired} />
             <MetricCard label="MQL Required" value={project.revenueDecomposition.result.mqlRequired} />
           </div>
-        <RunningFooter />
+        
         </div>
       )}
 
@@ -294,7 +294,7 @@ export const GTMReportPrintLayout: React.FC<Props> = ({ project, selectedItems }
               ))}
             </div>
           )}
-        <RunningFooter />
+        
         </div>
       )}
 
@@ -321,7 +321,7 @@ export const GTMReportPrintLayout: React.FC<Props> = ({ project, selectedItems }
               </div>
             ))}
           </div>
-        <RunningFooter />
+        
         </div>
       )}
 
@@ -366,7 +366,7 @@ export const GTMReportPrintLayout: React.FC<Props> = ({ project, selectedItems }
               ))}
             </div>
           </div>
-        <RunningFooter />
+        
         </div>
       )}
 
@@ -467,7 +467,7 @@ export const GTMReportPrintLayout: React.FC<Props> = ({ project, selectedItems }
             )}
           </div>
           
-        <RunningFooter />
+        
         </div>
       )}
 
@@ -482,10 +482,4 @@ const MetricCard: React.FC<{ label: string, value: string }> = ({ label, value }
   </div>
 );
 
-const RunningFooter: React.FC<{ pageNum?: number, totalPages?: string }> = ({ pageNum, totalPages }) => (
-  <div className="mt-auto pt-2 border-t border-slate-200 flex justify-between items-center w-full print-fixed-footer">
-    <span className="text-[9px] font-mono text-slate-400 uppercase tracking-widest font-bold flex-1 text-left">RevOS GTMOS Report System</span>
-    <span className="text-[9px] font-mono text-slate-400 uppercase tracking-widest font-bold flex-1 text-right">Internal / Confidential</span>
-  </div>
-);
 
