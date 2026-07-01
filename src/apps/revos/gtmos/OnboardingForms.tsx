@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { OnboardingCategoryFields, CategoryId } from './types';
 import { CATEGORY_SPECS } from './initialState';
 import { Sparkles, Loader2, CheckCircle2, HelpCircle, FileText, Info, Save, ChevronLeft, ChevronRight, Check } from 'lucide-react';
@@ -360,6 +360,55 @@ const FIELD_LABELS: Record<keyof OnboardingCategoryFields, { label: string; plac
   }
 };
 
+interface AutoResizingTextareaProps {
+  id?: string;
+  value: string;
+  onChange: (val: string) => void;
+  placeholder?: string;
+  className?: string;
+}
+
+const AutoResizingOnboardingTextarea: React.FC<AutoResizingTextareaProps> = ({
+  id,
+  value,
+  onChange,
+  placeholder,
+  className = ""
+}) => {
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  const adjustHeight = () => {
+    const textarea = textareaRef.current;
+    if (textarea) {
+      textarea.style.height = 'auto';
+      textarea.style.height = `${textarea.scrollHeight}px`;
+    }
+  };
+
+  useEffect(() => {
+    adjustHeight();
+    window.addEventListener('resize', adjustHeight);
+    return () => window.removeEventListener('resize', adjustHeight);
+  }, [value]);
+
+  return (
+    <textarea
+      id={id}
+      ref={textareaRef}
+      value={value}
+      onChange={(e) => {
+        onChange(e.target.value);
+        e.target.style.height = 'auto';
+        e.target.style.height = `${e.target.scrollHeight}px`;
+      }}
+      rows={1}
+      className={`overflow-hidden resize-none min-h-[38px] whitespace-pre-wrap break-words [word-break:break-word] ${className}`}
+      placeholder={placeholder}
+      style={{ height: 'auto', display: 'block', overflowY: 'hidden' }}
+    />
+  );
+};
+
 export const OnboardingForms: React.FC<OnboardingFormsProps> = ({
   activeCategoryId,
   onboardingFields,
@@ -496,13 +545,12 @@ export const OnboardingForms: React.FC<OnboardingFormsProps> = ({
               </div>
 
               {field === 'productDescription' || field === 'strategicPriorities' || field === 'painPoints' ? (
-                <textarea
+                <AutoResizingOnboardingTextarea
                   id={`field-${field}`}
-                  rows={3}
                   value={value}
-                  onChange={(e) => handleFieldChange(field, e.target.value)}
+                  onChange={(val) => handleFieldChange(field, val)}
                   placeholder={fieldSpec.placeholder}
-                  className="w-full bg-bg-primary border border-border/80 focus:border-accent/50 rounded-xl px-3 py-2 text-[16px] sm:text-xs text-text-primary focus:outline-none focus:ring-1 focus:ring-accent/20 transition-all font-sans placeholder-text-secondary/40 resize-none h-20 sm:h-24"
+                  className="w-full bg-bg-primary border border-border/80 focus:border-accent/50 rounded-xl px-3 py-2 text-[16px] sm:text-xs text-text-primary focus:outline-none focus:ring-1 focus:ring-accent/20 transition-all font-sans placeholder-text-secondary/40 min-h-[80px]"
                 />
               ) : field === 'industry' ? (
                 <select
@@ -628,11 +676,10 @@ export const OnboardingForms: React.FC<OnboardingFormsProps> = ({
                   })}
                 </div>
               ) : (
-                <input
+                <AutoResizingOnboardingTextarea
                   id={`field-${field}`}
-                  type="text"
                   value={value}
-                  onChange={(e) => handleFieldChange(field, e.target.value)}
+                  onChange={(val) => handleFieldChange(field, val)}
                   placeholder={fieldSpec.placeholder}
                   className="w-full bg-bg-primary border border-border/80 focus:border-accent/50 rounded-xl px-3 py-2 text-[16px] sm:text-xs text-text-primary focus:outline-none focus:ring-1 focus:ring-accent/20 transition-all font-sans placeholder-text-secondary/40"
                 />

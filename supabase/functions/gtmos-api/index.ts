@@ -94,7 +94,7 @@ serve(async (req) => {
 
   try {
     const rawBody = await req.json();
-    const { action, onboardingData, strategyData, projectName, categoryId, companyName, industry, currentFields, buyerType, pitchFormat, gtmStrategyDraft, activeScenario, activeParams, revenueDecomposition, executionPlan, simulationConfig } = rawBody;
+    const { action, onboardingData, strategyData, projectName, categoryId, companyName, industry, currentFields, buyerType, pitchFormat, gtmStrategyDraft, activeScenario, activeParams, revenueDecomposition, executionPlan, simulationConfig, strategyDraft, category, messagingType } = rawBody;
 
     const GTMOS_SYSTEM_INSTRUCTION = buildDynamicCGOInstruction(onboardingData);
 
@@ -669,6 +669,400 @@ serve(async (req) => {
                 }
               },
               required: ["messaging", "keyPoints"]
+            }
+          }
+        });
+        return new Response(response.text || "{}", { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+      }
+
+      case "generate-icp": {
+        const categoryLabels: Record<string, string> = {
+          company_size: "Company Size (headcount, revenue bounds, scale)",
+          industry: "Industry/Vertical (specific sub-segments, compliance needs)",
+          geography: "Geography (regions, localization, expansion areas)",
+          buying_triggers: "Buying Triggers (compelling events, pain points hitting critical mass)",
+          budget_characteristics: "Budget Characteristics (funding stage, fiscal cycles, budget holders)",
+          decision_structure: "Decision Structure (buying committee, procurement process, consensus requirements)"
+        };
+
+        const targetCategory = categoryLabels[category as string] || category;
+
+        const draftPillar1 = strategyDraft?.pillar_1_market_segmentation?.join('\n') || "None";
+        const draftPillar2 = strategyDraft?.pillar_2_icp?.join('\n') || "None";
+
+        const response = await ai.models.generateContent({
+          model: "gemini-3.1-flash-lite",
+          contents: [
+            `You are an elite product marketing and Go-to-Market strategy expert. 
+            Based on the finalized strategy in Pillar 1 (Market Segmentation) and any existing guidelines in Pillar 2 (ICP), generate a highly specific Ideal Customer Profile parameter for the category: ${targetCategory}.
+            
+            Pillar 1: Market Segmentation:
+            ${draftPillar1}
+
+            Pillar 2: Existing ICP Strategy Lines:
+            ${draftPillar2}
+
+            ORGANIZATIONAL CONTEXT:
+            ${buildRichContext(onboardingData, projectName)}
+
+            Create a highly polished, professional, and targeted profile description for this specific ICP parameter that perfectly aligns with the strategy.
+            Keep the description concise and highly actionable.`
+          ],
+          config: {
+            systemInstruction: GTMOS_SYSTEM_INSTRUCTION,
+            responseMimeType: "application/json",
+            responseSchema: {
+              type: Type.OBJECT,
+              properties: {
+                profile: { type: Type.STRING, description: `The actual synthesized ICP text for the ${targetCategory} category.` },
+                keyCharacteristics: { 
+                  type: Type.ARRAY, 
+                  items: { type: Type.STRING }, 
+                  description: "2-3 short bullet points highlighting why this specific characteristic is critical to the ICP."
+                }
+              },
+              required: ["profile", "keyCharacteristics"]
+            }
+          }
+        });
+        return new Response(response.text || "{}", { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+      }
+
+      case "generate-buyer-persona": {
+        const categoryLabels: Record<string, string> = {
+          economic_buyers: "Economic Buyers (focus on ROI, TCO, budgets)",
+          technical_buyers: "Technical Buyers (focus on architecture, security, integration)",
+          business_buyers: "Business Buyers (focus on operational efficiency, team productivity)",
+          influencers: "Influencers (focus on UX, daily ease-of-use)",
+          pain_point: "Pain Point (core organizational struggles to target)",
+          success_metrics: "Success Metrics (KPIs they use to measure value)",
+          ceo: "CEO (strategic vision, market share, overall growth)",
+          cfo: "CFO (cash flow, EBITDA, risk management)",
+          coo: "COO (operational margins, process scalability)",
+          cto: "CTO (tech debt, innovation velocity, system reliability)",
+          cro: "CRO (revenue pipeline, sales cycle time, win rates)"
+        };
+
+        const targetCategory = categoryLabels[category as string] || category;
+
+        const draftPillar1 = strategyDraft?.pillar_1_market_segmentation?.join('\n') || "None";
+        const draftPillar2 = strategyDraft?.pillar_2_icp?.join('\n') || "None";
+        const draftPillar3 = strategyDraft?.pillar_3_buyer_personas?.join('\n') || "None";
+
+        const response = await ai.models.generateContent({
+          model: "gemini-3.1-flash-lite",
+          contents: [
+            `You are an elite product marketing and Go-to-Market strategy expert. 
+            Based on the finalized strategy in Pillar 1 (Market Segmentation) and Pillar 2 (ICP), generate a highly specific Buyer Persona strategy for the category: ${targetCategory}.
+            
+            Pillar 1: Market Segmentation:
+            ${draftPillar1}
+
+            Pillar 2: ICP Strategy:
+            ${draftPillar2}
+            
+            Pillar 3: Existing Buyer Persona Lines:
+            ${draftPillar3}
+
+            ORGANIZATIONAL CONTEXT:
+            ${buildRichContext(onboardingData, projectName)}
+
+            Create a highly polished, professional, and targeted profile description for this specific buyer persona parameter that perfectly aligns with the strategy.
+            Keep the description concise and highly actionable.`
+          ],
+          config: {
+            systemInstruction: GTMOS_SYSTEM_INSTRUCTION,
+            responseMimeType: "application/json",
+            responseSchema: {
+              type: Type.OBJECT,
+              properties: {
+                profile: { type: Type.STRING, description: `The actual synthesized Buyer Persona text for the ${targetCategory} category.` },
+                keyCharacteristics: { 
+                  type: Type.ARRAY, 
+                  items: { type: Type.STRING }, 
+                  description: "2-3 short bullet points highlighting why this specific characteristic is critical to the Buyer Persona."
+                }
+              },
+              required: ["profile", "keyCharacteristics"]
+            }
+          }
+        });
+        return new Response(response.text || "{}", { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+      }
+
+      case "generate-value-prop": {
+        const categoryLabels: Record<string, string> = {
+          customer_value: "Customer Value (primary benefits and value to the customer)",
+          business_outcomes: "Business Outcomes (measurable organizational impact)",
+          differentiation: "Differentiation (how this stands out from alternatives)",
+          competitive_advantages: "Competitive Advantages (defensible moats)",
+          roi_statements: "ROI Statements (financial and operational return)"
+        };
+
+        const targetCategory = categoryLabels[category as string] || category;
+
+        const draftPillar1 = strategyDraft?.pillar_1_market_segmentation?.join('\n') || "None";
+        const draftPillar2 = strategyDraft?.pillar_2_icp?.join('\n') || "None";
+        const draftPillar3 = strategyDraft?.pillar_3_buyer_personas?.join('\n') || "None";
+        const draftPillar4 = strategyDraft?.pillar_4_value_proposition?.join('\n') || "None";
+
+        const response = await ai.models.generateContent({
+          model: "gemini-3.1-flash-lite",
+          contents: [
+            `You are an elite product marketing and Go-to-Market strategy expert. 
+            Based on the finalized strategy in Pillars 1, 2, and 3, generate a highly specific Value Proposition strategy for the category: ${targetCategory}.
+            
+            Pillar 1: Market Segmentation:
+            ${draftPillar1}
+
+            Pillar 2: ICP Strategy:
+            ${draftPillar2}
+            
+            Pillar 3: Buyer Persona Lines:
+            ${draftPillar3}
+
+            Pillar 4: Existing Value Proposition Lines:
+            ${draftPillar4}
+
+            ORGANIZATIONAL CONTEXT:
+            ${buildRichContext(onboardingData, projectName)}
+
+            Create a highly polished, professional, and targeted description for this specific value proposition parameter that perfectly aligns with the strategy.
+            Keep the description concise and highly actionable.`
+          ],
+          config: {
+            systemInstruction: GTMOS_SYSTEM_INSTRUCTION,
+            responseMimeType: "application/json",
+            responseSchema: {
+              type: Type.OBJECT,
+              properties: {
+                profile: { type: Type.STRING, description: `The actual synthesized Value Proposition text for the ${targetCategory} category.` },
+                keyCharacteristics: { 
+                  type: Type.ARRAY, 
+                  items: { type: Type.STRING }, 
+                  description: "2-3 short bullet points highlighting why this specific characteristic is critical to the Value Proposition."
+                }
+              },
+              required: ["profile", "keyCharacteristics"]
+            }
+          }
+        });
+        return new Response(response.text || "{}", { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+      }
+
+      case "generate-sales-channel": {
+        const categoryLabels: Record<string, string> = {
+          direct_sales_strategy: "Direct Sales Strategy (Account mapping, outbound motion, SDR/AE structure)",
+          partner_strategy: "Partner Strategy (Channel partners, SI alliances, co-sell motions)",
+          distributor_strategy: "Distributor Strategy (Resellers, VARs, high-volume distribution)",
+          digital_strategy: "Digital Strategy (PLG, inbound marketing, self-serve workflows)",
+          hybrid_revenue_motion: "Hybrid Revenue Motion (Product-led sales, inbound + outbound synergy)"
+        };
+
+        const targetCategory = categoryLabels[category as string] || category;
+
+        const draftPillar1 = strategyDraft?.pillar_1_market_segmentation?.join('\n') || "None";
+        const draftPillar2 = strategyDraft?.pillar_2_icp?.join('\n') || "None";
+        const draftPillar3 = strategyDraft?.pillar_3_buyer_personas?.join('\n') || "None";
+        const draftPillar4 = strategyDraft?.pillar_4_value_proposition?.join('\n') || "None";
+        const draftPillar5 = strategyDraft?.pillar_5_messaging_positioning?.join('\n') || "None";
+        const draftPillar6 = strategyDraft?.pillar_6_sales_channel?.join('\n') || "None";
+
+        const response = await ai.models.generateContent({
+          model: "gemini-3.1-flash-lite",
+          contents: [
+            `You are an elite product marketing and Go-to-Market strategy expert. 
+            Based on the finalized strategy in Pillars 1, 2, 3, 4, and 5, generate a highly specific Sales and Channel strategy for the category: ${targetCategory}.
+            
+            Pillar 1: Market Segmentation:
+            ${draftPillar1}
+
+            Pillar 2: ICP Strategy:
+            ${draftPillar2}
+            
+            Pillar 3: Buyer Persona Lines:
+            ${draftPillar3}
+
+            Pillar 4: Value Proposition Lines:
+            ${draftPillar4}
+
+            Pillar 5: Messaging & Positioning Lines:
+            ${draftPillar5}
+
+            Pillar 6: Existing Sales & Channel Strategy Lines:
+            ${draftPillar6}
+
+            ORGANIZATIONAL CONTEXT:
+            ${buildRichContext(onboardingData, projectName)}
+
+            Create a highly polished, professional, and targeted description for this specific sales and channel strategy parameter that perfectly aligns with the prior pillars.
+            Keep the description concise, structured, and highly actionable.`
+          ],
+          config: {
+            systemInstruction: GTMOS_SYSTEM_INSTRUCTION,
+            responseMimeType: "application/json",
+            responseSchema: {
+              type: Type.OBJECT,
+              properties: {
+                profile: { type: Type.STRING, description: `The actual synthesized Sales & Channel Strategy text for the ${targetCategory} category.` },
+                keyCharacteristics: { 
+                  type: Type.ARRAY, 
+                  items: { type: Type.STRING }, 
+                  description: "2-3 short bullet points highlighting why this specific strategic approach is critical and how it is executed."
+                }
+              },
+              required: ["profile", "keyCharacteristics"]
+            }
+          }
+        });
+        return new Response(response.text || "{}", { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+      }
+
+      case "generate-marketing-demand": {
+        const categoryLabels: Record<string, string> = {
+          demand_generation_program: "Demand Generation Program",
+          campaign_strategy: "Campaign Strategy",
+          content_strategy: "Content Strategy",
+          digital_marketing_strategy: "Digital Marketing Strategy",
+          lead_generation_strategy: "Lead Generation Strategy",
+          outbound_campaign_strategy: "Outbound Campaign Strategy",
+          account_based_marketing_campaign_strategy: "Account-Based Marketing Campaign Strategy"
+        };
+
+        const targetCategory = categoryLabels[category as string] || category;
+
+        const draftPillar1 = strategyDraft?.pillar_1_market_segmentation?.join('\n') || "None";
+        const draftPillar2 = strategyDraft?.pillar_2_icp?.join('\n') || "None";
+        const draftPillar3 = strategyDraft?.pillar_3_buyer_personas?.join('\n') || "None";
+        const draftPillar4 = strategyDraft?.pillar_4_value_proposition?.join('\n') || "None";
+        const draftPillar5 = strategyDraft?.pillar_5_messaging_positioning?.join('\n') || "None";
+        const draftPillar6 = strategyDraft?.pillar_6_sales_channel?.join('\n') || "None";
+        const draftPillar7 = strategyDraft?.pillar_7_marketing_demand?.join('\n') || "None";
+
+        const response = await ai.models.generateContent({
+          model: "gemini-3.1-flash-lite",
+          contents: [
+            `You are an elite product marketing and Go-to-Market strategy expert. 
+            Based on the finalized strategy in Pillars 1, 2, 3, 4, 5, and 6, generate a highly specific Marketing & Demand Generation strategy for the category: ${targetCategory}.
+            
+            Pillar 1: Market Segmentation:
+            ${draftPillar1}
+
+            Pillar 2: ICP Strategy:
+            ${draftPillar2}
+            
+            Pillar 3: Buyer Persona Lines:
+            ${draftPillar3}
+
+            Pillar 4: Value Proposition Lines:
+            ${draftPillar4}
+
+            Pillar 5: Messaging & Positioning Lines:
+            ${draftPillar5}
+
+            Pillar 6: Sales & Channel Strategy Lines:
+            ${draftPillar6}
+
+            Pillar 7: Existing Marketing & Demand Gen Lines:
+            ${draftPillar7}
+
+            ORGANIZATIONAL CONTEXT:
+            ${buildRichContext(onboardingData, projectName)}
+
+            Create a highly polished, professional, and targeted description for this specific marketing and demand generation strategy parameter that perfectly aligns with the prior pillars.
+            Keep the description concise, structured, and highly actionable.`
+          ],
+          config: {
+            systemInstruction: GTMOS_SYSTEM_INSTRUCTION,
+            responseMimeType: "application/json",
+            responseSchema: {
+              type: Type.OBJECT,
+              properties: {
+                profile: { type: Type.STRING, description: `The actual synthesized Marketing & Demand Generation Strategy text for the ${targetCategory} category.` },
+                keyCharacteristics: { 
+                  type: Type.ARRAY, 
+                  items: { type: Type.STRING }, 
+                  description: "2-3 short bullet points highlighting why this specific strategic approach is critical and how it is executed."
+                }
+              },
+              required: ["profile", "keyCharacteristics"]
+            }
+          }
+        });
+        return new Response(response.text || "{}", { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+      }
+
+      case "generate-enablement-execution": {
+        const categoryLabels: Record<string, string> = {
+          shared_vision: "Shared Vision",
+          sales_playbooks: "Sales Playbooks",
+          enablement_plans: "Enablement Plans",
+          training_program: "Training Program",
+          execution_frameworks: "Execution Frameworks",
+          operational_readiness: "Operational Readiness"
+        };
+
+        const targetCategory = categoryLabels[category as string] || category;
+
+        const draftPillar1 = strategyDraft?.pillar_1_market_segmentation?.join('\n') || "None";
+        const draftPillar2 = strategyDraft?.pillar_2_icp?.join('\n') || "None";
+        const draftPillar3 = strategyDraft?.pillar_3_buyer_personas?.join('\n') || "None";
+        const draftPillar4 = strategyDraft?.pillar_4_value_proposition?.join('\n') || "None";
+        const draftPillar5 = strategyDraft?.pillar_5_messaging_positioning?.join('\n') || "None";
+        const draftPillar6 = strategyDraft?.pillar_6_sales_channel?.join('\n') || "None";
+        const draftPillar7 = strategyDraft?.pillar_7_marketing_demand?.join('\n') || "None";
+        const draftPillar8 = strategyDraft?.pillar_8_enablement_execution?.join('\n') || "None";
+
+        const response = await ai.models.generateContent({
+          model: "gemini-3.1-flash-lite",
+          contents: [
+            `You are an elite product marketing and Go-to-Market strategy expert. 
+            Based on the finalized strategy in Pillars 1, 2, 3, 4, 5, 6, and 7, generate a highly specific Enablement & Execution strategy for the category: ${targetCategory}.
+            
+            Pillar 1: Market Segmentation:
+            ${draftPillar1}
+
+            Pillar 2: ICP Strategy:
+            ${draftPillar2}
+            
+            Pillar 3: Buyer Persona Lines:
+            ${draftPillar3}
+
+            Pillar 4: Value Proposition Lines:
+            ${draftPillar4}
+
+            Pillar 5: Messaging & Positioning Lines:
+            ${draftPillar5}
+
+            Pillar 6: Sales & Channel Strategy Lines:
+            ${draftPillar6}
+
+            Pillar 7: Marketing & Demand Gen Lines:
+            ${draftPillar7}
+
+            Pillar 8: Existing Enablement & Execution Lines:
+            ${draftPillar8}
+
+            ORGANIZATIONAL CONTEXT:
+            ${buildRichContext(onboardingData, projectName)}
+
+            Create a highly polished, professional, and targeted description for this specific enablement and execution strategy parameter that perfectly aligns with the prior pillars.
+            Keep the description concise, structured, and highly actionable.`
+          ],
+          config: {
+            systemInstruction: GTMOS_SYSTEM_INSTRUCTION,
+            responseMimeType: "application/json",
+            responseSchema: {
+              type: Type.OBJECT,
+              properties: {
+                profile: { type: Type.STRING, description: `The actual synthesized Enablement & Execution Strategy text for the ${targetCategory} category.` },
+                keyCharacteristics: { 
+                  type: Type.ARRAY, 
+                  items: { type: Type.STRING }, 
+                  description: "2-3 short bullet points highlighting why this specific strategic approach is critical and how it is executed."
+                }
+              },
+              required: ["profile", "keyCharacteristics"]
             }
           }
         });

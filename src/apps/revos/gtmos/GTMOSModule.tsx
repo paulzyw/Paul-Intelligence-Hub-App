@@ -220,7 +220,7 @@ function AutoResizingTextarea({
         e.target.style.height = `${e.target.scrollHeight}px`;
       }}
       rows={1}
-      className={`overflow-hidden resize-none ${className}`}
+      className={`overflow-hidden resize-none whitespace-pre-wrap break-words [word-break:break-word] ${className}`}
       placeholder={placeholder}
       style={{ height: 'auto', display: 'block', overflowY: 'hidden' }}
     />
@@ -272,6 +272,60 @@ export function GTMOSModule() {
   const [selectedAddPrefix, setSelectedAddPrefix] = useState<string>('');
   const [isGeneratingGtmDraft, setIsGeneratingGtmDraft] = useState<boolean>(false);
   const [isGeneratingAudit, setIsGeneratingAudit] = useState<boolean>(false);
+
+  // Pillar 2 ICP Playground States
+  const [icpPlaygroundCategory, setIcpPlaygroundCategory] = useState<string>('company_size');
+  const [isGeneratingIcp, setIsGeneratingIcp] = useState<boolean>(false);
+  const [generatedIcpResult, setGeneratedIcpResult] = useState<{
+    profile: string;
+    keyCharacteristics: string[];
+  } | null>(null);
+  const [icpSuccessMsg, setIcpSuccessMsg] = useState<string>('');
+
+  // Pillar 3 Buyer Persona Playground States
+  const [buyerPersonaCategory, setBuyerPersonaCategory] = useState<string>('economic_buyers');
+  const [isGeneratingBuyerPersona, setIsGeneratingBuyerPersona] = useState<boolean>(false);
+  const [generatedBuyerPersonaResult, setGeneratedBuyerPersonaResult] = useState<{
+    profile: string;
+    keyCharacteristics: string[];
+  } | null>(null);
+  const [buyerPersonaSuccessMsg, setBuyerPersonaSuccessMsg] = useState<string>('');
+
+  // Pillar 4 Value Proposition Playground States
+  const [valuePropCategory, setValuePropCategory] = useState<string>('customer_value');
+  const [isGeneratingValueProp, setIsGeneratingValueProp] = useState<boolean>(false);
+  const [generatedValuePropResult, setGeneratedValuePropResult] = useState<{
+    profile: string;
+    keyCharacteristics: string[];
+  } | null>(null);
+  const [valuePropSuccessMsg, setValuePropSuccessMsg] = useState<string>('');
+
+  // Pillar 6 Sales & Channel Strategy Playground States
+  const [salesChannelCategory, setSalesChannelCategory] = useState<string>('direct_sales_strategy');
+  const [isGeneratingSalesChannel, setIsGeneratingSalesChannel] = useState<boolean>(false);
+  const [generatedSalesChannelResult, setGeneratedSalesChannelResult] = useState<{
+    profile: string;
+    keyCharacteristics: string[];
+  } | null>(null);
+  const [salesChannelSuccessMsg, setSalesChannelSuccessMsg] = useState<string>('');
+
+  // Pillar 7 Marketing & Demand Generation Playground States
+  const [marketingDemandCategory, setMarketingDemandCategory] = useState<string>('demand_generation_program');
+  const [isGeneratingMarketingDemand, setIsGeneratingMarketingDemand] = useState<boolean>(false);
+  const [generatedMarketingDemandResult, setGeneratedMarketingDemandResult] = useState<{
+    profile: string;
+    keyCharacteristics: string[];
+  } | null>(null);
+  const [marketingDemandSuccessMsg, setMarketingDemandSuccessMsg] = useState<string>('');
+
+  // Pillar 8 Enablement & Execution Playground States
+  const [enablementExecutionCategory, setEnablementExecutionCategory] = useState<string>('shared_vision');
+  const [isGeneratingEnablementExecution, setIsGeneratingEnablementExecution] = useState<boolean>(false);
+  const [generatedEnablementExecutionResult, setGeneratedEnablementExecutionResult] = useState<{
+    profile: string;
+    keyCharacteristics: string[];
+  } | null>(null);
+  const [enablementExecutionSuccessMsg, setEnablementExecutionSuccessMsg] = useState<string>('');
 
   // Step 11 Pitch Playground States
   const [playgroundBuyerType, setPlaygroundBuyerType] = useState<string>('economic_buyer');
@@ -1089,6 +1143,277 @@ export function GTMOSModule() {
 
     setMessagingSuccessMsg('Added to Strategy Lines!');
     setTimeout(() => setMessagingSuccessMsg(''), 3000);
+  };
+
+  const handleRegenerateIcpProfile = async () => {
+    setIsGeneratingIcp(true);
+    setIcpSuccessMsg('');
+    try {
+      const data = await invokeGtmApi('generate-icp', {
+        onboardingData: currentProject.onboarding,
+        projectName: currentProject.title,
+        strategyDraft: currentProject.gtmStrategyDraft,
+        category: icpPlaygroundCategory
+      });
+      if (data) {
+        setGeneratedIcpResult(data);
+      }
+    } catch (err) {
+      console.error('Failed to generate ICP profile:', err);
+    } finally {
+      setIsGeneratingIcp(false);
+    }
+  };
+
+  const handleApplyIcpProfile = () => {
+    if (!generatedIcpResult) return;
+    
+    // Check if item already exists
+    const draft = { ...(currentProject.gtmStrategyDraft || {}) } as Record<string, string[]>;
+    const draftContent = draft['pillar_2_icp'] || [];
+    const formattedCategory = icpPlaygroundCategory.replace('_', ' ').toUpperCase();
+    const newItemText = `[${formattedCategory}] ${generatedIcpResult.profile}`;
+    
+    if (!draftContent.includes(newItemText)) {
+      draft['pillar_2_icp'] = [...draftContent, newItemText];
+      const nextList = projectsList.map(p => {
+        if (p.id === currentProjectId) return { ...p, gtmStrategyDraft: draft };
+        return p;
+      });
+      setProjectsList(nextList);
+      setSaveState('dirty');
+
+      setIcpSuccessMsg('ICP saved to draft lines.');
+      setTimeout(() => setIcpSuccessMsg(''), 3000);
+    } else {
+      setIcpSuccessMsg('Item already exists.');
+      setTimeout(() => setIcpSuccessMsg(''), 3000);
+    }
+  };
+
+  const handleRegenerateBuyerPersona = async () => {
+    setIsGeneratingBuyerPersona(true);
+    setBuyerPersonaSuccessMsg('');
+    try {
+      const data = await invokeGtmApi('generate-buyer-persona', {
+        onboardingData: currentProject.onboarding,
+        projectName: currentProject.title,
+        strategyDraft: currentProject.gtmStrategyDraft,
+        category: buyerPersonaCategory
+      });
+      if (data) {
+        setGeneratedBuyerPersonaResult(data);
+      }
+    } catch (err) {
+      console.error('Failed to generate Buyer Persona:', err);
+    } finally {
+      setIsGeneratingBuyerPersona(false);
+    }
+  };
+
+  const handleApplyBuyerPersona = () => {
+    if (!generatedBuyerPersonaResult) return;
+    
+    const draft = { ...(currentProject.gtmStrategyDraft || {}) } as Record<string, string[]>;
+    const draftContent = draft['pillar_3_buyer_personas'] || [];
+    const formattedCategory = buyerPersonaCategory.replace(/_/g, ' ').toUpperCase();
+    const newItemText = `[${formattedCategory}] ${generatedBuyerPersonaResult.profile}`;
+    
+    if (!draftContent.includes(newItemText)) {
+      draft['pillar_3_buyer_personas'] = [...draftContent, newItemText];
+      const nextList = projectsList.map(p => {
+        if (p.id === currentProjectId) return { ...p, gtmStrategyDraft: draft };
+        return p;
+      });
+      setProjectsList(nextList);
+      setSaveState('dirty');
+
+      setBuyerPersonaSuccessMsg('Buyer Persona saved to draft lines.');
+      setTimeout(() => setBuyerPersonaSuccessMsg(''), 3000);
+    } else {
+      setBuyerPersonaSuccessMsg('Item already exists.');
+      setTimeout(() => setBuyerPersonaSuccessMsg(''), 3000);
+    }
+  };
+
+  const handleRegenerateValueProp = async () => {
+    setIsGeneratingValueProp(true);
+    setValuePropSuccessMsg('');
+    try {
+      const data = await invokeGtmApi('generate-value-prop', {
+        onboardingData: currentProject.onboarding,
+        projectName: currentProject.title,
+        strategyDraft: currentProject.gtmStrategyDraft,
+        category: valuePropCategory
+      });
+      if (data) {
+        setGeneratedValuePropResult(data);
+      }
+    } catch (err) {
+      console.error('Failed to generate Value Proposition:', err);
+    } finally {
+      setIsGeneratingValueProp(false);
+    }
+  };
+
+  const handleApplyValueProp = () => {
+    if (!generatedValuePropResult) return;
+    
+    const draft = { ...(currentProject.gtmStrategyDraft || {}) } as Record<string, string[]>;
+    const draftContent = draft['pillar_4_value_proposition'] || [];
+    const formattedCategory = valuePropCategory.replace(/_/g, ' ').toUpperCase();
+    const newItemText = `[${formattedCategory}] ${generatedValuePropResult.profile}`;
+    
+    if (!draftContent.includes(newItemText)) {
+      draft['pillar_4_value_proposition'] = [...draftContent, newItemText];
+      const nextList = projectsList.map(p => {
+        if (p.id === currentProjectId) return { ...p, gtmStrategyDraft: draft };
+        return p;
+      });
+      setProjectsList(nextList);
+      setSaveState('dirty');
+
+      setValuePropSuccessMsg('Value Proposition saved to draft lines.');
+      setTimeout(() => setValuePropSuccessMsg(''), 3000);
+    } else {
+      setValuePropSuccessMsg('Item already exists.');
+      setTimeout(() => setValuePropSuccessMsg(''), 3000);
+    }
+  };
+
+  const handleRegenerateSalesChannel = async () => {
+    setIsGeneratingSalesChannel(true);
+    setSalesChannelSuccessMsg('');
+    try {
+      const data = await invokeGtmApi('generate-sales-channel', {
+        onboardingData: currentProject.onboarding,
+        projectName: currentProject.title,
+        strategyDraft: currentProject.gtmStrategyDraft,
+        category: salesChannelCategory
+      });
+      if (data) {
+        setGeneratedSalesChannelResult(data);
+      }
+    } catch (err) {
+      console.error('Failed to generate Sales & Channel Strategy:', err);
+    } finally {
+      setIsGeneratingSalesChannel(false);
+    }
+  };
+
+  const handleApplySalesChannel = () => {
+    if (!generatedSalesChannelResult) return;
+    
+    const draft = { ...(currentProject.gtmStrategyDraft || {}) } as Record<string, string[]>;
+    const draftContent = draft['pillar_6_sales_channel'] || [];
+    const formattedCategory = salesChannelCategory.replace(/_/g, ' ').toUpperCase();
+    const newItemText = `[${formattedCategory}] ${generatedSalesChannelResult.profile}`;
+    
+    if (!draftContent.includes(newItemText)) {
+      draft['pillar_6_sales_channel'] = [...draftContent, newItemText];
+      const nextList = projectsList.map(p => {
+        if (p.id === currentProjectId) return { ...p, gtmStrategyDraft: draft };
+        return p;
+      });
+      setProjectsList(nextList);
+      setSaveState('dirty');
+
+      setSalesChannelSuccessMsg('Sales & Channel Strategy saved to draft lines.');
+      setTimeout(() => setSalesChannelSuccessMsg(''), 3000);
+    } else {
+      setSalesChannelSuccessMsg('Item already exists.');
+      setTimeout(() => setSalesChannelSuccessMsg(''), 3000);
+    }
+  };
+
+  const handleRegenerateMarketingDemand = async () => {
+    setIsGeneratingMarketingDemand(true);
+    setMarketingDemandSuccessMsg('');
+    try {
+      const data = await invokeGtmApi('generate-marketing-demand', {
+        onboardingData: currentProject.onboarding,
+        projectName: currentProject.title,
+        strategyDraft: currentProject.gtmStrategyDraft,
+        category: marketingDemandCategory
+      });
+      if (data) {
+        setGeneratedMarketingDemandResult(data);
+      }
+    } catch (err) {
+      console.error('Failed to generate Marketing & Demand Gen Strategy:', err);
+    } finally {
+      setIsGeneratingMarketingDemand(false);
+    }
+  };
+
+  const handleApplyMarketingDemand = () => {
+    if (!generatedMarketingDemandResult) return;
+    
+    const draft = { ...(currentProject.gtmStrategyDraft || {}) } as Record<string, string[]>;
+    const draftContent = draft['pillar_7_marketing_demand'] || [];
+    const formattedCategory = marketingDemandCategory.replace(/_/g, ' ').toUpperCase();
+    const newItemText = `[${formattedCategory}] ${generatedMarketingDemandResult.profile}`;
+    
+    if (!draftContent.includes(newItemText)) {
+      draft['pillar_7_marketing_demand'] = [...draftContent, newItemText];
+      const nextList = projectsList.map(p => {
+        if (p.id === currentProjectId) return { ...p, gtmStrategyDraft: draft };
+        return p;
+      });
+      setProjectsList(nextList);
+      setSaveState('dirty');
+
+      setMarketingDemandSuccessMsg('Marketing & Demand Gen Strategy saved to draft lines.');
+      setTimeout(() => setMarketingDemandSuccessMsg(''), 3000);
+    } else {
+      setMarketingDemandSuccessMsg('Item already exists.');
+      setTimeout(() => setMarketingDemandSuccessMsg(''), 3000);
+    }
+  };
+
+  const handleRegenerateEnablementExecution = async () => {
+    setIsGeneratingEnablementExecution(true);
+    setEnablementExecutionSuccessMsg('');
+    try {
+      const data = await invokeGtmApi('generate-enablement-execution', {
+        onboardingData: currentProject.onboarding,
+        projectName: currentProject.title,
+        strategyDraft: currentProject.gtmStrategyDraft,
+        category: enablementExecutionCategory
+      });
+      if (data) {
+        setGeneratedEnablementExecutionResult(data);
+      }
+    } catch (err) {
+      console.error('Failed to generate Enablement & Execution Strategy:', err);
+    } finally {
+      setIsGeneratingEnablementExecution(false);
+    }
+  };
+
+  const handleApplyEnablementExecution = () => {
+    if (!generatedEnablementExecutionResult) return;
+    
+    const draft = { ...(currentProject.gtmStrategyDraft || {}) } as Record<string, string[]>;
+    const draftContent = draft['pillar_8_enablement_execution'] || [];
+    const formattedCategory = enablementExecutionCategory.replace(/_/g, ' ').toUpperCase();
+    const newItemText = `[${formattedCategory}] ${generatedEnablementExecutionResult.profile}`;
+    
+    if (!draftContent.includes(newItemText)) {
+      draft['pillar_8_enablement_execution'] = [...draftContent, newItemText];
+      const nextList = projectsList.map(p => {
+        if (p.id === currentProjectId) return { ...p, gtmStrategyDraft: draft };
+        return p;
+      });
+      setProjectsList(nextList);
+      setSaveState('dirty');
+
+      setEnablementExecutionSuccessMsg('Enablement & Execution Strategy saved to draft lines.');
+      setTimeout(() => setEnablementExecutionSuccessMsg(''), 3000);
+    } else {
+      setEnablementExecutionSuccessMsg('Item already exists.');
+      setTimeout(() => setEnablementExecutionSuccessMsg(''), 3000);
+    }
   };
 
   const handleRegeneratePlaygroundPitch = async () => {
@@ -2108,6 +2433,367 @@ export function GTMOSModule() {
                             </div>
                           )}
 
+                          {/* Interactive ICP Playground for Pillar 2 */}
+                          {selectedDraftPillar === 'pillar_2_icp' && (
+                            <div className="pt-4 sm:pt-6 border-t border-border/60 space-y-4">
+                              <div className="p-4 sm:p-5.5 rounded-2xl bg-accent/5 border border-accent/20 space-y-3 sm:space-y-4">
+                                {/* Title block */}
+                                <div className="flex items-start sm:items-center gap-2.5">
+                                  <Sparkles className="h-4 w-4 sm:h-5 sm:w-5 text-accent shrink-0 mt-0.5 sm:mt-0" />
+                                  <div>
+                                    <h4 className="text-[11px] sm:text-xs font-black text-accent uppercase tracking-wider">
+                                      ⚡ Cognitive ICP Playground
+                                    </h4>
+                                    <p className="text-[10px] sm:text-[11px] text-text-secondary leading-snug">
+                                      Dynamically synthesize Ideal Customer Profile parameters grounded directly in your finalized strategy lines.
+                                    </p>
+                                  </div>
+                                </div>
+
+                                <div className="grid grid-cols-1 gap-4">
+                                  {/* Category selector */}
+                                  <div className="space-y-1.5">
+                                    <label className="text-[10px] font-mono text-text-secondary uppercase font-bold pl-0.5">
+                                      ICP Parameter Category
+                                    </label>
+                                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5">
+                                      {[
+                                        { id: 'company_size', label: 'Company Size' },
+                                        { id: 'industry', label: 'Industry' },
+                                        { id: 'geography', label: 'Geography' },
+                                        { id: 'buying_triggers', label: 'Buying Triggers' },
+                                        { id: 'budget_characteristics', label: 'Budget Characteristics' },
+                                        { id: 'decision_structure', label: 'Decision Structure' }
+                                      ].map((cat) => (
+                                        <button
+                                          key={cat.id}
+                                          type="button"
+                                          onClick={() => setIcpPlaygroundCategory(cat.id)}
+                                          className={`px-3 py-2 rounded-xl text-[11px] font-bold border transition-all text-center select-none cursor-pointer ${
+                                            icpPlaygroundCategory === cat.id
+                                              ? 'bg-accent text-black border-accent'
+                                              : 'bg-bg-primary hover:bg-bg-primary/80 text-text-secondary hover:text-text-primary border-border'
+                                          }`}
+                                        >
+                                          {cat.label}
+                                        </button>
+                                      ))}
+                                    </div>
+                                  </div>
+                                </div>
+
+                                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pt-2 sm:pt-1 border-t border-border/30">
+                                  <span className="text-[8px] sm:text-[9px] font-mono text-text-secondary/60 block mb-2 sm:mb-0">
+                                    Grounded via gemini-3.1-flash-lite
+                                  </span>
+                                  <button
+                                    type="button"
+                                    onClick={handleRegenerateIcpProfile}
+                                    disabled={isGeneratingIcp}
+                                    className="w-full sm:w-auto px-4 sm:px-4.5 py-2 sm:py-2.5 bg-accent/20 border border-accent/30 hover:bg-accent hover:text-black hover:scale-[1.02] active:scale-95 transition-all text-accent text-[11px] sm:text-xs font-black rounded-xl select-none flex items-center justify-center gap-1.5 shrink-0"
+                                  >
+                                    {isGeneratingIcp ? (
+                                      <>
+                                        <Loader2 className="h-3.5 w-3.5 sm:h-4 sm:w-4 animate-spin" />
+                                        Synthesizing ICP...
+                                      </>
+                                    ) : (
+                                      <>
+                                        <Bot className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                                        Dynamically Regenerate ICP
+                                      </>
+                                    )}
+                                  </button>
+                                </div>
+
+                                {/* Generated output visual desk */}
+                                {generatedIcpResult && (
+                                  <div className="p-4 sm:p-4.5 rounded-xl bg-bg-primary/60 border border-border/80 space-y-3.5 sm:space-y-4.5 text-left transition-all duration-300">
+                                    <div className="space-y-3">
+                                      <div>
+                                        <h5 className="text-[10px] font-mono text-accent mb-1.5 uppercase font-bold">Generated {icpPlaygroundCategory.replace('_', ' ')} Profile</h5>
+                                        <p className="text-xs sm:text-sm text-text-primary leading-relaxed bg-bg-surface p-2.5 sm:p-3 rounded-lg border border-border/50">
+                                          {generatedIcpResult.profile}
+                                        </p>
+                                      </div>
+                                      
+                                      {generatedIcpResult.keyCharacteristics && generatedIcpResult.keyCharacteristics.length > 0 && (
+                                        <div>
+                                          <h5 className="text-[10px] font-mono text-text-secondary mb-1.5 uppercase font-bold">Key Characteristics</h5>
+                                          <ul className="text-[11px] sm:text-xs text-text-secondary space-y-1 sm:space-y-1.5 list-disc pl-4">
+                                            {generatedIcpResult.keyCharacteristics.map((point, idx) => (
+                                              <li key={idx} className="pl-1 leading-snug">{point}</li>
+                                            ))}
+                                          </ul>
+                                        </div>
+                                      )}
+                                    </div>
+                                    
+                                    <div className="pt-3 sm:pt-2.5 border-t border-border/30 flex flex-col sm:flex-row items-center justify-end gap-3">
+                                      <div className="flex flex-col sm:flex-row items-center gap-2 sm:gap-2.5 w-full sm:w-auto">
+                                        {icpSuccessMsg && (
+                                          <span className="text-[10px] sm:text-[11px] text-[#00F090] font-bold animate-pulse text-center w-full sm:w-auto">
+                                            {icpSuccessMsg}
+                                          </span>
+                                        )}
+                                        <button
+                                          type="button"
+                                          onClick={handleApplyIcpProfile}
+                                          className="w-full sm:w-auto px-4 py-2 bg-[#00F090]/15 border border-[#00F090]/30 hover:bg-[#00F090] text-[#00F090] hover:text-black text-[11px] sm:text-xs font-black rounded-xl transition-all select-none flex items-center justify-center gap-1 shadow-lg shadow-[#00F090]/5"
+                                        >
+                                          <Check className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                                          Apply to Strategy Lines list
+                                        </button>
+                                      </div>
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Interactive Buyer Persona Playground for Pillar 3 */}
+                          {selectedDraftPillar === 'pillar_3_buyer_personas' && (
+                            <div className="pt-4 sm:pt-6 border-t border-border/60 space-y-4">
+                              <div className="p-4 sm:p-5.5 rounded-2xl bg-accent/5 border border-accent/20 space-y-3 sm:space-y-4">
+                                {/* Title block */}
+                                <div className="flex items-start sm:items-center gap-2.5">
+                                  <Sparkles className="h-4 w-4 sm:h-5 sm:w-5 text-accent shrink-0 mt-0.5 sm:mt-0" />
+                                  <div>
+                                    <h4 className="text-[11px] sm:text-xs font-black text-accent uppercase tracking-wider">
+                                      ⚡ Cognitive Buyer Persona Playground
+                                    </h4>
+                                    <p className="text-[10px] sm:text-[11px] text-text-secondary leading-snug">
+                                      Dynamically synthesize buyer persona strategies grounded directly in your finalized strategy lines.
+                                    </p>
+                                  </div>
+                                </div>
+
+                                <div className="grid grid-cols-1 gap-4">
+                                  {/* Category selector */}
+                                  <div className="space-y-1.5">
+                                    <label className="text-[10px] font-mono text-text-secondary uppercase font-bold pl-0.5">
+                                      Buyer Persona Category
+                                    </label>
+                                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
+                                      {[
+                                        { id: 'economic_buyers', label: 'Economic Buyers' },
+                                        { id: 'technical_buyers', label: 'Technical Buyers' },
+                                        { id: 'business_buyers', label: 'Business Buyers' },
+                                        { id: 'influencers', label: 'Influencers' },
+                                        { id: 'pain_point', label: 'Pain Point' },
+                                        { id: 'success_metrics', label: 'Success Metrics' },
+                                        { id: 'ceo', label: 'CEO' },
+                                        { id: 'cfo', label: 'CFO' },
+                                        { id: 'coo', label: 'COO' },
+                                        { id: 'cto', label: 'CTO' },
+                                        { id: 'cro', label: 'CRO' }
+                                      ].map((cat) => (
+                                        <button
+                                          key={cat.id}
+                                          type="button"
+                                          onClick={() => setBuyerPersonaCategory(cat.id)}
+                                          className={`px-3 py-2 rounded-xl text-[11px] font-bold border transition-all text-center select-none cursor-pointer ${
+                                            buyerPersonaCategory === cat.id
+                                              ? 'bg-accent text-black border-accent'
+                                              : 'bg-bg-primary hover:bg-bg-primary/80 text-text-secondary hover:text-text-primary border-border'
+                                          }`}
+                                        >
+                                          {cat.label}
+                                        </button>
+                                      ))}
+                                    </div>
+                                  </div>
+                                </div>
+
+                                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pt-2 sm:pt-1 border-t border-border/30">
+                                  <span className="text-[8px] sm:text-[9px] font-mono text-text-secondary/60 block mb-2 sm:mb-0">
+                                    Grounded via gemini-3.1-flash-lite
+                                  </span>
+                                  <button
+                                    type="button"
+                                    onClick={handleRegenerateBuyerPersona}
+                                    disabled={isGeneratingBuyerPersona}
+                                    className="w-full sm:w-auto px-4 sm:px-4.5 py-2 sm:py-2.5 bg-accent/20 border border-accent/30 hover:bg-accent hover:text-black hover:scale-[1.02] active:scale-95 transition-all text-accent text-[11px] sm:text-xs font-black rounded-xl select-none flex items-center justify-center gap-1.5 shrink-0"
+                                  >
+                                    {isGeneratingBuyerPersona ? (
+                                      <>
+                                        <Loader2 className="h-3.5 w-3.5 sm:h-4 sm:w-4 animate-spin" />
+                                        Synthesizing Persona...
+                                      </>
+                                    ) : (
+                                      <>
+                                        <Bot className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                                        Dynamically Regenerate Persona
+                                      </>
+                                    )}
+                                  </button>
+                                </div>
+
+                                {/* Generated output visual desk */}
+                                {generatedBuyerPersonaResult && (
+                                  <div className="p-4 sm:p-4.5 rounded-xl bg-bg-primary/60 border border-border/80 space-y-3.5 sm:space-y-4.5 text-left transition-all duration-300">
+                                    <div className="space-y-3">
+                                      <div>
+                                        <h5 className="text-[10px] font-mono text-accent mb-1.5 uppercase font-bold">Generated {buyerPersonaCategory.replace(/_/g, ' ')} Profile</h5>
+                                        <p className="text-xs sm:text-sm text-text-primary leading-relaxed bg-bg-surface p-2.5 sm:p-3 rounded-lg border border-border/50">
+                                          {generatedBuyerPersonaResult.profile}
+                                        </p>
+                                      </div>
+                                      
+                                      {generatedBuyerPersonaResult.keyCharacteristics && generatedBuyerPersonaResult.keyCharacteristics.length > 0 && (
+                                        <div>
+                                          <h5 className="text-[10px] font-mono text-text-secondary mb-1.5 uppercase font-bold">Key Characteristics</h5>
+                                          <ul className="text-[11px] sm:text-xs text-text-secondary space-y-1 sm:space-y-1.5 list-disc pl-4">
+                                            {generatedBuyerPersonaResult.keyCharacteristics.map((point, idx) => (
+                                              <li key={idx} className="pl-1 leading-snug">{point}</li>
+                                            ))}
+                                          </ul>
+                                        </div>
+                                      )}
+                                    </div>
+                                    
+                                    <div className="pt-3 sm:pt-2.5 border-t border-border/30 flex flex-col sm:flex-row items-center justify-end gap-3">
+                                      <div className="flex flex-col sm:flex-row items-center gap-2 sm:gap-2.5 w-full sm:w-auto">
+                                        {buyerPersonaSuccessMsg && (
+                                          <span className="text-[10px] sm:text-[11px] text-[#00F090] font-bold animate-pulse text-center w-full sm:w-auto">
+                                            {buyerPersonaSuccessMsg}
+                                          </span>
+                                        )}
+                                        <button
+                                          type="button"
+                                          onClick={handleApplyBuyerPersona}
+                                          className="w-full sm:w-auto px-4 py-2 bg-[#00F090]/15 border border-[#00F090]/30 hover:bg-[#00F090] text-[#00F090] hover:text-black text-[11px] sm:text-xs font-black rounded-xl transition-all select-none flex items-center justify-center gap-1 shadow-lg shadow-[#00F090]/5"
+                                        >
+                                          <Check className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                                          Apply to Strategy Lines list
+                                        </button>
+                                      </div>
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Interactive Value Proposition Playground for Pillar 4 */}
+                          {selectedDraftPillar === 'pillar_4_value_proposition' && (
+                            <div className="pt-4 sm:pt-6 border-t border-border/60 space-y-4">
+                              <div className="p-4 sm:p-5.5 rounded-2xl bg-accent/5 border border-accent/20 space-y-3 sm:space-y-4">
+                                {/* Title block */}
+                                <div className="flex items-start sm:items-center gap-2.5">
+                                  <Sparkles className="h-4 w-4 sm:h-5 sm:w-5 text-accent shrink-0 mt-0.5 sm:mt-0" />
+                                  <div>
+                                    <h4 className="text-[11px] sm:text-xs font-black text-accent uppercase tracking-wider">
+                                      ⚡ Cognitive Value Proposition Playground
+                                    </h4>
+                                    <p className="text-[10px] sm:text-[11px] text-text-secondary leading-snug">
+                                      Dynamically synthesize value proposition strategies grounded directly in your finalized strategy lines.
+                                    </p>
+                                  </div>
+                                </div>
+
+                                <div className="grid grid-cols-1 gap-4">
+                                  {/* Category selector */}
+                                  <div className="space-y-1.5">
+                                    <label className="text-[10px] font-mono text-text-secondary uppercase font-bold pl-0.5">
+                                      Value Proposition Category
+                                    </label>
+                                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5">
+                                      {[
+                                        { id: 'customer_value', label: 'Customer Value' },
+                                        { id: 'business_outcomes', label: 'Business Outcomes' },
+                                        { id: 'differentiation', label: 'Differentiation' },
+                                        { id: 'competitive_advantages', label: 'Competitive Advantages' },
+                                        { id: 'roi_statements', label: 'ROI Statements' }
+                                      ].map((cat) => (
+                                        <button
+                                          key={cat.id}
+                                          type="button"
+                                          onClick={() => setValuePropCategory(cat.id)}
+                                          className={`px-3 py-2 rounded-xl text-[11px] font-bold border transition-all text-center select-none cursor-pointer ${
+                                            valuePropCategory === cat.id
+                                              ? 'bg-accent text-black border-accent'
+                                              : 'bg-bg-primary hover:bg-bg-primary/80 text-text-secondary hover:text-text-primary border-border'
+                                          }`}
+                                        >
+                                          {cat.label}
+                                        </button>
+                                      ))}
+                                    </div>
+                                  </div>
+                                </div>
+
+                                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pt-2 sm:pt-1 border-t border-border/30">
+                                  <span className="text-[8px] sm:text-[9px] font-mono text-text-secondary/60 block mb-2 sm:mb-0">
+                                    Grounded via gemini-3.1-flash-lite
+                                  </span>
+                                  <button
+                                    type="button"
+                                    onClick={handleRegenerateValueProp}
+                                    disabled={isGeneratingValueProp}
+                                    className="w-full sm:w-auto px-4 sm:px-4.5 py-2 sm:py-2.5 bg-accent/20 border border-accent/30 hover:bg-accent hover:text-black hover:scale-[1.02] active:scale-95 transition-all text-accent text-[11px] sm:text-xs font-black rounded-xl select-none flex items-center justify-center gap-1.5 shrink-0"
+                                  >
+                                    {isGeneratingValueProp ? (
+                                      <>
+                                        <Loader2 className="h-3.5 w-3.5 sm:h-4 sm:w-4 animate-spin" />
+                                        Synthesizing Value Prop...
+                                      </>
+                                    ) : (
+                                      <>
+                                        <Bot className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                                        Dynamically Regenerate Value Prop
+                                      </>
+                                    )}
+                                  </button>
+                                </div>
+
+                                {/* Generated output visual desk */}
+                                {generatedValuePropResult && (
+                                  <div className="p-4 sm:p-4.5 rounded-xl bg-bg-primary/60 border border-border/80 space-y-3.5 sm:space-y-4.5 text-left transition-all duration-300">
+                                    <div className="space-y-3">
+                                      <div>
+                                        <h5 className="text-[10px] font-mono text-accent mb-1.5 uppercase font-bold">Generated {valuePropCategory.replace(/_/g, ' ')} Strategy</h5>
+                                        <p className="text-xs sm:text-sm text-text-primary leading-relaxed bg-bg-surface p-2.5 sm:p-3 rounded-lg border border-border/50">
+                                          {generatedValuePropResult.profile}
+                                        </p>
+                                      </div>
+                                      
+                                      {generatedValuePropResult.keyCharacteristics && generatedValuePropResult.keyCharacteristics.length > 0 && (
+                                        <div>
+                                          <h5 className="text-[10px] font-mono text-text-secondary mb-1.5 uppercase font-bold">Key Characteristics</h5>
+                                          <ul className="text-[11px] sm:text-xs text-text-secondary space-y-1 sm:space-y-1.5 list-disc pl-4">
+                                            {generatedValuePropResult.keyCharacteristics.map((point, idx) => (
+                                              <li key={idx} className="pl-1 leading-snug">{point}</li>
+                                            ))}
+                                          </ul>
+                                        </div>
+                                      )}
+                                    </div>
+                                    
+                                    <div className="pt-3 sm:pt-2.5 border-t border-border/30 flex flex-col sm:flex-row items-center justify-end gap-3">
+                                      <div className="flex flex-col sm:flex-row items-center gap-2 sm:gap-2.5 w-full sm:w-auto">
+                                        {valuePropSuccessMsg && (
+                                          <span className="text-[10px] sm:text-[11px] text-[#00F090] font-bold animate-pulse text-center w-full sm:w-auto">
+                                            {valuePropSuccessMsg}
+                                          </span>
+                                        )}
+                                        <button
+                                          type="button"
+                                          onClick={handleApplyValueProp}
+                                          className="w-full sm:w-auto px-4 py-2 bg-[#00F090]/15 border border-[#00F090]/30 hover:bg-[#00F090] text-[#00F090] hover:text-black text-[11px] sm:text-xs font-black rounded-xl transition-all select-none flex items-center justify-center gap-1 shadow-lg shadow-[#00F090]/5"
+                                        >
+                                          <Check className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                                          Apply to Strategy Lines list
+                                        </button>
+                                      </div>
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          )}
+
                           {/* Interactive Messaging Playground for Pillar 5 */}
                           {selectedDraftPillar === 'pillar_5_messaging_positioning' && (
                             <div className="pt-6 border-t border-border/60 space-y-4">
@@ -2225,9 +2911,362 @@ export function GTMOSModule() {
                             </div>
                           )}
 
+                          {/* Interactive Sales & Channel Strategy Playground for Pillar 6 */}
+                          {selectedDraftPillar === 'pillar_6_sales_channel' && (
+                            <div className="pt-4 sm:pt-6 border-t border-border/60 space-y-4">
+                              <div className="p-4 sm:p-5.5 rounded-2xl bg-accent/5 border border-accent/20 space-y-3 sm:space-y-4">
+                                {/* Title block */}
+                                <div className="flex items-start sm:items-center gap-2.5">
+                                  <Sparkles className="h-4 w-4 sm:h-5 sm:w-5 text-accent shrink-0 mt-0.5 sm:mt-0" />
+                                  <div>
+                                    <h4 className="text-[11px] sm:text-xs font-black text-accent uppercase tracking-wider">
+                                      ⚡ Sales & Channel Strategy Playground
+                                    </h4>
+                                    <p className="text-[10px] sm:text-[11px] text-text-secondary leading-snug">
+                                      Dynamically synthesize sales and channel strategies grounded directly in your finalized strategy lines.
+                                    </p>
+                                  </div>
+                                </div>
+
+                                <div className="grid grid-cols-1 gap-4">
+                                  {/* Category selector */}
+                                  <div className="space-y-1.5">
+                                    <label className="text-[10px] font-mono text-text-secondary uppercase font-bold pl-0.5">
+                                      Strategy Category
+                                    </label>
+                                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5">
+                                      {[
+                                        { id: 'direct_sales_strategy', label: 'Direct Sales Strategy' },
+                                        { id: 'partner_strategy', label: 'Partner Strategy' },
+                                        { id: 'distributor_strategy', label: 'Distributor Strategy' },
+                                        { id: 'digital_strategy', label: 'Digital Strategy' },
+                                        { id: 'hybrid_revenue_motion', label: 'Hybrid Revenue Motion' }
+                                      ].map((cat) => (
+                                        <button
+                                          key={cat.id}
+                                          type="button"
+                                          onClick={() => setSalesChannelCategory(cat.id)}
+                                          className={`px-3 py-2 rounded-xl text-[11px] font-bold border transition-all text-center select-none cursor-pointer ${
+                                            salesChannelCategory === cat.id
+                                              ? 'bg-accent text-black border-accent'
+                                              : 'bg-bg-primary hover:bg-bg-primary/80 text-text-secondary hover:text-text-primary border-border'
+                                          }`}
+                                        >
+                                          {cat.label}
+                                        </button>
+                                      ))}
+                                    </div>
+                                  </div>
+                                </div>
+
+                                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pt-2 sm:pt-1 border-t border-border/30">
+                                  <span className="text-[8px] sm:text-[9px] font-mono text-text-secondary/60 block mb-2 sm:mb-0">
+                                    Grounded via gemini-3.1-flash-lite
+                                  </span>
+                                  <button
+                                    type="button"
+                                    onClick={handleRegenerateSalesChannel}
+                                    disabled={isGeneratingSalesChannel}
+                                    className="w-full sm:w-auto px-4 sm:px-4.5 py-2 sm:py-2.5 bg-accent/20 border border-accent/30 hover:bg-accent hover:text-black hover:scale-[1.02] active:scale-95 transition-all text-accent text-[11px] sm:text-xs font-black rounded-xl select-none flex items-center justify-center gap-1.5 shrink-0"
+                                  >
+                                    {isGeneratingSalesChannel ? (
+                                      <>
+                                        <Loader2 className="h-3.5 w-3.5 sm:h-4 sm:w-4 animate-spin" />
+                                        Synthesizing Strategy...
+                                      </>
+                                    ) : (
+                                      <>
+                                        <Bot className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                                        Dynamically Regenerate Strategy
+                                      </>
+                                    )}
+                                  </button>
+                                </div>
+
+                                {/* Generated output visual desk */}
+                                {generatedSalesChannelResult && (
+                                  <div className="p-4 sm:p-4.5 rounded-xl bg-bg-primary/60 border border-border/80 space-y-3.5 sm:space-y-4.5 text-left transition-all duration-300">
+                                    <div className="space-y-3">
+                                      <div>
+                                        <h5 className="text-[10px] font-mono text-accent mb-1.5 uppercase font-bold">Generated {salesChannelCategory.replace(/_/g, ' ')} Strategy</h5>
+                                        <p className="text-xs sm:text-sm text-text-primary leading-relaxed bg-bg-surface p-2.5 sm:p-3 rounded-lg border border-border/50">
+                                          {generatedSalesChannelResult.profile}
+                                        </p>
+                                      </div>
+                                      
+                                      {generatedSalesChannelResult.keyCharacteristics && generatedSalesChannelResult.keyCharacteristics.length > 0 && (
+                                        <div>
+                                          <h5 className="text-[10px] font-mono text-text-secondary mb-1.5 uppercase font-bold">Key Characteristics</h5>
+                                          <ul className="text-[11px] sm:text-xs text-text-secondary space-y-1 sm:space-y-1.5 list-disc pl-4">
+                                            {generatedSalesChannelResult.keyCharacteristics.map((point, idx) => (
+                                              <li key={idx} className="pl-1 leading-snug">{point}</li>
+                                            ))}
+                                          </ul>
+                                        </div>
+                                      )}
+                                    </div>
+                                    
+                                    <div className="pt-3 sm:pt-2.5 border-t border-border/30 flex flex-col sm:flex-row items-center justify-end gap-3">
+                                      <div className="flex flex-col sm:flex-row items-center gap-2 sm:gap-2.5 w-full sm:w-auto">
+                                        {salesChannelSuccessMsg && (
+                                          <span className="text-[10px] sm:text-[11px] text-[#00F090] font-bold animate-pulse text-center w-full sm:w-auto">
+                                            {salesChannelSuccessMsg}
+                                          </span>
+                                        )}
+                                        <button
+                                          type="button"
+                                          onClick={handleApplySalesChannel}
+                                          className="w-full sm:w-auto px-4 py-2 bg-[#00F090]/15 border border-[#00F090]/30 hover:bg-[#00F090] text-[#00F090] hover:text-black text-[11px] sm:text-xs font-black rounded-xl transition-all select-none flex items-center justify-center gap-1 shadow-lg shadow-[#00F090]/5"
+                                        >
+                                          <Check className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                                          Apply to Strategy Lines list
+                                        </button>
+                                      </div>
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Interactive Marketing & Demand Gen Playground for Pillar 7 */}
+                          {selectedDraftPillar === 'pillar_7_marketing_demand' && (
+                            <div className="pt-4 sm:pt-6 border-t border-border/60 space-y-4">
+                              <div className="p-4 sm:p-5.5 rounded-2xl bg-accent/5 border border-accent/20 space-y-3 sm:space-y-4">
+                                {/* Title block */}
+                                <div className="flex items-start sm:items-center gap-2.5">
+                                  <Sparkles className="h-4 w-4 sm:h-5 sm:w-5 text-accent shrink-0 mt-0.5 sm:mt-0" />
+                                  <div>
+                                    <h4 className="text-[11px] sm:text-xs font-black text-accent uppercase tracking-wider">
+                                      ⚡ Marketing & Demand Gen Playground
+                                    </h4>
+                                    <p className="text-[10px] sm:text-[11px] text-text-secondary leading-snug">
+                                      Dynamically synthesize marketing and demand generation strategies grounded directly in your finalized strategy lines.
+                                    </p>
+                                  </div>
+                                </div>
+
+                                <div className="grid grid-cols-1 gap-4">
+                                  {/* Category selector */}
+                                  <div className="space-y-1.5">
+                                    <label className="text-[10px] font-mono text-text-secondary uppercase font-bold pl-0.5">
+                                      Strategy Category
+                                    </label>
+                                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5">
+                                      {[
+                                        { id: 'demand_generation_program', label: 'Demand Generation Program' },
+                                        { id: 'campaign_strategy', label: 'Campaign Strategy' },
+                                        { id: 'content_strategy', label: 'Content Strategy' },
+                                        { id: 'digital_marketing_strategy', label: 'Digital Marketing Strategy' },
+                                        { id: 'lead_generation_strategy', label: 'Lead Generation Strategy' },
+                                        { id: 'outbound_campaign_strategy', label: 'Outbound Campaign Strategy' },
+                                        { id: 'account_based_marketing_campaign_strategy', label: 'Account-Based Marketing Campaign Strategy' }
+                                      ].map((cat) => (
+                                        <button
+                                          key={cat.id}
+                                          type="button"
+                                          onClick={() => setMarketingDemandCategory(cat.id)}
+                                          className={`px-3 py-2 rounded-xl text-[11px] font-bold border transition-all text-center select-none cursor-pointer ${
+                                            marketingDemandCategory === cat.id
+                                              ? 'bg-accent text-black border-accent'
+                                              : 'bg-bg-primary hover:bg-bg-primary/80 text-text-secondary hover:text-text-primary border-border'
+                                          }`}
+                                        >
+                                          {cat.label}
+                                        </button>
+                                      ))}
+                                    </div>
+                                  </div>
+                                </div>
+
+                                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pt-2 sm:pt-1 border-t border-border/30">
+                                  <span className="text-[8px] sm:text-[9px] font-mono text-text-secondary/60 block mb-2 sm:mb-0">
+                                    Grounded via gemini-3.1-flash-lite
+                                  </span>
+                                  <button
+                                    type="button"
+                                    onClick={handleRegenerateMarketingDemand}
+                                    disabled={isGeneratingMarketingDemand}
+                                    className="w-full sm:w-auto px-4 sm:px-4.5 py-2 sm:py-2.5 bg-accent/20 border border-accent/30 hover:bg-accent hover:text-black hover:scale-[1.02] active:scale-95 transition-all text-accent text-[11px] sm:text-xs font-black rounded-xl select-none flex items-center justify-center gap-1.5 shrink-0"
+                                  >
+                                    {isGeneratingMarketingDemand ? (
+                                      <>
+                                        <Loader2 className="h-3.5 w-3.5 sm:h-4 sm:w-4 animate-spin" />
+                                        Synthesizing Strategy...
+                                      </>
+                                    ) : (
+                                      <>
+                                        <Bot className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                                        Dynamically Regenerate Strategy
+                                      </>
+                                    )}
+                                  </button>
+                                </div>
+
+                                {/* Generated output visual desk */}
+                                {generatedMarketingDemandResult && (
+                                  <div className="p-4 sm:p-4.5 rounded-xl bg-bg-primary/60 border border-border/80 space-y-3.5 sm:space-y-4.5 text-left transition-all duration-300">
+                                    <div className="space-y-3">
+                                      <div>
+                                        <h5 className="text-[10px] font-mono text-accent mb-1.5 uppercase font-bold">Generated {marketingDemandCategory.replace(/_/g, ' ')} Strategy</h5>
+                                        <p className="text-xs sm:text-sm text-text-primary leading-relaxed bg-bg-surface p-2.5 sm:p-3 rounded-lg border border-border/50">
+                                          {generatedMarketingDemandResult.profile}
+                                        </p>
+                                      </div>
+                                      
+                                      {generatedMarketingDemandResult.keyCharacteristics && generatedMarketingDemandResult.keyCharacteristics.length > 0 && (
+                                        <div>
+                                          <h5 className="text-[10px] font-mono text-text-secondary mb-1.5 uppercase font-bold">Key Characteristics</h5>
+                                          <ul className="text-[11px] sm:text-xs text-text-secondary space-y-1 sm:space-y-1.5 list-disc pl-4">
+                                            {generatedMarketingDemandResult.keyCharacteristics.map((point, idx) => (
+                                              <li key={idx} className="pl-1 leading-snug">{point}</li>
+                                            ))}
+                                          </ul>
+                                        </div>
+                                      )}
+                                    </div>
+                                    
+                                    <div className="pt-3 sm:pt-2.5 border-t border-border/30 flex flex-col sm:flex-row items-center justify-end gap-3">
+                                      <div className="flex flex-col sm:flex-row items-center gap-2 sm:gap-2.5 w-full sm:w-auto">
+                                        {marketingDemandSuccessMsg && (
+                                          <span className="text-[10px] sm:text-[11px] text-[#00F090] font-bold animate-pulse text-center w-full sm:w-auto">
+                                            {marketingDemandSuccessMsg}
+                                          </span>
+                                        )}
+                                        <button
+                                          type="button"
+                                          onClick={handleApplyMarketingDemand}
+                                          className="w-full sm:w-auto px-4 py-2 bg-[#00F090]/15 border border-[#00F090]/30 hover:bg-[#00F090] text-[#00F090] hover:text-black text-[11px] sm:text-xs font-black rounded-xl transition-all select-none flex items-center justify-center gap-1 shadow-lg shadow-[#00F090]/5"
+                                        >
+                                          <Check className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                                          Apply to Strategy Lines list
+                                        </button>
+                                      </div>
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          )}
+
                           {/* Interactive Cognitive Pitch Playground for Pillar 8 */}
                           {selectedDraftPillar === 'pillar_8_enablement_execution' && (
-                            <div className="pt-6 border-t border-border/60 space-y-4">
+                            <div className="pt-6 border-t border-border/60 space-y-6">
+                              {/* Interactive Enablement & Execution Strategy Playground */}
+                              <div className="p-4 sm:p-5.5 rounded-2xl bg-accent/5 border border-accent/20 space-y-3 sm:space-y-4">
+                                {/* Title block */}
+                                <div className="flex items-start sm:items-center gap-2.5">
+                                  <Sparkles className="h-4 w-4 sm:h-5 sm:w-5 text-accent shrink-0 mt-0.5 sm:mt-0" />
+                                  <div>
+                                    <h4 className="text-[11px] sm:text-xs font-black text-accent uppercase tracking-wider">
+                                      ⚡ Enablement & Execution Playground
+                                    </h4>
+                                    <p className="text-[10px] sm:text-[11px] text-text-secondary leading-snug">
+                                      Dynamically synthesize enablement and execution strategies grounded directly in your finalized strategy lines.
+                                    </p>
+                                  </div>
+                                </div>
+
+                                <div className="grid grid-cols-1 gap-4">
+                                  {/* Category selector */}
+                                  <div className="space-y-1.5">
+                                    <label className="text-[10px] font-mono text-text-secondary uppercase font-bold pl-0.5">
+                                      Strategy Category
+                                    </label>
+                                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5">
+                                      {[
+                                        { id: 'shared_vision', label: 'Shared Vision' },
+                                        { id: 'sales_playbooks', label: 'Sales Playbooks' },
+                                        { id: 'enablement_plans', label: 'Enablement Plans' },
+                                        { id: 'training_program', label: 'Training Program' },
+                                        { id: 'execution_frameworks', label: 'Execution Frameworks' },
+                                        { id: 'operational_readiness', label: 'Operational Readiness' }
+                                      ].map((cat) => (
+                                        <button
+                                          key={cat.id}
+                                          type="button"
+                                          onClick={() => setEnablementExecutionCategory(cat.id)}
+                                          className={`px-3 py-2 rounded-xl text-[11px] font-bold border transition-all text-center select-none cursor-pointer ${
+                                            enablementExecutionCategory === cat.id
+                                              ? 'bg-accent text-black border-accent'
+                                              : 'bg-bg-primary hover:bg-bg-primary/80 text-text-secondary hover:text-text-primary border-border'
+                                          }`}
+                                        >
+                                          {cat.label}
+                                        </button>
+                                      ))}
+                                    </div>
+                                  </div>
+                                </div>
+
+                                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pt-2 sm:pt-1 border-t border-border/30">
+                                  <span className="text-[8px] sm:text-[9px] font-mono text-text-secondary/60 block mb-2 sm:mb-0">
+                                    Grounded via gemini-3.1-flash-lite
+                                  </span>
+                                  <button
+                                    type="button"
+                                    onClick={handleRegenerateEnablementExecution}
+                                    disabled={isGeneratingEnablementExecution}
+                                    className="w-full sm:w-auto px-4 sm:px-4.5 py-2 sm:py-2.5 bg-accent/20 border border-accent/30 hover:bg-accent hover:text-black hover:scale-[1.02] active:scale-95 transition-all text-accent text-[11px] sm:text-xs font-black rounded-xl select-none flex items-center justify-center gap-1.5 shrink-0"
+                                  >
+                                    {isGeneratingEnablementExecution ? (
+                                      <>
+                                        <Loader2 className="h-3.5 w-3.5 sm:h-4 sm:w-4 animate-spin" />
+                                        Synthesizing Strategy...
+                                      </>
+                                    ) : (
+                                      <>
+                                        <Bot className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                                        Dynamically Regenerate Strategy
+                                      </>
+                                    )}
+                                  </button>
+                                </div>
+
+                                {/* Generated output visual desk */}
+                                {generatedEnablementExecutionResult && (
+                                  <div className="p-4 sm:p-4.5 rounded-xl bg-bg-primary/60 border border-border/80 space-y-3.5 sm:space-y-4.5 text-left transition-all duration-300">
+                                    <div className="space-y-3">
+                                      <div>
+                                        <h5 className="text-[10px] font-mono text-accent mb-1.5 uppercase font-bold">Generated {enablementExecutionCategory.replace(/_/g, ' ')} Strategy</h5>
+                                        <p className="text-xs sm:text-sm text-text-primary leading-relaxed bg-bg-surface p-2.5 sm:p-3 rounded-lg border border-border/50">
+                                          {generatedEnablementExecutionResult.profile}
+                                        </p>
+                                      </div>
+                                      
+                                      {generatedEnablementExecutionResult.keyCharacteristics && generatedEnablementExecutionResult.keyCharacteristics.length > 0 && (
+                                        <div>
+                                          <h5 className="text-[10px] font-mono text-text-secondary mb-1.5 uppercase font-bold">Key Characteristics</h5>
+                                          <ul className="text-[11px] sm:text-xs text-text-secondary space-y-1 sm:space-y-1.5 list-disc pl-4">
+                                            {generatedEnablementExecutionResult.keyCharacteristics.map((point, idx) => (
+                                              <li key={idx} className="pl-1 leading-snug">{point}</li>
+                                            ))}
+                                          </ul>
+                                        </div>
+                                      )}
+                                    </div>
+                                    
+                                    <div className="pt-3 sm:pt-2.5 border-t border-border/30 flex flex-col sm:flex-row items-center justify-end gap-3">
+                                      <div className="flex flex-col sm:flex-row items-center gap-2 sm:gap-2.5 w-full sm:w-auto">
+                                        {enablementExecutionSuccessMsg && (
+                                          <span className="text-[10px] sm:text-[11px] text-[#00F090] font-bold animate-pulse text-center w-full sm:w-auto">
+                                            {enablementExecutionSuccessMsg}
+                                          </span>
+                                        )}
+                                        <button
+                                          type="button"
+                                          onClick={handleApplyEnablementExecution}
+                                          className="w-full sm:w-auto px-4 py-2 bg-[#00F090]/15 border border-[#00F090]/30 hover:bg-[#00F090] text-[#00F090] hover:text-black text-[11px] sm:text-xs font-black rounded-xl transition-all select-none flex items-center justify-center gap-1 shadow-lg shadow-[#00F090]/5"
+                                        >
+                                          <Check className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                                          Apply to Strategy Lines list
+                                        </button>
+                                      </div>
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+
                               <div className="p-5.5 rounded-2xl bg-accent/5 border border-accent/20 space-y-4">
                                 {/* Title block */}
                                 <div className="flex items-center gap-2">
