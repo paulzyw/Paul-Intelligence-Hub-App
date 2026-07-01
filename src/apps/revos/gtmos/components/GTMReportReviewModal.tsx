@@ -64,6 +64,12 @@ export const GTMReportReviewModal: React.FC<Props> = ({ project, onClose }) => {
     <AnimatePresence>
       <div id="gtmos-print-root" className="fixed inset-0 z-50 flex bg-bg-primary/95 backdrop-blur-sm print:static print:block print:bg-white print:z-auto print:inset-auto print:w-full print:h-auto">
         
+        {/* Running Footer for Print - Top Level */}
+        <div className="hidden print:flex print-fixed-footer">
+          <span className="text-[9px] font-mono text-slate-400 uppercase tracking-widest font-bold flex-1 text-left">RevOS GTMOS Report System</span>
+          <span className="text-[9px] font-mono text-slate-400 uppercase tracking-widest font-bold flex-1 text-right">Internal / Confidential</span>
+        </div>
+
         {/* Configuration Sidebar (Hidden on Print) */}
         <div className="w-80 bg-bg-surface border-r border-border/50 flex flex-col print:hidden h-full">
           <div className="p-6 border-b border-border/50 flex items-center justify-between">
@@ -106,13 +112,6 @@ export const GTMReportReviewModal: React.FC<Props> = ({ project, onClose }) => {
         {/* Print Preview Area */}
         <div className="flex-grow overflow-y-auto bg-black/5 p-8 flex justify-center print:p-0 print:bg-white print:block print:overflow-visible print:h-auto print:w-full">
           <div className="shadow-2xl print:shadow-none bg-white rounded-sm overflow-hidden print:overflow-visible print:w-full print:bg-white print:m-0 print:p-0 relative">
-            
-            {/* Running Footer for Print */}
-            <div className="hidden print:flex print-fixed-footer">
-              <span className="text-[9px] font-mono text-slate-400 uppercase tracking-widest font-bold flex-1 text-left">RevOS GTMOS Report System</span>
-              <span className="text-[9px] font-mono text-slate-400 uppercase tracking-widest font-bold flex-1 text-right">Internal / Confidential</span>
-            </div>
-
             <GTMReportPrintLayout project={project} selectedItems={selectedItems} />
           </div>
         </div>

@@ -418,14 +418,24 @@
   }
 
   html, body {
+    display: block !important;
     background: white !important;
     margin: 0 !important;
     padding: 0 !important;
     width: 100% !important;
+    height: auto !important;
     min-height: auto !important;
     overflow: visible !important;
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
+    transform: none !important;
+    filter: none !important;
+    contain: none !important;
+    perspective: none !important;
+    isolation: auto !important;
+    will-change: auto !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
   }
   .a4-page-canvas {
     width: 100% !important;
