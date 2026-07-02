@@ -387,9 +387,17 @@ const AutoResizingOnboardingTextarea: React.FC<AutoResizingTextareaProps> = ({
 
   useEffect(() => {
     adjustHeight();
-    window.addEventListener('resize', adjustHeight);
-    return () => window.removeEventListener('resize', adjustHeight);
   }, [value]);
+
+  useEffect(() => {
+    const handleResize = () => adjustHeight();
+    window.addEventListener('resize', handleResize);
+    const timer = setTimeout(adjustHeight, 100);
+    return () => {
+      window.removeEventListener('resize', handleResize);
+      clearTimeout(timer);
+    };
+  }, []);
 
   return (
     <textarea
@@ -402,9 +410,8 @@ const AutoResizingOnboardingTextarea: React.FC<AutoResizingTextareaProps> = ({
         e.target.style.height = `${e.target.scrollHeight}px`;
       }}
       rows={1}
-      className={`overflow-hidden resize-none min-h-[38px] whitespace-pre-wrap break-words [word-break:break-word] ${className}`}
+      className={`block overflow-hidden resize-none min-h-[38px] whitespace-pre-wrap break-words [word-break:break-word] ${className}`}
       placeholder={placeholder}
-      style={{ height: 'auto', display: 'block', overflowY: 'hidden' }}
     />
   );
 };

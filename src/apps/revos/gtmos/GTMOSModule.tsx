@@ -186,13 +186,15 @@ interface AutoResizingTextareaProps {
   onChange: (val: string) => void;
   className?: string;
   placeholder?: string;
+  onKeyDown?: (e: React.KeyboardEvent<HTMLTextAreaElement>) => void;
 }
 
 function AutoResizingTextarea({
   value,
   onChange,
   className = '',
-  placeholder = ''
+  placeholder = '',
+  onKeyDown
 }: AutoResizingTextareaProps) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -206,9 +208,17 @@ function AutoResizingTextarea({
 
   useEffect(() => {
     adjustHeight();
-    window.addEventListener('resize', adjustHeight);
-    return () => window.removeEventListener('resize', adjustHeight);
   }, [value]);
+
+  useEffect(() => {
+    const handleResize = () => adjustHeight();
+    window.addEventListener('resize', handleResize);
+    const timer = setTimeout(adjustHeight, 100);
+    return () => {
+      window.removeEventListener('resize', handleResize);
+      clearTimeout(timer);
+    };
+  }, []);
 
   return (
     <textarea
@@ -219,10 +229,10 @@ function AutoResizingTextarea({
         e.target.style.height = 'auto';
         e.target.style.height = `${e.target.scrollHeight}px`;
       }}
+      onKeyDown={onKeyDown}
       rows={1}
-      className={`overflow-hidden resize-none whitespace-pre-wrap break-words [word-break:break-word] ${className}`}
+      className={`block overflow-hidden resize-none whitespace-pre-wrap break-words [word-break:break-word] ${className}`}
       placeholder={placeholder}
-      style={{ height: 'auto', display: 'block', overflowY: 'hidden' }}
     />
   );
 }
@@ -2241,13 +2251,13 @@ export function GTMOSModule() {
                                 : 'bg-bg-surface/40 border-border/75 hover:border-text-secondary/20 text-text-secondary hover:text-text-primary'
                             }`}
                           >
-                            <div className="space-y-0.5 truncate">
-                              <h4 className={`text-xs font-bold truncate ${isSelected ? 'text-accent' : 'text-text-primary'}`}>
+                            <div className="space-y-0.5 min-w-0 flex-1">
+                              <h4 className={`text-xs font-bold break-words [word-break:break-word] whitespace-pre-wrap ${isSelected ? 'text-accent' : 'text-text-primary'}`}>
                                 {p.name}
                               </h4>
-                              <p className="text-[10px] text-text-secondary truncate font-sans">{p.purpose}</p>
+                              <p className="text-[10px] text-text-secondary break-words [word-break:break-word] whitespace-pre-wrap font-sans">{p.purpose}</p>
                             </div>
-                            <span className="text-[10px] font-mono px-2 py-0.5 rounded-md bg-bg-primary border border-border shrink-0 font-bold group-hover:border-accent/30">
+                            <span className="text-[10px] font-mono px-2 py-0.5 rounded-md bg-bg-primary border border-border shrink-0 font-bold group-hover:border-accent/30 ml-2">
                               {itemsCount} {itemsCount === 1 ? 'item' : 'items'}
                             </span>
                           </div>
@@ -2267,10 +2277,10 @@ export function GTMOSModule() {
                             <span className="text-[8px] sm:text-[9px] font-mono font-black text-accent uppercase tracking-widest bg-accent/10 px-2 py-1 rounded-md border border-accent/20">
                               ACTIVE REFINEMENT DESK
                             </span>
-                            <h3 className="text-xs sm:text-sm font-black text-text-primary uppercase tracking-wider pt-2">
+                            <h3 className="text-xs sm:text-sm font-black text-text-primary uppercase tracking-wider pt-2 break-words [word-break:break-word] whitespace-pre-wrap">
                               {activeMeta.name}
                             </h3>
-                            <p className="text-[11px] sm:text-xs text-text-secondary font-sans leading-normal">
+                            <p className="text-[11px] sm:text-xs text-text-secondary font-sans leading-normal break-words [word-break:break-word] whitespace-pre-wrap">
                               <strong className="text-text-primary">Purpose: </strong>
                               {activeMeta.purpose}
                             </p>
@@ -2282,7 +2292,7 @@ export function GTMOSModule() {
                               <span className="text-[8px] sm:text-[9px] font-mono text-text-secondary uppercase block mb-1.5 font-bold">Strategic Questions</span>
                               <ul className="space-y-1 text-[10px] sm:text-[11px] text-text-secondary font-sans list-disc pl-3 leading-relaxed">
                                 {activeMeta.keyQuestions.map((q, idx) => (
-                                  <li key={idx}>{q}</li>
+                                  <li key={idx} className="break-words [word-break:break-word] whitespace-pre-wrap">{q}</li>
                                 ))}
                               </ul>
                             </div>
@@ -2291,7 +2301,7 @@ export function GTMOSModule() {
                               <span className="text-[8px] sm:text-[9px] font-mono text-text-secondary uppercase block mb-1.5 font-bold">Commercial Outputs</span>
                               <div className="flex flex-wrap gap-1.5">
                                 {activeMeta.outputs.map((out, idx) => (
-                                  <span key={idx} className="text-[9px] sm:text-[10px] font-mono bg-accent/5 text-accent/90 border border-accent/15 px-2 py-0.5 rounded-md font-bold">
+                                  <span key={idx} className="text-[9px] sm:text-[10px] font-mono bg-accent/5 text-accent/90 border border-accent/15 px-2 py-0.5 rounded-md font-bold break-words [word-break:break-word] whitespace-pre-wrap">
                                     {out}
                                   </span>
                                 ))}
@@ -2322,7 +2332,7 @@ export function GTMOSModule() {
                                         </span>
                                         
                                         {hasPrefix && (
-                                          <span className="px-2.5 py-0.5 rounded-md bg-[#00F090]/10 border border-[#00F090]/25 text-[#00F090] font-black text-[9px] uppercase tracking-wider font-mono select-none">
+                                          <span className="px-2.5 py-0.5 rounded-md bg-[#00F090]/10 border border-[#00F090]/25 text-[#00F090] font-black text-[9px] uppercase tracking-wider font-mono select-none break-words [word-break:break-word] whitespace-pre-wrap max-w-full text-center">
                                             {prefix}
                                           </span>
                                         )}
@@ -2334,7 +2344,7 @@ export function GTMOSModule() {
                                           const newValue = hasPrefix ? `${prefix}: ${newVal}` : newVal;
                                           handleUpdateDraftItem(selectedDraftPillar, index, newValue);
                                         }}
-                                        className="flex-1 bg-transparent border-none text-xs text-text-primary focus:outline-none focus:ring-0 select-text leading-relaxed font-sans placeholder-text-secondary/30 p-0 w-full min-h-[1.5rem]"
+                                        className="flex-1 bg-transparent border-none text-xs text-text-primary focus:outline-none focus:ring-0 select-text leading-relaxed font-sans placeholder-text-secondary/30 p-0 w-full min-w-0 min-h-[1.5rem]"
                                         placeholder="Refine strategic item text..."
                                       />                                       <button
                                         onClick={() => handleDeleteDraftItem(selectedDraftPillar, index)}
@@ -3451,14 +3461,16 @@ export function GTMOSModule() {
                                 ))}
                               </select>
 
-                              <input
-                                type="text"
+                              <AutoResizingTextarea
                                 value={newDraftItemText}
-                                onChange={(e) => setNewDraftItemText(e.target.value)}
+                                onChange={(val) => setNewDraftItemText(val)}
                                 placeholder={selectedAddPrefix ? `Describe strategic details for "${selectedAddPrefix}"...` : "e.g. Describe strategic action or details..."}
-                                className="flex-1 bg-bg-primary border border-border hover:border-border-hover focus:border-accent/40 rounded-xl px-3.5 py-2.5 text-xs text-text-primary focus:outline-none placeholder-text-secondary/40 font-sans"
+                                className="flex-1 bg-bg-primary border border-border hover:border-border-hover focus:border-accent/40 rounded-xl px-3.5 py-2.5 text-xs text-text-primary focus:outline-none placeholder-text-secondary/40 font-sans min-w-0"
                                 onKeyDown={(e) => {
-                                  if (e.key === 'Enter') handleAddDraftItem(selectedDraftPillar);
+                                  if (e.key === 'Enter' && !e.shiftKey) {
+                                    e.preventDefault();
+                                    handleAddDraftItem(selectedDraftPillar);
+                                  }
                                 }}
                               />
                               <button
