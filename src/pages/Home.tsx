@@ -273,7 +273,7 @@ export function Home() {
                   Combined strategic thinking with execution excellence to unlock growth, improve profitability, and scale regional businesses.
                 </p>
                 <p>
-                  Turned data, expertise, and technologies into scalable revenue systems — RevOS, an AI-native SaaS platform helping B2B organizations accelerate revenue growth.
+                  Turned data, expertise, and technologies into scalable revenue systems - built RevOS, an AI-native SaaS platform helping B2B organizations accelerate revenue growth.
                 </p>
               </div>
             </motion.div>
