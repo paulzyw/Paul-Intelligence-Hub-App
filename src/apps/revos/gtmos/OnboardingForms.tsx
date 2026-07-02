@@ -410,7 +410,7 @@ const AutoResizingOnboardingTextarea: React.FC<AutoResizingTextareaProps> = ({
         e.target.style.height = `${e.target.scrollHeight}px`;
       }}
       rows={1}
-      className={`block overflow-hidden resize-none min-h-[38px] whitespace-pre-wrap break-words [word-break:break-word] ${className}`}
+      className={`block overflow-hidden resize-none whitespace-pre-wrap break-words [word-break:break-word] ${className}`}
       placeholder={placeholder}
     />
   );

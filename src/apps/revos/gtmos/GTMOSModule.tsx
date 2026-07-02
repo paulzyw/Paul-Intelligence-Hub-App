@@ -56,6 +56,8 @@ import { RevenueDecomposition } from './RevenueDecomposition';
 import { GTMReportReviewModal } from './components/GTMReportReviewModal';
 import ReactMarkdown from 'react-markdown';
 
+import TextareaAutosize from 'react-textarea-autosize';
+
 const PILLARS_METADATA = [
   {
     key: 'pillar_1_market_segmentation',
@@ -114,7 +116,7 @@ const PILLARS_METADATA = [
   },
   {
     key: 'pillar_6_sales_channel',
-    name: 'Pillar 6: Sales & Channel Strategy (Revenue Motion)',
+    name: 'Pillar 6: Sales & Channel Strategy',
     purpose: 'Define and prioritize how the company reaches market and acquires customers.',
     keyQuestions: [
       'Do we use direct outbound sales, inbound, or partners?',
@@ -2344,7 +2346,7 @@ export function GTMOSModule() {
                                           const newValue = hasPrefix ? `${prefix}: ${newVal}` : newVal;
                                           handleUpdateDraftItem(selectedDraftPillar, index, newValue);
                                         }}
-                                        className="flex-1 bg-transparent border-none text-xs text-text-primary focus:outline-none focus:ring-0 select-text leading-relaxed font-sans placeholder-text-secondary/30 p-0 w-full min-w-0 min-h-[1.5rem]"
+                                        className="w-full bg-transparent border-none text-[16px] sm:text-xs text-text-primary focus:outline-none focus:ring-0 select-text leading-relaxed font-sans placeholder-text-secondary/30 p-0"
                                         placeholder="Refine strategic item text..."
                                       />                                       <button
                                         onClick={() => handleDeleteDraftItem(selectedDraftPillar, index)}
@@ -3393,7 +3395,7 @@ export function GTMOSModule() {
                                       <AutoResizingTextarea
                                         value={generatedPlaygroundResult.pitch}
                                         onChange={(newVal) => setGeneratedPlaygroundResult(prev => prev ? { ...prev, pitch: newVal } : null)}
-                                        className="w-full bg-bg-surface border border-border/80 hover:border-border focus:border-accent/40 rounded-xl px-3 py-2.5 text-xs text-text-primary focus:outline-none placeholder-text-secondary/40 font-sans"
+                                        className="w-full bg-bg-surface border border-border/80 hover:border-border focus:border-accent/40 rounded-xl px-3 py-2.5 text-[16px] sm:text-xs text-text-primary focus:outline-none placeholder-text-secondary/40 font-sans"
                                       />
                                     </div>
 
@@ -3465,7 +3467,7 @@ export function GTMOSModule() {
                                 value={newDraftItemText}
                                 onChange={(val) => setNewDraftItemText(val)}
                                 placeholder={selectedAddPrefix ? `Describe strategic details for "${selectedAddPrefix}"...` : "e.g. Describe strategic action or details..."}
-                                className="flex-1 bg-bg-primary border border-border hover:border-border-hover focus:border-accent/40 rounded-xl px-3.5 py-2.5 text-xs text-text-primary focus:outline-none placeholder-text-secondary/40 font-sans min-w-0"
+                                className="w-full bg-bg-primary border border-border hover:border-border-hover focus:border-accent/40 rounded-xl px-3.5 py-2.5 text-[16px] sm:text-xs text-text-primary focus:outline-none placeholder-text-secondary/40 font-sans"
                                 onKeyDown={(e) => {
                                   if (e.key === 'Enter' && !e.shiftKey) {
                                     e.preventDefault();
