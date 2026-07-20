@@ -264,10 +264,10 @@ export function Home() {
               <h2 className="text-3xl font-bold mb-6 text-text-primary">About Me</h2>
               <div className="space-y-4 text-text-secondary text-lg leading-relaxed">
                 <p>
-                  Business growth leader with over 10 years of experience driving SaaS subscription revenue and digital transformation across APAC and China.
+                  Business growth leader with over 10 years of experience driving SaaS subscription revenue, organization transformation, and digital transformation across APAC and China.
                 </p>
                 <p>
-                  Specialized in building scalable go-to-market strategies, driving product strategy, developing high-impact partner ecosystems, and delivering measurable business outcomes for enterprise customers in oil & gas, petrochemical, chemical, electric power, manufacturing, and public utilities sectors.
+                  Specialized in building scalable go-to-market strategies, driving product strategy, developing operating models, establishing high-impact partner ecosystems, and delivering measurable business outcomes for enterprise customers in oil & gas, mining, petrochemical, chemical, electric power, and public utilities sectors.
                 </p>
                 <p>
                   Combined strategic thinking with execution excellence to unlock growth, improve profitability, and scale regional businesses.
@@ -484,6 +484,8 @@ export function Home() {
             <span className="text-accent">•</span>
             <span>Oil & Gas</span>
             <span className="text-accent">•</span>
+            <span>Mining</span>
+            <span className="text-accent">•</span>
             <span>Electric Power</span>
             <span className="text-accent">•</span>
             <span>Chemical</span>
@@ -502,7 +504,7 @@ export function Home() {
           <div className="flex justify-between items-end mb-12">
             <div>
               <h2 className="text-3xl md:text-4xl font-bold text-text-primary mb-4">Latest Insights</h2>
-              <p className="text-text-secondary">Data-driven perspectives on scaling software solutions.</p>
+              <p className="text-text-secondary">Data-driven perspectives on scaling business and value-based solutions.</p>
             </div>
             <Link to="/insights" className="hidden md:flex items-center gap-2 text-accent font-medium hover:underline">
               View All <ArrowRight size={16} />
