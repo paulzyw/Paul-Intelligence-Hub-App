@@ -70,8 +70,8 @@ const RevOSModulePlaceholder = ({ title }: { title: string }) => (
 const navigation = [
   { name: 'Dashboard', path: '', icon: LayoutDashboard },
   { name: 'GTMOS', path: 'gtmos', icon: Target },
-  { name: 'Lead Qual', path: 'leads', icon: UserCheck },
-  { name: 'Pipeline', path: 'pipeline', icon: PieChart },
+  { name: 'Lead Qualification', path: 'leads', icon: UserCheck },
+  { name: 'Pipeline Assessment', path: 'pipeline', icon: PieChart },
   { name: 'Settings', path: 'settings', icon: Settings },
 ];
 
@@ -180,7 +180,7 @@ function RevOSContent() {
                     R
                   </div>
                   <span className="font-bold tracking-tight text-sm animate-in fade-in duration-300">
-                    RevOS <span className="text-[9px] bg-accent/20 text-accent px-1.5 py-0.5 rounded ml-1">BETA</span>
+                    RevOS <span className="text-[9px] bg-accent/20 text-accent px-1.5 py-0.5 rounded ml-1">V1.0</span>
                   </span>
                 </div>
                 <button 
