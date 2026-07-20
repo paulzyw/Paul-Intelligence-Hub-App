@@ -264,7 +264,7 @@ export function Home() {
               <h2 className="text-3xl font-bold mb-6 text-text-primary">About Me</h2>
               <div className="space-y-4 text-text-secondary text-lg leading-relaxed">
                 <p>
-                  Business growth leader with over 10 years of experience driving SaaS subscription revenue, organization transformation, and digital transformation across APAC and China.
+                  Business growth leader with over 10 years of experience driving SaaS subscription revenue, business transformation, and digital transformation across APAC and China.
                 </p>
                 <p>
                   Specialized in building scalable go-to-market strategies, driving product strategy, developing operating models, establishing high-impact partner ecosystems, and delivering measurable business outcomes for enterprise customers in oil & gas, mining, petrochemical, chemical, electric power, and public utilities sectors.
