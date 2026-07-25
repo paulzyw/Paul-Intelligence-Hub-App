@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Routes, Route, Link, useLocation } from 'react-router-dom';
+import { MQLModule } from './leads/MQLModule';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   LayoutDashboard, 
@@ -327,7 +328,7 @@ function RevOSContent() {
             <Routes>
               <Route index element={<RevOSDashboard />} />
               <Route path="gtmos" element={<GTMOSModule />} />
-              <Route path="leads" element={<RevOSModulePlaceholder title="Lead Qualification" />} />
+              <Route path="leads/*" element={<MQLModule />} />
               <Route path="pipeline" element={<RevOSModulePlaceholder title="Pipeline Assessment" />} />
               <Route path="settings" element={<RevOSModulePlaceholder title="Settings" />} />
               <Route 

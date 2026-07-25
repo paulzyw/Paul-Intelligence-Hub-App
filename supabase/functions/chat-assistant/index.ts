@@ -133,7 +133,7 @@ serve(async (req) => {
         contents: `Context: ${context}\n\nQuestion: ${message}`,
         config: {
           systemInstruction: SYSTEM_INSTRUCTION,
-          temperature: 0.85,
+          temperature: 1.0,
         }
       })
     } catch (e) {

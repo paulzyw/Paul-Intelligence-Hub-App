@@ -1,0 +1,15 @@
+import { createClient } from '@supabase/supabase-js';
+import * as dotenv from 'dotenv';
+dotenv.config();
+
+const supabase = createClient(
+  process.env.VITE_SUPABASE_URL!,
+  process.env.VITE_SUPABASE_ANON_KEY!
+);
+
+async function run() {
+  const { data } = await supabase.from('revos_gtmos_strategies').select('*').limit(3);
+  console.log(JSON.stringify(data, null, 2));
+}
+
+run();

@@ -1,0 +1,3323 @@
+{
+    "metadata": {
+
+        "id":"qualification-rules",
+
+        "version":"1.0",
+
+        "name":"Universal Revenue Qualification Rules",
+
+        "description":"Qualification reasoning engine for RevOS.",
+
+        "supportedRevenueMotionFamilies":6,
+
+        "supportedIndustries":16,
+
+        "supportedDimensions":[
+
+            "fit",
+
+            "intent",
+
+            "engagement",
+
+            "timing"
+
+        ]
+
+    },
+
+    "qualificationRuleSets":[      
+
+        {
+          "id": "digital_solution_selling",
+
+          "name": "Digital Solution Selling",
+
+          "version": "1.0",
+
+          "priority": 1,
+
+          "revenueMotionFamily": "Digital Solution Selling",
+
+          "qualificationModel": "UniversalMQL",
+
+          "applicableIndustries": [
+            "saas_software",
+            "enterprise_software",
+            "ai_solutions",
+            "cloud_transformation"
+          ],
+
+          "engine": {
+
+            "dimensions": {
+
+              "fit": {
+                "enabled": true,
+                "required": true,
+                "weight": 0.35,
+                "minimumScore": 70,
+                "criticalEvidence": [
+                  "fit_industry_match",
+                  "fit_company_size",
+                  "fit_job_title"
+                ]
+              },
+
+              "intent": {
+                "enabled": true,
+                "required": true,
+                "weight": 0.30,
+                "minimumScore": 50,
+                "criticalEvidence": [
+                  "intent_demo_request",
+                  "intent_contact_sales",
+                  "intent_free_trial_started"
+                ]
+              },
+
+              "engagement": {
+                "enabled": true,
+                "required": true,
+                "weight": 0.20,
+                "minimumScore": 40
+              },
+
+              "timing": {
+                "enabled": true,
+                "required": true,
+                "weight": 0.15,
+                "minimumScore": 40
+              }
+
+            },
+
+            "criticalRules": [
+
+              {
+                "id": "CR001",
+                "priority": 1,
+
+                "condition": {
+
+                  "evidence": "fit_industry_match",
+
+                  "operator": "equals",
+
+                  "value": false
+
+                },
+
+                "action": {
+
+                  "qualification": "Disqualified",
+
+                  "reason": "Outside ICP."
+
+                }
+
+              },
+
+              {
+                "id": "CR002",
+
+                "priority": 2,
+
+                "condition": {
+
+                  "dimension": "intent",
+
+                  "operator": "<",
+
+                  "value": 30
+
+                },
+
+                "action": {
+
+                  "qualification": "Nurture"
+
+                }
+
+              }
+
+            ],
+
+            "scoringEngine": {
+
+              "method": "WeightedAverage",
+
+              "normalizeWeights": true,
+
+              "useEvidenceStrength": true,
+
+              "useIndustryWeight": true,
+
+              "minimumEvidenceCoverage": 0.60
+
+            },
+
+            "qualificationEngine": {
+
+              "method": "WeightedDimensionScore",
+
+              "thresholds": {
+
+                "highlyQualified": 85,
+
+                "qualified": 70,
+
+                "nurture": 50,
+
+                "disqualified": 0
+
+              }
+
+            },
+
+            "confidenceEngine": {
+
+              "coverageWeight": 0.40,
+
+              "evidenceStrengthWeight": 0.30,
+
+              "consistencyWeight": 0.20,
+
+              "freshnessWeight": 0.10
+
+            },
+
+            "conflictEngine": {
+
+              "priority": [
+
+                "criticalRules",
+
+                "fit",
+
+                "intent",
+
+                "timing",
+
+                "engagement"
+
+              ],
+
+              "latestEvidenceWins": true
+
+            },
+
+            "recommendationEngine": {
+
+              "rules": [
+
+                {
+
+                  "condition": "fit.score < 70",
+
+                  "recommendation": "Improve ICP alignment."
+
+                },
+
+                {
+
+                  "condition": "intent.score < 50",
+
+                  "recommendation": "Increase buying intent."
+
+                },
+
+                {
+
+                  "condition": "engagement.score < 40",
+
+                  "recommendation": "Increase stakeholder engagement."
+
+                },
+
+                {
+
+                  "condition": "timing.score < 40",
+
+                  "recommendation": "Validate buying timeline."
+
+                }
+
+              ]
+
+            },
+
+            "explanationEngine": {
+
+              "includeDimensionScores": true,
+
+              "includeCriticalEvidence": true,
+
+              "includeSupportingEvidence": true,
+
+              "includeNegativeEvidence": true,
+
+              "includeMissingEvidence": true,
+
+              "includeReasoningSummary": true,
+
+              "includeImprovementActions": true
+
+            }
+
+          }
+
+        },
+
+        {
+          "id": "professional_solution_services",
+
+          "name": "Professional & Solution Services",
+
+          "version": "1.0",
+
+          "priority": 2,
+
+          "revenueMotionFamily": "Professional & Solution Services",
+
+          "qualificationModel": "UniversalMQL",
+
+          "applicableIndustries": [
+            "consulting",
+            "professional_services",
+            "system_integration",
+            "managed_services"
+          ],
+
+          "engine": {
+
+            "dimensions": {
+
+              "fit": {
+
+                "enabled": true,
+
+                "required": true,
+
+                "weight": 0.30,
+
+                "minimumScore": 70,
+
+                "criticalEvidence": [
+                  "fit_industry_match",
+                  "fit_company_size",
+                  "fit_service_need",
+                  "fit_job_title"
+                ]
+
+              },
+
+
+              "intent": {
+
+                "enabled": true,
+
+                "required": true,
+
+                "weight": 0.30,
+
+                "minimumScore": 55,
+
+                "criticalEvidence": [
+                  "intent_business_problem_discussion",
+                  "intent_consulting_need",
+                  "intent_service_request"
+                ]
+
+              },
+
+
+              "engagement": {
+
+                "enabled": true,
+
+                "required": true,
+
+                "weight": 0.25,
+
+                "minimumScore": 50,
+
+                "criticalEvidence": [
+                  "engagement_discovery_workshop",
+                  "engagement_stakeholder_interaction"
+                ]
+
+              },
+
+
+              "timing": {
+
+                "enabled": true,
+
+                "required": true,
+
+                "weight": 0.15,
+
+                "minimumScore": 40,
+
+                "criticalEvidence": [
+                  "timing_business_initiative",
+                  "timing_project_start_window"
+                ]
+
+              }
+
+            },
+
+
+            "criticalRules": [
+
+              {
+
+                "id": "PS_CR001",
+
+                "priority": 1,
+
+                "description": "Customer must have a relevant business challenge or service requirement.",
+
+
+                "condition": {
+
+                  "any": [
+
+                    {
+
+                      "field": "intent.business_problem_discussion",
+
+                      "operator": "equals",
+
+                      "value": false
+
+                    },
+
+                    {
+
+                      "field": "intent.service_requirement",
+
+                      "operator": "equals",
+
+                      "value": false
+
+                    }
+
+                  ]
+
+                },
+
+
+                "action": {
+
+                  "qualification": "Nurture",
+
+                  "reason": "No validated business need identified."
+
+                }
+
+              },
+
+
+              {
+
+                "id": "PS_CR002",
+
+                "priority": 2,
+
+                "description": "Poor service fit prevents qualification.",
+
+
+                "condition": {
+
+                  "field": "fit.service_alignment",
+
+                  "operator": "<",
+
+                  "value": 50
+
+                },
+
+
+                "action": {
+
+                  "qualification": "Disqualified",
+
+                  "reason": "Customer requirement does not align with service capability."
+
+                }
+
+              },
+
+
+              {
+
+                "id": "PS_CR003",
+
+                "priority": 3,
+
+                "description": "Executive or business stakeholder involvement increases qualification confidence.",
+
+
+                "condition": {
+
+                  "field": "engagement.executive_alignment",
+
+                  "operator": "equals",
+
+                  "value": true
+
+                },
+
+
+                "action": {
+
+                  "scoreAdjustment": 10
+
+                }
+
+              }
+
+            ],
+
+
+            "scoringEngine": {
+
+
+              "method": "WeightedAverage",
+
+
+              "normalizeWeights": true,
+
+
+              "useEvidenceStrength": true,
+
+
+              "useIndustryWeight": true,
+
+
+              "minimumEvidenceCoverage": 0.60,
+
+
+              "formula":
+
+              "(EvidenceScore × EvidenceWeight × EvidenceStrength) / TotalEvidenceWeight"
+
+            },
+
+
+            "qualificationEngine": {
+
+
+              "method": "WeightedDimensionScore",
+
+
+              "formula":
+
+              "(Fit × 0.30) + (Intent × 0.30) + (Engagement × 0.25) + (Timing × 0.15)",
+
+
+              "thresholds": {
+
+
+                "highlyQualified": {
+
+                  "minimumScore": 85,
+
+                  "label": "Highly Qualified MQL"
+
+                },
+
+
+                "qualified": {
+
+                  "minimumScore": 70,
+
+                  "label": "Qualified MQL"
+
+                },
+
+
+                "nurture": {
+
+                  "minimumScore": 50,
+
+                  "label": "Marketing Nurture"
+
+                },
+
+
+                "disqualified": {
+
+                  "maximumScore": 49,
+
+                  "label": "Disqualified"
+
+                }
+
+              }
+
+            },
+
+
+            "confidenceEngine": {
+
+
+              "coverageWeight": 0.35,
+
+
+              "evidenceStrengthWeight": 0.35,
+
+
+              "consistencyWeight": 0.20,
+
+
+              "freshnessWeight": 0.10
+
+            },
+
+
+            "conflictEngine": {
+
+
+              "priority": [
+
+                "criticalRules",
+
+                "fit",
+
+                "intent",
+
+                "engagement",
+
+                "timing"
+
+              ],
+
+
+              "rules": [
+
+                {
+
+                  "id": "PS_CF001",
+
+                  "description":
+
+                  "Confirmed business challenge overrides low engagement score."
+
+                },
+
+
+                {
+
+                  "id": "PS_CF002",
+
+                  "description":
+
+                  "Strong executive sponsorship overrides early-stage engagement signals."
+
+                },
+
+
+                {
+
+                  "id": "PS_CF003",
+
+                  "description":
+
+                  "Recent customer evidence overrides historical evidence."
+
+                }
+
+              ],
+
+
+              "latestEvidenceWins": true
+
+            },
+
+
+            "recommendationEngine": {
+
+
+              "rules": [
+
+                {
+
+                  "condition": {
+
+                    "field": "fit.score",
+
+                    "operator": "<",
+
+                    "value": 70
+
+                  },
+
+                  "recommendation":
+
+                  "Validate industry relevance, service demand and customer organization fit."
+
+                },
+
+
+                {
+
+                  "condition": {
+
+                    "field": "intent.score",
+
+                    "operator": "<",
+
+                    "value": 55
+
+                  },
+
+                  "recommendation":
+
+                  "Conduct business discovery to identify pain points, objectives and expected outcomes."
+
+                },
+
+
+                {
+
+                  "condition": {
+
+                    "field": "engagement.score",
+
+                    "operator": "<",
+
+                    "value": 50
+
+                  },
+
+                  "recommendation":
+
+                  "Increase stakeholder engagement through workshops, assessments or solution discussions."
+
+                },
+
+
+                {
+
+                  "condition": {
+
+                    "field": "timing.score",
+
+                    "operator": "<",
+
+                    "value": 40
+
+                  },
+
+                  "recommendation":
+
+                  "Identify project timeline, budget cycle and business initiative triggers."
+
+                },
+
+
+                {
+
+                  "condition": {
+
+                    "field": "confidence.score",
+
+                    "operator": "<",
+
+                    "value": 70
+
+                  },
+
+                  "recommendation":
+
+                  "Collect additional evidence before sales handover."
+
+                }
+
+              ]
+
+            },
+
+
+            "explanationEngine": {
+
+
+              "includeDimensionScores": true,
+
+
+              "includeCriticalEvidence": true,
+
+
+              "includeSupportingEvidence": true,
+
+
+              "includeNegativeEvidence": true,
+
+
+              "includeMissingEvidence": true,
+
+
+              "includeConfidenceScore": true,
+
+
+              "includeReasoningSummary": true,
+
+
+              "includeImprovementActions": true,
+
+
+              "generateNaturalLanguageSummary": true
+
+            }
+
+          }
+
+        },
+
+        {
+          "id": "digital_transformation_ot",
+
+          "name": "Digital Transformation & OT",
+
+          "version": "1.0",
+
+          "priority": 3,
+
+          "revenueMotionFamily": "Digital Transformation & OT",
+
+          "qualificationModel": "UniversalMQL",
+
+          "applicableIndustries": [
+            "digital_transformation",
+            "ot_it_solutions"
+          ],
+
+
+          "engine": {
+
+
+            "dimensions": {
+
+
+              "fit": {
+
+                "enabled": true,
+
+                "required": true,
+
+                "weight": 0.30,
+
+                "minimumScore": 70,
+
+                "criticalEvidence": [
+                  "fit_industry_match",
+                  "fit_business_complexity",
+                  "fit_digital_maturity",
+                  "fit_stakeholder_role"
+                ]
+
+              },
+
+
+              "intent": {
+
+                "enabled": true,
+
+                "required": true,
+
+                "weight": 0.30,
+
+                "minimumScore": 55,
+
+                "criticalEvidence": [
+                  "intent_transformation_initiative",
+                  "intent_operational_challenge",
+                  "intent_architecture_evaluation"
+                ]
+
+              },
+
+
+              "engagement": {
+
+                "enabled": true,
+
+                "required": true,
+
+                "weight": 0.25,
+
+                "minimumScore": 50,
+
+                "criticalEvidence": [
+                  "engagement_workshop",
+                  "engagement_multiple_stakeholders",
+                  "engagement_technical_validation"
+                ]
+
+              },
+
+
+              "timing": {
+
+                "enabled": true,
+
+                "required": true,
+
+                "weight": 0.15,
+
+                "minimumScore": 40,
+
+                "criticalEvidence": [
+                  "timing_transformation_program",
+                  "timing_budget_cycle",
+                  "timing_project_start_window"
+                ]
+
+              }
+
+            },
+
+
+            "criticalRules": [
+
+
+              {
+
+                "id": "DTOT_CR001",
+
+                "priority": 1,
+
+                "description":
+                "A transformation objective or operational improvement need must exist.",
+
+
+                "condition": {
+
+                  "all": [
+
+                    {
+
+                      "field": "intent.transformation_initiative",
+
+                      "operator": "equals",
+
+                      "value": false
+
+                    },
+
+                    {
+
+                      "field": "intent.operational_challenge",
+
+                      "operator": "equals",
+
+                      "value": false
+
+                    }
+
+                  ]
+
+                },
+
+
+                "action": {
+
+                  "qualification": "Nurture",
+
+                  "reason":
+                  "No validated transformation or operational improvement requirement."
+
+                }
+
+              },
+
+
+              {
+
+                "id": "DTOT_CR002",
+
+                "priority": 2,
+
+                "description":
+                "Lack of technical alignment significantly reduces qualification.",
+
+
+                "condition": {
+
+                  "field":
+                  "engagement.technical_validation",
+
+                  "operator":
+                  "equals",
+
+                  "value":
+                  false
+
+                },
+
+
+                "action": {
+
+                  "scoreAdjustment": -15,
+
+                  "reason":
+                  "Technical feasibility has not been validated."
+
+                }
+
+              },
+
+
+              {
+
+                "id": "DTOT_CR003",
+
+                "priority": 3,
+
+                "description":
+                "Executive sponsorship increases transformation opportunity confidence.",
+
+
+                "condition": {
+
+                  "field":
+                  "engagement.executive_alignment",
+
+                  "operator":
+                  "equals",
+
+                  "value":
+                  true
+
+                },
+
+
+                "action": {
+
+                  "scoreAdjustment": 10
+
+                }
+
+              },
+
+
+              {
+
+                "id": "DTOT_CR004",
+
+                "priority": 4,
+
+                "description":
+                "Transformation initiatives without defined business outcomes require further qualification.",
+
+
+                "condition": {
+
+                  "field":
+                  "intent.business_outcome_defined",
+
+                  "operator":
+                  "equals",
+
+                  "value":
+                  false
+
+                },
+
+
+                "action": {
+
+                  "qualification":
+                  "Nurture",
+
+                  "reason":
+                  "Business value and expected outcomes are unclear."
+
+                }
+
+              }
+
+            ],
+
+
+
+            "scoringEngine": {
+
+
+              "method":
+              "WeightedAverage",
+
+
+              "normalizeWeights":
+              true,
+
+
+              "useEvidenceStrength":
+              true,
+
+
+              "useIndustryWeight":
+              true,
+
+
+              "minimumEvidenceCoverage":
+              0.60,
+
+
+              "formula":
+              "(EvidenceScore × EvidenceWeight × EvidenceStrength) / TotalEvidenceWeight"
+
+            },
+
+
+
+            "qualificationEngine": {
+
+
+              "method":
+              "WeightedDimensionScore",
+
+
+              "formula":
+              "(Fit × 0.30) + (Intent × 0.30) + (Engagement × 0.25) + (Timing × 0.15)",
+
+
+              "thresholds": {
+
+
+                "highlyQualified": {
+
+                  "minimumScore":
+                  85,
+
+                  "label":
+                  "Highly Qualified MQL"
+
+                },
+
+
+                "qualified": {
+
+                  "minimumScore":
+                  70,
+
+                  "label":
+                  "Qualified MQL"
+
+                },
+
+
+                "nurture": {
+
+                  "minimumScore":
+                  50,
+
+                  "label":
+                  "Marketing Nurture"
+
+                },
+
+
+                "disqualified": {
+
+                  "maximumScore":
+                  49,
+
+                  "label":
+                  "Disqualified"
+
+                }
+
+              }
+
+            },
+
+
+
+            "confidenceEngine": {
+
+
+              "coverageWeight":
+              0.30,
+
+
+              "evidenceStrengthWeight":
+              0.35,
+
+
+              "consistencyWeight":
+              0.25,
+
+
+              "freshnessWeight":
+              0.10
+
+            },
+
+
+
+            "conflictEngine": {
+
+
+              "priority": [
+
+                "criticalRules",
+
+                "fit",
+
+                "intent",
+
+                "engagement",
+
+                "timing"
+
+              ],
+
+
+              "rules": [
+
+
+                {
+
+                  "id":
+                  "DTOT_CF001",
+
+                  "description":
+                  "Executive transformation sponsorship overrides early-stage engagement weakness."
+
+                },
+
+
+                {
+
+                  "id":
+                  "DTOT_CF002",
+
+                  "description":
+                  "Technical incompatibility overrides strong business intent."
+
+                },
+
+
+                {
+
+                  "id":
+                  "DTOT_CF003",
+
+                  "description":
+                  "Confirmed transformation deadline overrides weak timing signals."
+
+                }
+
+
+              ],
+
+
+              "latestEvidenceWins":
+              true
+
+            },
+
+
+
+            "recommendationEngine": {
+
+
+              "rules": [
+
+
+                {
+
+                  "condition": {
+
+                    "field":
+                    "fit.score",
+
+                    "operator":
+                    "<",
+
+                    "value":
+                    70
+
+                  },
+
+
+                  "recommendation":
+                  "Validate digital maturity, operational complexity and transformation relevance."
+
+                },
+
+
+                {
+
+                  "condition": {
+
+                    "field":
+                    "intent.score",
+
+                    "operator":
+                    "<",
+
+                    "value":
+                    55
+
+                  },
+
+
+                  "recommendation":
+                  "Identify transformation objectives, operational pain points and expected business outcomes."
+
+                },
+
+
+                {
+
+                  "condition": {
+
+                    "field":
+                    "engagement.score",
+
+                    "operator":
+                    "<",
+
+                    "value":
+                    50
+
+                  },
+
+
+                  "recommendation":
+                  "Conduct architecture workshops, stakeholder alignment sessions or technical discovery."
+
+                },
+
+
+                {
+
+                  "condition": {
+
+                    "field":
+                    "timing.score",
+
+                    "operator":
+                    "<",
+
+                    "value":
+                    40
+
+                  },
+
+
+                  "recommendation":
+                  "Identify transformation roadmap, funding approval process and implementation timeline."
+
+                },
+
+
+                {
+
+                  "condition": {
+
+                    "field":
+                    "confidence.score",
+
+                    "operator":
+                    "<",
+
+                    "value":
+                    70
+
+                  },
+
+
+                  "recommendation":
+                  "Collect additional business, technical and stakeholder evidence before sales handover."
+
+                }
+
+              ]
+
+            },
+
+
+
+            "explanationEngine": {
+
+
+              "includeDimensionScores":
+              true,
+
+
+              "includeCriticalEvidence":
+              true,
+
+
+              "includeSupportingEvidence":
+              true,
+
+
+              "includeNegativeEvidence":
+              true,
+
+
+              "includeMissingEvidence":
+              true,
+
+
+              "includeConfidenceScore":
+              true,
+
+
+              "includeReasoningSummary":
+              true,
+
+
+              "includeImprovementActions":
+              true,
+
+
+              "generateNaturalLanguageSummary":
+              true
+
+            }
+
+
+          }
+
+        },
+
+        {
+          "id": "engineering_project_solutions",
+
+          "name": "Engineering & Project Solutions",
+
+          "version": "1.0",
+
+          "priority": 4,
+
+          "revenueMotionFamily": "Engineering & Project Solutions",
+
+          "qualificationModel": "UniversalMQL",
+
+          "applicableIndustries": [
+            "engineering_solutions",
+            "infrastructure_projects"
+          ],
+
+
+          "engine": {
+
+
+            "dimensions": {
+
+
+              "fit": {
+
+                "enabled": true,
+
+                "required": true,
+
+                "weight": 0.30,
+
+                "minimumScore": 70,
+
+                "criticalEvidence": [
+                  "fit_industry_match",
+                  "fit_project_type_match",
+                  "fit_technical_capability_match",
+                  "fit_stakeholder_role"
+                ]
+
+              },
+
+
+              "intent": {
+
+                "enabled": true,
+
+                "required": true,
+
+                "weight": 0.25,
+
+                "minimumScore": 55,
+
+                "criticalEvidence": [
+                  "intent_project_requirement",
+                  "intent_engineering_need",
+                  "intent_solution_evaluation"
+                ]
+
+              },
+
+
+              "engagement": {
+
+                "enabled": true,
+
+                "required": true,
+
+                "weight": 0.25,
+
+                "minimumScore": 50,
+
+                "criticalEvidence": [
+                  "engagement_engineering_discussion",
+                  "engagement_technical_review",
+                  "engagement_project_workshop"
+                ]
+
+              },
+
+
+              "timing": {
+
+                "enabled": true,
+
+                "required": true,
+
+                "weight": 0.20,
+
+                "minimumScore": 45,
+
+                "criticalEvidence": [
+                  "timing_project_schedule",
+                  "timing_tender_window",
+                  "timing_investment_approval"
+                ]
+
+              }
+
+            },
+
+
+            "criticalRules": [
+
+
+              {
+
+                "id": "EPS_CR001",
+
+                "priority": 1,
+
+                "description":
+                "A defined engineering or infrastructure project must exist.",
+
+
+                "condition": {
+
+                  "all": [
+
+                    {
+
+                      "field":
+                      "intent.project_requirement",
+
+                      "operator":
+                      "equals",
+
+                      "value":
+                      false
+
+                    },
+
+                    {
+
+                      "field":
+                      "intent.engineering_need",
+
+                      "operator":
+                      "equals",
+
+                      "value":
+                      false
+
+                    }
+
+                  ]
+
+                },
+
+
+                "action": {
+
+                  "qualification":
+                  "Nurture",
+
+                  "reason":
+                  "No validated project requirement identified."
+
+                }
+
+              },
+
+
+              {
+
+                "id": "EPS_CR002",
+
+                "priority": 2,
+
+                "description":
+                "Technical capability alignment is mandatory.",
+
+
+                "condition": {
+
+                  "field":
+                  "fit.technical_capability_match",
+
+                  "operator":
+                  "<",
+
+                  "value":
+                  50
+
+                },
+
+
+                "action": {
+
+                  "qualification":
+                  "Disqualified",
+
+                  "reason":
+                  "Solution capability does not match project requirements."
+
+                }
+
+              },
+
+
+              {
+
+                "id": "EPS_CR003",
+
+                "priority": 3,
+
+                "description":
+                "Project stage significantly impacts qualification probability.",
+
+
+                "condition": {
+
+                  "field":
+                  "timing.project_stage",
+
+                  "operator":
+                  "equals",
+
+                  "value":
+                  "early_concept"
+
+                },
+
+
+                "action": {
+
+                  "scoreAdjustment":
+                  -10,
+
+                  "reason":
+                  "Project timing is too early."
+
+                }
+
+              },
+
+
+              {
+
+                "id": "EPS_CR004",
+
+                "priority": 4,
+
+                "description":
+                "Tender or procurement activity increases qualification confidence.",
+
+
+                "condition": {
+
+                  "any": [
+
+                    {
+
+                      "field":
+                      "timing.tender_window",
+
+                      "operator":
+                      "equals",
+
+                      "value":
+                      true
+
+                    },
+
+                    {
+
+                      "field":
+                      "engagement.technical_review",
+
+                      "operator":
+                      "equals",
+
+                      "value":
+                      true
+
+                    }
+
+                  ]
+
+                },
+
+
+                "action": {
+
+                  "scoreAdjustment":
+                  10
+
+                }
+
+              }
+
+            ],
+
+
+
+            "scoringEngine": {
+
+
+              "method":
+              "WeightedAverage",
+
+
+              "normalizeWeights":
+              true,
+
+
+              "useEvidenceStrength":
+              true,
+
+
+              "useIndustryWeight":
+              true,
+
+
+              "minimumEvidenceCoverage":
+              0.60,
+
+
+              "formula":
+
+              "(EvidenceScore × EvidenceWeight × EvidenceStrength) / TotalEvidenceWeight"
+
+            },
+
+
+
+            "qualificationEngine": {
+
+
+              "method":
+              "WeightedDimensionScore",
+
+
+              "formula":
+
+              "(Fit × 0.30) + (Intent × 0.25) + (Engagement × 0.25) + (Timing × 0.20)",
+
+
+              "thresholds": {
+
+
+                "highlyQualified": {
+
+                  "minimumScore":
+                  85,
+
+                  "label":
+                  "Highly Qualified MQL"
+
+                },
+
+
+                "qualified": {
+
+                  "minimumScore":
+                  70,
+
+                  "label":
+                  "Qualified MQL"
+
+                },
+
+
+                "nurture": {
+
+                  "minimumScore":
+                  50,
+
+                  "label":
+                  "Marketing Nurture"
+
+                },
+
+
+                "disqualified": {
+
+                  "maximumScore":
+                  49,
+
+                  "label":
+                  "Disqualified"
+
+                }
+
+              }
+
+            },
+
+
+
+            "confidenceEngine": {
+
+
+              "coverageWeight":
+              0.30,
+
+
+              "evidenceStrengthWeight":
+              0.35,
+
+
+              "consistencyWeight":
+              0.20,
+
+
+              "freshnessWeight":
+              0.15
+
+            },
+
+
+
+            "conflictEngine": {
+
+
+              "priority": [
+
+                "criticalRules",
+
+                "fit",
+
+                "intent",
+
+                "timing",
+
+                "engagement"
+
+              ],
+
+
+              "rules": [
+
+
+                {
+
+                  "id":
+                  "EPS_CF001",
+
+                  "description":
+                  "Confirmed project existence overrides weak general engagement."
+
+                },
+
+
+                {
+
+                  "id":
+                  "EPS_CF002",
+
+                  "description":
+                  "Technical mismatch overrides commercial interest."
+
+                },
+
+
+                {
+
+                  "id":
+                  "EPS_CF003",
+
+                  "description":
+                  "Tender deadline overrides weak timing evidence."
+
+                },
+
+
+                {
+
+                  "id":
+                  "EPS_CF004",
+
+                  "description":
+                  "Latest project stage information overrides previous assumptions."
+
+                }
+
+
+              ],
+
+
+              "latestEvidenceWins":
+              true
+
+            },
+
+
+
+            "recommendationEngine": {
+
+
+              "rules": [
+
+
+                {
+
+                  "condition": {
+
+                    "field":
+                    "fit.score",
+
+                    "operator":
+                    "<",
+
+                    "value":
+                    70
+
+                  },
+
+
+                  "recommendation":
+
+                  "Validate project type, technical capability requirements and engineering alignment."
+
+                },
+
+
+                {
+
+                  "condition": {
+
+                    "field":
+                    "intent.score",
+
+                    "operator":
+                    "<",
+
+                    "value":
+                    55
+
+                  },
+
+
+                  "recommendation":
+
+                  "Identify project objectives, engineering requirements and customer success criteria."
+
+                },
+
+
+                {
+
+                  "condition": {
+
+                    "field":
+                    "engagement.score",
+
+                    "operator":
+                    "<",
+
+                    "value":
+                    50
+
+                  },
+
+
+                  "recommendation":
+
+                  "Increase engagement through engineering workshops, technical reviews and project discussions."
+
+                },
+
+
+                {
+
+                  "condition": {
+
+                    "field":
+                    "timing.score",
+
+                    "operator":
+                    "<",
+
+                    "value":
+                    45
+
+                  },
+
+
+                  "recommendation":
+
+                  "Identify project phase, tender schedule, investment approval and execution timeline."
+
+                },
+
+
+                {
+
+                  "condition": {
+
+                    "field":
+                    "confidence.score",
+
+                    "operator":
+                    "<",
+
+                    "value":
+                    70
+
+                  },
+
+
+                  "recommendation":
+
+                  "Collect additional project, technical and stakeholder evidence before sales qualification."
+
+                }
+
+              ]
+
+            },
+
+
+
+            "explanationEngine": {
+
+
+              "includeDimensionScores":
+              true,
+
+
+              "includeCriticalEvidence":
+              true,
+
+
+              "includeSupportingEvidence":
+              true,
+
+
+              "includeNegativeEvidence":
+              true,
+
+
+              "includeMissingEvidence":
+              true,
+
+
+              "includeConfidenceScore":
+              true,
+
+
+              "includeReasoningSummary":
+              true,
+
+
+              "includeImprovementActions":
+              true,
+
+
+              "generateNaturalLanguageSummary":
+              true
+
+            }
+
+
+          }
+
+        },
+
+        {
+          "id": "project_procurement",
+
+          "name": "Project & Procurement",
+
+          "version": "1.0",
+
+          "priority": 5,
+
+          "revenueMotionFamily": "Project & Procurement",
+
+          "qualificationModel": "UniversalMQL",
+
+          "applicableIndustries": [
+            "epc_ep_projects",
+            "enterprise_procurement"
+          ],
+
+
+          "engine": {
+
+
+            "dimensions": {
+
+
+              "fit": {
+
+                "enabled": true,
+
+                "required": true,
+
+                "weight": 0.30,
+
+                "minimumScore": 70,
+
+                "criticalEvidence": [
+                  "fit_industry_match",
+                  "fit_project_category_match",
+                  "fit_supplier_capability",
+                  "fit_vendor_requirement"
+                ]
+
+              },
+
+
+              "intent": {
+
+                "enabled": true,
+
+                "required": true,
+
+                "weight": 0.25,
+
+                "minimumScore": 55,
+
+                "criticalEvidence": [
+                  "intent_procurement_need",
+                  "intent_rfp_requirement",
+                  "intent_supplier_evaluation"
+                ]
+
+              },
+
+
+              "engagement": {
+
+                "enabled": true,
+
+                "required": true,
+
+                "weight": 0.20,
+
+                "minimumScore": 50,
+
+                "criticalEvidence": [
+                  "engagement_procurement_discussion",
+                  "engagement_bid_process",
+                  "engagement_decision_maker"
+                ]
+
+              },
+
+
+              "timing": {
+
+                "enabled": true,
+
+                "required": true,
+
+                "weight": 0.25,
+
+                "minimumScore": 50,
+
+                "criticalEvidence": [
+                  "timing_tender_schedule",
+                  "timing_budget_approval",
+                  "timing_contract_award"
+                ]
+
+              }
+
+            },
+
+
+
+            "criticalRules": [
+
+
+              {
+
+                "id": "PP_CR001",
+
+                "priority": 1,
+
+                "description":
+                "A valid procurement opportunity must exist.",
+
+
+                "condition": {
+
+                  "all": [
+
+                    {
+
+                      "field":
+                      "intent.procurement_need",
+
+                      "operator":
+                      "equals",
+
+                      "value":
+                      false
+
+                    },
+
+                    {
+
+                      "field":
+                      "intent.rfp_requirement",
+
+                      "operator":
+                      "equals",
+
+                      "value":
+                      false
+
+                    }
+
+                  ]
+
+                },
+
+
+                "action": {
+
+                  "qualification":
+                  "Nurture",
+
+                  "reason":
+                  "No confirmed procurement requirement identified."
+
+                }
+
+              },
+
+
+              {
+
+                "id": "PP_CR002",
+
+                "priority": 2,
+
+                "description":
+                "Vendor eligibility is mandatory for procurement opportunities.",
+
+
+                "condition": {
+
+                  "field":
+                  "fit.vendor_requirement",
+
+                  "operator":
+                  "equals",
+
+                  "value":
+                  false
+
+                },
+
+
+                "action": {
+
+                  "qualification":
+                  "Disqualified",
+
+                  "reason":
+                  "Supplier qualification requirements are not satisfied."
+
+                }
+
+              },
+
+
+              {
+
+                "id": "PP_CR003",
+
+                "priority": 3,
+
+                "description":
+                "Active tender or RFP process significantly increases qualification confidence.",
+
+
+                "condition": {
+
+                  "any": [
+
+                    {
+
+                      "field":
+                      "intent.rfp_requirement",
+
+                      "operator":
+                      "equals",
+
+                      "value":
+                      true
+
+                    },
+
+                    {
+
+                      "field":
+                      "timing.tender_schedule",
+
+                      "operator":
+                      "equals",
+
+                      "value":
+                      true
+
+                    }
+
+                  ]
+
+                },
+
+
+                "action": {
+
+                  "scoreAdjustment":
+                  15
+
+                }
+
+              },
+
+
+              {
+
+                "id": "PP_CR004",
+
+                "priority": 4,
+
+                "description":
+                "No access to procurement decision process reduces win probability.",
+
+
+                "condition": {
+
+                  "field":
+                  "engagement.decision_maker",
+
+                  "operator":
+                  "equals",
+
+                  "value":
+                  false
+
+                },
+
+
+                "action": {
+
+                  "scoreAdjustment":
+                  -15,
+
+                  "reason":
+                  "Decision influence has not been established."
+
+                }
+
+              }
+
+            ],
+
+
+
+            "scoringEngine": {
+
+
+              "method":
+              "WeightedAverage",
+
+
+              "normalizeWeights":
+              true,
+
+
+              "useEvidenceStrength":
+              true,
+
+
+              "useIndustryWeight":
+              true,
+
+
+              "minimumEvidenceCoverage":
+              0.60,
+
+
+              "formula":
+              "(EvidenceScore × EvidenceWeight × EvidenceStrength) / TotalEvidenceWeight"
+
+            },
+
+
+
+            "qualificationEngine": {
+
+
+              "method":
+              "WeightedDimensionScore",
+
+
+              "formula":
+
+              "(Fit × 0.30) + (Intent × 0.25) + (Engagement × 0.20) + (Timing × 0.25)",
+
+
+              "thresholds": {
+
+
+                "highlyQualified": {
+
+                  "minimumScore":
+                  85,
+
+                  "label":
+                  "Highly Qualified MQL"
+
+                },
+
+
+                "qualified": {
+
+                  "minimumScore":
+                  70,
+
+                  "label":
+                  "Qualified MQL"
+
+                },
+
+
+                "nurture": {
+
+                  "minimumScore":
+                  50,
+
+                  "label":
+                  "Marketing Nurture"
+
+                },
+
+
+                "disqualified": {
+
+                  "maximumScore":
+                  49,
+
+                  "label":
+                  "Disqualified"
+
+                }
+
+              }
+
+            },
+
+
+
+            "confidenceEngine": {
+
+
+              "coverageWeight":
+              0.30,
+
+
+              "evidenceStrengthWeight":
+              0.30,
+
+
+              "consistencyWeight":
+              0.20,
+
+
+              "freshnessWeight":
+              0.20
+
+            },
+
+
+
+            "conflictEngine": {
+
+
+              "priority": [
+
+                "criticalRules",
+
+                "timing",
+
+                "fit",
+
+                "intent",
+
+                "engagement"
+
+              ],
+
+
+              "rules": [
+
+                {
+
+                  "id":
+                  "PP_CF001",
+
+                  "description":
+                  "Confirmed tender opportunity overrides weak engagement signals."
+
+                },
+
+
+                {
+
+                  "id":
+                  "PP_CF002",
+
+                  "description":
+                  "Procurement disqualification overrides strong buying interest."
+
+                },
+
+
+                {
+
+                  "id":
+                  "PP_CF003",
+
+                  "description":
+                  "Approved budget overrides uncertain timing."
+
+                },
+
+
+                {
+
+                  "id":
+                  "PP_CF004",
+
+                  "description":
+                  "Latest procurement stage evidence overrides previous assumptions."
+
+                }
+
+              ],
+
+
+              "latestEvidenceWins":
+              true
+
+            },
+
+
+
+            "recommendationEngine": {
+
+
+              "rules": [
+
+                {
+
+                  "condition": {
+
+                    "field":
+                    "fit.score",
+
+                    "operator":
+                    "<",
+
+                    "value":
+                    70
+
+                  },
+
+
+                  "recommendation":
+
+                  "Validate supplier eligibility, project category alignment and procurement requirements."
+
+                },
+
+
+                {
+
+                  "condition": {
+
+                    "field":
+                    "intent.score",
+
+                    "operator":
+                    "<",
+
+                    "value":
+                    55
+
+                  },
+
+
+                  "recommendation":
+
+                  "Confirm procurement requirement, RFP status and evaluation criteria."
+
+                },
+
+
+                {
+
+                  "condition": {
+
+                    "field":
+                    "engagement.score",
+
+                    "operator":
+                    "<",
+
+                    "value":
+                    50
+
+                  },
+
+
+                  "recommendation":
+
+                  "Establish relationships with procurement owners, technical evaluators and decision makers."
+
+                },
+
+
+                {
+
+                  "condition": {
+
+                    "field":
+                    "timing.score",
+
+                    "operator":
+                    "<",
+
+                    "value":
+                    50
+
+                  },
+
+
+                  "recommendation":
+
+                  "Identify tender schedule, budget approval status and contract award timeline."
+
+                },
+
+
+                {
+
+                  "condition": {
+
+                    "field":
+                    "confidence.score",
+
+                    "operator":
+                    "<",
+
+                    "value":
+                    70
+
+                  },
+
+
+                  "recommendation":
+
+                  "Collect additional procurement, commercial and stakeholder evidence before sales handover."
+
+                }
+
+              ]
+
+            },
+
+
+
+            "explanationEngine": {
+
+
+              "includeDimensionScores":
+              true,
+
+
+              "includeCriticalEvidence":
+              true,
+
+
+              "includeSupportingEvidence":
+              true,
+
+
+              "includeNegativeEvidence":
+              true,
+
+
+              "includeMissingEvidence":
+              true,
+
+
+              "includeConfidenceScore":
+              true,
+
+
+              "includeReasoningSummary":
+              true,
+
+
+              "includeImprovementActions":
+              true,
+
+
+              "generateNaturalLanguageSummary":
+              true
+
+            }
+
+
+          }
+
+        },
+
+        {
+          "id": "generic_solution_selling",
+
+          "name": "Generic Solution Selling",
+
+          "version": "1.0",
+
+          "priority": 6,
+
+          "revenueMotionFamily": "Generic Solution Selling",
+
+          "qualificationModel": "UniversalMQL",
+
+          "applicableIndustries": [
+            "solution_selling_organizations",
+            "other_solutions"
+          ],
+
+
+          "engine": {
+
+
+            "dimensions": {
+
+
+              "fit": {
+
+                "enabled": true,
+
+                "required": true,
+
+                "weight": 0.25,
+
+                "minimumScore": 70,
+
+                "criticalEvidence": [
+                  "fit_industry_match",
+                  "fit_customer_profile",
+                  "fit_solution_alignment",
+                  "fit_buyer_role"
+                ]
+
+              },
+
+
+              "intent": {
+
+                "enabled": true,
+
+                "required": true,
+
+                "weight": 0.30,
+
+                "minimumScore": 55,
+
+                "criticalEvidence": [
+                  "intent_business_problem",
+                  "intent_solution_interest",
+                  "intent_evaluation_activity"
+                ]
+
+              },
+
+
+              "engagement": {
+
+                "enabled": true,
+
+                "required": true,
+
+                "weight": 0.25,
+
+                "minimumScore": 50,
+
+                "criticalEvidence": [
+                  "engagement_customer_discussion",
+                  "engagement_solution_discussion",
+                  "engagement_multiple_stakeholders"
+                ]
+
+              },
+
+
+              "timing": {
+
+                "enabled": true,
+
+                "required": true,
+
+                "weight": 0.20,
+
+                "minimumScore": 45,
+
+                "criticalEvidence": [
+                  "timing_business_priority",
+                  "timing_purchase_window",
+                  "timing_budget_availability"
+                ]
+
+              }
+
+            },
+
+
+            "criticalRules": [
+
+              {
+
+                "id": "GSS_CR001",
+
+                "priority": 1,
+
+                "description":
+                "A valid customer business problem must be identified.",
+
+
+                "condition": {
+
+                  "field":
+                  "intent.business_problem",
+
+                  "operator":
+                  "equals",
+
+                  "value":
+                  false
+
+                },
+
+
+                "action": {
+
+                  "qualification":
+                  "Nurture",
+
+                  "reason":
+                  "Customer challenge has not been validated."
+
+                }
+
+              },
+
+
+              {
+
+                "id": "GSS_CR002",
+
+                "priority": 2,
+
+                "description":
+                "Solution alignment is required.",
+
+
+                "condition": {
+
+                  "field":
+                  "fit.solution_alignment",
+
+                  "operator":
+                  "<",
+
+                  "value":
+                  50
+
+                },
+
+
+                "action": {
+
+                  "qualification":
+                  "Disqualified",
+
+                  "reason":
+                  "Solution capability does not match customer needs."
+
+                }
+
+              },
+
+
+              {
+
+                "id": "GSS_CR003",
+
+                "priority": 3,
+
+                "description":
+                "Customer evaluation activity indicates stronger buying intent.",
+
+
+                "condition": {
+
+                  "field":
+                  "intent.evaluation_activity",
+
+                  "operator":
+                  "equals",
+
+                  "value":
+                  true
+
+                },
+
+
+                "action": {
+
+                  "scoreAdjustment":
+                  10
+
+                }
+
+              },
+
+
+              {
+
+                "id": "GSS_CR004",
+
+                "priority": 4,
+
+                "description":
+                "Multiple stakeholder engagement improves qualification confidence.",
+
+
+                "condition": {
+
+                  "field":
+                  "engagement.multiple_stakeholders",
+
+                  "operator":
+                  "equals",
+
+                  "value":
+                  true
+
+                },
+
+
+                "action": {
+
+                  "scoreAdjustment":
+                  10
+
+                }
+
+              }
+
+            ],
+
+
+
+            "scoringEngine": {
+
+
+              "method":
+              "WeightedAverage",
+
+
+              "normalizeWeights":
+              true,
+
+
+              "useEvidenceStrength":
+              true,
+
+
+              "useIndustryWeight":
+              true,
+
+
+              "minimumEvidenceCoverage":
+              0.60,
+
+
+              "formula":
+
+              "(EvidenceScore × EvidenceWeight × EvidenceStrength) / TotalEvidenceWeight"
+
+            },
+
+
+
+            "qualificationEngine": {
+
+
+              "method":
+              "WeightedDimensionScore",
+
+
+              "formula":
+
+              "(Fit × 0.25) + (Intent × 0.30) + (Engagement × 0.25) + (Timing × 0.20)",
+
+
+              "thresholds": {
+
+
+                "highlyQualified": {
+
+                  "minimumScore":
+                  85,
+
+                  "label":
+                  "Highly Qualified MQL"
+
+                },
+
+
+                "qualified": {
+
+                  "minimumScore":
+                  70,
+
+                  "label":
+                  "Qualified MQL"
+
+                },
+
+
+                "nurture": {
+
+                  "minimumScore":
+                  50,
+
+                  "label":
+                  "Marketing Nurture"
+
+                },
+
+
+                "disqualified": {
+
+                  "maximumScore":
+                  49,
+
+                  "label":
+                  "Disqualified"
+
+                }
+
+              }
+
+            },
+
+
+
+            "confidenceEngine": {
+
+
+              "coverageWeight":
+              0.35,
+
+
+              "evidenceStrengthWeight":
+              0.30,
+
+
+              "consistencyWeight":
+              0.20,
+
+
+              "freshnessWeight":
+              0.15
+
+            },
+
+
+
+            "conflictEngine": {
+
+
+              "priority": [
+
+                "criticalRules",
+
+                "intent",
+
+                "fit",
+
+                "engagement",
+
+                "timing"
+
+              ],
+
+
+              "rules": [
+
+                {
+
+                  "id":
+                  "GSS_CF001",
+
+                  "description":
+                  "Validated customer problem overrides weak early engagement."
+
+                },
+
+
+                {
+
+                  "id":
+                  "GSS_CF002",
+
+                  "description":
+                  "Solution mismatch overrides strong customer interest."
+
+                },
+
+
+                {
+
+                  "id":
+                  "GSS_CF003",
+
+                  "description":
+                  "Confirmed purchase priority overrides uncertain timing."
+
+                },
+
+
+                {
+
+                  "id":
+                  "GSS_CF004",
+
+                  "description":
+                  "Latest customer evidence overrides historical assumptions."
+
+                }
+
+              ],
+
+
+              "latestEvidenceWins":
+              true
+
+            },
+
+
+
+            "recommendationEngine": {
+
+
+              "rules": [
+
+                {
+
+                  "condition": {
+
+                    "field":
+                    "fit.score",
+
+                    "operator":
+                    "<",
+
+                    "value":
+                    70
+
+                  },
+
+
+                  "recommendation":
+
+                  "Validate customer profile, solution relevance and buyer alignment."
+
+                },
+
+
+                {
+
+                  "condition": {
+
+                    "field":
+                    "intent.score",
+
+                    "operator":
+                    "<",
+
+                    "value":
+                    55
+
+                  },
+
+
+                  "recommendation":
+
+                  "Clarify customer challenges, desired outcomes and evaluation criteria."
+
+                },
+
+
+                {
+
+                  "condition": {
+
+                    "field":
+                    "engagement.score",
+
+                    "operator":
+                    "<",
+
+                    "value":
+                    50
+
+                  },
+
+
+                  "recommendation":
+
+                  "Increase customer engagement through discovery sessions, workshops or solution demonstrations."
+
+                },
+
+
+                {
+
+                  "condition": {
+
+                    "field":
+                    "timing.score",
+
+                    "operator":
+                    "<",
+
+                    "value":
+                    45
+
+                  },
+
+
+                  "recommendation":
+
+                  "Identify business priority, purchasing timeline and budget availability."
+
+                },
+
+
+                {
+
+                  "condition": {
+
+                    "field":
+                    "confidence.score",
+
+                    "operator":
+                    "<",
+
+                    "value":
+                    70
+
+                  },
+
+
+                  "recommendation":
+
+                  "Collect additional customer, stakeholder and commercial evidence before sales handover."
+
+                }
+
+              ]
+
+            },
+
+
+
+            "explanationEngine": {
+
+
+              "includeDimensionScores":
+              true,
+
+
+              "includeCriticalEvidence":
+              true,
+
+
+              "includeSupportingEvidence":
+              true,
+
+
+              "includeNegativeEvidence":
+              true,
+
+
+              "includeMissingEvidence":
+              true,
+
+
+              "includeConfidenceScore":
+              true,
+
+
+              "includeReasoningSummary":
+              true,
+
+
+              "includeImprovementActions":
+              true,
+
+
+              "generateNaturalLanguageSummary":
+              true
+
+            }
+
+
+          }
+
+        }    
+
+    ]
+}

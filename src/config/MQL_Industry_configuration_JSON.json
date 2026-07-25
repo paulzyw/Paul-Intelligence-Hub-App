@@ -1,0 +1,1954 @@
+{
+  "metadata": {
+    "id": "IndustryConfiguration-v1.0",
+    "name": "Industry Configuration Library",
+    "version": "1.0",
+    "description": "Master Industry Configuration Library for RevOS Universal MQL Qualification Engine.",
+    "qualificationModel": "UniversalMQL",
+    "inheritanceSupported": true
+  },
+
+  "industries": [
+
+    {
+      "industry": {
+        "id": "saas_software",
+        "name": "SaaS / Software",
+        "version": "1.0",
+        "baseTemplate": true,
+        "revenueMotion": "digital_solution_selling",
+        "qualificationRuleProfile": "digital_solution_mql_v1",
+        "description": "Base template for digital solution selling industries."
+      },
+
+      "fit": [
+        {
+          "evidenceId": "fit_industry_match",
+          "required": true,
+          "priority": "Critical",
+          "weight": 1.00,
+          "autoPopulate": true
+        },
+        {
+          "evidenceId": "fit_company_size",
+          "required": true,
+          "priority": "High",
+          "weight": 0.95,
+          "autoPopulate": true
+        },
+        {
+          "evidenceId": "fit_company_revenue",
+          "required": false,
+          "priority": "Medium",
+          "weight": 0.75,
+          "autoPopulate": true
+        },
+        {
+          "evidenceId": "fit_geography",
+          "required": true,
+          "priority": "Medium",
+          "weight": 0.70,
+          "autoPopulate": true
+        },
+        {
+          "evidenceId": "fit_job_title",
+          "required": true,
+          "priority": "Critical",
+          "weight": 1.00,
+          "autoPopulate": true
+        },
+        {
+          "evidenceId": "fit_department",
+          "required": true,
+          "priority": "High",
+          "weight": 0.90,
+          "autoPopulate": true
+        },
+        {
+          "evidenceId": "fit_seniority",
+          "required": true,
+          "priority": "High",
+          "weight": 0.90,
+          "autoPopulate": true
+        },
+        {
+          "evidenceId": "fit_technology_stack",
+          "required": false,
+          "priority": "Medium",
+          "weight": 0.60,
+          "autoPopulate": false
+        },
+        {
+          "evidenceId": "fit_existing_customer",
+          "required": false,
+          "priority": "Medium",
+          "weight": 0.50,
+          "autoPopulate": true
+        }
+      ],
+
+      "intent": [
+        {
+          "evidenceId": "intent_demo_request",
+          "required": false,
+          "priority": "Critical",
+          "weight": 1.00
+        },
+        {
+          "evidenceId": "intent_free_trial_started",
+          "required": false,
+          "priority": "Critical",
+          "weight": 0.95
+        },
+        {
+          "evidenceId": "intent_contact_sales",
+          "required": false,
+          "priority": "Critical",
+          "weight": 0.95
+        },
+        {
+          "evidenceId": "intent_pricing_page_visit",
+          "required": false,
+          "priority": "High",
+          "weight": 0.85
+        },
+        {
+          "evidenceId": "intent_roi_calculator",
+          "required": false,
+          "priority": "High",
+          "weight": 0.80
+        },
+        {
+          "evidenceId": "intent_case_study_download",
+          "required": false,
+          "priority": "Medium",
+          "weight": 0.70
+        },
+        {
+          "evidenceId": "intent_product_comparison",
+          "required": false,
+          "priority": "High",
+          "weight": 0.85
+        },
+        {
+          "evidenceId": "intent_api_documentation",
+          "required": false,
+          "priority": "Medium",
+          "weight": 0.65
+        },
+        {
+          "evidenceId": "intent_security_documentation",
+          "required": false,
+          "priority": "Medium",
+          "weight": 0.65
+        }
+      ],
+
+      "engagement": [
+        { "evidenceId": "engagement_email_open", "weight": 0.30 },
+        { "evidenceId": "engagement_email_click", "weight": 0.50 },
+        { "evidenceId": "engagement_webinar", "weight": 0.70 },
+        { "evidenceId": "engagement_whitepaper_download", "weight": 0.65 },
+        { "evidenceId": "engagement_blog_visit", "weight": 0.20 },
+        { "evidenceId": "engagement_repeat_website_visit", "weight": 0.70 },
+        { "evidenceId": "engagement_product_usage", "weight": 1.00 },
+        { "evidenceId": "engagement_chatbot_conversation", "weight": 0.55 },
+        { "evidenceId": "engagement_sales_meeting", "weight": 0.90 },
+        { "evidenceId": "engagement_multiple_stakeholders", "weight": 0.90 }
+      ],
+
+      "timing": [
+        { "evidenceId": "timing_budget_cycle", "weight": 0.80 },
+        { "evidenceId": "timing_contract_renewal", "weight": 0.95 },
+        { "evidenceId": "timing_new_executive", "weight": 0.60 },
+        { "evidenceId": "timing_funding_event", "weight": 0.75 },
+        { "evidenceId": "timing_digital_transformation", "weight": 0.85 },
+        { "evidenceId": "timing_hiring_growth", "weight": 0.65 },
+        { "evidenceId": "timing_merger_acquisition", "weight": 0.60 },
+        { "evidenceId": "timing_new_it_initiative", "weight": 0.85 }
+      ],
+
+      "qualificationPreferences": {
+        "minimumRequiredDimensions": 4,
+        "allowAIEstimation": true,
+        "allowMissingOptionalEvidence": true,
+        "requireCriticalFit": true,
+        "explainDecision": true,
+        "recommendNextActions": true
+      }
+    },
+
+    {
+      "industry": {
+        "id": "enterprise_software",
+        "name": "Enterprise Software",
+        "version": "1.0",
+        "inherits": "saas_software",
+        "revenueMotion": "digital_solution_selling",
+        "qualificationRuleProfile": "digital_solution_mql_v1",
+        "description": "Enterprise software vendors with long sales cycles and complex buying committees."
+      },
+
+      "overrides": {
+        "fit": [
+          {
+            "evidenceId": "fit_technology_stack",
+            "weight": 0.85
+          },
+          {
+            "evidenceId": "fit_existing_customer",
+            "weight": 0.70
+          }
+        ],
+
+        "intent": [
+          {
+            "evidenceId": "intent_security_documentation",
+            "weight": 0.90
+          },
+          {
+            "evidenceId": "intent_api_documentation",
+            "weight": 0.80
+          }
+        ],
+
+        "engagement": [
+          {
+            "evidenceId": "engagement_sales_meeting",
+            "weight": 1.00
+          },
+          {
+            "evidenceId": "engagement_multiple_stakeholders",
+            "weight": 1.00
+          }
+        ],
+
+        "timing": [
+          {
+            "evidenceId": "timing_budget_cycle",
+            "weight": 0.90
+          },
+          {
+            "evidenceId": "timing_new_it_initiative",
+            "weight": 0.95
+          }
+        ]
+      }
+    },
+
+    {
+      "industry": {
+        "id": "ai_solutions",
+        "name": "AI Solutions",
+        "version": "1.0",
+        "inherits": "saas_software",
+        "revenueMotion": "digital_solution_selling",
+        "qualificationRuleProfile": "digital_solution_mql_v1",
+        "description": "AI platforms, Generative AI, Machine Learning and Intelligent Automation solution providers."
+      },
+
+      "overrides": {
+        "fit": [
+          {
+            "evidenceId": "fit_technology_stack",
+            "weight": 0.90
+          }
+        ],
+
+        "intent": [
+          {
+            "evidenceId": "intent_api_documentation",
+            "weight": 0.90
+          },
+          {
+            "evidenceId": "intent_product_comparison",
+            "weight": 0.90
+          }
+        ],
+
+        "engagement": [
+          {
+            "evidenceId": "engagement_product_usage",
+            "weight": 1.00
+          }
+        ],
+
+        "timing": [
+          {
+            "evidenceId": "timing_digital_transformation",
+            "weight": 1.00
+          },
+          {
+            "evidenceId": "timing_new_it_initiative",
+            "weight": 1.00
+          }
+        ]
+      }
+    },
+
+    {
+      "industry": {
+        "id": "cloud_transformation",
+        "name": "Cloud Transformation",
+        "version": "1.0",
+        "inherits": "saas_software",
+        "revenueMotion": "digital_solution_selling",
+        "qualificationRuleProfile": "digital_solution_mql_v1",
+        "description": "Cloud migration, cloud modernization and cloud transformation service providers."
+      },
+
+      "overrides": {
+        "fit": [
+          {
+            "evidenceId": "fit_technology_stack",
+            "weight": 0.95
+          }
+        ],
+
+        "intent": [
+          {
+            "evidenceId": "intent_security_documentation",
+            "weight": 0.85
+          },
+          {
+            "evidenceId": "intent_roi_calculator",
+            "weight": 0.90
+          }
+        ],
+
+        "engagement": [
+          {
+            "evidenceId": "engagement_webinar",
+            "weight": 0.80
+          },
+          {
+            "evidenceId": "engagement_sales_meeting",
+            "weight": 0.95
+          }
+        ],
+
+        "timing": [
+          {
+            "evidenceId": "timing_digital_transformation",
+            "weight": 1.00
+          },
+          {
+            "evidenceId": "timing_new_it_initiative",
+            "weight": 1.00
+          },
+          {
+            "evidenceId": "timing_contract_renewal",
+            "weight": 1.00
+          }
+        ]
+      }
+    },
+
+    {
+    "industry": {
+        "id": "consulting",
+        "name": "Consulting",
+        "version": "1.0",
+        "inherits": "saas_software",
+        "revenueMotion": "professional_solution_services",
+        "qualificationRuleProfile": "professional_services_mql_v1",
+        "description": "Management consulting, business consulting, strategy consulting and advisory service providers."
+    },
+
+    "overrides": {
+
+        "fit": [
+
+        {
+            "evidenceId": "fit_company_size",
+            "weight": 1.00
+        },
+
+        {
+            "evidenceId": "fit_company_revenue",
+            "weight": 0.90
+        },
+
+        {
+            "evidenceId": "fit_job_title",
+            "weight": 1.00
+        },
+
+        {
+            "evidenceId": "fit_department",
+            "weight": 0.95
+        },
+
+        {
+            "evidenceId": "fit_existing_customer",
+            "weight": 0.70
+        }
+
+        ],
+
+        "intent": [
+
+        {
+            "evidenceId": "intent_demo_request",
+            "enabled": false
+        },
+
+        {
+            "evidenceId": "intent_free_trial_started",
+            "enabled": false
+        },
+
+        {
+            "evidenceId": "intent_api_documentation",
+            "enabled": false
+        },
+
+        {
+            "evidenceId": "intent_workshop_request",
+            "required": false,
+            "priority": "Critical",
+            "weight": 1.00
+        },
+
+        {
+            "evidenceId": "intent_discovery_session_request",
+            "required": false,
+            "priority": "Critical",
+            "weight": 0.95
+        },
+
+        {
+            "evidenceId": "intent_consultation_request",
+            "required": false,
+            "priority": "Critical",
+            "weight": 0.95
+        },
+
+        {
+            "evidenceId": "intent_rfp_received",
+            "required": false,
+            "priority": "Critical",
+            "weight": 1.00
+        },
+
+        {
+            "evidenceId": "intent_scope_discussion",
+            "required": false,
+            "priority": "High",
+            "weight": 0.90
+        }
+
+        ],
+
+        "engagement": [
+
+        {
+            "evidenceId": "engagement_executive_workshop",
+            "weight": 1.00
+        },
+
+        {
+            "evidenceId": "engagement_business_assessment",
+            "weight": 0.95
+        },
+
+        {
+            "evidenceId": "engagement_multiple_stakeholders",
+            "weight": 1.00
+        },
+
+        {
+            "evidenceId": "engagement_sales_meeting",
+            "weight": 1.00
+        }
+
+        ],
+
+        "timing": [
+
+        {
+            "evidenceId": "timing_business_transformation",
+            "weight": 1.00
+        },
+
+        {
+            "evidenceId": "timing_budget_cycle",
+            "weight": 0.95
+        },
+
+        {
+            "evidenceId": "timing_project_kickoff",
+            "weight": 0.90
+        },
+
+        {
+            "evidenceId": "timing_new_executive",
+            "weight": 0.85
+        }
+
+        ]
+
+    }
+    },
+
+    {
+    "industry": {
+        "id": "professional_services",
+        "name": "Professional Services",
+        "version": "1.0",
+        "inherits": "consulting",
+        "revenueMotion": "professional_solution_services",
+        "qualificationRuleProfile": "professional_services_mql_v1",
+        "description": "Professional service firms delivering specialized business, legal, financial or technical services."
+    },
+
+    "overrides": {
+
+        "fit": [
+
+        {
+            "evidenceId": "fit_existing_customer",
+            "weight": 0.80
+        }
+
+        ],
+
+        "intent": [
+
+        {
+            "evidenceId": "intent_statement_of_work_request",
+            "required": false,
+            "priority": "Critical",
+            "weight": 1.00
+        },
+
+        {
+            "evidenceId": "intent_resource_requirement",
+            "required": false,
+            "priority": "High",
+            "weight": 0.90
+        }
+
+        ],
+
+        "engagement": [
+
+        {
+            "evidenceId": "engagement_solution_workshop",
+            "weight": 0.95
+        },
+
+        {
+            "evidenceId": "engagement_requirement_review",
+            "weight": 0.90
+        }
+
+        ],
+
+        "timing": [
+
+        {
+            "evidenceId": "timing_contract_expiration",
+            "weight": 0.95
+        },
+
+        {
+            "evidenceId": "timing_resource_gap",
+            "weight": 0.90
+        }
+
+        ]
+
+    }
+    },
+
+    {
+    "industry": {
+        "id": "system_integration",
+        "name": "System Integration",
+        "version": "1.0",
+        "inherits": "consulting",
+        "revenueMotion": "professional_solution_services",
+        "qualificationRuleProfile": "professional_services_mql_v1",
+        "description": "System integrators delivering enterprise implementation, integration and modernization services."
+    },
+
+    "overrides": {
+
+        "fit": [
+
+        {
+            "evidenceId": "fit_technology_stack",
+            "weight": 1.00
+        }
+
+        ],
+
+        "intent": [
+
+        {
+            "evidenceId": "intent_technical_workshop_request",
+            "required": false,
+            "priority": "Critical",
+            "weight": 1.00
+        },
+
+        {
+            "evidenceId": "intent_architecture_review",
+            "required": false,
+            "priority": "Critical",
+            "weight": 0.95
+        },
+
+        {
+            "evidenceId": "intent_integration_assessment",
+            "required": false,
+            "priority": "High",
+            "weight": 0.90
+        },
+
+        {
+            "evidenceId": "intent_rfp_received",
+            "weight": 1.00
+        }
+
+        ],
+
+        "engagement": [
+
+        {
+            "evidenceId": "engagement_solution_demo",
+            "weight": 0.95
+        },
+
+        {
+            "evidenceId": "engagement_technical_workshop",
+            "weight": 1.00
+        },
+
+        {
+            "evidenceId": "engagement_architecture_discussion",
+            "weight": 1.00
+        }
+
+        ],
+
+        "timing": [
+
+        {
+            "evidenceId": "timing_system_upgrade",
+            "weight": 1.00
+        },
+
+        {
+            "evidenceId": "timing_cloud_migration",
+            "weight": 0.95
+        },
+
+        {
+            "evidenceId": "timing_it_modernization",
+            "weight": 1.00
+        }
+
+        ]
+
+    }
+    },
+
+    {
+    "industry": {
+        "id": "managed_services",
+        "name": "Managed Services",
+        "version": "1.0",
+        "inherits": "system_integration",
+        "revenueMotion": "professional_solution_services",
+        "qualificationRuleProfile": "professional_services_mql_v1",
+        "description": "Managed service providers delivering outsourced IT, cloud, infrastructure and operational services."
+    },
+
+    "overrides": {
+
+        "fit": [
+
+        {
+            "evidenceId": "fit_existing_customer",
+            "weight": 0.85
+        }
+
+        ],
+
+        "intent": [
+
+        {
+            "evidenceId": "intent_service_assessment_request",
+            "required": false,
+            "priority": "Critical",
+            "weight": 1.00
+        },
+
+        {
+            "evidenceId": "intent_sla_review",
+            "required": false,
+            "priority": "High",
+            "weight": 0.95
+        },
+
+        {
+            "evidenceId": "intent_operational_assessment",
+            "required": false,
+            "priority": "High",
+            "weight": 0.90
+        }
+
+        ],
+
+        "engagement": [
+
+        {
+            "evidenceId": "engagement_operational_review",
+            "weight": 1.00
+        },
+
+        {
+            "evidenceId": "engagement_service_review_meeting",
+            "weight": 0.95
+        }
+
+        ],
+
+        "timing": [
+
+        {
+            "evidenceId": "timing_service_contract_renewal",
+            "weight": 1.00
+        },
+
+        {
+            "evidenceId": "timing_sla_expiration",
+            "weight": 0.95
+        },
+
+        {
+            "evidenceId": "timing_outsourcing_initiative",
+            "weight": 0.95
+        }
+
+        ]
+
+    }
+    },
+    {
+    "industry": {
+        "id": "digital_transformation",
+        "name": "Digital Transformation",
+        "version": "1.0",
+        "inherits": "cloud_transformation",
+        "revenueMotion": "digital_transformation_solution_selling",
+        "qualificationRuleProfile": "digital_transformation_mql_v1",
+        "description": "Organizations delivering enterprise digital transformation consulting, platforms, modernization and business transformation solutions."
+    },
+
+    "overrides": {
+
+        "fit": [
+
+        {
+            "evidenceId": "fit_business_maturity",
+            "required": false,
+            "priority": "Medium",
+            "weight": 0.80
+        },
+
+        {
+            "evidenceId": "fit_digital_maturity",
+            "required": false,
+            "priority": "High",
+            "weight": 0.95
+        },
+
+        {
+            "evidenceId": "fit_technology_stack",
+            "weight": 1.00
+        }
+
+        ],
+
+        "intent": [
+
+        {
+            "evidenceId": "intent_transformation_assessment_request",
+            "required": false,
+            "priority": "Critical",
+            "weight": 1.00
+        },
+
+        {
+            "evidenceId": "intent_digital_strategy_workshop",
+            "required": false,
+            "priority": "Critical",
+            "weight": 1.00
+        },
+
+        {
+            "evidenceId": "intent_current_state_assessment",
+            "required": false,
+            "priority": "High",
+            "weight": 0.95
+        },
+
+        {
+            "evidenceId": "intent_business_case_review",
+            "required": false,
+            "priority": "High",
+            "weight": 0.90
+        },
+
+        {
+            "evidenceId": "intent_executive_briefing_request",
+            "required": false,
+            "priority": "High",
+            "weight": 0.90
+        }
+
+        ],
+
+        "engagement": [
+
+        {
+            "evidenceId": "engagement_transformation_workshop",
+            "weight": 1.00
+        },
+
+        {
+            "evidenceId": "engagement_executive_alignment_meeting",
+            "weight": 1.00
+        },
+
+        {
+            "evidenceId": "engagement_business_process_assessment",
+            "weight": 0.95
+        },
+
+        {
+            "evidenceId": "engagement_multiple_business_units",
+            "weight": 1.00
+        },
+
+        {
+            "evidenceId": "engagement_business_case_discussion",
+            "weight": 0.95
+        }
+
+        ],
+
+        "timing": [
+
+        {
+            "evidenceId": "timing_digital_transformation_program",
+            "weight": 1.00
+        },
+
+        {
+            "evidenceId": "timing_business_transformation",
+            "weight": 1.00
+        },
+
+        {
+            "evidenceId": "timing_enterprise_modernization",
+            "weight": 0.95
+        },
+
+        {
+            "evidenceId": "timing_erp_upgrade",
+            "weight": 0.90
+        },
+
+        {
+            "evidenceId": "timing_cio_strategy",
+            "weight": 0.90
+        }
+
+        ]
+
+    }
+    },
+
+    {
+    "industry": {
+        "id": "ot_it_solutions",
+        "name": "OT/IT Solutions",
+        "version": "1.0",
+        "inherits": "digital_transformation",
+        "revenueMotion": "industrial_digital_solution_selling",
+        "qualificationRuleProfile": "industrial_digital_mql_v1",
+        "description": "Industrial OT/IT convergence, industrial software, smart manufacturing, industrial automation and operational technology solution providers."
+    },
+
+    "overrides": {
+
+        "fit": [
+
+        {
+            "evidenceId": "fit_industrial_sector",
+            "required": true,
+            "priority": "Critical",
+            "weight": 1.00
+        },
+
+        {
+            "evidenceId": "fit_manufacturing_environment",
+            "required": false,
+            "priority": "High",
+            "weight": 0.95
+        },
+
+        {
+            "evidenceId": "fit_operational_assets",
+            "required": false,
+            "priority": "High",
+            "weight": 0.90
+        },
+
+        {
+            "evidenceId": "fit_control_system_environment",
+            "required": false,
+            "priority": "High",
+            "weight": 0.95
+        }
+
+        ],
+
+        "intent": [
+
+        {
+            "evidenceId": "intent_site_assessment_request",
+            "required": false,
+            "priority": "Critical",
+            "weight": 1.00
+        },
+
+        {
+            "evidenceId": "intent_plant_assessment",
+            "required": false,
+            "priority": "Critical",
+            "weight": 1.00
+        },
+
+        {
+            "evidenceId": "intent_cybersecurity_assessment",
+            "required": false,
+            "priority": "High",
+            "weight": 0.95
+        },
+
+        {
+            "evidenceId": "intent_architecture_review",
+            "required": false,
+            "priority": "High",
+            "weight": 0.90
+        },
+
+        {
+            "evidenceId": "intent_proof_of_concept",
+            "required": false,
+            "priority": "High",
+            "weight": 0.95
+        }
+
+        ],
+
+        "engagement": [
+
+        {
+            "evidenceId": "engagement_site_visit",
+            "weight": 1.00
+        },
+
+        {
+            "evidenceId": "engagement_technical_workshop",
+            "weight": 1.00
+        },
+
+        {
+            "evidenceId": "engagement_operations_team_meeting",
+            "weight": 0.95
+        },
+
+        {
+            "evidenceId": "engagement_engineering_team_meeting",
+            "weight": 0.95
+        },
+
+        {
+            "evidenceId": "engagement_multiple_plant_stakeholders",
+            "weight": 1.00
+        }
+
+        ],
+
+        "timing": [
+
+        {
+            "evidenceId": "timing_plant_modernization",
+            "weight": 1.00
+        },
+
+        {
+            "evidenceId": "timing_capex_program",
+            "weight": 0.95
+        },
+
+        {
+            "evidenceId": "timing_shutdown_turnaround",
+            "weight": 0.90
+        },
+
+        {
+            "evidenceId": "timing_industry40_program",
+            "weight": 1.00
+        },
+
+        {
+            "evidenceId": "timing_asset_upgrade",
+            "weight": 0.95
+        }
+
+        ]
+
+    }
+    },
+    {
+    "industry": {
+        "id": "engineering_solutions",
+        "name": "Engineering Solutions",
+        "version": "1.0",
+        "inherits": "ot_it_solutions",
+        "revenueMotion": "engineering_solution_selling",
+        "qualificationRuleProfile": "engineering_solution_mql_v1",
+        "description": "Engineering solution providers delivering engineering design, industrial systems, process optimization, plant engineering, equipment engineering and technical consulting solutions."
+    },
+
+    "overrides": {
+
+        "fit": [
+
+        {
+            "evidenceId": "fit_engineering_industry",
+            "required": true,
+            "priority": "Critical",
+            "weight": 1.00
+        },
+
+        {
+            "evidenceId": "fit_engineering_capability_match",
+            "required": true,
+            "priority": "Critical",
+            "weight": 1.00
+        },
+
+        {
+            "evidenceId": "fit_project_complexity",
+            "required": false,
+            "priority": "High",
+            "weight": 0.95
+        },
+
+        {
+            "evidenceId": "fit_asset_type",
+            "required": false,
+            "priority": "High",
+            "weight": 0.90
+        },
+
+        {
+            "evidenceId": "fit_regulatory_environment",
+            "required": false,
+            "priority": "Medium",
+            "weight": 0.80
+        }
+
+        ],
+
+        "intent": [
+
+        {
+            "evidenceId": "intent_engineering_consultation_request",
+            "required": false,
+            "priority": "Critical",
+            "weight": 1.00
+        },
+
+        {
+            "evidenceId": "intent_feasibility_study_request",
+            "required": false,
+            "priority": "Critical",
+            "weight": 1.00
+        },
+
+        {
+            "evidenceId": "intent_site_survey_request",
+            "required": false,
+            "priority": "Critical",
+            "weight": 0.95
+        },
+
+        {
+            "evidenceId": "intent_design_review_request",
+            "required": false,
+            "priority": "High",
+            "weight": 0.95
+        },
+
+        {
+            "evidenceId": "intent_budgetary_quote_request",
+            "required": false,
+            "priority": "High",
+            "weight": 0.90
+        },
+
+        {
+            "evidenceId": "intent_budget_estimation_request",
+            "required": false,
+            "priority": "Medium",
+            "weight": 0.85
+        }
+
+        ],
+
+        "engagement": [
+
+        {
+            "evidenceId": "engagement_site_visit",
+            "weight": 1.00
+        },
+
+        {
+            "evidenceId": "engagement_engineering_workshop",
+            "weight": 1.00
+        },
+
+        {
+            "evidenceId": "engagement_design_review_meeting",
+            "weight": 0.95
+        },
+
+        {
+            "evidenceId": "engagement_process_review",
+            "weight": 0.95
+        },
+
+        {
+            "evidenceId": "engagement_multiple_engineering_stakeholders",
+            "weight": 1.00
+        },
+
+        {
+            "evidenceId": "engagement_technical_presentation",
+            "weight": 0.90
+        }
+
+        ],
+
+        "timing": [
+
+        {
+            "evidenceId": "timing_capex_program",
+            "weight": 1.00
+        },
+
+        {
+            "evidenceId": "timing_feasibility_phase",
+            "weight": 0.95
+        },
+
+        {
+            "evidenceId": "timing_project_planning",
+            "weight": 0.95
+        },
+
+        {
+            "evidenceId": "timing_design_phase",
+            "weight": 0.95
+        },
+
+        {
+            "evidenceId": "timing_equipment_upgrade",
+            "weight": 0.90
+        },
+
+        {
+            "evidenceId": "timing_plant_expansion",
+            "weight": 0.90
+        }
+
+        ]
+
+    }
+    },
+
+    {
+    "industry": {
+        "id": "infrastructure_projects",
+        "name": "Infrastructure Projects",
+        "version": "1.0",
+        "inherits": "engineering_solutions",
+        "revenueMotion": "infrastructure_project_selling",
+        "qualificationRuleProfile": "infrastructure_project_mql_v1",
+        "description": "Infrastructure project solution providers supporting transportation, utilities, water, power, telecommunications, airports, railways and public infrastructure projects."
+    },
+
+    "overrides": {
+
+        "fit": [
+
+        {
+            "evidenceId": "fit_infrastructure_sector",
+            "required": true,
+            "priority": "Critical",
+            "weight": 1.00
+        },
+
+        {
+            "evidenceId": "fit_project_owner_type",
+            "required": true,
+            "priority": "Critical",
+            "weight": 0.95
+        },
+
+        {
+            "evidenceId": "fit_funding_source",
+            "required": false,
+            "priority": "High",
+            "weight": 0.90
+        },
+
+        {
+            "evidenceId": "fit_project_scale",
+            "required": false,
+            "priority": "High",
+            "weight": 0.95
+        }
+
+        ],
+
+        "intent": [
+
+        {
+            "evidenceId": "intent_pre_feasibility_discussion",
+            "required": false,
+            "priority": "Critical",
+            "weight": 1.00
+        },
+
+        {
+            "evidenceId": "intent_project_brief_received",
+            "required": false,
+            "priority": "Critical",
+            "weight": 0.95
+        },
+
+        {
+            "evidenceId": "intent_budgetary_proposal_request",
+            "required": false,
+            "priority": "High",
+            "weight": 0.95
+        },
+
+        {
+            "evidenceId": "intent_prequalification_invitation",
+            "required": false,
+            "priority": "Critical",
+            "weight": 1.00
+        },
+
+        {
+            "evidenceId": "intent_rfi_received",
+            "required": false,
+            "priority": "High",
+            "weight": 0.90
+        }
+
+        ],
+
+        "engagement": [
+
+        {
+            "evidenceId": "engagement_owner_meeting",
+            "weight": 1.00
+        },
+
+        {
+            "evidenceId": "engagement_consultant_meeting",
+            "weight": 0.95
+        },
+
+        {
+            "evidenceId": "engagement_site_visit",
+            "weight": 1.00
+        },
+
+        {
+            "evidenceId": "engagement_pre_bid_workshop",
+            "weight": 0.95
+        },
+
+        {
+            "evidenceId": "engagement_multi_party_coordination",
+            "weight": 1.00
+        }
+
+        ],
+
+        "timing": [
+
+        {
+            "evidenceId": "timing_government_budget_approval",
+            "weight": 1.00
+        },
+
+        {
+            "evidenceId": "timing_project_funding_approved",
+            "weight": 1.00
+        },
+
+        {
+            "evidenceId": "timing_project_pipeline",
+            "weight": 0.95
+        },
+
+        {
+            "evidenceId": "timing_tender_schedule",
+            "weight": 1.00
+        },
+
+        {
+            "evidenceId": "timing_procurement_schedule",
+            "weight": 0.95
+        },
+
+        {
+            "evidenceId": "timing_construction_schedule",
+            "weight": 0.90
+        }
+
+        ]
+
+    }
+    },
+    {
+    "industry": {
+        "id": "epc_ep_projects",
+        "name": "EPC / EP Projects",
+        "version": "1.0",
+        "inherits": "infrastructure_projects",
+        "revenueMotion": "project_solution_selling",
+        "qualificationRuleProfile": "project_solution_mql_v1",
+        "description": "Engineering, Procurement and Construction (EPC/EP) contractors and solution providers delivering capital projects, industrial facilities, energy, oil & gas, chemical, power, mining and infrastructure projects."
+    },
+
+    "overrides": {
+
+        "fit": [
+
+        {
+            "evidenceId": "fit_project_delivery_model",
+            "required": true,
+            "priority": "Critical",
+            "weight": 1.00
+        },
+
+        {
+            "evidenceId": "fit_epc_role",
+            "required": true,
+            "priority": "Critical",
+            "weight": 1.00
+        },
+
+        {
+            "evidenceId": "fit_project_phase",
+            "required": true,
+            "priority": "Critical",
+            "weight": 0.95
+        },
+
+        {
+            "evidenceId": "fit_owner_operator",
+            "required": false,
+            "priority": "High",
+            "weight": 0.90
+        },
+
+        {
+            "evidenceId": "fit_project_budget",
+            "required": false,
+            "priority": "High",
+            "weight": 0.95
+        }
+
+        ],
+
+        "intent": [
+
+        {
+            "evidenceId": "intent_feasibility_study_request",
+            "required": false,
+            "priority": "Critical",
+            "weight": 1.00
+        },
+
+        {
+            "evidenceId": "intent_feed_engagement",
+            "required": false,
+            "priority": "Critical",
+            "weight": 1.00
+        },
+
+        {
+            "evidenceId": "intent_budgetary_quote_request",
+            "required": false,
+            "priority": "Critical",
+            "weight": 0.95
+        },
+
+        {
+            "evidenceId": "intent_vendor_prequalification",
+            "required": false,
+            "priority": "Critical",
+            "weight": 1.00
+        },
+
+        {
+            "evidenceId": "intent_rfi_received",
+            "required": false,
+            "priority": "High",
+            "weight": 0.90
+        },
+
+        {
+            "evidenceId": "intent_rfq_received",
+            "required": false,
+            "priority": "Critical",
+            "weight": 0.95
+        },
+
+        {
+            "evidenceId": "intent_tender_invitation",
+            "required": false,
+            "priority": "Critical",
+            "weight": 1.00
+        }
+
+        ],
+
+        "engagement": [
+
+        {
+            "evidenceId": "engagement_owner_meeting",
+            "weight": 1.00
+        },
+
+        {
+            "evidenceId": "engagement_epc_meeting",
+            "weight": 1.00
+        },
+
+        {
+            "evidenceId": "engagement_feed_workshop",
+            "weight": 1.00
+        },
+
+        {
+            "evidenceId": "engagement_site_visit",
+            "weight": 0.95
+        },
+
+        {
+            "evidenceId": "engagement_bid_clarification_meeting",
+            "weight": 1.00
+        },
+
+        {
+            "evidenceId": "engagement_multi_party_coordination",
+            "weight": 1.00
+        }
+
+        ],
+
+        "timing": [
+
+        {
+            "evidenceId": "timing_feed_phase",
+            "weight": 1.00
+        },
+
+        {
+            "evidenceId": "timing_bid_phase",
+            "weight": 1.00
+        },
+
+        {
+            "evidenceId": "timing_tender_release",
+            "weight": 1.00
+        },
+
+        {
+            "evidenceId": "timing_procurement_phase",
+            "weight": 0.95
+        },
+
+        {
+            "evidenceId": "timing_project_award",
+            "weight": 0.95
+        },
+
+        {
+            "evidenceId": "timing_construction_phase",
+            "weight": 0.90
+        }
+
+        ]
+
+    }
+    },
+
+    {
+    "industry": {
+        "id": "enterprise_procurement",
+        "name": "Enterprise Procurement",
+        "version": "1.0",
+        "inherits": "epc_ep_projects",
+        "revenueMotion": "enterprise_procurement_selling",
+        "qualificationRuleProfile": "enterprise_procurement_mql_v1",
+        "description": "Enterprise procurement organizations purchasing strategic products, enterprise platforms, engineering solutions, capital equipment and long-term services through formal sourcing and procurement processes."
+    },
+
+    "overrides": {
+
+        "fit": [
+
+        {
+            "evidenceId": "fit_procurement_model",
+            "required": true,
+            "priority": "Critical",
+            "weight": 1.00
+        },
+
+        {
+            "evidenceId": "fit_procurement_authority",
+            "required": true,
+            "priority": "Critical",
+            "weight": 1.00
+        },
+
+        {
+            "evidenceId": "fit_supplier_category",
+            "required": false,
+            "priority": "High",
+            "weight": 0.90
+        },
+
+        {
+            "evidenceId": "fit_contract_value",
+            "required": false,
+            "priority": "High",
+            "weight": 0.95
+        }
+
+        ],
+
+        "intent": [
+
+        {
+            "evidenceId": "intent_supplier_registration",
+            "required": false,
+            "priority": "Critical",
+            "weight": 1.00
+        },
+
+        {
+            "evidenceId": "intent_vendor_prequalification",
+            "required": false,
+            "priority": "Critical",
+            "weight": 1.00
+        },
+
+        {
+            "evidenceId": "intent_rfi_received",
+            "required": false,
+            "priority": "Critical",
+            "weight": 0.95
+        },
+
+        {
+            "evidenceId": "intent_rfq_received",
+            "required": false,
+            "priority": "Critical",
+            "weight": 1.00
+        },
+
+        {
+            "evidenceId": "intent_rfp_received",
+            "required": false,
+            "priority": "Critical",
+            "weight": 1.00
+        },
+
+        {
+            "evidenceId": "intent_commercial_clarification",
+            "required": false,
+            "priority": "High",
+            "weight": 0.95
+        }
+
+        ],
+
+        "engagement": [
+
+        {
+            "evidenceId": "engagement_procurement_meeting",
+            "weight": 1.00
+        },
+
+        {
+            "evidenceId": "engagement_commercial_review",
+            "weight": 1.00
+        },
+
+        {
+            "evidenceId": "engagement_supplier_presentation",
+            "weight": 0.95
+        },
+
+        {
+            "evidenceId": "engagement_cross_functional_review",
+            "weight": 0.95
+        },
+
+        {
+            "evidenceId": "engagement_procurement_committee",
+            "weight": 1.00
+        }
+
+        ],
+
+        "timing": [
+
+        {
+            "evidenceId": "timing_procurement_plan",
+            "weight": 1.00
+        },
+
+        {
+            "evidenceId": "timing_sourcing_event",
+            "weight": 1.00
+        },
+
+        {
+            "evidenceId": "timing_contract_expiration",
+            "weight": 0.95
+        },
+
+        {
+            "evidenceId": "timing_vendor_selection",
+            "weight": 1.00
+        },
+
+        {
+            "evidenceId": "timing_procurement_committee",
+            "weight": 0.95
+        },
+
+        {
+            "evidenceId": "timing_purchase_approval",
+            "weight": 0.90
+        }
+
+        ]
+
+    }
+    },
+    {
+    "industry": {
+        "id": "solution_selling_organizations",
+        "name": "Solution-Selling Organizations",
+        "version": "1.0",
+        "inherits": "saas_software",
+        "revenueMotion": "generic_solution_selling",
+        "qualificationRuleProfile": "generic_solution_mql_v1",
+        "description": "Organizations selling complex B2B solutions through consultative, value-based, multi-stakeholder and solution-selling motions regardless of industry."
+    },
+
+    "overrides": {
+
+        "fit": [
+
+        {
+            "evidenceId": "fit_business_problem_alignment",
+            "required": true,
+            "priority": "Critical",
+            "weight": 1.00
+        },
+
+        {
+            "evidenceId": "fit_solution_capability_match",
+            "required": true,
+            "priority": "Critical",
+            "weight": 1.00
+        },
+
+        {
+            "evidenceId": "fit_decision_authority",
+            "required": true,
+            "priority": "Critical",
+            "weight": 1.00
+        },
+
+        {
+            "evidenceId": "fit_business_value_potential",
+            "required": false,
+            "priority": "High",
+            "weight": 0.95
+        },
+
+        {
+            "evidenceId": "fit_existing_relationship",
+            "required": false,
+            "priority": "Medium",
+            "weight": 0.80
+        }
+
+        ],
+
+        "intent": [
+
+        {
+            "evidenceId": "intent_business_consultation_request",
+            "required": false,
+            "priority": "Critical",
+            "weight": 1.00
+        },
+
+        {
+            "evidenceId": "intent_solution_evaluation",
+            "required": false,
+            "priority": "Critical",
+            "weight": 0.95
+        },
+
+        {
+            "evidenceId": "intent_business_case_discussion",
+            "required": false,
+            "priority": "High",
+            "weight": 0.95
+        },
+
+        {
+            "evidenceId": "intent_budget_discussion",
+            "required": false,
+            "priority": "High",
+            "weight": 0.90
+        },
+
+        {
+            "evidenceId": "intent_proof_of_concept",
+            "required": false,
+            "priority": "High",
+            "weight": 0.90
+        },
+
+        {
+            "evidenceId": "intent_rfp_received",
+            "required": false,
+            "priority": "Critical",
+            "weight": 1.00
+        }
+
+        ],
+
+        "engagement": [
+
+        {
+            "evidenceId": "engagement_solution_workshop",
+            "weight": 1.00
+        },
+
+        {
+            "evidenceId": "engagement_executive_meeting",
+            "weight": 1.00
+        },
+
+        {
+            "evidenceId": "engagement_business_case_review",
+            "weight": 0.95
+        },
+
+        {
+            "evidenceId": "engagement_multiple_stakeholders",
+            "weight": 1.00
+        },
+
+        {
+            "evidenceId": "engagement_solution_demonstration",
+            "weight": 0.95
+        },
+
+        {
+            "evidenceId": "engagement_value_assessment",
+            "weight": 0.90
+        }
+
+        ],
+
+        "timing": [
+
+        {
+            "evidenceId": "timing_budget_cycle",
+            "weight": 1.00
+        },
+
+        {
+            "evidenceId": "timing_business_initiative",
+            "weight": 1.00
+        },
+
+        {
+            "evidenceId": "timing_business_transformation",
+            "weight": 0.95
+        },
+
+        {
+            "evidenceId": "timing_contract_renewal",
+            "weight": 0.95
+        },
+
+        {
+            "evidenceId": "timing_procurement_window",
+            "weight": 0.90
+        },
+
+        {
+            "evidenceId": "timing_project_launch",
+            "weight": 0.90
+        }
+
+        ]
+
+    }
+    },
+
+    {
+    "industry": {
+        "id": "other_solutions",
+        "name": "Other Solutions",
+        "version": "1.0",
+        "inherits": "solution_selling_organizations",
+        "revenueMotion": "generic_solution_selling",
+        "qualificationRuleProfile": "generic_solution_mql_v1",
+        "description": "Catch-all configuration for B2B solution providers that do not fit into one of the predefined industry categories while still following a consultative solution-selling process."
+    },
+
+    "overrides": {
+
+        "fit": [
+
+        {
+            "evidenceId": "fit_industry_match",
+            "weight": 0.90
+        },
+
+        {
+            "evidenceId": "fit_business_problem_alignment",
+            "weight": 1.00
+        },
+
+        {
+            "evidenceId": "fit_solution_capability_match",
+            "weight": 1.00
+        }
+
+        ],
+
+        "intent": [
+
+        {
+            "evidenceId": "intent_contact_sales",
+            "required": false,
+            "priority": "Critical",
+            "weight": 1.00
+        },
+
+        {
+            "evidenceId": "intent_solution_evaluation",
+            "required": false,
+            "priority": "High",
+            "weight": 0.95
+        },
+
+        {
+            "evidenceId": "intent_requirements_discussion",
+            "required": false,
+            "priority": "High",
+            "weight": 0.95
+        },
+
+        {
+            "evidenceId": "intent_budget_discussion",
+            "required": false,
+            "priority": "Medium",
+            "weight": 0.90
+        }
+
+        ],
+
+        "engagement": [
+
+        {
+            "evidenceId": "engagement_sales_meeting",
+            "weight": 1.00
+        },
+
+        {
+            "evidenceId": "engagement_solution_demonstration",
+            "weight": 1.00
+        },
+
+        {
+            "evidenceId": "engagement_multiple_stakeholders",
+            "weight": 1.00
+        },
+
+        {
+            "evidenceId": "engagement_follow_up_meeting",
+            "weight": 0.90
+        }
+
+        ],
+
+        "timing": [
+
+        {
+            "evidenceId": "timing_business_initiative",
+            "weight": 1.00
+        },
+
+        {
+            "evidenceId": "timing_budget_cycle",
+            "weight": 0.95
+        },
+
+        {
+            "evidenceId": "timing_project_launch",
+            "weight": 0.95
+        },
+
+        {
+            "evidenceId": "timing_contract_renewal",
+            "weight": 0.90
+        }
+
+        ]
+
+    }
+    }
+  ]
+}
