@@ -125,6 +125,10 @@ export const MQLModule: React.FC = () => {
 
   const openLeadAssessment = async (lead: MQLLead) => {
     setSelectedLead(lead);
+    const leadCampaign = campaigns.find(c => c.id === lead.campaign_id);
+    if (leadCampaign) {
+      setSelectedCampaign(leadCampaign);
+    }
     setLoading(true);
     try {
       const assessments = await MQLDataService.getAssessments(lead.id);
@@ -144,6 +148,10 @@ export const MQLModule: React.FC = () => {
   const handleEditLeadClick = async (lead: MQLLead) => {
     setSelectedLead(lead);
     setTargetCampaignId(lead.campaign_id);
+    const leadCampaign = campaigns.find(c => c.id === lead.campaign_id);
+    if (leadCampaign) {
+      setSelectedCampaign(leadCampaign);
+    }
     setLoading(true);
     try {
       const assessments = await MQLDataService.getAssessments(lead.id);
@@ -160,14 +168,14 @@ export const MQLModule: React.FC = () => {
         email: lead.email || '',
         company_name: lead.company_name || '',
         job_title: lead.job_title || '',
-        website: extra.website || '',
-        lead_industry: extra.lead_industry || '',
-        employee_size: extra.employee_size || '',
-        location: extra.location || '',
-        annual_revenue: extra.annual_revenue || '',
-        phone: extra.phone || '',
-        department: extra.department || '',
-        lead_date: extra.lead_date || ''
+        website: lead.website || extra.website || '',
+        lead_industry: lead.lead_industry || extra.lead_industry || '',
+        employee_size: lead.employee_size || extra.employee_size || '',
+        location: lead.location || extra.location || '',
+        annual_revenue: lead.annual_revenue || extra.annual_revenue || '',
+        phone: lead.phone || extra.phone || '',
+        department: lead.department || extra.department || '',
+        lead_date: lead.lead_date || extra.lead_date || ''
       });
       
       setView('lead_create');
@@ -210,6 +218,14 @@ export const MQLModule: React.FC = () => {
           company_name: newLead.company_name,
           job_title: newLead.job_title,
           campaign_id: targetCampaignId,
+          website: newLead.website,
+          lead_industry: newLead.lead_industry,
+          employee_size: newLead.employee_size,
+          location: newLead.location,
+          annual_revenue: newLead.annual_revenue,
+          phone: newLead.phone,
+          department: newLead.department,
+          lead_date: newLead.lead_date,
         });
 
         localStorage.setItem(`mql_lead_extra_${updated.id}`, JSON.stringify(extraData));
@@ -227,7 +243,15 @@ export const MQLModule: React.FC = () => {
           job_title: newLead.job_title,
           campaign_id: activeFormCampaign.id,
           org_id: activeFormCampaign.org_id,
-          status: 'New'
+          status: 'New',
+          website: newLead.website,
+          lead_industry: newLead.lead_industry,
+          employee_size: newLead.employee_size,
+          location: newLead.location,
+          annual_revenue: newLead.annual_revenue,
+          phone: newLead.phone,
+          department: newLead.department,
+          lead_date: newLead.lead_date,
         });
 
         // Save the extra fields to localStorage
@@ -285,7 +309,7 @@ export const MQLModule: React.FC = () => {
     try {
       await MQLDataService.saveAssessments(selectedLead.id, assessmentData);
       
-      const campaign = selectedCampaign || (selectedLead as any).mql_campaigns;
+      const campaign = selectedCampaign || (selectedLead as any).mql_campaigns || campaigns.find(c => c.id === selectedLead.campaign_id);
       let combinedConfig = null;
       let ruleSet = null;
       
@@ -882,17 +906,19 @@ export const MQLModule: React.FC = () => {
                     const leadQualResult = campaignQualResults.find(r => r.lead_id === lead.id);
 
                     // 1. Industry from lead details / extra JSON
-                    let leadIndustry = '—';
-                    try {
-                      const extraJson = localStorage.getItem(`mql_lead_extra_${lead.id}`);
-                      if (extraJson) {
-                        const extra = JSON.parse(extraJson);
-                        if (extra.lead_industry) {
-                          leadIndustry = extra.lead_industry;
+                    let leadIndustry = lead.lead_industry || '—';
+                    if (leadIndustry === '—') {
+                      try {
+                        const extraJson = localStorage.getItem(`mql_lead_extra_${lead.id}`);
+                        if (extraJson) {
+                          const extra = JSON.parse(extraJson);
+                          if (extra.lead_industry) {
+                            leadIndustry = extra.lead_industry;
+                          }
                         }
+                      } catch (e) {
+                        console.error("Failed to parse extra json for lead:", lead.id, e);
                       }
-                    } catch (e) {
-                      console.error("Failed to parse extra json for lead:", lead.id, e);
                     }
 
                     // 2. Overall Score
@@ -1351,7 +1377,7 @@ export const MQLModule: React.FC = () => {
           {isLeadSaved && (
             <div className="p-6 sm:p-8 rounded-2xl bg-bg-surface border border-border space-y-6 animate-in fade-in duration-300">
               <LeadQualificationForm
-                campaign={selectedCampaign}
+                campaign={selectedCampaign || campaigns.find(c => c.id === selectedLead?.campaign_id) || campaigns[0]}
                 lead={selectedLead!}
                 initialData={assessmentData}
                 onChange={setAssessmentData}
@@ -1377,8 +1403,26 @@ export const MQLModule: React.FC = () => {
     }
 
     if (view === 'lead_assess' && selectedLead) {
-      const extraJson = localStorage.getItem(`mql_lead_extra_${selectedLead.id}`);
-      const extra = extraJson ? JSON.parse(extraJson) : null;
+      let extra: any = {};
+      try {
+        const extraJson = localStorage.getItem(`mql_lead_extra_${selectedLead.id}`);
+        if (extraJson) {
+          extra = JSON.parse(extraJson);
+        }
+      } catch (e) {
+        console.error(e);
+      }
+
+      const website = selectedLead.website || extra.website;
+      const lead_industry = selectedLead.lead_industry || extra.lead_industry;
+      const employee_size = selectedLead.employee_size || extra.employee_size;
+      const location = selectedLead.location || extra.location;
+      const annual_revenue = selectedLead.annual_revenue || extra.annual_revenue;
+      const phone = selectedLead.phone || extra.phone;
+      const department = selectedLead.department || extra.department;
+      const lead_date = selectedLead.lead_date || extra.lead_date;
+
+      const hasMetadata = website || lead_industry || employee_size || location || annual_revenue || phone || department || lead_date;
 
       return (
         <div className="space-y-6">
@@ -1399,54 +1443,54 @@ export const MQLModule: React.FC = () => {
             </div>
 
             {/* Redesigned Leads Profile Metadata */}
-            {extra && (
+            {hasMetadata && (
               <div className="mt-5 pt-5 border-t border-border grid grid-cols-2 md:grid-cols-4 gap-4 text-xs">
-                {extra.website && (
+                {website && (
                   <div>
                     <span className="text-[10px] font-mono text-text-secondary uppercase block">Website</span>
-                    <a href={extra.website} target="_blank" rel="noopener noreferrer" className="text-accent hover:underline font-medium truncate block mt-0.5">{extra.website}</a>
+                    <a href={website} target="_blank" rel="noopener noreferrer" className="text-accent hover:underline font-medium truncate block mt-0.5">{website}</a>
                   </div>
                 )}
-                {extra.lead_industry && (
+                {lead_industry && (
                   <div>
                     <span className="text-[10px] font-mono text-text-secondary uppercase block">Industry</span>
-                    <span className="text-text-primary font-bold mt-0.5 block">{extra.lead_industry}</span>
+                    <span className="text-text-primary font-bold mt-0.5 block">{lead_industry}</span>
                   </div>
                 )}
-                {extra.employee_size && (
+                {employee_size && (
                   <div>
                     <span className="text-[10px] font-mono text-text-secondary uppercase block">Employee Size</span>
-                    <span className="text-text-primary font-bold mt-0.5 block">{extra.employee_size}</span>
+                    <span className="text-text-primary font-bold mt-0.5 block">{employee_size}</span>
                   </div>
                 )}
-                {extra.location && (
+                {location && (
                   <div>
                     <span className="text-[10px] font-mono text-text-secondary uppercase block">Location</span>
-                    <span className="text-text-primary font-bold mt-0.5 block">{extra.location}</span>
+                    <span className="text-text-primary font-bold mt-0.5 block">{location}</span>
                   </div>
                 )}
-                {extra.annual_revenue && (
+                {annual_revenue && (
                   <div>
                     <span className="text-[10px] font-mono text-text-secondary uppercase block">Annual Revenue</span>
-                    <span className="text-text-primary font-bold mt-0.5 block">{extra.annual_revenue}</span>
+                    <span className="text-text-primary font-bold mt-0.5 block">{annual_revenue}</span>
                   </div>
                 )}
-                {extra.phone && (
+                {phone && (
                   <div>
                     <span className="text-[10px] font-mono text-text-secondary uppercase block">Phone</span>
-                    <span className="text-text-primary font-bold mt-0.5 block">{extra.phone}</span>
+                    <span className="text-text-primary font-bold mt-0.5 block">{phone}</span>
                   </div>
                 )}
-                {extra.department && (
+                {department && (
                   <div>
                     <span className="text-[10px] font-mono text-text-secondary uppercase block">Department</span>
-                    <span className="text-text-primary font-bold mt-0.5 block">{extra.department}</span>
+                    <span className="text-text-primary font-bold mt-0.5 block">{department}</span>
                   </div>
                 )}
-                {extra.lead_date && (
+                {lead_date && (
                   <div>
                     <span className="text-[10px] font-mono text-text-secondary uppercase block">Date</span>
-                    <span className="text-text-primary font-bold mt-0.5 block">{extra.lead_date}</span>
+                    <span className="text-text-primary font-bold mt-0.5 block">{lead_date}</span>
                   </div>
                 )}
               </div>
@@ -1455,7 +1499,7 @@ export const MQLModule: React.FC = () => {
           
           <div className="p-6 sm:p-8 rounded-2xl bg-bg-surface border border-border">
             <LeadQualificationForm
-              campaign={selectedCampaign}
+              campaign={selectedCampaign || campaigns.find(c => c.id === selectedLead?.campaign_id) || campaigns[0]}
               lead={selectedLead}
               initialData={assessmentData}
               onChange={setAssessmentData}

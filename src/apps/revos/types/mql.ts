@@ -25,6 +25,14 @@ export interface MQLLead {
   created_by?: string;
   created_at: string;
   updated_at: string;
+  website?: string;
+  lead_industry?: string;
+  employee_size?: string;
+  location?: string;
+  annual_revenue?: string;
+  phone?: string;
+  department?: string;
+  lead_date?: string;
 }
 
 export interface MQLEvidenceAssessment {

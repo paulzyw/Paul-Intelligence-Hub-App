@@ -197,7 +197,7 @@ export const LeadQualificationForm: React.FC<LeadQualificationFormProps> = ({
 
   useEffect(() => {
     try {
-      if (!campaign.industry) return;
+      if (!campaign || !campaign.industry) return;
       const combined = MQLConfigService.getCombinedEvidenceConfig(campaign.industry);
       setConfig(combined);
 
@@ -219,7 +219,7 @@ export const LeadQualificationForm: React.FC<LeadQualificationFormProps> = ({
     } catch (err) {
       console.error('Failed to load campaign evidence config:', err);
     }
-  }, [campaign.industry, initialData]);
+  }, [campaign?.industry, initialData]);
 
   const handleFieldChange = (evidenceId: string, field: string, value: any) => {
     let nextValue = value;
