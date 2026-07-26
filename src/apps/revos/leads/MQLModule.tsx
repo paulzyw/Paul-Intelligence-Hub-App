@@ -4,6 +4,7 @@ import { DynamicEvidenceForm } from './components/DynamicEvidenceForm';
 import { LeadQualificationForm } from './components/LeadQualificationForm';
 import { QualificationResult } from './components/QualificationResult';
 import { LeadDashboard } from './components/LeadDashboard';
+import { LeadCanvas } from './components/LeadCanvas';
 import { CsvImportModal } from './components/CsvImportModal';
 import { MQLDataService } from './services/mqlDataService';
 import { MQLConfigService } from './services/mqlConfigLoader';
@@ -19,11 +20,11 @@ export const MQLModule: React.FC = () => {
   const [targetCampaignId, setTargetCampaignId] = useState<string>('');
   
   // Views: campaign_config (Campaign Details), lead_list, lead_create, lead_assess
-  const [view, setView] = useState<'campaign_config' | 'lead_list' | 'lead_create' | 'lead_assess'>('campaign_config');
+  const [view, setView] = useState<'campaign_config' | 'lead_list' | 'lead_create' | 'lead_assess' | 'lead_canvas'>('campaign_config');
   const [loading, setLoading] = useState(true);
 
-  // High-level horizontal navigation: 'campaign' | 'lead' | 'dashboard'
-  const [activeTab, setActiveTab] = useState<'campaign' | 'lead' | 'dashboard'>('campaign');
+  // High-level horizontal navigation: 'campaign' | 'lead_canvas' | 'lead' | 'dashboard'
+  const [activeTab, setActiveTab] = useState<'campaign' | 'lead_canvas' | 'lead' | 'dashboard'>('campaign');
 
   // Campaign qualification results for the Lead Dashboard
   const [campaignQualResults, setCampaignQualResults] = useState<MQLQualificationResult[]>([]);
@@ -117,12 +118,14 @@ export const MQLModule: React.FC = () => {
     }
   };
 
-  const handleTabChange = (tab: 'campaign' | 'lead' | 'dashboard') => {
+  const handleTabChange = (tab: 'campaign' | 'lead_canvas' | 'lead' | 'dashboard') => {
     setActiveTab(tab);
     if (tab === 'campaign') {
       setView('campaign_config');
+    } else if (tab === 'lead_canvas') {
+      setView('lead_canvas');
     } else if (tab === 'lead') {
-      if (view === 'campaign_config') {
+      if (view === 'campaign_config' || view === 'lead_canvas') {
         setView('lead_list');
       }
     }
@@ -492,6 +495,39 @@ export const MQLModule: React.FC = () => {
       );
     }
 
+    if (view === 'lead_canvas') {
+      const enrichedLeads = leads.filter(l => !deletedLeadIds.includes(l.id)).map(lead => {
+        const leadQualResult = campaignQualResults.find(r => r.lead_id === lead.id);
+        let ticketFromDb: any = null;
+        if (leadQualResult?.recommendations && typeof leadQualResult.recommendations === 'object' && !Array.isArray(leadQualResult.recommendations)) {
+          const recObj = leadQualResult.recommendations as any;
+          if (recObj.handover_ticket) {
+            ticketFromDb = recObj.handover_ticket;
+          }
+        }
+        const stored = localStorage.getItem(`mql_handover_${lead.id}`);
+        let parsedStored: any = null;
+        if (stored) {
+          try { parsedStored = JSON.parse(stored); } catch {}
+        }
+        const hasHandover = !!(ticketFromDb || parsedStored);
+        
+        return {
+          ...lead,
+          handover_status: hasHandover ? 'Handover to Sales' : undefined
+        };
+      });
+
+      return (
+        <LeadCanvas 
+          leads={enrichedLeads}
+          campaigns={campaigns}
+          onLeadSelect={handleEditLeadClick}
+          onViewTable={() => handleTabChange('lead')}
+        />
+      );
+    }
+
     if (view === 'lead_list' || view === 'campaign_config') {
       const activeFilterCampaign = campaigns.find(c => c.id === campaignFilterId);
       const filteredLeads = leads.filter(lead => {
@@ -728,6 +764,15 @@ export const MQLModule: React.FC = () => {
 
       return (
         <div className="space-y-6">
+          <div className="mb-2">
+            <button
+              onClick={() => handleTabChange('lead_canvas')}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-bg-surface/50 border border-border/70 text-text-secondary hover:text-text-primary hover:border-text-secondary/40 text-[10px] font-bold uppercase transition-all"
+            >
+              <ArrowLeft className="h-3.5 w-3.5" />
+              Back to Lead Canvas
+            </button>
+          </div>
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 p-5 rounded-2xl bg-bg-surface/50 border border-border">
             <div>
               <span className="text-[10px] font-mono text-text-secondary uppercase">Active Leads Roster</span>
@@ -1216,7 +1261,7 @@ export const MQLModule: React.FC = () => {
                 )}
                 <button 
                   type="button"
-                  onClick={() => { setSelectedLead(null); setView('lead_list'); }} 
+                  onClick={() => { setSelectedLead(null); setView(activeTab === 'lead_canvas' ? 'lead_canvas' : 'lead_list'); }} 
                   className="text-xs sm:text-sm font-mono text-text-secondary hover:text-accent transition-colors flex items-center gap-1 cursor-pointer select-none font-bold"
                 >
                   Close
@@ -1570,7 +1615,7 @@ export const MQLModule: React.FC = () => {
         <div className="space-y-6">
           <div className="p-5 rounded-2xl bg-bg-surface border border-border">
             <button 
-              onClick={() => { setSelectedLead(null); setView('lead_list'); }} 
+              onClick={() => { setSelectedLead(null); setView(activeTab === 'lead_canvas' ? 'lead_canvas' : 'lead_list'); }} 
               className="text-xs font-mono text-text-secondary hover:text-accent transition-colors flex items-center gap-1.5 mb-3"
             >
               <ArrowLeft className="h-3.5 w-3.5" />
@@ -1694,7 +1739,7 @@ export const MQLModule: React.FC = () => {
           <span className="text-[10px] font-mono text-text-secondary uppercase">Unified qualification lifecycle sequence</span>
           <span className="text-xs font-bold text-accent">
             Active qualification step: {
-              activeTab === 'campaign' ? '1 / 3' : activeTab === 'lead' ? '2 / 3' : '3 / 3'
+              activeTab === 'campaign' ? '1 / 3' : (activeTab === 'lead_canvas' || activeTab === 'lead') ? '2 / 3' : '3 / 3'
             }
           </span>
         </div>
@@ -1714,15 +1759,15 @@ export const MQLModule: React.FC = () => {
           </button>
 
           <button
-            onClick={() => handleTabChange('lead')}
+            onClick={() => handleTabChange('lead_canvas')}
             className={`inline-flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl border text-[10px] sm:text-xs font-bold uppercase transition-all shrink-0 cursor-pointer ${
-              activeTab === 'lead'
+              activeTab === 'lead_canvas' || activeTab === 'lead'
                 ? 'bg-accent border-accent text-black font-black scale-105 shadow-md shadow-accent/15'
                 : 'bg-bg-primary/50 border-border/70 text-text-secondary hover:text-text-primary hover:border-text-secondary/40'
             }`}
           >
             <span className="font-mono">2.</span>
-            <span>Lead List {selectedCampaign && `(${leads.length})`}</span>
+            <span>Lead Canvas</span>
           </button>
 
           <button

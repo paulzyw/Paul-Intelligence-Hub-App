@@ -21,7 +21,7 @@ export interface MQLLead {
   email?: string;
   company_name?: string;
   job_title?: string;
-  status: 'New' | 'Assessing' | 'Qualified' | 'Disqualified' | 'Nurture';
+  status: 'New' | 'Assessing' | 'Qualified' | 'Disqualified' | 'Nurture' | 'Qualified MQL' | 'Highly Qualified MQL' | 'Opportunity' | string;
   created_by?: string;
   created_at: string;
   updated_at: string;
@@ -33,6 +33,11 @@ export interface MQLLead {
   phone?: string;
   department?: string;
   lead_date?: string;
+  mql_score?: number;
+  confidence_score?: number;
+  handover_status?: string;
+  qualification_result?: any;
+  evidence?: any;
 }
 
 export interface MQLEvidenceAssessment {

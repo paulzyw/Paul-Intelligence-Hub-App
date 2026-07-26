@@ -170,21 +170,18 @@ export const CsvImportModal: React.FC<CsvImportModalProps> = ({ campaigns, onClo
           email: row[fieldMapping.email] || '',
           lead_industry: row[fieldMapping.industry] || '',
           job_title: row[fieldMapping.title] || '',
-          website: fieldMapping.website ? row[fieldMapping.website] : undefined,
-          employee_size: fieldMapping.employee_size ? row[fieldMapping.employee_size] : undefined,
-          location: fieldMapping.location ? row[fieldMapping.location] : undefined,
-          annual_revenue: fieldMapping.annual_revenue ? row[fieldMapping.annual_revenue] : undefined,
-          phone: fieldMapping.phone ? row[fieldMapping.phone] : undefined,
-          department: fieldMapping.department ? row[fieldMapping.department] : undefined,
+          website: fieldMapping.website ? row[fieldMapping.website] : '',
+          employee_size: fieldMapping.employee_size ? row[fieldMapping.employee_size] : '',
+          location: fieldMapping.location ? row[fieldMapping.location] : '',
+          annual_revenue: fieldMapping.annual_revenue ? row[fieldMapping.annual_revenue] : '',
+          phone: fieldMapping.phone ? row[fieldMapping.phone] : '',
+          department: fieldMapping.department ? row[fieldMapping.department] : '',
           lead_date: fieldMapping.created_at && row[fieldMapping.created_at] 
                       ? row[fieldMapping.created_at] 
-                      : new Date().toISOString(),
-          status: 'New'
+                      : new Date().toLocaleDateString(),
+          status: 'New',
+          org_id: selectedCampaign?.org_id || null
         };
-
-        if (selectedCampaign?.org_id) {
-          lead.org_id = selectedCampaign.org_id;
-        }
 
         leadsToImport.push(lead);
       } catch (e) {
@@ -200,7 +197,7 @@ export const CsvImportModal: React.FC<CsvImportModalProps> = ({ campaigns, onClo
         setStep(3);
         onImportComplete(created);
       } else {
-        alert("No valid leads found to import.");
+        alert("No valid leads found to import. All rows were skipped because they are missing required fields or have empty values for required mapped columns.");
         setIsImporting(false);
       }
     } catch (error) {
