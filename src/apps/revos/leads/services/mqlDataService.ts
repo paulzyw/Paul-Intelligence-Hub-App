@@ -46,6 +46,12 @@ export class MQLDataService {
     return data as MQLLead;
   }
 
+  static async bulkCreateLeads(leads: Partial<MQLLead>[]) {
+    const { data, error } = await supabase.from('mql_leads').insert(leads).select();
+    if (error) throw error;
+    return data as MQLLead[];
+  }
+
   static async updateLead(leadId: string, lead: Partial<MQLLead>) {
     const { data, error } = await supabase.from('mql_leads').update(lead).eq('id', leadId).select().single();
     if (error) throw error;
@@ -180,5 +186,10 @@ export class MQLDataService {
     const { data, error } = await supabase.from('mql_qualification_results').select('*');
     if (error) throw error;
     return data as MQLQualificationResult[];
+  }
+
+  static async deleteLeads(leadIds: string[]) {
+    const { error } = await supabase.from('mql_leads').delete().in('id', leadIds);
+    if (error) throw error;
   }
 }

@@ -4,10 +4,11 @@ import { DynamicEvidenceForm } from './components/DynamicEvidenceForm';
 import { LeadQualificationForm } from './components/LeadQualificationForm';
 import { QualificationResult } from './components/QualificationResult';
 import { LeadDashboard } from './components/LeadDashboard';
+import { CsvImportModal } from './components/CsvImportModal';
 import { MQLDataService } from './services/mqlDataService';
 import { MQLConfigService } from './services/mqlConfigLoader';
 import { MQLCampaign, MQLLead, MQLQualificationResult } from '../types/mql';
-import { Plus, FolderOpen, Cpu, Users, Settings, PlusCircle, ArrowLeft, Bot, Sparkles, Activity, Check, ChevronDown, ChevronUp, Trash, Trash2, Download, RefreshCw } from 'lucide-react';
+import { Plus, FolderOpen, Cpu, Users, Settings, PlusCircle, ArrowLeft, Bot, Sparkles, Activity, Check, ChevronDown, ChevronUp, Trash, Trash2, Download, RefreshCw, AlertTriangle } from 'lucide-react';
 
 export const MQLModule: React.FC = () => {
   const [campaigns, setCampaigns] = useState<MQLCampaign[]>([]);
@@ -58,6 +59,10 @@ export const MQLModule: React.FC = () => {
   const [selectedLeadIds, setSelectedLeadIds] = useState<string[]>([]);
   const [showDeletedOnly, setShowDeletedOnly] = useState<boolean>(false);
   const [searchQuery, setSearchQuery] = useState<string>('');
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState<boolean>(false);
+  const [showPermanentDeleteConfirm, setShowPermanentDeleteConfirm] = useState<boolean>(false);
+  const [showCsvImport, setShowCsvImport] = useState<boolean>(false);
+  const [showAddOptions, setShowAddOptions] = useState<boolean>(false);
 
   useEffect(() => {
     localStorage.setItem('mql_deleted_lead_ids', JSON.stringify(deletedLeadIds));
@@ -677,12 +682,41 @@ export const MQLModule: React.FC = () => {
 
       const handleDeleteSelected = () => {
         if (selectedLeadIds.length === 0) return;
-        if (confirm(`Are you sure you want to move the ${selectedLeadIds.length} selected lead(s) to Trash?`)) {
-          setDeletedLeadIds(prev => {
-            const next = [...new Set([...prev, ...selectedLeadIds])];
-            return next;
-          });
+        setShowDeleteConfirm(true);
+      };
+
+      const confirmDeleteLeads = () => {
+        setDeletedLeadIds(prev => {
+          const next = [...new Set([...prev, ...selectedLeadIds])];
+          return next;
+        });
+        setSelectedLeadIds([]);
+        setShowDeleteConfirm(false);
+      };
+
+      const handlePermanentDeleteSelected = () => {
+        if (selectedLeadIds.length === 0) return;
+        setShowPermanentDeleteConfirm(true);
+      };
+
+      const confirmPermanentDeleteLeads = async () => {
+        try {
+          setLoading(true);
+          await MQLDataService.deleteLeads(selectedLeadIds);
+          
+          // Remove from local leads state
+          setLeads(prev => prev.filter(l => !selectedLeadIds.includes(l.id)));
+          
+          // Remove from deleted list
+          setDeletedLeadIds(prev => prev.filter(id => !selectedLeadIds.includes(id)));
+          
           setSelectedLeadIds([]);
+          setShowPermanentDeleteConfirm(false);
+        } catch (err) {
+          console.error('Failed to permanently delete leads:', err);
+          alert('Failed to permanently delete leads.');
+        } finally {
+          setLoading(false);
         }
       };
 
@@ -729,40 +763,62 @@ export const MQLModule: React.FC = () => {
                 </select>
               </div>
 
-              <button 
-                onClick={() => {
-                  setSelectedLead(null);
-                  setQualResult(null);
-                  setAssessmentData([]);
-                  setNewLead({
-                    name: '',
-                    email: '',
-                    company_name: '',
-                    job_title: '',
-                    website: '',
-                    lead_industry: '',
-                    employee_size: '',
-                    location: '',
-                    annual_revenue: '',
-                    phone: '',
-                    department: '',
-                    lead_date: ''
-                  });
-                  // If a specific campaign is filtered, pre-select it
-                  if (campaignFilterId !== 'all') {
-                    setTargetCampaignId(campaignFilterId);
-                  } else if (campaigns.length > 0) {
-                    setTargetCampaignId(campaigns[0].id);
-                  } else {
-                    setTargetCampaignId('');
-                  }
-                  setView('lead_create');
-                }} 
-                className="px-4 py-2 bg-accent text-black dark:text-black hover:opacity-90 font-black text-xs rounded-xl transition-all shadow-md flex items-center gap-1.5 select-none justify-center whitespace-nowrap"
-              >
-                <PlusCircle className="h-4 w-4" />
-                Add New Lead
-              </button>
+              <div className="relative">
+                <button 
+                  onClick={() => setShowAddOptions(!showAddOptions)}
+                  className="px-4 py-2 bg-accent text-black dark:text-black hover:opacity-90 font-black text-xs rounded-xl transition-all shadow-md flex items-center gap-1.5 select-none justify-center whitespace-nowrap"
+                >
+                  <PlusCircle className="h-4 w-4" />
+                  Add New Lead
+                  <ChevronDown className="h-3.5 w-3.5 ml-1 opacity-70" />
+                </button>
+                
+                {showAddOptions && (
+                  <>
+                    <div 
+                      className="fixed inset-0 z-10" 
+                      onClick={() => setShowAddOptions(false)}
+                    />
+                    <div className="absolute right-0 mt-2 w-48 bg-bg-surface border border-border rounded-xl shadow-lg z-20 py-2 animate-in fade-in slide-in-from-top-2 duration-200">
+                      <button
+                        onClick={() => {
+                          setShowAddOptions(false);
+                          setSelectedLead(null);
+                          setQualResult(null);
+                          setAssessmentData([]);
+                          setNewLead({
+                            name: '', email: '', company_name: '', job_title: '',
+                            website: '', lead_industry: '', employee_size: '', location: '',
+                            annual_revenue: '', phone: '', department: '', lead_date: ''
+                          });
+                          if (campaignFilterId !== 'all') {
+                            setTargetCampaignId(campaignFilterId);
+                          } else if (campaigns.length > 0) {
+                            setTargetCampaignId(campaigns[0].id);
+                          } else {
+                            setTargetCampaignId('');
+                          }
+                          setView('lead_create');
+                        }}
+                        className="w-full text-left px-4 py-2.5 text-xs font-bold text-text-primary hover:bg-bg-primary/50 transition-colors flex items-center gap-2"
+                      >
+                        <Plus className="h-3.5 w-3.5" />
+                        Manual Add
+                      </button>
+                      <button
+                        onClick={() => {
+                          setShowAddOptions(false);
+                          setShowCsvImport(true);
+                        }}
+                        className="w-full text-left px-4 py-2.5 text-xs font-bold text-text-primary hover:bg-bg-primary/50 transition-colors flex items-center gap-2"
+                      >
+                        <Download className="h-3.5 w-3.5 rotate-180" />
+                        Import CSV
+                      </button>
+                    </div>
+                  </>
+                )}
+              </div>
             </div>
           </div>
 
@@ -825,6 +881,15 @@ export const MQLModule: React.FC = () => {
                   >
                     <RefreshCw className="h-3.5 w-3.5" />
                     Restore Selected
+                  </button>
+                  <button
+                    onClick={handlePermanentDeleteSelected}
+                    disabled={selectedLeadIds.length === 0}
+                    className="px-3 py-1.5 bg-red-500/10 hover:bg-red-500/20 text-red-500 border border-red-500/30 disabled:opacity-50 font-black text-[10px] rounded-xl uppercase tracking-wider transition-all cursor-pointer flex items-center gap-1.5"
+                    title="Permanently delete selected leads"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                    Permanently Delete
                   </button>
                   <button
                     onClick={() => setShowDeletedOnly(false)}
@@ -891,14 +956,14 @@ export const MQLModule: React.FC = () => {
                         className="rounded border-border text-accent focus:ring-accent cursor-pointer h-3.5 w-3.5"
                       />
                     </th>
-                    <th className="px-6 py-4 font-bold">Contact Name</th>
+                    <th className="px-6 py-4 font-bold">Contact</th>
                     <th className="px-6 py-4 font-bold">Organization</th>
                     <th className="px-6 py-4 font-bold">Title</th>
                     <th className="px-6 py-4 font-bold">Industry</th>
-                    <th className="px-6 py-4 font-bold">Overall Score</th>
+                    <th className="px-6 py-4 font-bold">Score</th>
                     <th className="px-6 py-4 font-bold">Confidence</th>
-                    <th className="px-6 py-4 font-bold">Sales Handover</th>
-                    <th className="px-6 py-4 font-bold">Qualification Status</th>
+                    <th className="px-6 py-4 font-bold">Handover</th>
+                    <th className="px-6 py-4 font-bold">MQL</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border text-text-primary">
@@ -958,13 +1023,20 @@ export const MQLModule: React.FC = () => {
                       }
                     }
 
-                    const statusColor = lead.status?.toLowerCase().includes('highly')
-                      ? 'text-green-500 bg-green-500/10 border-green-500/20'
-                      : lead.status?.toLowerCase().includes('qualified')
+                    let displayStatus = (lead.status as string) || 'New';
+                    if (displayStatus === 'Qualified MQL' || displayStatus === 'Highly Qualified MQL') {
+                      displayStatus = 'Qualified';
+                    } else if (displayStatus === 'Disqualified MQL') {
+                      displayStatus = 'Disqualified';
+                    } else if (displayStatus === 'Marketing Nurture') {
+                      displayStatus = 'Nurture';
+                    }
+
+                    const statusColor = displayStatus.toLowerCase().includes('highly') || displayStatus.toLowerCase() === 'qualified'
                       ? 'text-emerald-500 bg-emerald-500/10 border-emerald-500/20'
-                      : lead.status?.toLowerCase().includes('nurture')
+                      : displayStatus.toLowerCase().includes('nurture')
                       ? 'text-accent bg-accent/10 border-accent/20'
-                      : lead.status?.toLowerCase().includes('disqualified')
+                      : displayStatus.toLowerCase().includes('disqualified')
                       ? 'text-red-500 bg-red-500/10 border-red-500/20'
                       : 'text-text-secondary bg-bg-primary border-border';
                     
@@ -1006,7 +1078,7 @@ export const MQLModule: React.FC = () => {
                         </td>
                         <td className="px-6 py-4">
                           <span className={`px-2.5 py-1 rounded-lg border font-black text-[10px] uppercase font-mono tracking-wider ${statusColor}`}>
-                            {lead.status}
+                            {displayStatus}
                           </span>
                         </td>
                       </tr>
@@ -1024,6 +1096,76 @@ export const MQLModule: React.FC = () => {
               </table>
             </div>
           </div>
+
+          {/* Soft Delete Confirmation Modal */}
+          {showDeleteConfirm && (
+            <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+              <div className="bg-bg-surface border border-border rounded-2xl w-full max-w-md overflow-hidden shadow-2xl animate-in zoom-in-95 duration-200">
+                <div className="p-6">
+                  <div className="flex items-center gap-3 text-red-500 mb-3.5">
+                    <div className="p-2 rounded-xl bg-red-500/10 border border-red-500/20">
+                      <Trash2 className="h-5 w-5" />
+                    </div>
+                    <h3 className="text-sm font-bold text-text-primary uppercase tracking-wider font-sans">Move to Trash</h3>
+                  </div>
+                  <p className="text-xs text-text-secondary leading-relaxed mb-6 font-sans">
+                    Are you sure you want to move the <span className="font-bold text-text-primary">{selectedLeadIds.length}</span> selected lead(s) to the Trash? They will be hidden from your active list but can be restored later.
+                  </p>
+                  <div className="flex items-center justify-end gap-3">
+                    <button
+                      type="button"
+                      onClick={() => setShowDeleteConfirm(false)}
+                      className="px-4 py-2 bg-bg-primary hover:bg-bg-primary/80 border border-border text-text-primary font-black text-[10px] rounded-xl uppercase tracking-wider transition-all cursor-pointer"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="button"
+                      onClick={confirmDeleteLeads}
+                      className="px-4 py-2 bg-red-500 hover:opacity-90 text-white font-black text-[10px] rounded-xl uppercase tracking-wider transition-all cursor-pointer"
+                    >
+                      Move to Trash
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Permanent Delete Confirmation Modal */}
+          {showPermanentDeleteConfirm && (
+            <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+              <div className="bg-bg-surface border border-border rounded-2xl w-full max-w-md overflow-hidden shadow-2xl animate-in zoom-in-95 duration-200">
+                <div className="p-6">
+                  <div className="flex items-center gap-3 text-red-600 mb-3.5">
+                    <div className="p-2 rounded-xl bg-red-600/10 border border-red-600/20">
+                      <AlertTriangle className="h-5 w-5" />
+                    </div>
+                    <h3 className="text-sm font-bold text-text-primary uppercase tracking-wider font-sans">Permanently Delete Leads</h3>
+                  </div>
+                  <p className="text-xs text-text-secondary leading-relaxed mb-6 font-sans">
+                    Warning: This action is irreversible. Are you sure you want to permanently delete the <span className="font-bold text-text-primary">{selectedLeadIds.length}</span> selected lead(s) and all their qualification results/assessments from the database?
+                  </p>
+                  <div className="flex items-center justify-end gap-3">
+                    <button
+                      type="button"
+                      onClick={() => setShowPermanentDeleteConfirm(false)}
+                      className="px-4 py-2 bg-bg-primary hover:bg-bg-primary/80 border border-border text-text-primary font-black text-[10px] rounded-xl uppercase tracking-wider transition-all cursor-pointer"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="button"
+                      onClick={confirmPermanentDeleteLeads}
+                      className="px-4 py-2 bg-red-600 hover:opacity-90 text-white font-black text-[10px] rounded-xl uppercase tracking-wider transition-all cursor-pointer"
+                    >
+                      Delete Permanently
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       );
     }
@@ -1662,6 +1804,16 @@ export const MQLModule: React.FC = () => {
             {renderMainContent()}
           </div>
         </div>
+      )}
+
+      {showCsvImport && (
+        <CsvImportModal
+          campaigns={campaigns}
+          onClose={() => setShowCsvImport(false)}
+          onImportComplete={(importedLeads) => {
+            setLeads(prev => [...importedLeads, ...prev]);
+          }}
+        />
       )}
     </div>
   );
