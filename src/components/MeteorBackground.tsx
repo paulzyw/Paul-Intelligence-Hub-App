@@ -1,6 +1,11 @@
 import { useEffect, useRef } from 'react';
 
-export function MeteorBackground() {
+export interface MeteorBackgroundProps {
+  density?: number;
+  speed?: number;
+}
+
+export function MeteorBackground({ density = 1.0, speed = 1.0 }: MeteorBackgroundProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   useEffect(() => {
@@ -31,7 +36,7 @@ export function MeteorBackground() {
       x: number;
       y: number;
       length: number;
-      speed: number;
+      speedVal: number;
       thickness: number;
       active: boolean;
 
@@ -40,7 +45,7 @@ export function MeteorBackground() {
         this.x = 0;
         this.y = 0;
         this.length = 0;
-        this.speed = 0;
+        this.speedVal = 0;
         this.thickness = 0;
       }
 
@@ -57,8 +62,8 @@ export function MeteorBackground() {
         
         // Length between 150px and 300px
         this.length = Math.random() * 150 + 150;
-        // Speed for the meteor (reduced by ~30% to make it fly 30% longer)
-        this.speed = (Math.random() * 10 + 15) / 1.3;
+        // Speed for the meteor (multiplied by speed prop)
+        this.speedVal = ((Math.random() * 10 + 15) / 1.3) * speed;
         // Thickness between 2px and 4px
         this.thickness = Math.random() * 2 + 2;
       }
@@ -67,8 +72,8 @@ export function MeteorBackground() {
         if (!this.active) return;
         
         // Move diagonally from top-right to bottom-left (45 degrees)
-        this.x -= this.speed;
-        this.y += this.speed;
+        this.x -= this.speedVal;
+        this.y += this.speedVal;
 
         // Deactivate if it goes off screen
         if (this.x < -this.length || this.y > canvas.height + this.length) {
@@ -99,17 +104,22 @@ export function MeteorBackground() {
       }
     }
 
-    const meteors = [new Meteor(), new Meteor(), new Meteor(), new Meteor(), new Meteor()];
+    // Number of active meteors in pool scales with density
+    const meteorCount = Math.max(1, Math.round(10 * density));
+    const meteors = Array.from({ length: meteorCount }, () => new Meteor());
     let currentMeteor = 0;
 
     let isFirst = true;
     const scheduleNextMeteor = () => {
-      // First meteor spawns quickly (1s), subsequent ones every 1.5 seconds (2 stars every 3 seconds)
-      const delay = isFirst ? 1000 : 1500;
+      // Delay inversely proportional to density
+      const safeDensity = Math.max(0.1, density);
+      const delay = isFirst ? (1000 / speed) : (1500 / safeDensity);
       isFirst = false;
       timeoutId = window.setTimeout(() => {
-        meteors[currentMeteor].spawn();
-        currentMeteor = (currentMeteor + 1) % meteors.length;
+        if (meteors[currentMeteor]) {
+          meteors[currentMeteor].spawn();
+          currentMeteor = (currentMeteor + 1) % meteors.length;
+        }
         scheduleNextMeteor();
       }, delay);
     };
@@ -133,7 +143,7 @@ export function MeteorBackground() {
       cancelAnimationFrame(animationFrameId);
       clearTimeout(timeoutId);
     };
-  }, []);
+  }, [density, speed]);
 
   return (
     <canvas

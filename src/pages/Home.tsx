@@ -1,8 +1,10 @@
 import { useState, useEffect, useRef } from 'react';
-import { motion, useInView, animate } from 'motion/react';
+import { motion, useInView, animate, AnimatePresence } from 'motion/react';
 import { Link } from 'react-router-dom';
 import { Database, Lightbulb, Target, Settings, TrendingUp, Users, HeartHandshake, Briefcase, Zap, RefreshCw, ArrowRight, FileText, BarChart3, Calendar, Leaf, Gauge, Network, FlaskConical, HelpCircle } from 'lucide-react';
 import Galaxy from '../components/Galaxy';
+import { MeteorBackground } from '../components/MeteorBackground';
+import { useTheme } from '../context/ThemeContext';
 import { TrustBar } from '../components/TrustBar';
 import { ImpactTeaser } from '../components/ImpactTeaser';
 import { supabase, type Post, type ResearchReport } from '../lib/supabase';
@@ -34,6 +36,7 @@ function Counter({ value, duration = 2, prefix = '', suffix = '', decimals = 0 }
 }
 
 export function Home() {
+  const { heroBackground, meteorDensity, meteorSpeed, galaxyStarSpeed, galaxyDensity, galaxyGlowIntensity, galaxySaturation } = useTheme();
   const [latestPosts, setLatestPosts] = useState<Post[]>([]);
   const [loadingPosts, setLoadingPosts] = useState(true);
   const [errorPosts, setErrorPosts] = useState<string | null>(null);
@@ -150,23 +153,47 @@ export function Home() {
       <section className="relative w-full bg-bg-hero-primary py-24 lg:py-32 overflow-hidden flex items-center justify-center min-h-[80vh] transition-colors duration-400">
         <div className="absolute inset-0 opacity-20 bg-[linear-gradient(to_right,#80808012_1px,transparent_1px),linear-gradient(to_bottom,#80808012_1px,transparent_1px)] bg-[size:24px_24px]"></div>
         <div className="absolute inset-0 bg-gradient-to-t from-bg-hero-primary to-transparent"></div>
-        <Galaxy 
-          focal={[0.5, 0.5]}
-          rotation={[1.0, 0.0]}
-          starSpeed={0.6}
-          density={0.8}
-          hueShift={140}
-          speed={1.0}
-          glowIntensity={0.2}
-          saturation={0.0}
-          mouseRepulsion={true}
-          repulsionStrength={2.0}
-          twinkleIntensity={0.5}
-          rotationSpeed={0.05}
-          autoCenterRepulsion={0}
-          transparent={true}
-          className="absolute inset-0 z-0 w-full h-full pointer-events-none" 
-        />
+        <AnimatePresence mode="wait">
+          {heroBackground === 'galaxy' ? (
+            <motion.div
+              key="galaxy"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.8 }}
+              className="absolute inset-0 z-0 pointer-events-none"
+            >
+              <Galaxy 
+                focal={[0.5, 0.5]}
+                rotation={[1.0, 0.0]}
+                starSpeed={galaxyStarSpeed}
+                density={galaxyDensity}
+                hueShift={140}
+                speed={1.0}
+                glowIntensity={galaxyGlowIntensity}
+                saturation={galaxySaturation}
+                mouseRepulsion={true}
+                repulsionStrength={2.0}
+                twinkleIntensity={0.5}
+                rotationSpeed={0.05}
+                autoCenterRepulsion={0}
+                transparent={true}
+                className="absolute inset-0 w-full h-full pointer-events-none" 
+              />
+            </motion.div>
+          ) : (
+            <motion.div
+              key="meteor"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.8 }}
+              className="absolute inset-0 z-0 pointer-events-none"
+            >
+              <MeteorBackground density={meteorDensity} speed={meteorSpeed} />
+            </motion.div>
+          )}
+        </AnimatePresence>
         
         <div className="relative z-10 mx-auto max-w-5xl px-4 sm:px-6 lg:px-8 text-center">
           <motion.h1 

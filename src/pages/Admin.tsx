@@ -1,8 +1,9 @@
 import { useState, useEffect, useRef } from 'react';
 import { supabase, type Post, type Category, type ResearchReport, type ReportType, type AccessCode } from '../lib/supabase';
-import { Plus, Edit, Trash2, Save, X, UploadCloud, Image as ImageIcon, FolderPlus, Sparkles, BarChart3, Key, Copy, Check, ShieldAlert } from 'lucide-react';
+import { Plus, Edit, Trash2, Save, X, UploadCloud, Image as ImageIcon, FolderPlus, Sparkles, BarChart3, Key, Copy, Check, ShieldAlert, Orbit, Compass } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 import { Navigate, useNavigate, Link } from 'react-router-dom';
+import { useTheme } from '../context/ThemeContext';
 
 const AccessCodeGenerator = () => {
   const [hours, setHours] = useState<number>(24);
@@ -194,6 +195,22 @@ const CategoryManager = ({ categories, fetchCategories }: { categories: Category
 
 export function Admin() {
   const navigate = useNavigate();
+  const { 
+    heroBackground, 
+    setHeroBackground, 
+    meteorDensity, 
+    setMeteorDensity, 
+    meteorSpeed, 
+    setMeteorSpeed,
+    galaxyStarSpeed,
+    setGalaxyStarSpeed,
+    galaxyDensity,
+    setGalaxyDensity,
+    galaxyGlowIntensity,
+    setGalaxyGlowIntensity,
+    galaxySaturation,
+    setGalaxySaturation
+  } = useTheme();
   const { user, profile, loading: authLoading, isSuperAdmin } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -390,6 +407,249 @@ export function Admin() {
         {!isEditing && (
           <>
             <TrafficMonitor />
+            
+            {/* HERO BACKGROUND SWITCHER */}
+            <div className="bg-bg-surface border border-border rounded-xl p-6 mb-8 transition-colors duration-400">
+              <h2 className="text-xl font-bold text-text-primary mb-4 flex items-center gap-2">
+                <Orbit size={20} className="text-accent animate-spin" style={{ animationDuration: '8s' }} /> Hero Section Background Intelligence
+              </h2>
+              <p className="text-sm text-text-secondary mb-6 max-w-2xl">
+                Dynamically switch the visual ambient mode of the portfolio landing page hero section. This controls the active WebGL rendering engine globally.
+              </p>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* GALAXY BUTTON */}
+                <button
+                  type="button"
+                  onClick={() => setHeroBackground('galaxy')}
+                  className={`relative p-5 rounded-xl border text-left transition-all duration-300 flex items-start gap-4 focus:outline-none ${
+                    heroBackground === 'galaxy'
+                      ? 'border-accent bg-accent/5'
+                      : 'border-border bg-transparent hover:border-text-secondary/30 hover:bg-bg-primary/40'
+                  }`}
+                >
+                  <div className={`p-3 rounded-lg ${
+                    heroBackground === 'galaxy' ? 'bg-accent text-white' : 'bg-bg-primary text-text-secondary'
+                  } transition-colors`}>
+                    <Orbit size={24} />
+                  </div>
+                  <div>
+                    <div className="font-bold text-text-primary text-base flex items-center gap-2">
+                      Interactive WebGL Galaxy
+                      {heroBackground === 'galaxy' && (
+                        <span className="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 bg-accent/20 text-accent rounded-full">
+                          Active
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-xs text-text-secondary mt-1">
+                      Next-gen interactive stardust simulation powered by native GPU shaders. Responds to mouse physics and auto-rotation.
+                    </p>
+                  </div>
+                </button>
+
+                {/* METEOR BUTTON */}
+                <button
+                  type="button"
+                  onClick={() => setHeroBackground('meteor')}
+                  className={`relative p-5 rounded-xl border text-left transition-all duration-300 flex items-start gap-4 focus:outline-none ${
+                    heroBackground === 'meteor'
+                      ? 'border-accent bg-accent/5'
+                      : 'border-border bg-transparent hover:border-text-secondary/30 hover:bg-bg-primary/40'
+                  }`}
+                >
+                  <div className={`p-3 rounded-lg ${
+                    heroBackground === 'meteor' ? 'bg-accent text-white' : 'bg-bg-primary text-text-secondary'
+                  } transition-colors`}>
+                    <Compass size={24} />
+                  </div>
+                  <div>
+                    <div className="font-bold text-text-primary text-base flex items-center gap-2">
+                      Dynamic Meteor Shower
+                      {heroBackground === 'meteor' && (
+                        <span className="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 bg-accent/20 text-accent rounded-full">
+                          Active
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-xs text-text-secondary mt-1">
+                      Ambient canvas particle animation rendering falling shooting stars. Smooth and peaceful performance profile.
+                    </p>
+                  </div>
+                </button>
+              </div>
+
+              {/* METEOR CUSTOMIZATION SLIDERS */}
+              {heroBackground === 'meteor' && (
+                <div className="mt-6 pt-6 border-t border-border/60">
+                  <h3 className="text-xs font-bold text-text-primary mb-4 uppercase tracking-wider flex items-center gap-2">
+                    <Sparkles size={14} className="text-accent" /> Meteor Shower Calibration
+                  </h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    {/* Density Slider */}
+                    <div className="flex flex-col gap-2">
+                      <div className="flex justify-between items-center text-xs">
+                        <label htmlFor="meteor-density" className="font-medium text-text-secondary">Meteor Density</label>
+                        <span className="font-mono bg-accent/10 text-accent px-2 py-0.5 rounded text-[11px] font-semibold">
+                          {meteorDensity.toFixed(1)}x ({Math.max(1, Math.round(10 * meteorDensity))} meteors)
+                        </span>
+                      </div>
+                      <input
+                        id="meteor-density"
+                        type="range"
+                        min="0.1"
+                        max="10.0"
+                        step="0.1"
+                        value={meteorDensity}
+                        onChange={(e) => setMeteorDensity(parseFloat(e.target.value))}
+                        className="w-full accent-accent bg-bg-primary h-1.5 rounded-lg appearance-none cursor-pointer"
+                      />
+                      <div className="flex justify-between text-[10px] text-text-secondary/60">
+                        <span>Sparse (0.1x)</span>
+                        <span>Standard (1.0x)</span>
+                        <span>Extreme Shower (10.0x)</span>
+                      </div>
+                    </div>
+
+                    {/* Speed Slider */}
+                    <div className="flex flex-col gap-2">
+                      <div className="flex justify-between items-center text-xs">
+                        <label htmlFor="meteor-speed" className="font-medium text-text-secondary">Meteor Velocity / Speed</label>
+                        <span className="font-mono bg-accent/10 text-accent px-2 py-0.5 rounded text-[11px] font-semibold">
+                          {meteorSpeed.toFixed(1)}x
+                        </span>
+                      </div>
+                      <input
+                        id="meteor-speed"
+                        type="range"
+                        min="0.2"
+                        max="3.0"
+                        step="0.1"
+                        value={meteorSpeed}
+                        onChange={(e) => setMeteorSpeed(parseFloat(e.target.value))}
+                        className="w-full accent-accent bg-bg-primary h-1.5 rounded-lg appearance-none cursor-pointer"
+                      />
+                      <div className="flex justify-between text-[10px] text-text-secondary/60">
+                        <span>Slow</span>
+                        <span>Standard (1.0x)</span>
+                        <span>Hypersonic</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* GALAXY CUSTOMIZATION SLIDERS */}
+              {heroBackground === 'galaxy' && (
+                <div className="mt-6 pt-6 border-t border-border/60">
+                  <h3 className="text-xs font-bold text-text-primary mb-4 uppercase tracking-wider flex items-center gap-2">
+                    <Sparkles size={14} className="text-accent" /> WebGL Galaxy Calibration
+                  </h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    {/* Star Speed Slider */}
+                    <div className="flex flex-col gap-2">
+                      <div className="flex justify-between items-center text-xs">
+                        <label htmlFor="galaxy-star-speed" className="font-medium text-text-secondary">Star Travel Speed</label>
+                        <span className="font-mono bg-accent/10 text-accent px-2 py-0.5 rounded text-[11px] font-semibold">
+                          {galaxyStarSpeed.toFixed(2)}x
+                        </span>
+                      </div>
+                      <input
+                        id="galaxy-star-speed"
+                        type="range"
+                        min="0.05"
+                        max="3.00"
+                        step="0.05"
+                        value={galaxyStarSpeed}
+                        onChange={(e) => setGalaxyStarSpeed(parseFloat(e.target.value))}
+                        className="w-full accent-accent bg-bg-primary h-1.5 rounded-lg appearance-none cursor-pointer"
+                      />
+                      <div className="flex justify-between text-[10px] text-text-secondary/60">
+                        <span>Slow</span>
+                        <span>Standard (0.60x)</span>
+                        <span>Hyper</span>
+                      </div>
+                    </div>
+
+                    {/* Galaxy Density Slider */}
+                    <div className="flex flex-col gap-2">
+                      <div className="flex justify-between items-center text-xs">
+                        <label htmlFor="galaxy-density" className="font-medium text-text-secondary">Stardust Density</label>
+                        <span className="font-mono bg-accent/10 text-accent px-2 py-0.5 rounded text-[11px] font-semibold">
+                          {galaxyDensity.toFixed(2)}x
+                        </span>
+                      </div>
+                      <input
+                        id="galaxy-density"
+                        type="range"
+                        min="0.10"
+                        max="5.00"
+                        step="0.10"
+                        value={galaxyDensity}
+                        onChange={(e) => setGalaxyDensity(parseFloat(e.target.value))}
+                        className="w-full accent-accent bg-bg-primary h-1.5 rounded-lg appearance-none cursor-pointer"
+                      />
+                      <div className="flex justify-between text-[10px] text-text-secondary/60">
+                        <span>Sparse</span>
+                        <span>Standard (0.80x)</span>
+                        <span>Supercluster</span>
+                      </div>
+                    </div>
+
+                    {/* Glow Intensity Slider */}
+                    <div className="flex flex-col gap-2">
+                      <div className="flex justify-between items-center text-xs">
+                        <label htmlFor="galaxy-glow" className="font-medium text-text-secondary">Shimmer Glow Intensity</label>
+                        <span className="font-mono bg-accent/10 text-accent px-2 py-0.5 rounded text-[11px] font-semibold">
+                          {galaxyGlowIntensity.toFixed(2)}x
+                        </span>
+                      </div>
+                      <input
+                        id="galaxy-glow"
+                        type="range"
+                        min="0.00"
+                        max="2.00"
+                        step="0.05"
+                        value={galaxyGlowIntensity}
+                        onChange={(e) => setGalaxyGlowIntensity(parseFloat(e.target.value))}
+                        className="w-full accent-accent bg-bg-primary h-1.5 rounded-lg appearance-none cursor-pointer"
+                      />
+                      <div className="flex justify-between text-[10px] text-text-secondary/60">
+                        <span>Flat</span>
+                        <span>Standard (0.20x)</span>
+                        <span>Radiant</span>
+                      </div>
+                    </div>
+
+                    {/* Saturation Slider */}
+                    <div className="flex flex-col gap-2">
+                      <div className="flex justify-between items-center text-xs">
+                        <label htmlFor="galaxy-saturation" className="font-medium text-text-secondary">Color Saturation</label>
+                        <span className="font-mono bg-accent/10 text-accent px-2 py-0.5 rounded text-[11px] font-semibold">
+                          {galaxySaturation.toFixed(2)}x
+                        </span>
+                      </div>
+                      <input
+                        id="galaxy-saturation"
+                        type="range"
+                        min="0.00"
+                        max="1.00"
+                        step="0.05"
+                        value={galaxySaturation}
+                        onChange={(e) => setGalaxySaturation(parseFloat(e.target.value))}
+                        className="w-full accent-accent bg-bg-primary h-1.5 rounded-lg appearance-none cursor-pointer"
+                      />
+                      <div className="flex justify-between text-[10px] text-text-secondary/60">
+                        <span>Monochrome</span>
+                        <span>Standard (0.00x)</span>
+                        <span>Full Spectrum</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+
             <SeedDatabase onComplete={() => {
               fetchPosts();
               fetchCategories();
