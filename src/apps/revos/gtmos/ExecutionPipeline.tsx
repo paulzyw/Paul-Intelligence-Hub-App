@@ -40,7 +40,7 @@ export const ExecutionPipeline: React.FC<ExecutionPipelineProps> = ({
   onUpdateProjectPlan
 }) => {
   // Filter states
-  const [projectFilter, setProjectFilter] = useState<string>(currentProjectId || 'all');
+  const projectFilter = currentProjectId || 'all';
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [searchTerm, setSearchTerm] = useState<string>('');
   const [showGanttChart, setShowGanttChart] = useState<boolean>(false);
@@ -638,34 +638,19 @@ export const ExecutionPipeline: React.FC<ExecutionPipelineProps> = ({
 
         {/* Filter selection widgets */}
         <div className="flex flex-wrap items-center gap-3 w-full md:w-auto">
-          {/* Project switch */}
-          <div className="flex items-center gap-1.5 bg-bg-surface border border-border px-2.5 py-1 rounded-xl text-xs">
-            <Briefcase className="h-3.5 w-3.5 text-text-secondary/80" />
-            <select
-              value={projectFilter}
-              onChange={e => setProjectFilter(e.target.value)}
-              className="bg-transparent text-text-primary font-bold focus:outline-none pr-3"
-            >
-              <option value="all" className="bg-bg-primary text-text-primary">All Active Projects</option>
-              {projects.filter(p => p.archivedExecutionPlan).map(p => (
-                <option key={p.id} value={p.id} className="bg-bg-primary text-text-primary">{p.title}</option>
-              ))}
-            </select>
-          </div>
-
           {/* Status switch */}
           <div className="flex items-center gap-1.5 bg-bg-surface border border-border px-2.5 py-1 rounded-xl text-xs">
             <CheckSquare className="h-3.5 w-3.5 text-text-secondary/80" />
             <select
               value={statusFilter}
               onChange={e => setStatusFilter(e.target.value)}
-              className="bg-transparent text-text-primary font-bold focus:outline-none pr-3"
+              className="bg-transparent text-text-primary font-bold focus:outline-none pr-3 cursor-pointer"
             >
-              <option value="all">All Statuses</option>
-              <option value="todo">Todo</option>
-              <option value="in_progress">In Progress</option>
-              <option value="completed">Completed</option>
-              <option value="blocked">Blocked</option>
+              <option value="all" className="bg-bg-surface text-text-primary">All Statuses</option>
+              <option value="todo" className="bg-bg-surface text-text-primary">Todo</option>
+              <option value="in_progress" className="bg-bg-surface text-text-primary">In Progress</option>
+              <option value="completed" className="bg-bg-surface text-text-primary">Completed</option>
+              <option value="blocked" className="bg-bg-surface text-text-primary">Blocked</option>
             </select>
           </div>
         </div>

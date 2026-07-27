@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { cn } from '../lib/utils';
+import Threads from '../components/Threads';
 
 const challenges = [
   "Fragmented GTM execution",
@@ -96,12 +97,17 @@ export function Solutions() {
       {/* SECTION 1: Hero Section */}
       <section className="relative pt-32 pb-20 overflow-hidden">
         {/* Animated Background Element */}
-        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full h-full -z-10 overflow-hidden pointer-events-none">
-          <div className="absolute top-1/4 left-1/2 -translate-x-1/2 w-[800px] h-[800px] bg-accent/5 rounded-full blur-[120px] animate-pulse" />
-          <div className="absolute bottom-1/4 left-1/3 w-[600px] h-[600px] bg-blue-500/5 rounded-full blur-[100px]" />
+        <div className="absolute left-0 right-0 top-[38%] -translate-y-1/2 h-[500px] md:h-[600px] z-0 pointer-events-none overflow-hidden">
+          <Threads 
+            amplitude={1.2}                // Controls wave wave movement height
+            distance={0.1}                 // Adjusts spacing/spread between fiber lines
+            enableMouseInteraction={true}  // Set to true so lines warp near cursor
+          />
+          {/* Subtle dark gradient overlay to ensure text contrast and legibility */}
+          <div className="absolute inset-0 bg-gradient-to-b from-bg-primary/20 via-transparent to-bg-primary/40 pointer-events-none" />
         </div>
 
-        <div className="mx-auto max-w-7xl px-6 lg:px-8 text-center">
+        <div className="mx-auto max-w-7xl px-6 lg:px-8 text-center relative z-10">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
