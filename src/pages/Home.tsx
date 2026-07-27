@@ -154,10 +154,10 @@ export function Home() {
           focal={[0.5, 0.5]}
           rotation={[1.0, 0.0]}
           starSpeed={0.6}
-          density={1.2}
+          density={0.8}
           hueShift={140}
           speed={1.0}
-          glowIntensity={0.4}
+          glowIntensity={0.2}
           saturation={0.0}
           mouseRepulsion={true}
           repulsionStrength={2.0}
