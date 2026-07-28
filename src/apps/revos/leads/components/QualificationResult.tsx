@@ -356,7 +356,7 @@ export const QualificationResult: React.FC<QualificationResultProps> = ({ result
             <span className="text-[10px] font-mono font-bold uppercase tracking-wider opacity-85">AI Core Evaluation status</span>
             <h2 className="text-xl sm:text-2xl font-black font-sans tracking-tight uppercase mt-0.5">{result.qualification_status}</h2>
             <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-1.5 text-xs font-mono font-bold">
-              <span className="text-text-primary">MQL SCORE: <span className="text-accent">{result.qualification_score}/100</span></span>
+              <span className="text-text-primary">MQL SCORE: <span className="text-accent">{Math.round(result.qualification_score)}/100</span></span>
               <span className="opacity-40">•</span>
               <span className="text-text-primary">AI CONFIDENCE: <span className="text-accent">{result.confidence_score <= 1 ? Math.round(result.confidence_score * 100) : result.confidence_score}%</span></span>
             </div>

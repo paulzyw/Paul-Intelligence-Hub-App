@@ -11,6 +11,46 @@ import { MQLConfigService } from './services/mqlConfigLoader';
 import { MQLCampaign, MQLLead, MQLQualificationResult } from '../types/mql';
 import { Plus, FolderOpen, Cpu, Users, Settings, PlusCircle, ArrowLeft, Bot, Sparkles, Activity, Check, ChevronDown, ChevronUp, Trash, Trash2, Download, RefreshCw, AlertTriangle } from 'lucide-react';
 
+const MiniScorePieChart: React.FC<{ score: number }> = ({ score }) => {
+  const roundedScore = Math.round(score);
+  const size = 26;
+  const strokeWidth = 2.5;
+  const radius = (size - strokeWidth) / 2;
+  const circumference = 2 * Math.PI * radius;
+  const offset = circumference - (Math.min(Math.max(roundedScore, 0), 100) / 100) * circumference;
+
+  return (
+    <div className="flex items-center gap-1.5 select-none" onClick={(e) => e.stopPropagation()}>
+      <div className="relative inline-flex items-center justify-center shrink-0" style={{ width: size, height: size }}>
+        <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} className="-rotate-90">
+          <circle
+            className="stroke-border dark:stroke-border/40"
+            cx={size / 2}
+            cy={size / 2}
+            r={radius}
+            fill="transparent"
+            strokeWidth={strokeWidth}
+          />
+          <circle
+            className="stroke-emerald-500"
+            cx={size / 2}
+            cy={size / 2}
+            r={radius}
+            fill="transparent"
+            strokeWidth={strokeWidth}
+            strokeDasharray={circumference}
+            strokeDashoffset={offset}
+            strokeLinecap="round"
+          />
+        </svg>
+        <span className="absolute text-[8.5px] font-black font-sans text-text-primary leading-none">
+          {roundedScore}
+        </span>
+      </div>
+    </div>
+  );
+};
+
 export const MQLModule: React.FC = () => {
   const [campaigns, setCampaigns] = useState<MQLCampaign[]>([]);
   const [selectedCampaign, setSelectedCampaign] = useState<MQLCampaign | null>(null);
@@ -571,7 +611,7 @@ export const MQLModule: React.FC = () => {
 
           // 6. Overall Score
           const leadQualResult = campaignQualResults.find(r => r.lead_id === lead.id);
-          const overallScore = leadQualResult ? `${leadQualResult.qualification_score}/100` : '—';
+          const overallScore = leadQualResult ? `${Math.round(leadQualResult.qualification_score)}/100` : '—';
           
           // 7. Confidence Score
           let confidenceText = '—';
@@ -658,7 +698,7 @@ export const MQLModule: React.FC = () => {
             }
           } catch {}
 
-          const overallScore = leadQualResult ? `${leadQualResult.qualification_score}` : '';
+          const overallScore = leadQualResult ? `${Math.round(leadQualResult.qualification_score)}` : '';
 
           let confidenceText = '';
           if (leadQualResult && leadQualResult.confidence_score !== undefined) {
@@ -1001,14 +1041,14 @@ export const MQLModule: React.FC = () => {
                         className="rounded border-border text-accent focus:ring-accent cursor-pointer h-3.5 w-3.5"
                       />
                     </th>
-                    <th className="px-6 py-4 font-bold">Contact</th>
-                    <th className="px-6 py-4 font-bold">Organization</th>
-                    <th className="px-6 py-4 font-bold">Title</th>
-                    <th className="px-6 py-4 font-bold">Industry</th>
-                    <th className="px-6 py-4 font-bold">Score</th>
-                    <th className="px-6 py-4 font-bold">Confidence</th>
-                    <th className="px-6 py-4 font-bold">Handover</th>
-                    <th className="px-6 py-4 font-bold">MQL</th>
+                    <th className="px-6 py-2.5 font-bold">Contact</th>
+                    <th className="px-6 py-2.5 font-bold">Organization</th>
+                    <th className="px-6 py-2.5 font-bold">Title</th>
+                    <th className="px-6 py-2.5 font-bold">Industry</th>
+                    <th className="px-6 py-2.5 font-bold">Score</th>
+                    <th className="px-6 py-2.5 font-bold">Confidence</th>
+                    <th className="px-6 py-2.5 font-bold">Handover</th>
+                    <th className="px-6 py-2.5 font-bold">MQL</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border text-text-primary">
@@ -1032,7 +1072,7 @@ export const MQLModule: React.FC = () => {
                     }
 
                     // 2. Overall Score
-                    const overallScore = leadQualResult ? `${leadQualResult.qualification_score}/100` : '—';
+                    const overallScore = leadQualResult ? `${Math.round(leadQualResult.qualification_score)}/100` : '—';
 
                     // 3. Confidence Score formatted elegantly
                     let confidenceText = '—';
@@ -1078,11 +1118,11 @@ export const MQLModule: React.FC = () => {
                     }
 
                     const statusColor = displayStatus.toLowerCase().includes('highly') || displayStatus.toLowerCase() === 'qualified'
-                      ? 'text-emerald-500 bg-emerald-500/10 border-emerald-500/20'
+                      ? 'text-emerald-500 bg-emerald-500/40 border-emerald-500/45'
                       : displayStatus.toLowerCase().includes('nurture')
-                      ? 'text-accent bg-accent/10 border-accent/20'
+                      ? 'text-accent bg-accent/40 border-accent/45'
                       : displayStatus.toLowerCase().includes('disqualified')
-                      ? 'text-red-500 bg-red-500/10 border-red-500/20'
+                      ? 'text-red-500 bg-red-500/40 border-red-500/45'
                       : 'text-text-secondary bg-bg-primary border-border';
                     
                     return (
@@ -1092,7 +1132,7 @@ export const MQLModule: React.FC = () => {
                         className="hover:bg-bg-primary/30 transition-colors cursor-pointer group"
                         title="Click to view/edit lead details"
                       >
-                        <td className="px-4 py-4 text-center w-12" onClick={(e) => e.stopPropagation()}>
+                        <td className="px-4 py-2 text-center w-12" onClick={(e) => e.stopPropagation()}>
                           <input 
                             type="checkbox"
                             checked={selectedLeadIds.includes(lead.id)}
@@ -1106,23 +1146,29 @@ export const MQLModule: React.FC = () => {
                             className="rounded border-border text-accent focus:ring-accent cursor-pointer h-3.5 w-3.5"
                           />
                         </td>
-                        <td className="px-6 py-4 font-bold group-hover:text-accent transition-colors">{lead.first_name} {lead.last_name}</td>
-                        <td className="px-6 py-4 text-text-secondary">{lead.company_name}</td>
-                        <td className="px-6 py-4 text-text-secondary">{lead.job_title}</td>
-                        <td className="px-6 py-4 text-text-secondary">{leadIndustry}</td>
-                        <td className="px-6 py-4 font-mono font-bold text-text-secondary">{overallScore}</td>
-                        <td className="px-6 py-4 font-mono font-bold text-text-secondary">{confidenceText}</td>
-                        <td className="px-6 py-4">
-                          <span className={`px-2.5 py-1 rounded-lg border font-black text-[10px] uppercase font-mono tracking-wider ${
+                        <td className="px-6 py-2 font-bold group-hover:text-accent transition-colors">{lead.first_name} {lead.last_name}</td>
+                        <td className="px-6 py-2 text-text-secondary">{lead.company_name}</td>
+                        <td className="px-6 py-2 text-text-secondary">{lead.job_title}</td>
+                        <td className="px-6 py-2 text-text-secondary">{leadIndustry}</td>
+                        <td className="px-6 py-2">
+                          {leadQualResult ? (
+                            <MiniScorePieChart score={leadQualResult.qualification_score} />
+                          ) : (
+                            <span className="font-mono font-bold text-text-secondary">—</span>
+                          )}
+                        </td>
+                        <td className="px-6 py-2 font-mono font-bold text-text-secondary">{confidenceText}</td>
+                        <td className="px-6 py-2">
+                          <span className={`px-2.5 py-0.5 rounded-lg border font-black text-[10px] uppercase font-mono tracking-wider ${
                             isHandedOver 
-                              ? 'text-green-500 bg-green-500/10 border-green-500/20' 
-                              : 'text-red-500 bg-red-500/10 border-red-500/20'
+                              ? 'text-green-500 bg-green-500/40 border-green-500/45' 
+                              : 'text-red-500 bg-red-500/40 border-red-500/45'
                           }`}>
                             {isHandedOver ? 'Yes' : 'No'}
                           </span>
                         </td>
-                        <td className="px-6 py-4">
-                          <span className={`px-2.5 py-1 rounded-lg border font-black text-[10px] uppercase font-mono tracking-wider ${statusColor}`}>
+                        <td className="px-6 py-2">
+                          <span className={`px-2.5 py-0.5 rounded-lg border font-black text-[10px] uppercase font-mono tracking-wider ${statusColor}`}>
                             {displayStatus}
                           </span>
                         </td>

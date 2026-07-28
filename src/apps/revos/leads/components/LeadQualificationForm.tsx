@@ -194,6 +194,7 @@ export const LeadQualificationForm: React.FC<LeadQualificationFormProps> = ({
   const [config, setConfig] = useState<any>(null);
   const [formData, setFormData] = useState<Record<string, Partial<MQLEvidenceAssessment>>>({});
   const [validationMessages, setValidationMessages] = useState<Array<{ type: 'error' | 'warning' | 'success'; text: string }>>([]);
+  const [activeTab, setActiveTab] = useState<'fit' | 'intent' | 'engagement' | 'timing'>('fit');
 
   useEffect(() => {
     try {
@@ -375,7 +376,7 @@ export const LeadQualificationForm: React.FC<LeadQualificationFormProps> = ({
           <p className="text-[10px] text-text-secondary">{subtitle}</p>
         </div>
 
-        <div className="space-y-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {items.map((item: any) => {
             const state = formData[item.evidenceId] || {};
             const positiveSignals = item.definition?.positiveSignals || [];
@@ -418,36 +419,73 @@ export const LeadQualificationForm: React.FC<LeadQualificationFormProps> = ({
         </div>
       </div>
 
-      {/* Grid containing 2 main columns */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        
-        {/* Column 1: Fit and Engagement */}
-        <div className="space-y-8">
-          {renderEvidenceCategory(
-            'fit',
-            'Fit Evidence',
-            'Verification of organization scale, industry alignment, and decision structure'
-          )}
-          {renderEvidenceCategory(
-            'engagement',
-            'Engagement Evidence',
-            'Observations of marketing touchpoints, whitepapers, and sales calls'
-          )}
-        </div>
+      {/* Horizontal Tabs for Dimensions */}
+      <div className="flex border-b border-border overflow-x-auto whitespace-nowrap scrollbar-thin">
+        {(['fit', 'intent', 'engagement', 'timing'] as const).map((dim) => {
+          const isActive = activeTab === dim;
+          const label = {
+            fit: 'Fit',
+            intent: 'Intent',
+            engagement: 'Engagement',
+            timing: 'Timing',
+          }[dim];
+          
+          const items = config.evidence[dim] || [];
+          const populatedCount = items.filter((item: any) => formData[item.evidenceId]?.is_present).length;
+          const totalCount = items.length;
+          const isFullyPopulated = totalCount > 0 && populatedCount === totalCount;
 
-        {/* Column 2: Intent and Timing */}
-        <div className="space-y-8">
-          {renderEvidenceCategory(
-            'intent',
-            'Intent Evidence',
-            'Observations of active buyer search, competitive comparison, and trigger behaviors'
-          )}
-          {renderEvidenceCategory(
-            'timing',
-            'Timing Evidence',
-            'Verification of budgets, timeline parameters, and compelling trigger events'
-          )}
-        </div>
+          return (
+            <button
+              key={dim}
+              type="button"
+              onClick={() => setActiveTab(dim)}
+              className={`px-5 py-2 text-xs font-bold uppercase tracking-wider border-b-[3px] rounded-t-[10px] transition-all duration-200 focus:outline-none flex items-center justify-center gap-2 cursor-pointer ${
+                isActive
+                  ? 'border-accent text-accent bg-accent/15'
+                  : 'border-transparent text-text-secondary hover:text-text-primary hover:bg-bg-surface/20'
+              }`}
+            >
+              {isFullyPopulated ? (
+                <CheckCircle className="w-3.5 h-3.5 text-green-500 shrink-0" />
+              ) : (
+                <AlertCircle className="w-3.5 h-3.5 text-red-500 shrink-0" />
+              )}
+              <span>{label}</span>
+              <span className={`text-[9px] font-mono px-2 py-0.5 rounded-full ${
+                isActive 
+                  ? 'bg-accent/15 text-accent font-black' 
+                  : 'bg-bg-primary text-text-secondary'
+              }`}>
+                {populatedCount}/{totalCount}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Active Tab Category */}
+      <div className="min-h-[200px]">
+        {activeTab === 'fit' && renderEvidenceCategory(
+          'fit',
+          'Fit Evidence',
+          'Verification of organization scale, industry alignment, and decision structure'
+        )}
+        {activeTab === 'intent' && renderEvidenceCategory(
+          'intent',
+          'Intent Evidence',
+          'Observations of active buyer search, competitive comparison, and trigger behaviors'
+        )}
+        {activeTab === 'engagement' && renderEvidenceCategory(
+          'engagement',
+          'Engagement Evidence',
+          'Observations of marketing touchpoints, whitepapers, and sales calls'
+        )}
+        {activeTab === 'timing' && renderEvidenceCategory(
+          'timing',
+          'Timing Evidence',
+          'Verification of budgets, timeline parameters, and compelling trigger events'
+        )}
       </div>
 
       {/* Validation and Execution Controls card */}
