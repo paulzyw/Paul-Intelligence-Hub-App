@@ -178,3 +178,62 @@ BEGIN
         CREATE POLICY "Allow authenticated manage" ON temp_access_codes FOR ALL USING (auth.role() = 'authenticated');
     END IF;
 END $$;
+
+-- Create site_settings table to persist hero background and animation parameters
+CREATE TABLE IF NOT EXISTS public.site_settings (
+  id TEXT PRIMARY KEY DEFAULT 'default',
+  hero_background TEXT NOT NULL DEFAULT 'galaxy',
+  meteor_density NUMERIC NOT NULL DEFAULT 6.0,
+  meteor_speed NUMERIC NOT NULL DEFAULT 0.5,
+  galaxy_star_speed NUMERIC NOT NULL DEFAULT 0.95,
+  galaxy_density NUMERIC NOT NULL DEFAULT 0.9,
+  galaxy_glow_intensity NUMERIC NOT NULL DEFAULT 0.15,
+  galaxy_saturation NUMERIC NOT NULL DEFAULT 0.0,
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
+);
+
+-- Insert the default configuration row if it doesn't exist
+INSERT INTO public.site_settings (
+  id, 
+  hero_background, 
+  meteor_density, 
+  meteor_speed, 
+  galaxy_star_speed, 
+  galaxy_density, 
+  galaxy_glow_intensity, 
+  galaxy_saturation
+)
+VALUES (
+  'default', 
+  'galaxy', 
+  6.0, 
+  0.5, 
+  0.95, 
+  0.9, 
+  0.15, 
+  0.0
+)
+ON CONFLICT (id) DO NOTHING;
+
+-- Enable Row Level Security (RLS)
+ALTER TABLE public.site_settings ENABLE ROW LEVEL SECURITY;
+
+-- Grant access for Data API
+GRANT SELECT ON public.site_settings TO anon;
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.site_settings TO authenticated;
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.site_settings TO service_role;
+
+-- Policies for site_settings
+DO $$ 
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'Allow public read access' AND tablename = 'site_settings') THEN
+        CREATE POLICY "Allow public read access" ON public.site_settings FOR SELECT USING (true);
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'Allow authenticated update' AND tablename = 'site_settings') THEN
+        CREATE POLICY "Allow authenticated update" ON public.site_settings FOR UPDATE TO authenticated USING (true) WITH CHECK (true);
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'Allow authenticated insert' AND tablename = 'site_settings') THEN
+        CREATE POLICY "Allow authenticated insert" ON public.site_settings FOR INSERT TO authenticated WITH CHECK (true);
+    END IF;
+END $$;
+

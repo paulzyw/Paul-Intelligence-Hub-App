@@ -154,7 +154,7 @@ export function Home() {
         <div className="absolute inset-0 opacity-20 bg-[linear-gradient(to_right,#80808012_1px,transparent_1px),linear-gradient(to_bottom,#80808012_1px,transparent_1px)] bg-[size:24px_24px]"></div>
         <div className="absolute inset-0 bg-gradient-to-t from-bg-hero-primary to-transparent"></div>
         <AnimatePresence mode="wait">
-          {heroBackground === 'galaxy' ? (
+          {heroBackground === 'meteor' ? (
             <motion.div
               key="galaxy"
               initial={{ opacity: 0 }}
@@ -520,23 +520,57 @@ export function Home() {
       <ImpactTeaser />
 
       {/* INDUSTRIES MARQUEE */}
-      <section className="py-12 bg-bg-surface text-text-primary overflow-hidden border-y border-border transition-colors duration-400">
-        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-          <div className="flex flex-wrap justify-center gap-4 md:gap-8 lg:gap-12 items-center text-sm md:text-base lg:text-lg font-medium text-text-secondary uppercase tracking-widest">
-            <span>Energy</span>
-            <span className="text-accent">•</span>
-            <span>Oil & Gas</span>
-            <span className="text-accent">•</span>
-            <span>Mining</span>
-            <span className="text-accent">•</span>
-            <span>Electric Power</span>
-            <span className="text-accent">•</span>
-            <span>Chemical</span>
-            <span className="text-accent">•</span>
-            <span>Manufacturing</span>
-            <span className="text-accent">•</span>
-            <span>Technology / Software / SaaS</span>
-            <span className="text-accent">•</span>
+      <section className="py-12 bg-bg-surface text-text-primary overflow-hidden border-y border-border transition-colors duration-400 relative group">
+        <style>{`
+          @keyframes marquee {
+            0% { transform: translateX(-50%); }
+            100% { transform: translateX(0%); }
+          }
+          .animate-marquee-loop {
+            animation: marquee 25s linear infinite;
+          }
+          .group:hover .animate-marquee-loop {
+            animation-play-state: paused;
+          }
+        `}</style>
+        {/* Soft edge gradients to make text fade in/out beautifully */}
+        <div className="absolute inset-y-0 left-0 w-24 md:w-40 bg-gradient-to-r from-bg-surface to-transparent z-10 pointer-events-none"></div>
+        <div className="absolute inset-y-0 right-0 w-24 md:w-40 bg-gradient-to-l from-bg-surface to-transparent z-10 pointer-events-none"></div>
+
+        <div className="w-full">
+          <div className="flex overflow-hidden select-none">
+            <div className="flex flex-row whitespace-nowrap animate-marquee-loop">
+              {[
+                "Energy",
+                "Oil & Gas",
+                "Petrochemical",
+                "Chemical",
+                "Refinery",
+                "Electric Power",
+                "Power Generation",
+                "Mining",
+                "Manufacturing",
+                "Technology / Software / SaaS"
+              ].concat([
+                "Energy",
+                "Oil & Gas",
+                "Petrochemical",
+                "Chemical",
+                "Refinery",
+                "Electric Power",
+                "Power Generation",
+                "Mining",
+                "Manufacturing",
+                "Technology / Software / SaaS"
+              ]).map((item, index) => (
+                <div key={index} className="flex items-center flex-shrink-0">
+                  <span className="text-sm md:text-base lg:text-lg font-medium text-text-secondary uppercase tracking-widest mr-6 md:mr-10">
+                    {item}
+                  </span>
+                  <span className="text-accent mr-6 md:mr-10">•</span>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
       </section>
