@@ -154,7 +154,7 @@ export function Home() {
         <div className="absolute inset-0 opacity-20 bg-[linear-gradient(to_right,#80808012_1px,transparent_1px),linear-gradient(to_bottom,#80808012_1px,transparent_1px)] bg-[size:24px_24px]"></div>
         <div className="absolute inset-0 bg-gradient-to-t from-bg-hero-primary to-transparent"></div>
         <AnimatePresence mode="wait">
-          {heroBackground === 'meteor' ? (
+          {heroBackground === 'galaxy' ? (
             <motion.div
               key="galaxy"
               initial={{ opacity: 0 }}
