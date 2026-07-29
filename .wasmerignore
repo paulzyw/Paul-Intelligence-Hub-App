@@ -1,0 +1,32 @@
+# Ignore development files, source code, and node_modules in Wasmer Edge deployment
+node_modules/
+.git/
+.github/
+src/
+supabase/
+public/
+.env*
+/app.yaml
+/bun.lock
+/package-lock.json
+/package.json
+/tsconfig.json
+/vite.config.ts
+/fetch.ts
+/query_rls.ts
+/query_rls2.ts
+/query_schema.ts
+/server.ts
+/test-supabase.ts
+/test_insert.ts
+/test_insert2.ts
+/test_insert3.ts
+/test_parse.js
+/test_parse.ts
+/test_vite.js
+/*.sql
+/*.md
+
+# Ensure dist/ and wasmer.toml are explicitly not ignored
+!/dist/
+!/wasmer.toml
