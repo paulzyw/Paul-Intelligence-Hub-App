@@ -100,17 +100,6 @@ export function Solutions() {
     <div className="bg-bg-primary min-h-screen selection:bg-accent selection:text-black">
       {/* SECTION 1: Hero Section */}
       <section className="relative pt-32 pb-20 overflow-hidden">
-        {/* Animated Background Element */}
-        <div className="absolute left-0 right-0 top-[38%] -translate-y-1/2 h-[500px] md:h-[600px] z-0 pointer-events-none overflow-hidden">
-          <Threads 
-            amplitude={1.2}                // Controls wave wave movement height
-            distance={0.1}                 // Adjusts spacing/spread between fiber lines
-            enableMouseInteraction={true}  // Set to true so lines warp near cursor
-          />
-          {/* Subtle dark gradient overlay to ensure text contrast and legibility */}
-          <div className="absolute inset-0 bg-gradient-to-b from-bg-primary/20 via-transparent to-bg-primary/40 pointer-events-none" />
-        </div>
-
         <div className="mx-auto max-w-7xl px-6 lg:px-8 text-center relative z-10">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -126,9 +115,25 @@ export function Solutions() {
                 Complex B2B Growth
               </span>
             </h1>
-            <p className="text-lg md:text-xl text-text-secondary max-w-2xl mx-auto mb-10 leading-relaxed font-medium">
-              RevOS transforms go-to-market strategy, qualification intelligence, and enterprise opportunity execution into one adaptive intelligence system.
-            </p>
+            
+            {/* Paragraph with background Threads animation positioned relative to it */}
+            <div className="relative mb-10">
+              {/* Animated Background Element centered vertically behind the paragraph */}
+              <div className="absolute left-1/2 -translate-x-1/2 top-1/2 -translate-y-1/2 w-screen h-[500px] md:h-[600px] z-0 pointer-events-none overflow-hidden">
+                <Threads 
+                  amplitude={1.2}                // Controls wave wave movement height
+                  distance={0.1}                 // Adjusts spacing/spread between fiber lines
+                  enableMouseInteraction={true}  // Set to true so lines warp near cursor
+                />
+                {/* Subtle dark gradient overlay to ensure text contrast and legibility */}
+                <div className="absolute inset-0 bg-gradient-to-b from-bg-primary/20 via-transparent to-bg-primary/40 pointer-events-none" />
+              </div>
+              
+              <p className="relative z-10 text-lg md:text-xl text-text-secondary max-w-2xl mx-auto leading-relaxed font-medium">
+                RevOS transforms go-to-market strategy, qualification intelligence, and enterprise opportunity execution into one adaptive intelligence system.
+              </p>
+            </div>
+
             <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
               <Link 
                 to="/solutions/revos" 
