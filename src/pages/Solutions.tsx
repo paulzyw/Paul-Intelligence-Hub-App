@@ -64,12 +64,16 @@ const modules = [
   }
 ];
 
-const industries = [
+const row1 = [
   "SaaS / Software", "Enterprise Software", "Consulting", "AI Solutions", 
   "Cloud Transformation", "System Integration", "Managed Services", 
-  "Engineering Solutions", "Infrastructure Projects", "EPC / EP Projects", 
-  "Digital Transformation", "OT/IT Solutions", "Professional Services", 
-  "Enterprise Procurement", "Solution-Selling Organizations"
+  "Engineering Solutions"
+];
+
+const row2 = [
+  "Infrastructure Projects", "EPC / EP Projects", "Digital Transformation", 
+  "OT/IT Solutions", "Professional Services", "Enterprise Procurement", 
+  "Solution-Selling Organizations"
 ];
 
 const capabilities = [
@@ -384,25 +388,69 @@ export function Solutions() {
       </section>
 
       {/* SECTION 4: Industries */}
-      <section className="py-24 bg-bg-surface/50 border-t border-border">
+      <section className="py-24 bg-bg-surface/50 border-t border-border verticals-marquee-section overflow-hidden">
+        <style>{`
+          @keyframes marquee-left {
+            0% { transform: translateX(0); }
+            100% { transform: translateX(-50%); }
+          }
+          @keyframes marquee-right {
+            0% { transform: translateX(-50%); }
+            100% { transform: translateX(0); }
+          }
+          .animate-marquee-left {
+            display: flex;
+            width: max-content;
+            animation: marquee-left 40s linear infinite;
+          }
+          .animate-marquee-right {
+            display: flex;
+            width: max-content;
+            animation: marquee-right 40s linear infinite;
+          }
+          .verticals-marquee-section:hover .animate-marquee-left,
+          .verticals-marquee-section:hover .animate-marquee-right {
+            animation-play-state: paused;
+          }
+          .marquee-mask {
+            mask-image: linear-gradient(to right, transparent, black 15%, black 85%, transparent);
+            -webkit-mask-image: linear-gradient(to right, transparent, black 15%, black 85%, transparent);
+          }
+        `}</style>
         <div className="mx-auto max-w-7xl px-6 lg:px-8">
           <div className="text-center mb-16">
             <h3 className="text-2xl font-bold text-text-primary uppercase tracking-widest mb-4">Target Verticals</h3>
             <p className="text-text-secondary">Optimized for high-complexity B2B environments.</p>
           </div>
-          <div className="flex flex-wrap justify-center gap-3">
-            {industries.map((industry, idx) => (
-              <motion.span 
-                key={industry}
-                initial={{ opacity: 0, scale: 0.9 }}
-                whileInView={{ opacity: 1, scale: 1 }}
-                transition={{ delay: idx * 0.05 }}
-                viewport={{ once: true }}
-                className="px-5 py-2.5 rounded-full border border-border bg-bg-primary text-xs font-semibold text-text-secondary hover:text-accent hover:border-accent/40 transition-all cursor-default"
-              >
-                {industry}
-              </motion.span>
-            ))}
+          
+          <div className="space-y-3.5 marquee-mask">
+            {/* Row 1: Left to Right */}
+            <div className="overflow-hidden py-1">
+              <div className="animate-marquee-right flex gap-3">
+                {[...row1, ...row1].map((industry, idx) => (
+                  <span 
+                    key={`row1-${industry}-${idx}`}
+                    className="px-5 py-2.5 rounded-full border border-border bg-bg-primary text-xs font-semibold text-text-secondary hover:text-accent hover:border-accent/40 transition-all cursor-default whitespace-nowrap shrink-0"
+                  >
+                    {industry}
+                  </span>
+                ))}
+              </div>
+            </div>
+
+            {/* Row 2: Right to Left */}
+            <div className="overflow-hidden py-1">
+              <div className="animate-marquee-left flex gap-3">
+                {[...row2, ...row2].map((industry, idx) => (
+                  <span 
+                    key={`row2-${industry}-${idx}`}
+                    className="px-5 py-2.5 rounded-full border border-border bg-bg-primary text-xs font-semibold text-text-secondary hover:text-accent hover:border-accent/40 transition-all cursor-default whitespace-nowrap shrink-0"
+                  >
+                    {industry}
+                  </span>
+                ))}
+              </div>
+            </div>
           </div>
         </div>
       </section>

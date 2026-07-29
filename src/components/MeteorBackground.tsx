@@ -49,15 +49,20 @@ export function MeteorBackground({ density = 1.0, speed = 1.0 }: MeteorBackgroun
         this.thickness = 0;
       }
 
-      spawn() {
+      spawn(startX?: number, startY?: number) {
         this.active = true;
-        // Start from top or right edge
-        if (Math.random() > 0.5) {
-          this.x = Math.random() * canvas.width;
-          this.y = -200; // Start above screen
+        if (startX !== undefined && startY !== undefined) {
+          this.x = startX;
+          this.y = startY;
         } else {
-          this.x = canvas.width + 200; // Start right of screen
-          this.y = Math.random() * canvas.height;
+          // Start from top or right edge
+          if (Math.random() > 0.5) {
+            this.x = Math.random() * canvas.width;
+            this.y = -200; // Start above screen
+          } else {
+            this.x = canvas.width + 200; // Start right of screen
+            this.y = Math.random() * canvas.height;
+          }
         }
         
         // Length between 150px and 300px
@@ -127,6 +132,49 @@ export function MeteorBackground({ density = 1.0, speed = 1.0 }: MeteorBackgroun
     // Start the first meteor schedule
     scheduleNextMeteor();
 
+    // Mouse click event listener
+    const section = canvas.closest('section');
+    const handleSectionClick = (e: MouseEvent) => {
+      if (e.button !== 0) return; // Only respond to left clicks
+      
+      // Do not trigger when clicking buttons or other interactive elements
+      if ((e.target as HTMLElement).closest('a, button, input, select, textarea')) {
+        return;
+      }
+
+      const rect = canvas.getBoundingClientRect();
+      const clickX = e.clientX - rect.left;
+      const clickY = e.clientY - rect.top;
+
+      // Spawn 6 extra meteors shooting from click position, beautifully distributed in a parallel meteor shower array
+      const numToSpawn = 6;
+      for (let i = 0; i < numToSpawn; i++) {
+        // Distribute parallel paths across a perpendicular axis (px, py) = (1, 1)
+        const pDist = (i - 2.5) * 80; 
+        // Stagger their trigger positions along the travel direction (dx, dy) = (-1, 1)
+        const travelDist = (Math.random() - 0.5) * 120;
+
+        const offsetX = clickX + pDist - travelDist;
+        const offsetY = clickY + pDist + travelDist;
+        
+        const newMeteor = new Meteor();
+        newMeteor.spawn(offsetX, offsetY);
+        // Ensure variations in speeds and lengths for a more dynamic and organic cluster feel
+        newMeteor.speedVal = ((Math.random() * 8 + 14) / 1.3) * speed;
+        newMeteor.length = Math.random() * 120 + 140;
+        meteors.push(newMeteor);
+      }
+
+      // Limit total meteors in list to prevent memory growth
+      if (meteors.length > 150) {
+        meteors.splice(0, meteors.length - 150);
+      }
+    };
+
+    if (section) {
+      section.addEventListener('mousedown', handleSectionClick);
+    }
+
     // Main render loop
     const render = () => {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -140,6 +188,9 @@ export function MeteorBackground({ density = 1.0, speed = 1.0 }: MeteorBackgroun
 
     return () => {
       window.removeEventListener('resize', resizeCanvas);
+      if (section) {
+        section.removeEventListener('mousedown', handleSectionClick);
+      }
       cancelAnimationFrame(animationFrameId);
       clearTimeout(timeoutId);
     };

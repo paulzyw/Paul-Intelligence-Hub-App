@@ -520,7 +520,7 @@ export function Home() {
       <ImpactTeaser />
 
       {/* INDUSTRIES MARQUEE */}
-      <section className="py-12 bg-bg-surface text-text-primary overflow-hidden border-y border-border transition-colors duration-400 relative group">
+      <section className="py-12 bg-bg-surface text-text-primary border-y border-border transition-colors duration-400 relative group">
         <style>{`
           @keyframes marquee {
             0% { transform: translateX(-50%); }
@@ -533,43 +533,46 @@ export function Home() {
             animation-play-state: paused;
           }
         `}</style>
-        {/* Soft edge gradients to make text fade in/out beautifully */}
-        <div className="absolute inset-y-0 left-0 w-24 md:w-40 bg-gradient-to-r from-bg-surface to-transparent z-10 pointer-events-none"></div>
-        <div className="absolute inset-y-0 right-0 w-24 md:w-40 bg-gradient-to-l from-bg-surface to-transparent z-10 pointer-events-none"></div>
 
-        <div className="w-full">
-          <div className="flex overflow-hidden select-none">
-            <div className="flex flex-row whitespace-nowrap animate-marquee-loop">
-              {[
-                "Energy",
-                "Oil & Gas",
-                "Petrochemical",
-                "Chemical",
-                "Refinery",
-                "Electric Power",
-                "Power Generation",
-                "Mining",
-                "Manufacturing",
-                "Technology / Software / SaaS"
-              ].concat([
-                "Energy",
-                "Oil & Gas",
-                "Petrochemical",
-                "Chemical",
-                "Refinery",
-                "Electric Power",
-                "Power Generation",
-                "Mining",
-                "Manufacturing",
-                "Technology / Software / SaaS"
-              ]).map((item, index) => (
-                <div key={index} className="flex items-center flex-shrink-0">
-                  <span className="text-sm md:text-base lg:text-lg font-medium text-text-secondary uppercase tracking-widest mr-6 md:mr-10">
-                    {item}
-                  </span>
-                  <span className="text-accent mr-6 md:mr-10">•</span>
-                </div>
-              ))}
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 relative overflow-hidden">
+          {/* Soft edge gradients to make text fade in/out beautifully */}
+          <div className="absolute inset-y-0 left-0 w-24 md:w-40 bg-gradient-to-r from-bg-surface to-transparent z-10 pointer-events-none"></div>
+          <div className="absolute inset-y-0 right-0 w-24 md:w-40 bg-gradient-to-l from-bg-surface to-transparent z-10 pointer-events-none"></div>
+
+          <div className="w-full">
+            <div className="flex overflow-hidden select-none">
+              <div className="flex flex-row whitespace-nowrap animate-marquee-loop">
+                {[
+                  "Energy",
+                  "Oil & Gas",
+                  "Petrochemical",
+                  "Chemical",
+                  "Refinery",
+                  "Electric Power",
+                  "Power Generation",
+                  "Mining",
+                  "Manufacturing",
+                  "Technology / Software / SaaS"
+                ].concat([
+                  "Energy",
+                  "Oil & Gas",
+                  "Petrochemical",
+                  "Chemical",
+                  "Refinery",
+                  "Electric Power",
+                  "Power Generation",
+                  "Mining",
+                  "Manufacturing",
+                  "Technology / Software / SaaS"
+                ]).map((item, index) => (
+                  <div key={index} className="flex items-center flex-shrink-0">
+                    <span className="text-sm md:text-base lg:text-lg font-medium text-text-secondary uppercase tracking-widest mr-6 md:mr-10">
+                      {item}
+                    </span>
+                    <span className="text-accent mr-6 md:mr-10">•</span>
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
         </div>

@@ -11,13 +11,25 @@ import { MQLConfigService } from './services/mqlConfigLoader';
 import { MQLCampaign, MQLLead, MQLQualificationResult } from '../types/mql';
 import { Plus, FolderOpen, Cpu, Users, Settings, PlusCircle, ArrowLeft, Bot, Sparkles, Activity, Check, ChevronDown, ChevronUp, Trash, Trash2, Download, RefreshCw, AlertTriangle } from 'lucide-react';
 
-const MiniScorePieChart: React.FC<{ score: number }> = ({ score }) => {
+const MiniScorePieChart: React.FC<{ score: number; status?: string }> = ({ score, status }) => {
   const roundedScore = Math.round(score);
   const size = 26;
   const strokeWidth = 2.5;
   const radius = (size - strokeWidth) / 2;
   const circumference = 2 * Math.PI * radius;
   const offset = circumference - (Math.min(Math.max(roundedScore, 0), 100) / 100) * circumference;
+
+  let strokeClass = "stroke-emerald-500";
+  if (status) {
+    const s = status.toLowerCase();
+    if (s.includes('highly') || s === 'qualified') {
+      strokeClass = "stroke-emerald-500";
+    } else if (s.includes('disqualified')) {
+      strokeClass = "stroke-red-500";
+    } else if (s.includes('nurture')) {
+      strokeClass = "stroke-accent";
+    }
+  }
 
   return (
     <div className="flex items-center gap-1.5 select-none" onClick={(e) => e.stopPropagation()}>
@@ -32,7 +44,7 @@ const MiniScorePieChart: React.FC<{ score: number }> = ({ score }) => {
             strokeWidth={strokeWidth}
           />
           <circle
-            className="stroke-emerald-500"
+            className={strokeClass}
             cx={size / 2}
             cy={size / 2}
             r={radius}
@@ -1043,7 +1055,6 @@ export const MQLModule: React.FC = () => {
                     </th>
                     <th className="px-6 py-2.5 font-bold">Contact</th>
                     <th className="px-6 py-2.5 font-bold">Organization</th>
-                    <th className="px-6 py-2.5 font-bold">Title</th>
                     <th className="px-6 py-2.5 font-bold">Industry</th>
                     <th className="px-6 py-2.5 font-bold">Score</th>
                     <th className="px-6 py-2.5 font-bold">Confidence</th>
@@ -1146,13 +1157,19 @@ export const MQLModule: React.FC = () => {
                             className="rounded border-border text-accent focus:ring-accent cursor-pointer h-3.5 w-3.5"
                           />
                         </td>
-                        <td className="px-6 py-2 font-bold group-hover:text-accent transition-colors">{lead.first_name} {lead.last_name}</td>
+                        <td className="px-6 py-2">
+                          <div className="flex flex-col">
+                            <span className="font-bold text-text-primary group-hover:text-accent transition-colors leading-tight">{lead.first_name} {lead.last_name}</span>
+                            {lead.job_title && (
+                              <span className="text-[10px] text-text-secondary font-normal mt-px leading-tight">{lead.job_title}</span>
+                            )}
+                          </div>
+                        </td>
                         <td className="px-6 py-2 text-text-secondary">{lead.company_name}</td>
-                        <td className="px-6 py-2 text-text-secondary">{lead.job_title}</td>
                         <td className="px-6 py-2 text-text-secondary">{leadIndustry}</td>
                         <td className="px-6 py-2">
                           {leadQualResult ? (
-                            <MiniScorePieChart score={leadQualResult.qualification_score} />
+                            <MiniScorePieChart score={leadQualResult.qualification_score} status={displayStatus} />
                           ) : (
                             <span className="font-mono font-bold text-text-secondary">—</span>
                           )}
