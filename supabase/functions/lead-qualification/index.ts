@@ -275,6 +275,35 @@ serve(async (req: Request) => {
 
     const result = JSON.parse(response.text || '{}');
 
+    // Dynamically recalculate overall qualification_score to ensure mathematical consistency
+    if (result.dimension_scores) {
+      let totalWeightedScore = 0;
+      let totalWeight = 0;
+      
+      const defaultWeights = { fit: 0.35, intent: 0.30, engagement: 0.20, timing: 0.15 };
+      const dimensions = ruleSet?.engine?.dimensions || defaultWeights;
+      
+      for (const [dim, value] of Object.entries(result.dimension_scores)) {
+        const score = typeof value === 'number' ? value : 0;
+        let weight = 0;
+        
+        if (ruleSet?.engine?.dimensions && ruleSet.engine.dimensions[dim]) {
+          weight = typeof ruleSet.engine.dimensions[dim].weight === 'number' 
+            ? ruleSet.engine.dimensions[dim].weight 
+            : 0;
+        } else if (defaultWeights[dim as keyof typeof defaultWeights] !== undefined) {
+          weight = defaultWeights[dim as keyof typeof defaultWeights];
+        }
+        
+        totalWeightedScore += score * weight;
+        totalWeight += weight;
+      }
+      
+      if (totalWeight > 0) {
+        result.qualification_score = Math.round(totalWeightedScore / totalWeight);
+      }
+    }
+
     // Save to database
     const { data: savedResult, error: saveError } = await supabase.from('mql_qualification_results').upsert({
       lead_id: leadId,

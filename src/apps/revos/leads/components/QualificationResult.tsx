@@ -376,13 +376,28 @@ export const QualificationResult: React.FC<QualificationResultProps> = ({ result
         )}
       </div>
 
-      {/* 4 Dimension Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      {/* 5 Score Cards */}
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
         {[
-          { label: 'Fit', score: result.dimension_scores.fit, icon: Target, color: 'text-blue-500' },
-          { label: 'Intent', score: result.dimension_scores.intent, icon: TrendingUp, color: 'text-indigo-500' },
-          { label: 'Engagement', score: result.dimension_scores.engagement, icon: Activity, color: 'text-purple-500' },
-          { label: 'Timing', score: result.dimension_scores.timing, icon: Clock, color: 'text-orange-500' }
+          { 
+            label: 'Total MQL', 
+            score: Math.round(result.qualification_score), 
+            icon: ShieldCheck, 
+            color: result.qualification_status === 'Disqualified' 
+              ? 'text-red-500' 
+              : result.qualification_status === 'Marketing Nurture' 
+                ? 'text-accent' 
+                : 'text-emerald-500', 
+            bgColor: result.qualification_status === 'Disqualified' 
+              ? 'bg-red-500' 
+              : result.qualification_status === 'Marketing Nurture' 
+                ? 'bg-accent' 
+                : 'bg-emerald-500' 
+          },
+          { label: 'Fit', score: result.dimension_scores.fit, icon: Target, color: 'text-blue-500', bgColor: 'bg-blue-500' },
+          { label: 'Intent', score: result.dimension_scores.intent, icon: TrendingUp, color: 'text-indigo-500', bgColor: 'bg-indigo-500' },
+          { label: 'Engagement', score: result.dimension_scores.engagement, icon: Activity, color: 'text-purple-500', bgColor: 'bg-purple-500' },
+          { label: 'Timing', score: result.dimension_scores.timing, icon: Clock, color: 'text-orange-500', bgColor: 'bg-orange-500' }
         ].map(dim => (
           <div key={dim.label} className="p-4 rounded-2xl border border-border bg-bg-surface flex flex-col justify-between shadow-sm">
             <div className="flex justify-between items-center mb-1.5">
@@ -394,7 +409,7 @@ export const QualificationResult: React.FC<QualificationResultProps> = ({ result
               <span className="text-xs font-mono font-normal text-text-secondary">/100</span>
             </div>
             <div className="w-full bg-bg-primary h-1.5 rounded-full mt-3 overflow-hidden">
-              <div className="h-full bg-accent rounded-full" style={{ width: `${dim.score}%` }} />
+              <div className={`h-full ${dim.bgColor} rounded-full`} style={{ width: `${dim.score}%` }} />
             </div>
           </div>
         ))}
