@@ -1,0 +1,494 @@
+[
+  {
+    "capability_id": "CSO_001",
+    "capability_domain": "Customer & Sales Operations",
+    "capability_name": "Customer Account Management",
+    "revos_module": "Core Revenue Intelligence",
+    "explanation": {
+      "what_it_is": "Maintain a comprehensive view of customer accounts, relationships, and commercial history.",
+      "why_it_matters": "A unified customer view enables better collaboration, customer engagement, and revenue decisions.",
+      "how_revos_delivers_it": "RevOS integrates account information from CRM and other enterprise systems, enriching it with AI-powered revenue insights.",
+      "crm_comparison": "CRM manages account records; RevOS enhances account data with intelligence to support revenue decisions."
+    }
+  },
+  {
+    "capability_id": "CSO_002",
+    "capability_domain": "Customer & Sales Operations",
+    "capability_name": "Contact Management",
+    "revos_module": "Core Revenue Intelligence",
+    "explanation": {
+      "what_it_is": "Organize customer contacts, roles, and relationship information.",
+      "why_it_matters": "Understanding customer stakeholders improves engagement quality and decision-making.",
+      "how_revos_delivers_it": "RevOS connects contact information with stakeholder analysis and buying process intelligence.",
+      "crm_comparison": "CRM stores contact information; RevOS transforms contact data into stakeholder intelligence."
+    }
+  },
+  {
+    "capability_id": "CSO_003",
+    "capability_domain": "Customer & Sales Operations",
+    "capability_name": "Opportunity Tracking",
+    "revos_module": "Opportunity Assessment",
+    "explanation": {
+      "what_it_is": "Monitor sales opportunities throughout the revenue lifecycle.",
+      "why_it_matters": "Opportunity visibility helps sales teams coordinate execution and manage pipeline performance.",
+      "how_revos_delivers_it": "RevOS connects opportunity data with AI-based opportunity assessment and revenue recommendations.",
+      "crm_comparison": "CRM tracks opportunity status; RevOS evaluates opportunity quality and improvement actions."
+    }
+  },
+  {
+    "capability_id": "CSO_004",
+    "capability_domain": "Customer & Sales Operations",
+    "capability_name": "Sales Activity Management",
+    "revos_module": "Core Revenue Intelligence",
+    "explanation": {
+      "what_it_is": "Track customer interactions, sales activities, and execution progress.",
+      "why_it_matters": "Activity visibility helps teams coordinate actions and improve sales discipline.",
+      "how_revos_delivers_it": "RevOS analyzes sales activities against revenue objectives to identify execution effectiveness.",
+      "crm_comparison": "CRM records sales activities; RevOS evaluates whether activities contribute to revenue outcomes."
+    }
+  },
+  {
+    "capability_id": "CSO_005",
+    "capability_domain": "Customer & Sales Operations",
+    "capability_name": "Customer Interaction History",
+    "revos_module": "Core Revenue Intelligence",
+    "explanation": {
+      "what_it_is": "Maintain historical records of customer communications and engagements.",
+      "why_it_matters": "Historical context improves customer understanding and relationship continuity.",
+      "how_revos_delivers_it": "RevOS uses interaction history as contextual intelligence for AI recommendations.",
+      "crm_comparison": "CRM stores interaction history; RevOS interprets the meaning and business implications behind interactions."
+    }
+  },
+  {
+    "capability_id": "CSO_006",
+    "capability_domain": "Customer & Sales Operations",
+    "capability_name": "Pipeline Visualization",
+    "revos_module": "Opportunity Assessment",
+    "explanation": {
+      "what_it_is": "Visualize opportunities, pipeline stages, and revenue progression.",
+      "why_it_matters": "Clear pipeline visibility helps leaders understand business performance.",
+      "how_revos_delivers_it": "RevOS enhances pipeline visualization with AI-generated health indicators and insights.",
+      "crm_comparison": "CRM displays pipeline status; RevOS provides intelligence about pipeline quality."
+    }
+  },
+  {
+    "capability_id": "CSO_007",
+    "capability_domain": "Customer & Sales Operations",
+    "capability_name": "Forecast Reporting",
+    "revos_module": "Revenue Intelligence",
+    "explanation": {
+      "what_it_is": "Estimate future revenue performance based on available business information.",
+      "why_it_matters": "Reliable forecasting supports better planning, investment, and resource allocation.",
+      "how_revos_delivers_it": "RevOS combines operational data with AI reasoning to improve forecast confidence.",
+      "crm_comparison": "CRM provides forecast reporting; RevOS enhances forecasting with predictive revenue intelligence."
+    }
+  },
+  {
+    "capability_id": "GTM_001",
+    "capability_domain": "Go-to-Market Strategy",
+    "capability_name": "AI-powered GTM Strategy Design",
+    "revos_module": "GTMOS",
+    "explanation": {
+      "what_it_is": "Design data-driven go-to-market strategies aligned with business growth objectives.",
+      "why_it_matters": "A stronger GTM strategy improves market focus, resource allocation, and growth execution.",
+      "how_revos_delivers_it": "RevOS applies AI reasoning across market context, customer segments, revenue objectives, and execution constraints to generate GTM strategies.",
+      "crm_comparison": "CRM manages customer execution; RevOS designs the revenue strategy that guides execution."
+    }
+  },
+  {
+    "capability_id": "GTM_002",
+    "capability_domain": "Go-to-Market Strategy",
+    "capability_name": "Market Segmentation Intelligence",
+    "revos_module": "GTMOS",
+    "explanation": {
+      "what_it_is": "Identify and prioritize market segments with the highest revenue potential.",
+      "why_it_matters": "Focused market selection improves growth efficiency and resource utilization.",
+      "how_revos_delivers_it": "RevOS analyzes industry characteristics, market opportunities, and business objectives to recommend priority segments.",
+      "crm_comparison": "CRM manages existing customer data; RevOS provides strategic market intelligence."
+    }
+  },
+  {
+    "capability_id": "GTM_003",
+    "capability_domain": "Go-to-Market Strategy",
+    "capability_name": "Ideal Customer Profile (ICP) Design",
+    "revos_module": "GTMOS",
+    "explanation": {
+      "what_it_is": "Define the characteristics of customers most likely to generate successful business outcomes.",
+      "why_it_matters": "A precise ICP improves targeting, demand generation, and sales effectiveness.",
+      "how_revos_delivers_it": "RevOS combines market intelligence, customer evidence, and AI reasoning to create evidence-based ICP recommendations.",
+      "crm_comparison": "CRM stores customer profiles; RevOS determines which customer profiles represent the strongest growth opportunities."
+    }
+  },
+  {
+    "capability_id": "GTM_004",
+    "capability_domain": "Go-to-Market Strategy",
+    "capability_name": "Buyer Persona Development",
+    "revos_module": "GTMOS",
+    "explanation": {
+      "what_it_is": "Understand buyer roles, motivations, priorities, and decision behaviors.",
+      "why_it_matters": "Better buyer understanding enables more relevant engagement and messaging.",
+      "how_revos_delivers_it": "RevOS uses AI analysis to develop buyer personas based on industry, business context, and purchasing behavior.",
+      "crm_comparison": "CRM manages contacts; RevOS models buyer behavior and decision dynamics."
+    }
+  },
+    {
+    "capability_id": "GTM_005",
+    "capability_domain": "Go-to-Market Strategy",
+    "capability_name": "Value Proposition Design",
+    "revos_module": "GTMOS",
+    "explanation": {
+      "what_it_is": "Develop differentiated customer value propositions aligned with target customer needs and business objectives.",
+      "why_it_matters": "A clear value proposition helps companies communicate business impact and improve customer engagement.",
+      "how_revos_delivers_it": "RevOS analyzes customer challenges, industry context, solution capabilities, and business outcomes to generate value proposition recommendations.",
+      "crm_comparison": "CRM manages customer information; RevOS helps define the value message that drives customer engagement."
+    }
+  },
+  {
+    "capability_id": "GTM_006",
+    "capability_domain": "Go-to-Market Strategy",
+    "capability_name": "Messaging & Positioning Framework",
+    "revos_module": "GTMOS",
+    "explanation": {
+      "what_it_is": "Create structured messaging and positioning strategies for target markets and buyer groups.",
+      "why_it_matters": "Consistent and relevant messaging improves market differentiation and sales effectiveness.",
+      "how_revos_delivers_it": "RevOS generates messaging frameworks based on customer priorities, competitive context, and value propositions.",
+      "crm_comparison": "CRM manages customer communications; RevOS defines strategic messaging and positioning."
+    }
+  },
+  {
+    "capability_id": "GTM_007",
+    "capability_domain": "Go-to-Market Strategy",
+    "capability_name": "Revenue Motion Recommendation",
+    "revos_module": "GTMOS",
+    "explanation": {
+      "what_it_is": "Recommend the most effective revenue approach for different markets, customer segments, and business models.",
+      "why_it_matters": "Selecting the right revenue motion improves efficiency and increases growth potential.",
+      "how_revos_delivers_it": "RevOS evaluates market characteristics, customer complexity, buying behavior, and organizational capabilities to recommend suitable revenue motions.",
+      "crm_comparison": "CRM supports execution workflows; RevOS helps determine the optimal revenue strategy."
+    }
+  },
+  {
+    "capability_id": "GTM_008",
+    "capability_domain": "Go-to-Market Strategy",
+    "capability_name": "GTM Execution Planning",
+    "revos_module": "GTMOS",
+    "explanation": {
+      "what_it_is": "Translate GTM strategy into structured execution plans, initiatives, and measurable actions.",
+      "why_it_matters": "A strong execution plan ensures strategic objectives can be converted into business results.",
+      "how_revos_delivers_it": "RevOS creates AI-assisted execution roadmaps connecting strategy, activities, resources, and revenue targets.",
+      "crm_comparison": "CRM tracks operational activities; RevOS connects execution plans with strategic revenue objectives."
+    }
+  },
+  {
+    "capability_id": "GTM_009",
+    "capability_domain": "Go-to-Market Strategy",
+    "capability_name": "Revenue Capacity Planning",
+    "revos_module": "GTMOS",
+    "explanation": {
+      "what_it_is": "Evaluate whether people, resources, and operational capabilities are sufficient to achieve revenue goals.",
+      "why_it_matters": "Growth targets require alignment between ambition, resources, and execution capacity.",
+      "how_revos_delivers_it": "RevOS analyzes revenue objectives, execution requirements, and resource constraints to identify capacity gaps.",
+      "crm_comparison": "CRM manages sales resources and activities; RevOS assesses whether capacity supports growth objectives."
+    }
+  },
+  {
+    "capability_id": "MKT_001",
+    "capability_domain": "Marketing & Lead Intelligence",
+    "capability_name": "AI Campaign Planning",
+    "revos_module": "Lead Qualification",
+    "explanation": {
+      "what_it_is": "Design targeted demand generation campaigns aligned with revenue objectives and customer segments.",
+      "why_it_matters": "Effective campaign planning improves marketing efficiency and revenue contribution.",
+      "how_revos_delivers_it": "RevOS uses AI reasoning across ICP, buyer personas, market context, and revenue goals to recommend campaign strategies.",
+      "crm_comparison": "CRM manages campaign-related customer data; RevOS helps design revenue-oriented campaign strategies."
+    }
+  },
+  {
+    "capability_id": "MKT_002",
+    "capability_domain": "Marketing & Lead Intelligence",
+    "capability_name": "Revenue Evidence-based Lead Qualification",
+    "revos_module": "Lead Qualification",
+    "explanation": {
+      "what_it_is": "Evaluate lead quality based on evidence of revenue potential rather than only demographic or firmographic attributes.",
+      "why_it_matters": "Helps sales teams focus resources on leads with stronger business potential.",
+      "how_revos_delivers_it": "RevOS assesses lead evidence across fit, intent, engagement, and timing dimensions to generate qualification recommendations.",
+      "crm_comparison": "CRM stores and manages leads; RevOS determines which leads demonstrate stronger revenue potential."
+    }
+  },
+  {
+    "capability_id": "MKT_003",
+    "capability_domain": "Marketing & Lead Intelligence",
+    "capability_name": "Buying Intent Assessment",
+    "revos_module": "Lead Qualification",
+    "explanation": {
+      "what_it_is": "Evaluate signals that indicate customer interest, business need, and purchasing readiness.",
+      "why_it_matters": "Understanding intent helps organizations prioritize high-potential opportunities earlier.",
+      "how_revos_delivers_it": "RevOS analyzes available engagement signals and business context to assess buying intent.",
+      "crm_comparison": "CRM records customer interactions; RevOS interprets those signals to identify purchase intent."
+    }
+  },
+  {
+    "capability_id": "MKT_004",
+    "capability_domain": "Marketing & Lead Intelligence",
+    "capability_name": "Engagement Intelligence",
+    "revos_module": "Lead Qualification",
+    "explanation": {
+      "what_it_is": "Analyze customer engagement behaviors across marketing and sales interactions.",
+      "why_it_matters": "Engagement intelligence helps identify which leads are actively progressing toward purchase decisions.",
+      "how_revos_delivers_it": "RevOS evaluates engagement patterns and connects them with revenue qualification logic.",
+      "crm_comparison": "CRM tracks engagement activities; RevOS evaluates their business significance."
+    }
+  },
+  {
+    "capability_id": "MKT_005",
+    "capability_domain": "Marketing & Lead Intelligence",
+    "capability_name": "Qualification Confidence Scoring",
+    "revos_module": "Lead Qualification",
+    "explanation": {
+      "what_it_is": "Generate an AI-based confidence assessment of whether a lead meets qualification criteria.",
+      "why_it_matters": "Confidence scoring improves lead prioritization and reduces wasted sales effort.",
+      "how_revos_delivers_it": "RevOS combines evidence evaluation, qualification rules, and AI reasoning to calculate qualification confidence.",
+      "crm_comparison": "CRM provides lead scoring workflows; RevOS generates evidence-based revenue qualification confidence."
+    }
+  },
+  {
+    "capability_id": "MKT_006",
+    "capability_domain": "Marketing & Lead Intelligence",
+    "capability_name": "AI Qualification Recommendation",
+    "revos_module": "Lead Qualification",
+    "explanation": {
+      "what_it_is": "Provide AI-generated recommendations on lead qualification decisions and next actions.",
+      "why_it_matters": "Actionable recommendations help marketing and sales teams improve conversion efficiency.",
+      "how_revos_delivers_it": "RevOS evaluates lead evidence, qualification gaps, and improvement opportunities to recommend actions.",
+      "crm_comparison": "CRM manages lead workflows; RevOS provides intelligent qualification guidance."
+    }
+  },
+    {
+    "capability_id": "OPP_001",
+    "capability_domain": "Opportunity Intelligence",
+    "capability_name": "Opportunity Health Assessment",
+    "revos_module": "Opportunity Assessment",
+    "explanation": {
+      "what_it_is": "Evaluate opportunity quality, maturity, risks, and overall health throughout the sales lifecycle.",
+      "why_it_matters": "Helps sales leaders identify which opportunities are truly winnable and where improvement actions are required.",
+      "how_revos_delivers_it": "RevOS analyzes customer context, business value, stakeholder engagement, buying process, competition, and execution signals to generate opportunity health insights.",
+      "crm_comparison": "CRM tracks opportunity stages and activities; RevOS evaluates opportunity strength and recommends improvement actions."
+    }
+  },
+  {
+    "capability_id": "OPP_002",
+    "capability_domain": "Opportunity Intelligence",
+    "capability_name": "Win Probability Assessment",
+    "revos_module": "Opportunity Assessment",
+    "explanation": {
+      "what_it_is": "Assess the likelihood that an opportunity will successfully convert into revenue.",
+      "why_it_matters": "Improves forecast accuracy and helps sales teams focus resources on the most valuable opportunities.",
+      "how_revos_delivers_it": "RevOS evaluates multiple revenue evidence dimensions, including customer alignment, buying progress, stakeholder strength, and execution risks.",
+      "crm_comparison": "CRM provides stage-based forecasting; RevOS assesses win probability based on deeper business evidence."
+    }
+  },
+  {
+    "capability_id": "OPP_003",
+    "capability_domain": "Opportunity Intelligence",
+    "capability_name": "AI Winning Strategy Recommendation",
+    "revos_module": "Opportunity Assessment",
+    "explanation": {
+      "what_it_is": "Generate AI-powered recommendations on how to improve the probability of winning an opportunity.",
+      "why_it_matters": "Enables sales teams to move from opportunity tracking to proactive opportunity management.",
+      "how_revos_delivers_it": "RevOS analyzes opportunity conditions, customer needs, competitive dynamics, and historical patterns to recommend winning actions.",
+      "crm_comparison": "CRM records opportunity information; RevOS recommends strategies to improve deal outcomes."
+    }
+  },
+  {
+    "capability_id": "OPP_004",
+    "capability_domain": "Opportunity Intelligence",
+    "capability_name": "Stakeholder Influence Analysis",
+    "revos_module": "Opportunity Assessment",
+    "explanation": {
+      "what_it_is": "Analyze the influence, roles, and engagement levels of stakeholders involved in a buying process.",
+      "why_it_matters": "Understanding stakeholder dynamics improves relationship strategy and decision-maker engagement.",
+      "how_revos_delivers_it": "RevOS evaluates stakeholder information, engagement patterns, and buying process evidence to identify influence and gaps.",
+      "crm_comparison": "CRM manages contacts; RevOS analyzes stakeholder influence within the buying journey."
+    }
+  },
+  {
+    "capability_id": "OPP_005",
+    "capability_domain": "Opportunity Intelligence",
+    "capability_name": "Buying Committee Assessment",
+    "revos_module": "Opportunity Assessment",
+    "explanation": {
+      "what_it_is": "Evaluate the structure, completeness, and effectiveness of the customer buying committee.",
+      "why_it_matters": "Complex B2B purchases require alignment across multiple decision-makers and influencers.",
+      "how_revos_delivers_it": "RevOS assesses stakeholder coverage, decision roles, engagement levels, and potential gaps in the buying committee.",
+      "crm_comparison": "CRM stores customer contacts; RevOS evaluates whether the right buying stakeholders are engaged."
+    }
+  },
+  {
+    "capability_id": "OPP_006",
+    "capability_domain": "Opportunity Intelligence",
+    "capability_name": "Competitive Position Analysis",
+    "revos_module": "Opportunity Assessment",
+    "explanation": {
+      "what_it_is": "Evaluate competitive positioning and differentiation within customer opportunities.",
+      "why_it_matters": "Understanding competitive dynamics helps sales teams strengthen their winning position.",
+      "how_revos_delivers_it": "RevOS analyzes customer priorities, competitor information, value propositions, and market context to identify competitive advantages and risks.",
+      "crm_comparison": "CRM may store competitor information; RevOS provides strategic competitive analysis and recommendations."
+    }
+  },
+  {
+    "capability_id": "OPP_007",
+    "capability_domain": "Opportunity Intelligence",
+    "capability_name": "Opportunity Risk Identification",
+    "revos_module": "Opportunity Assessment",
+    "explanation": {
+      "what_it_is": "Identify potential risks that may reduce opportunity success probability.",
+      "why_it_matters": "Early risk identification enables proactive intervention before opportunities are lost.",
+      "how_revos_delivers_it": "RevOS evaluates customer alignment, engagement gaps, competition, commercial risks, and execution signals to identify threats.",
+      "crm_comparison": "CRM tracks opportunity status; RevOS identifies hidden risks affecting deal outcomes."
+    }
+  },
+  {
+    "capability_id": "OPP_008",
+    "capability_domain": "Opportunity Intelligence",
+    "capability_name": "Opportunity Action Recommendations",
+    "revos_module": "Opportunity Assessment",
+    "explanation": {
+      "what_it_is": "Provide AI-generated recommendations on the next best actions to improve opportunity outcomes.",
+      "why_it_matters": "Guides sales teams toward actions that increase win probability and accelerate deal progress.",
+      "how_revos_delivers_it": "RevOS analyzes opportunity conditions and generates prioritized actions based on business evidence and AI reasoning.",
+      "crm_comparison": "CRM manages tasks and reminders; RevOS recommends strategic actions that improve revenue outcomes."
+    }
+  },
+    {
+    "capability_id": "REV_001",
+    "capability_domain": "Revenue Intelligence",
+    "capability_name": "Revenue Pattern Recognition",
+    "revos_module": "Revenue Intelligence Engine",
+    "explanation": {
+      "what_it_is": "Identify recurring patterns, trends, and relationships across revenue activities and outcomes.",
+      "why_it_matters": "Understanding revenue patterns helps organizations discover growth opportunities and performance improvement areas.",
+      "how_revos_delivers_it": "RevOS analyzes revenue data, execution signals, and business context to identify meaningful patterns and generate insights.",
+      "crm_comparison": "CRM stores revenue-related activities and records; RevOS identifies hidden patterns that influence revenue performance."
+    }
+  },
+  {
+    "capability_id": "REV_002",
+    "capability_domain": "Revenue Intelligence",
+    "capability_name": "Pipeline Quality Assessment",
+    "revos_module": "Revenue Intelligence Engine",
+    "explanation": {
+      "what_it_is": "Evaluate the quality, strength, and reliability of revenue pipelines.",
+      "why_it_matters": "Pipeline quality visibility helps leaders understand whether future revenue expectations are realistic.",
+      "how_revos_delivers_it": "RevOS assesses pipeline evidence, opportunity maturity, customer engagement, and execution risks to determine pipeline quality.",
+      "crm_comparison": "CRM shows pipeline volume and status; RevOS evaluates pipeline health and revenue confidence."
+    }
+  },
+  {
+    "capability_id": "REV_003",
+    "capability_domain": "Revenue Intelligence",
+    "capability_name": "Revenue Scenario Simulation",
+    "revos_module": "Revenue Intelligence Engine",
+    "explanation": {
+      "what_it_is": "Simulate different revenue scenarios based on strategic decisions, market conditions, and execution choices.",
+      "why_it_matters": "Scenario simulation enables leaders to evaluate options before committing resources.",
+      "how_revos_delivers_it": "RevOS uses AI reasoning to model potential revenue outcomes based on assumptions, constraints, and strategic variables.",
+      "crm_comparison": "CRM reports historical performance; RevOS explores future revenue possibilities."
+    }
+  },
+  {
+    "capability_id": "REV_004",
+    "capability_domain": "Revenue Intelligence",
+    "capability_name": "Revenue Forecast Intelligence",
+    "revos_module": "Revenue Intelligence Engine",
+    "explanation": {
+      "what_it_is": "Improve revenue forecasting by combining operational data with AI-driven analysis.",
+      "why_it_matters": "More accurate forecasts support better business planning, investment decisions, and risk management.",
+      "how_revos_delivers_it": "RevOS evaluates revenue signals, pipeline conditions, and execution performance to provide intelligent forecast insights.",
+      "crm_comparison": "CRM provides forecast reporting; RevOS enhances forecasts with AI-based reasoning and confidence analysis."
+    }
+  },
+  {
+    "capability_id": "REV_005",
+    "capability_domain": "Revenue Intelligence",
+    "capability_name": "AI Decision Support",
+    "revos_module": "Revenue Intelligence Engine",
+    "explanation": {
+      "what_it_is": "Provide AI-powered insights and recommendations to support revenue-related decisions.",
+      "why_it_matters": "Executives and revenue leaders can make faster, more informed decisions based on evidence.",
+      "how_revos_delivers_it": "RevOS combines business context, revenue frameworks, and AI reasoning to generate actionable recommendations.",
+      "crm_comparison": "CRM provides operational visibility; RevOS provides intelligent decision support."
+    }
+  },
+  {
+    "capability_id": "REV_006",
+    "capability_domain": "Revenue Intelligence",
+    "capability_name": "Executive Revenue Insights",
+    "revos_module": "Revenue Intelligence Engine",
+    "explanation": {
+      "what_it_is": "Provide leadership-level visibility into revenue performance, risks, and improvement opportunities.",
+      "why_it_matters": "Executives need strategic insights rather than only operational reports.",
+      "how_revos_delivers_it": "RevOS transforms revenue data into executive insights covering performance drivers, risks, and recommended actions.",
+      "crm_comparison": "CRM provides management dashboards; RevOS delivers strategic revenue intelligence."
+    }
+  },
+  {
+    "capability_id": "OPT_001",
+    "capability_domain": "Continuous Revenue Optimization",
+    "capability_name": "Closed-loop Learning from Revenue Outcomes",
+    "revos_module": "Revenue Optimization Engine",
+    "explanation": {
+      "what_it_is": "Continuously learn from revenue execution results and business outcomes.",
+      "why_it_matters": "Continuous learning enables organizations to improve revenue strategies over time.",
+      "how_revos_delivers_it": "RevOS analyzes historical decisions, execution results, and revenue outcomes to improve future recommendations.",
+      "crm_comparison": "CRM stores historical records; RevOS learns from outcomes to optimize future revenue decisions."
+    }
+  },
+  {
+    "capability_id": "OPT_002",
+    "capability_domain": "Continuous Revenue Optimization",
+    "capability_name": "AI Recommendation Engine",
+    "revos_module": "Revenue Optimization Engine",
+    "explanation": {
+      "what_it_is": "Generate AI-powered recommendations for improving revenue performance.",
+      "why_it_matters": "Actionable recommendations help teams prioritize the activities that create the greatest impact.",
+      "how_revos_delivers_it": "RevOS analyzes business context, evidence, and performance patterns to recommend next-best actions.",
+      "crm_comparison": "CRM automates workflows; RevOS recommends strategic and operational improvements."
+    }
+  },
+  {
+    "capability_id": "OPT_003",
+    "capability_domain": "Continuous Revenue Optimization",
+    "capability_name": "Revenue Process Optimization",
+    "revos_module": "Revenue Optimization Engine",
+    "explanation": {
+      "what_it_is": "Identify opportunities to improve revenue processes, workflows, and operating models.",
+      "why_it_matters": "Optimized processes improve efficiency, scalability, and revenue predictability.",
+      "how_revos_delivers_it": "RevOS analyzes execution performance and identifies process gaps and optimization opportunities.",
+      "crm_comparison": "CRM manages existing processes; RevOS identifies how revenue processes can improve."
+    }
+  },
+  {
+    "capability_id": "OPT_004",
+    "capability_domain": "Continuous Revenue Optimization",
+    "capability_name": "Cross-functional Revenue Orchestration",
+    "revos_module": "Revenue Optimization Engine",
+    "explanation": {
+      "what_it_is": "Coordinate revenue activities across strategy, marketing, sales, and customer-facing teams.",
+      "why_it_matters": "Revenue growth requires alignment across multiple functions rather than isolated team execution.",
+      "how_revos_delivers_it": "RevOS connects revenue objectives, execution activities, and performance insights across functions.",
+      "crm_comparison": "CRM primarily supports sales operations; RevOS orchestrates the broader revenue operating model."
+    }
+  },
+  {
+    "capability_id": "OPT_005",
+    "capability_domain": "Continuous Revenue Optimization",
+    "capability_name": "Strategy → Execution → Learning Feedback Loop",
+    "revos_module": "Revenue Optimization Engine",
+    "explanation": {
+      "what_it_is": "Create a continuous improvement cycle connecting strategic decisions, execution results, and AI learning.",
+      "why_it_matters": "Organizations can continuously adapt their revenue strategy based on real-world outcomes.",
+      "how_revos_delivers_it": "RevOS links GTM strategy, revenue execution, business outcomes, and AI recommendations into a continuous optimization loop.",
+      "crm_comparison": "CRM manages operational records; RevOS creates a closed-loop revenue management system."
+    }
+  }
+]

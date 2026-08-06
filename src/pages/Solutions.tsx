@@ -1,4 +1,5 @@
-import { motion } from 'motion/react';
+import { useState, useRef, useEffect } from 'react';
+import { motion, AnimatePresence } from 'motion/react';
 import { 
   ArrowRight, 
   Brain, 
@@ -95,7 +96,193 @@ const differences = [
   { title: "Strategic Workflow Intelligence", icon: BarChart3 },
 ];
 
+const matrixData = [
+  // Customer & Sales Operations
+  { domain: 'Customer & Sales Operations', capability: 'Customer Account Management', revos: '🔗', crm: '✅', isDomainStart: true, domainSpan: 7 },
+  { domain: 'Customer & Sales Operations', capability: 'Contact Management', revos: '🔗', crm: '✅' },
+  { domain: 'Customer & Sales Operations', capability: 'Opportunity Tracking', revos: '🔗', crm: '✅' },
+  { domain: 'Customer & Sales Operations', capability: 'Sales Activity Management', revos: '🔗', crm: '✅' },
+  { domain: 'Customer & Sales Operations', capability: 'Customer Interaction History', revos: '🔗', crm: '✅' },
+  { domain: 'Customer & Sales Operations', capability: 'Pipeline Visualization', revos: '✅', crm: '✅' },
+  { domain: 'Customer & Sales Operations', capability: 'Forecast Reporting', revos: '✅', crm: '✅' },
+
+  // Go-to-Market Strategy
+  { domain: 'Go-to-Market Strategy', capability: 'AI-powered GTM Strategy Design', revos: '✅', crm: '❌', isDomainStart: true, domainSpan: 9 },
+  { domain: 'Go-to-Market Strategy', capability: 'Market Segmentation Intelligence', revos: '✅', crm: '❌' },
+  { domain: 'Go-to-Market Strategy', capability: 'Ideal Customer Profile (ICP) Design', revos: '✅', crm: '❌' },
+  { domain: 'Go-to-Market Strategy', capability: 'Buyer Persona Development', revos: '✅', crm: '❌' },
+  { domain: 'Go-to-Market Strategy', capability: 'Value Proposition Design', revos: '✅', crm: '❌' },
+  { domain: 'Go-to-Market Strategy', capability: 'Messaging & Positioning Framework', revos: '✅', crm: '❌' },
+  { domain: 'Go-to-Market Strategy', capability: 'Revenue Motion Recommendation', revos: '✅', crm: '❌' },
+  { domain: 'Go-to-Market Strategy', capability: 'GTM Execution Planning', revos: '✅', crm: '❌' },
+  { domain: 'Go-to-Market Strategy', capability: 'Revenue Capacity Planning', revos: '✅', crm: '❌' },
+
+  // Marketing & Lead Intelligence
+  { domain: 'Marketing & Lead Intelligence', capability: 'AI Campaign Planning', revos: '✅', crm: '🟡', isDomainStart: true, domainSpan: 6 },
+  { domain: 'Marketing & Lead Intelligence', capability: 'Revenue Evidence-based Lead Qualification', revos: '✅', crm: '❌' },
+  { domain: 'Marketing & Lead Intelligence', capability: 'Buying Intent Assessment', revos: '✅', crm: '🟡' },
+  { domain: 'Marketing & Lead Intelligence', capability: 'Engagement Intelligence', revos: '✅', crm: '🟡' },
+  { domain: 'Marketing & Lead Intelligence', capability: 'Qualification Confidence Scoring', revos: '✅', crm: '❌' },
+  { domain: 'Marketing & Lead Intelligence', capability: 'AI Qualification Recommendation', revos: '✅', crm: '❌' },
+
+  // Opportunity Intelligence
+  { domain: 'Opportunity Intelligence', capability: 'Opportunity Health Assessment', revos: '✅', crm: '🟡', isDomainStart: true, domainSpan: 8 },
+  { domain: 'Opportunity Intelligence', capability: 'Win Probability Assessment', revos: '✅', crm: '🟡' },
+  { domain: 'Opportunity Intelligence', capability: 'AI Winning Strategy Recommendation', revos: '✅', crm: '❌' },
+  { domain: 'Opportunity Intelligence', capability: 'Stakeholder Influence Analysis', revos: '✅', crm: '❌' },
+  { domain: 'Opportunity Intelligence', capability: 'Buying Committee Assessment', revos: '✅', crm: '❌' },
+  { domain: 'Opportunity Intelligence', capability: 'Competitive Position Analysis', revos: '✅', crm: '❌' },
+  { domain: 'Opportunity Intelligence', capability: 'Opportunity Risk Identification', revos: '✅', crm: '🟡' },
+  { domain: 'Opportunity Intelligence', capability: 'Opportunity Action Recommendations', revos: '✅', crm: '❌' },
+
+  // Revenue Intelligence
+  { domain: 'Revenue Intelligence', capability: 'Revenue Pattern Recognition', revos: '✅', crm: '❌', isDomainStart: true, domainSpan: 6 },
+  { domain: 'Revenue Intelligence', capability: 'Pipeline Quality Assessment', revos: '✅', crm: '🟡' },
+  { domain: 'Revenue Intelligence', capability: 'Revenue Scenario Simulation', revos: '✅', crm: '❌' },
+  { domain: 'Revenue Intelligence', capability: 'Revenue Forecast Intelligence', revos: '✅', crm: '🟡' },
+  { domain: 'Revenue Intelligence', capability: 'AI Decision Support', revos: '✅', crm: '❌' },
+  { domain: 'Revenue Intelligence', capability: 'Executive Revenue Insights', revos: '✅', crm: '🟡' },
+
+  // Continuous Revenue Optimization
+  { domain: 'Continuous Revenue Optimization', capability: 'Closed-loop Learning from Revenue Outcomes', revos: '✅', crm: '❌', isDomainStart: true, domainSpan: 5 },
+  { domain: 'Continuous Revenue Optimization', capability: 'AI Recommendation Engine', revos: '✅', crm: '❌' },
+  { domain: 'Continuous Revenue Optimization', capability: 'Revenue Process Optimization', revos: '✅', crm: '❌' },
+  { domain: 'Continuous Revenue Optimization', capability: 'Cross-functional Revenue Orchestration', revos: '✅', crm: '❌' },
+  { domain: 'Continuous Revenue Optimization', capability: 'Strategy → Execution → Learning Feedback Loop', revos: '✅', crm: '❌' }
+];
+
+const renderMatrixIcon = (value: string) => {
+  if (value === '✅') {
+    return (
+      <div className="inline-flex items-center justify-center w-[18px] h-[18px] rounded-full border border-[#00F090] bg-[#00F090]/10 text-[#00F090] shrink-0" title="Full Capability">
+        <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="3.5">
+          <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+        </svg>
+      </div>
+    );
+  }
+  if (value === '❌') {
+    return (
+      <div className="inline-flex items-center justify-center w-[18px] h-[18px] rounded-full border border-[#ef4444] bg-[#ef4444]/10 text-[#ef4444] shrink-0" title="No Capability">
+        <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="3.5">
+          <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+        </svg>
+      </div>
+    );
+  }
+  if (value === '🟡') {
+    return (
+      <div className="inline-flex items-center justify-center w-[18px] h-[18px] rounded-full border border-[#f59e0b] bg-[#f59e0b]/10 text-[#f59e0b] shrink-0" title="Partial Capability">
+        <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="3.5">
+          <path strokeLinecap="round" strokeLinejoin="round" d="M18 12H6" />
+        </svg>
+      </div>
+    );
+  }
+  if (value === '🔗') {
+    return (
+      <div className="inline-flex items-center justify-center w-[18px] h-[18px] rounded-full border border-[#6366f1] bg-[#6366f1]/10 text-[#6366f1] shrink-0" title="Integrated CRM Link">
+        <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="3">
+          <path strokeLinecap="round" strokeLinejoin="round" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+        </svg>
+      </div>
+    );
+  }
+  return null;
+};
+
 export function Solutions() {
+  const [activeTab, setActiveTab] = useState<'differences' | 'comparisons'>('differences');
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const [isScrolled, setIsScrolled] = useState(false);
+  const [scrollProgress, setScrollProgress] = useState(0);
+  const [scrollPosition, setScrollPosition] = useState({
+    showTopGradient: false,
+    showBottomGradient: true,
+  });
+
+  const [explanations, setExplanations] = useState<any[]>([]);
+  const [hoveredCapability, setHoveredCapability] = useState<string | null>(null);
+  const [tooltipPosition, setTooltipPosition] = useState<{ top: number; left: number; placement: 'left' | 'right' }>({ top: 0, left: 0, placement: 'right' });
+  const [hoveredIcon, setHoveredIcon] = useState<{ value: string; top: number; left: number } | null>(null);
+
+  useEffect(() => {
+    fetch('/business_capability_explanation.json')
+      .then(res => {
+        if (!res.ok) throw new Error('Network response was not ok');
+        return res.json();
+      })
+      .then(data => setExplanations(data))
+      .catch(err => console.error('Error fetching explanations:', err));
+  }, []);
+
+  const handleIconMouseEnter = (e: React.MouseEvent<HTMLElement>, value: string) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    const left = rect.left + (rect.width / 2);
+    const top = rect.top - 42;
+    setHoveredIcon({ value, top, left });
+  };
+
+  const handleIconMouseLeave = () => {
+    setHoveredIcon(null);
+  };
+
+  const handleMouseEnter = (e: React.MouseEvent<HTMLTableCellElement>, capabilityName: string) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    const viewportWidth = window.innerWidth;
+    const viewportHeight = window.innerHeight;
+    
+    const tooltipWidth = 380;
+    const tooltipHeight = 310; // estimate based on contents
+    
+    let left = rect.right + 12;
+    let placement: 'left' | 'right' = 'right';
+    
+    // Check if there is enough space on the right of the viewport
+    if (rect.right + tooltipWidth + 24 > viewportWidth) {
+      if (rect.left - tooltipWidth - 12 > 0) {
+        left = rect.left - tooltipWidth - 12;
+        placement = 'left';
+      } else {
+        left = Math.max(12, viewportWidth - tooltipWidth - 12);
+        placement = 'right';
+      }
+    }
+    
+    // Align vertical center
+    let top = rect.top + (rect.height / 2) - (tooltipHeight / 2);
+    
+    // Keep fully visible within viewport
+    if (top < 12) {
+      top = 12;
+    } else if (top + tooltipHeight + 12 > viewportHeight) {
+      top = viewportHeight - tooltipHeight - 12;
+    }
+    
+    setTooltipPosition({ top, left, placement });
+    setHoveredCapability(capabilityName);
+  };
+
+  const handleMouseLeave = () => {
+    setHoveredCapability(null);
+  };
+
+  const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
+    const { scrollTop, scrollHeight, clientHeight } = e.currentTarget;
+    setIsScrolled(scrollTop > 10);
+    
+    const progress = scrollHeight - clientHeight > 0 ? (scrollTop / (scrollHeight - clientHeight)) * 100 : 0;
+    setScrollProgress(progress);
+    
+    setScrollPosition({
+      showTopGradient: scrollTop > 10,
+      showBottomGradient: scrollTop + clientHeight < scrollHeight - 15,
+    });
+
+    // Dismiss tooltip on scroll to prevent orphaned floating tooltips
+    setHoveredCapability(null);
+    setHoveredIcon(null);
+  };
   return (
     <div className="bg-bg-primary min-h-screen selection:bg-accent selection:text-black">
       {/* SECTION 1: Hero Section */}
@@ -421,6 +608,84 @@ export function Solutions() {
             mask-image: linear-gradient(to right, transparent, black 15%, black 85%, transparent);
             -webkit-mask-image: linear-gradient(to right, transparent, black 15%, black 85%, transparent);
           }
+          @keyframes sweep-right {
+            0% { transform: translateX(-110%); }
+            100% { transform: translateX(260%); }
+          }
+          @keyframes sweep-left {
+            0% { transform: translateX(260%); }
+            100% { transform: translateX(-110%); }
+          }
+          .sweep-border-wrapper {
+            position: relative;
+            display: inline-flex;
+            padding: 1px;
+            border-radius: 9999px;
+            overflow: hidden;
+            background: rgba(128, 128, 128, 0.08);
+            border: 1px solid rgba(128, 128, 128, 0.12);
+            z-index: 10;
+          }
+          .sweep-line-container-top {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 1px;
+            overflow: hidden;
+            pointer-events: none;
+            z-index: 5;
+          }
+          .sweep-line-container-bottom {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: 1px;
+            overflow: hidden;
+            pointer-events: none;
+            z-index: 5;
+          }
+          .sweep-line-top-active {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 40%;
+            height: 100%;
+            background: linear-gradient(to right, transparent, var(--accent) 50%, transparent);
+            animation: sweep-right 4s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+          }
+          .sweep-line-bottom-active {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 40%;
+            height: 100%;
+            background: linear-gradient(to right, transparent, var(--accent) 50%, transparent);
+            animation: sweep-left 4s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+          }
+          .sweep-line-top-glow {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 40%;
+            height: 100%;
+            background: linear-gradient(to right, transparent, var(--accent) 50%, transparent);
+            filter: blur(4px);
+            opacity: 0.6;
+            animation: sweep-right 4s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+          }
+          .sweep-line-bottom-glow {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 40%;
+            height: 100%;
+            background: linear-gradient(to right, transparent, var(--accent) 50%, transparent);
+            filter: blur(4px);
+            opacity: 0.6;
+            animation: sweep-left 4s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+          }
         `}</style>
         <div className="mx-auto max-w-7xl px-6 lg:px-8">
           <div className="text-center mb-16">
@@ -493,29 +758,232 @@ export function Solutions() {
         <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-accent/10 rounded-full blur-[120px] -z-10" />
         
         <div className="mx-auto max-w-7xl px-6 lg:px-8">
-          <div className="mb-20 text-center">
+          <div className="mb-12 text-center">
             <h2 className="text-3xl md:text-5xl font-bold tracking-tight text-text-primary mb-4">Why RevOS is Different</h2>
             <p className="text-text-secondary">Designing the future of organizational reasoning.</p>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
-            {differences.map((diff, index) => (
-              <motion.div
-                key={diff.title}
-                initial={{ opacity: 0, y: 20 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                transition={{ delay: index * 0.1 }}
-                viewport={{ once: true }}
-                className="flex flex-col items-center text-center group"
-              >
-                <div className="mb-6 p-5 rounded-3xl bg-bg-primary border border-border ring-1 ring-white/5 group-hover:scale-110 group-hover:border-accent group-hover:shadow-[0_0_30px_rgba(var(--accent-rgb),0.2)] transition-all duration-500">
-                  <diff.icon className="h-8 w-8 text-accent" />
+          {/* Slider Switch Button */}
+          <div className="flex justify-center mb-16 relative">
+            <div className="relative inline-flex items-center justify-center">
+              
+              <div className="sweep-border-wrapper">
+                {/* Animating top line */}
+                <div className="sweep-line-container-top">
+                  <div className="sweep-line-top-glow" />
+                  <div className="sweep-line-top-active" />
                 </div>
-                <h4 className="text-sm font-bold tracking-wide uppercase text-text-primary leading-snug">
-                  {diff.title}
-                </h4>
+
+                <div className="inline-flex p-1 rounded-full bg-bg-surface dark:bg-[#0c101b] shadow-inner relative z-10">
+                  <button
+                    onClick={() => setActiveTab('differences')}
+                    className={cn(
+                      "px-6 py-2 rounded-full text-xs font-extrabold tracking-wider uppercase transition-all duration-300 relative z-20",
+                      activeTab === 'differences'
+                        ? "text-black font-black"
+                        : "text-text-secondary hover:text-text-primary"
+                    )}
+                  >
+                    {activeTab === 'differences' && (
+                      <motion.div
+                        layoutId="activeTabBackground"
+                        className="absolute inset-0 bg-accent rounded-full -z-10"
+                        transition={{ type: "spring", stiffness: 380, damping: 30 }}
+                      />
+                    )}
+                    Differences
+                  </button>
+                  <button
+                    onClick={() => setActiveTab('comparisons')}
+                    className={cn(
+                      "px-6 py-2 rounded-full text-xs font-extrabold tracking-wider uppercase transition-all duration-300 relative z-20",
+                      activeTab === 'comparisons'
+                        ? "text-black font-black"
+                        : "text-text-secondary hover:text-text-primary"
+                    )}
+                  >
+                    {activeTab === 'comparisons' && (
+                      <motion.div
+                        layoutId="activeTabBackground"
+                        className="absolute inset-0 bg-accent rounded-full -z-10"
+                        transition={{ type: "spring", stiffness: 380, damping: 30 }}
+                      />
+                    )}
+                    Comparisons
+                  </button>
+                </div>
+
+                {/* Animating bottom line */}
+                <div className="sweep-line-container-bottom">
+                  <div className="sweep-line-bottom-glow" />
+                  <div className="sweep-line-bottom-active" />
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="min-h-[480px] relative flex items-center justify-center w-full">
+            {activeTab === 'differences' ? (
+              <motion.div
+                key="differences"
+                initial={{ opacity: 0, scale: 0.98 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ duration: 0.4 }}
+                className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8 w-full"
+              >
+                {differences.map((diff, index) => (
+                  <motion.div
+                    key={diff.title}
+                    initial={{ opacity: 0, y: 20 }}
+                    whileInView={{ opacity: 1, y: 0 }}
+                    transition={{ delay: index * 0.05 }}
+                    viewport={{ once: true }}
+                    className="flex flex-col items-center text-center group"
+                  >
+                    <div className="mb-6 p-5 rounded-3xl bg-bg-primary border border-border ring-1 ring-white/5 group-hover:scale-110 group-hover:border-accent group-hover:shadow-[0_0_30px_rgba(var(--accent-rgb),0.2)] transition-all duration-500">
+                      <diff.icon className="h-8 w-8 text-accent" />
+                    </div>
+                    <h4 className="text-sm font-bold tracking-wide uppercase text-text-primary leading-snug">
+                      {diff.title}
+                    </h4>
+                  </motion.div>
+                ))}
               </motion.div>
-            ))}
+            ) : (
+              <motion.div
+                key="comparisons"
+                initial={{ opacity: 0, scale: 0.98 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ duration: 0.4 }}
+                className="w-full flex flex-col gap-8"
+              >
+                {/* Summary Text Area */}
+                <div className="border-l border-border dark:border-accent/20 pl-6 py-1 w-full text-left">
+                  <h4 className="text-[10px] font-bold tracking-widest uppercase text-accent font-mono mb-2">
+                    Summary
+                  </h4>
+                  <div className="flex flex-col gap-[2px] text-[9px] md:text-[9.5px] text-text-secondary/70 font-light leading-relaxed">
+                    <p>
+                      RevOS is designed to orchestrate, optimize, and continuously improve revenue growth through AI-powered intelligence.
+                    </p>
+                    <p>
+                      Traditional CRM platforms are designed to record and manage customer relationships and sales activities.
+                    </p>
+                    <p>
+                      Rather than replacing your CRM, RevOS sits above it as the Revenue Intelligence & Decision Layer, helping leadership teams make better strategic and operational decisions.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="border border-border rounded-2xl bg-bg-surface/50 backdrop-blur-md overflow-hidden shadow-xl ring-1 ring-white/5 w-full relative">
+                  {/* Scroll Progress Indicator */}
+                  <div className="absolute top-0 left-0 right-0 h-[2px] bg-border/20 z-40 overflow-hidden">
+                    <motion.div
+                      className="h-full bg-accent"
+                      style={{ width: `${scrollProgress}%` }}
+                      transition={{ type: "tween", ease: "easeOut", duration: 0.1 }}
+                    />
+                  </div>
+
+                  {/* Top fade indicator (just below sticky header) */}
+                  <AnimatePresence>
+                    {scrollPosition.showTopGradient && (
+                      <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        className="absolute left-0 right-0 h-8 bg-gradient-to-b from-bg-surface to-transparent pointer-events-none z-20 top-[45px]"
+                        transition={{ duration: 0.2 }}
+                      />
+                    )}
+                  </AnimatePresence>
+
+                  {/* Bottom fade indicator */}
+                  <AnimatePresence>
+                    {scrollPosition.showBottomGradient && (
+                      <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        className="absolute left-0 right-0 bottom-0 h-10 bg-gradient-to-t from-bg-surface/90 to-transparent pointer-events-none z-20"
+                        transition={{ duration: 0.2 }}
+                      />
+                    )}
+                  </AnimatePresence>
+
+                  <div
+                    ref={scrollContainerRef}
+                    onScroll={handleScroll}
+                    className="max-h-[480px] overflow-y-auto overflow-x-auto pr-1 [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar]:h-2 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-border/60 [&::-webkit-scrollbar-thumb]:rounded-full hover:[&::-webkit-scrollbar-thumb]:bg-accent/40 scroll-smooth"
+                  >
+                    <table className="w-full min-w-[750px] border-collapse text-left">
+                      <thead className={cn(
+                        "sticky top-0 z-30 border-b bg-bg-surface transition-all duration-300",
+                        isScrolled ? "border-accent/30 shadow-[0_4px_16px_rgba(0,0,0,0.2)]" : "border-border shadow-sm"
+                      )}>
+                        <tr>
+                          <th className="py-[11px] px-4 text-xs font-bold tracking-wider uppercase text-text-secondary w-[180px]">Capability Domain</th>
+                          <th className="py-[11px] px-4 text-xs font-bold tracking-wider uppercase text-text-secondary w-[240px]">Business Capability</th>
+                          <th className="py-[11px] px-4 text-center text-xs font-bold tracking-wider uppercase text-text-secondary w-48 whitespace-nowrap">RevOS</th>
+                          <th className="py-[11px] px-4 text-center text-xs font-bold tracking-wider uppercase text-text-secondary w-48 whitespace-nowrap">Traditional CRM</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {matrixData.map((row, index) => (
+                          <motion.tr
+                            key={row.capability}
+                            initial={{ opacity: 0.3, y: 12, scale: 0.99 }}
+                            whileInView={{ opacity: 1, y: 0, scale: 1 }}
+                            viewport={{ root: scrollContainerRef, once: true, margin: "0px 0px -15px 0px" }}
+                            transition={{ duration: 0.35, ease: "easeOut" }}
+                            className="border-b border-border/40 hover:bg-accent/15 transition-colors duration-150"
+                          >
+                            {row.isDomainStart && (
+                              <td
+                                rowSpan={row.domainSpan}
+                                className="py-[9px] px-4 font-bold text-text-primary border-r border-border/40 bg-bg-surface/30 align-top text-left text-xs md:text-sm w-[180px] max-w-[180px] break-words"
+                              >
+                                {row.domain}
+                              </td>
+                            )}
+                            <td 
+                              onMouseEnter={(e) => handleMouseEnter(e, row.capability)}
+                              onMouseLeave={handleMouseLeave}
+                              className={cn(
+                                "py-[9px] px-4 text-xs md:text-sm font-medium text-text-secondary w-[240px] max-w-[240px] break-words transition-all duration-150 cursor-help select-none",
+                                hoveredCapability === row.capability 
+                                  ? "text-accent bg-accent/10 font-bold border-l-2 border-accent pl-[14px]" 
+                                  : "hover:text-text-primary"
+                              )}
+                            >
+                              {row.capability}
+                            </td>
+                            <td className="py-[9px] px-4 text-center w-48">
+                              <span 
+                                onMouseEnter={(e) => handleIconMouseEnter(e, row.revos)}
+                                onMouseLeave={handleIconMouseLeave}
+                                className="inline-flex items-center justify-center hover:scale-110 transition-transform duration-200 cursor-help"
+                              >
+                                {renderMatrixIcon(row.revos)}
+                              </span>
+                            </td>
+                            <td className="py-[9px] px-4 text-center w-48">
+                              <span 
+                                onMouseEnter={(e) => handleIconMouseEnter(e, row.crm)}
+                                onMouseLeave={handleIconMouseLeave}
+                                className="inline-flex items-center justify-center hover:scale-110 transition-transform duration-200 cursor-help"
+                              >
+                                {renderMatrixIcon(row.crm)}
+                              </span>
+                            </td>
+                          </motion.tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </motion.div>
+            )}
           </div>
         </div>
       </section>
@@ -536,6 +1004,148 @@ export function Solutions() {
           </Link>
         </div>
       </section>
+
+      {/* Tooltip Render */}
+      <AnimatePresence>
+        {hoveredCapability && (
+          explanations.find((e: any) => e.capability_name === hoveredCapability) ? (
+            (() => {
+              const currentExplanation = explanations.find((e: any) => e.capability_name === hoveredCapability);
+              return (
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.95, y: 10 }}
+                  animate={{ opacity: 1, scale: 1, y: 0 }}
+                  exit={{ opacity: 0, scale: 0.95, y: 10 }}
+                  transition={{ duration: 0.15, ease: "easeOut" }}
+                  className="fixed z-50 w-[380px] bg-bg-surface/95 backdrop-blur-md border border-border/80 dark:border-accent/30 rounded-2xl shadow-[0_15px_40px_rgba(0,0,0,0.12)] dark:shadow-[0_25px_60px_rgba(0,0,0,0.85)] overflow-hidden pointer-events-none"
+                  style={{
+                    top: tooltipPosition.top,
+                    left: tooltipPosition.left,
+                  }}
+                >
+                  {/* Top Indicator Gradient Accent Line */}
+                  <div className="h-[3px] bg-gradient-to-r from-accent/30 via-accent to-accent/30" />
+                  
+                  <div className="p-5 flex flex-col gap-4">
+                    {/* Header */}
+                    <div className="flex flex-col gap-1">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[9px] font-black tracking-widest text-accent uppercase font-mono bg-accent/10 px-2 py-0.5 rounded">
+                          {currentExplanation.revos_module || "REVENUE ENGINE"}
+                        </span>
+                        <span className="text-[9px] font-bold text-text-secondary font-mono">
+                          {currentExplanation.capability_id}
+                        </span>
+                      </div>
+                      <h3 className="text-sm font-black text-text-primary mt-1">
+                        {currentExplanation.capability_name}
+                      </h3>
+                    </div>
+
+                    <div className="h-px bg-border/20" />
+
+                    {/* Details List */}
+                    <div className="flex flex-col gap-3.5 text-xs">
+                      {/* What it is */}
+                      <div className="flex flex-col gap-0.5">
+                        <span className="text-[9px] font-black tracking-wider text-text-secondary/80 uppercase font-mono">
+                          What it is
+                        </span>
+                        <p className="text-text-secondary/90 leading-relaxed text-[11px]">
+                          {currentExplanation.explanation.what_it_is}
+                        </p>
+                      </div>
+
+                      {/* Why it matters */}
+                      <div className="flex flex-col gap-0.5">
+                        <span className="text-[9px] font-black tracking-wider text-text-secondary/80 uppercase font-mono">
+                          Why it matters
+                        </span>
+                        <p className="text-text-secondary/90 leading-relaxed text-[11px]">
+                          {currentExplanation.explanation.why_it_matters}
+                        </p>
+                      </div>
+
+                      {/* How RevOS delivers it */}
+                      <div className="flex flex-col gap-0.5">
+                        <span className="text-[9px] font-black tracking-wider text-accent/90 uppercase font-mono">
+                          How RevOS delivers it
+                        </span>
+                        <p className="text-text-primary leading-relaxed text-[11px] font-medium">
+                          {currentExplanation.explanation.how_revos_delivers_it}
+                        </p>
+                      </div>
+
+                      {/* CRM Comparison */}
+                      <div className="flex flex-col gap-0.5 bg-bg-primary/50 dark:bg-bg-primary/30 p-2.5 rounded-xl border border-border/40 dark:border-border/10">
+                        <span className="text-[9px] font-black tracking-wider text-text-secondary/80 uppercase font-mono">
+                          CRM Comparison
+                        </span>
+                        <p className="text-text-secondary leading-relaxed text-[11px]">
+                          {currentExplanation.explanation.crm_comparison}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </motion.div>
+              );
+            })()
+          ) : null
+        )}
+      </AnimatePresence>
+
+      {/* Legend Tooltip Render */}
+      <AnimatePresence>
+        {hoveredIcon && (
+          (() => {
+            let label = "";
+            let colorHex = "";
+            let pulseColor = "";
+            
+            if (hoveredIcon.value === '✅') {
+              label = "Native Capability";
+              colorHex = "#00F090";
+              pulseColor = "bg-[#00F090]/20";
+            } else if (hoveredIcon.value === '❌') {
+              label = "Not Supported";
+              colorHex = "#ef4444";
+              pulseColor = "bg-[#ef4444]/20";
+            } else if (hoveredIcon.value === '🟡') {
+              label = "Limited";
+              colorHex = "#f59e0b";
+              pulseColor = "bg-[#f59e0b]/20";
+            } else if (hoveredIcon.value === '🔗') {
+              label = "Delivered through integration with CRM";
+              colorHex = "#6366f1";
+              pulseColor = "bg-[#6366f1]/20";
+            }
+
+            return (
+              <motion.div
+                initial={{ opacity: 0, scale: 0.95, y: 6 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.95, y: 6 }}
+                transition={{ duration: 0.12, ease: "easeOut" }}
+                className="fixed z-50 px-3 py-2 rounded-xl bg-bg-surface/95 dark:bg-[#0c101b]/95 backdrop-blur-md border border-border/80 dark:border-accent/20 shadow-[0_8px_24px_rgba(0,0,0,0.12)] dark:shadow-[0_16px_36px_rgba(0,0,0,0.6)] pointer-events-none flex items-center gap-2.5 max-w-[280px]"
+                style={{
+                  top: hoveredIcon.top,
+                  left: hoveredIcon.left,
+                  x: "-50%",
+                }}
+              >
+                {/* Custom Pulsing Status Dot */}
+                <div className="relative flex h-2 w-2 shrink-0">
+                  <span className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 ${pulseColor}`}></span>
+                  <span className="relative inline-flex rounded-full h-2 w-2" style={{ backgroundColor: colorHex }}></span>
+                </div>
+                <span className="text-[11px] font-bold text-text-primary dark:text-text-primary leading-tight select-none">
+                  {label}
+                </span>
+              </motion.div>
+            );
+          })()
+        )}
+      </AnimatePresence>
     </div>
   );
 }
