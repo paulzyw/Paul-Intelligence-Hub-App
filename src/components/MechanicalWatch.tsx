@@ -74,13 +74,15 @@ export default function MechanicalWatch() {
 
       if (!(window as any)._watchScriptPromise) {
         (window as any)._watchScriptPromise = new Promise<void>((resolve) => {
+          const origin = window.location.origin;
+          
           const baseScript = document.createElement('script');
-          baseScript.src = '/js/base.js?v=4';
+          baseScript.src = `${origin}/js/base.js?v=5`;
           document.body.appendChild(baseScript);
 
           baseScript.onload = () => {
             const watchScript = document.createElement('script');
-            watchScript.src = '/js/watch.js?v=4';
+            watchScript.src = `${origin}/js/watch.js?v=5`;
             document.body.appendChild(watchScript);
 
             watchScript.onload = () => {
