@@ -27,32 +27,72 @@ function download_file(file_path, handler) {
 }
 
 function load_model_buffer(filePath, remoteFallbackUrl, expectedBytes, callback) {
+    if (filePath.indexOf("watch_vertices.dat") !== -1) {
+        filePath = "/api/models/watch_vertices.dat";
+    } else if (filePath.indexOf("watch_indices.dat") !== -1) {
+        filePath = "/api/models/watch_indices.dat";
+    }
+
     const dbName = "watch_model_cache_db";
     const storeName = "buffers";
 
     function fetchAndVerify(url, onSuccess, onError) {
-        let xhr = new XMLHttpRequest();
-        xhr.open("GET", url);
-        xhr.responseType = "arraybuffer";
-        xhr.onload = function() {
-            if ((xhr.status === 200 || xhr.status === 304) && xhr.response) {
-                if (expectedBytes && xhr.response.byteLength !== expectedBytes) {
-                    console.error("Size mismatch for " + url + ": expected " + expectedBytes + ", got " + xhr.response.byteLength);
-                    onError(new Error("Size mismatch for " + url));
-                } else {
-                    console.log("Successfully loaded " + url + " size: " + xhr.response.byteLength);
-                    onSuccess(xhr.response);
-                }
-            } else {
-                console.error("Failed to load " + url + " status: " + xhr.status);
-                onError(new Error("Validation failed for " + url));
+        let resolvedUrl = url;
+        try {
+            if (url.startsWith("/")) {
+                resolvedUrl = window.location.origin + url;
             }
-        };
-        xhr.onerror = function(e) { 
-            console.error("Network error for " + url, e);
-            onError(new Error("Network error loading " + url)); 
-        };
-        xhr.send();
+        } catch(e) {}
+
+        if (typeof fetch === "function") {
+            fetch(resolvedUrl)
+                .then(function(response) {
+                    if (!response.ok && response.status !== 304) {
+                        throw new Error("HTTP status " + response.status);
+                    }
+                    return response.arrayBuffer();
+                })
+                .then(function(buffer) {
+                    if (expectedBytes && buffer.byteLength !== expectedBytes) {
+                        console.error("Size mismatch for " + url + ": expected " + expectedBytes + ", got " + buffer.byteLength);
+                        onError(new Error("Size mismatch for " + url));
+                    } else {
+                        console.log("Successfully loaded " + url + " size: " + buffer.byteLength);
+                        onSuccess(buffer);
+                    }
+                })
+                .catch(function(err) {
+                    console.warn("fetch failed for " + url + ", trying XHR fallback...", err);
+                    tryXhr();
+                });
+        } else {
+            tryXhr();
+        }
+
+        function tryXhr() {
+            let xhr = new XMLHttpRequest();
+            xhr.open("GET", resolvedUrl);
+            xhr.responseType = "arraybuffer";
+            xhr.onload = function() {
+                if ((xhr.status === 200 || xhr.status === 304) && xhr.response) {
+                    if (expectedBytes && xhr.response.byteLength !== expectedBytes) {
+                        console.error("Size mismatch for " + url + ": expected " + expectedBytes + ", got " + xhr.response.byteLength);
+                        onError(new Error("Size mismatch for " + url));
+                    } else {
+                        console.log("Successfully loaded " + url + " size: " + xhr.response.byteLength);
+                        onSuccess(xhr.response);
+                    }
+                } else {
+                    console.error("Failed to load " + url + " status: " + xhr.status);
+                    onError(new Error("Validation failed for " + url));
+                }
+            };
+            xhr.onerror = function(e) { 
+                console.error("Network error for " + url, e);
+                onError(new Error("Network error loading " + url)); 
+            };
+            xhr.send();
+        }
     }
 
     function saveToIDB(buffer) {

@@ -870,8 +870,8 @@ var gear_train5_explainers;
         }
 
         load_model_buffer(
-            window.location.origin + "/models/watch_vertices.dat?v=2",
-            "https://ciechanow.ski/models/watch_vertices.dat?v=2",
+            "/models/watch_vertices.dat?v=3",
+            "https://paulwang.eu.cc/models/watch_vertices.dat?v=3",
             4549392,
             function (buffer) {
                 gl.bindBuffer(gl.ARRAY_BUFFER, vertex_buffer);
@@ -883,8 +883,8 @@ var gear_train5_explainers;
         );
 
         load_model_buffer(
-            window.location.origin + "/models/watch_indices.dat?v=2",
-            "https://ciechanow.ski/models/watch_indices.dat?v=2",
+            "/models/watch_indices.dat?v=3",
+            "https://paulwang.eu.cc/models/watch_indices.dat?v=3",
             1513200,
             function (buffer) {
                 gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, index_buffer);

@@ -18,6 +18,6 @@ runner = "https://webc.org/runner/wasi"
 env = [
   "SERVER_PORT=80", 
   "SERVER_ROOT=/public", 
-  "SERVER_PAGE_FALLBACK=index.html",
-  "SERVER_FALLBACK_PAGE=index.html"
+  "SERVER_PAGE_FALLBACK=/public/index.html",
+  "SERVER_FALLBACK_PAGE=/public/index.html"
 ]
