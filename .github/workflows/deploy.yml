@@ -18,6 +18,12 @@ jobs:
         with:
           node-version: '22'
 
+      - name: Download pristine watch model files
+        run: |
+          mkdir -p public/models
+          curl -L "https://ciechanow.ski/models/watch_vertices.dat?v=2" -o public/models/watch_vertices.dat
+          curl -L "https://ciechanow.ski/models/watch_indices.dat?v=2" -o public/models/watch_indices.dat
+
       - name: Install dependencies
         run: npm install --legacy-peer-deps
 
