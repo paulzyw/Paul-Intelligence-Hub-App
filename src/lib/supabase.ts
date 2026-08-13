@@ -1,9 +1,17 @@
 import { createClient } from '@supabase/supabase-js';
 
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://yfonihlpdvelssfmzokp.supabase.co';
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || 'placeholder-key';
+const envUrl = import.meta.env.VITE_SUPABASE_URL;
+const envKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
-export const isSupabaseConfigured = Boolean(import.meta.env.VITE_SUPABASE_URL && import.meta.env.VITE_SUPABASE_ANON_KEY);
+export const isSupabaseConfigured = Boolean(
+  envUrl && 
+  envKey && 
+  envKey !== 'placeholder-key' && 
+  envKey.length > 20
+);
+
+const supabaseUrl = envUrl || 'https://yfonihlpdvelssfmzokp.supabase.co';
+const supabaseAnonKey = envKey || 'placeholder-key';
 
 if (!isSupabaseConfigured) {
   console.warn('Supabase credentials missing. Using fallback/placeholder values. This may lead to "Failed to fetch" errors. Please set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in project secrets.');

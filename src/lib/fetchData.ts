@@ -59,12 +59,14 @@ export async function safeSupabaseQuery<T>(
         return lastResult;
       }
     } catch (err: any) {
-      console.error(`Supabase fetch attempt ${i + 1} fatal error:`, err);
       lastResult = { data: null, error: err };
-      
-      if (err.message !== 'Failed to fetch') {
+      // Handle network or connection failures without spamming retry errors
+      if (err.message === 'Failed to fetch' || err.name === 'TypeError') {
+        console.warn(`Supabase connection unavailable (using fallback data)`);
         return lastResult;
       }
+      console.error(`Supabase fetch error:`, err);
+      return lastResult;
     }
 
     if (i < retries - 1) {

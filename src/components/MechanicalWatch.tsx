@@ -48,12 +48,12 @@ export default function MechanicalWatch() {
   }, []);
 
   useEffect(() => {
-    window.autoInitializeWatch = false;
+    (window as any).autoInitializeWatch = false;
 
     const initEngine = () => {
-      if (!canvasContainerRef.current || !window.createWatchWithSliders) return;
+      if (!canvasContainerRef.current || !(window as any).createWatchWithSliders) return;
 
-      const results = window.createWatchWithSliders(canvasContainerRef.current, "hero", []);
+      const results = (window as any).createWatchWithSliders(canvasContainerRef.current, "hero", []);
       if (results && results[0]) {
         const drawer = results[0];
         drawer.f_draw = true; // Force first draw to bypass loading lock
@@ -67,7 +67,7 @@ export default function MechanicalWatch() {
     };
 
     const loadScripts = async () => {
-      if (window.createWatchWithSliders) {
+      if ((window as any).createWatchWithSliders) {
         initEngine();
         return;
       }
