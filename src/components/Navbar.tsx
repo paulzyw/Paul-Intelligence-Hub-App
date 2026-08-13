@@ -101,6 +101,7 @@ export function Navbar() {
 
   const links = [
     { name: 'Home', path: '/' },
+    { name: 'Theme', path: '/theme' },
     { name: 'About', path: '/about' },
     { name: 'Insights', path: '/insights' },
     { name: 'Impact', path: '/impact' },

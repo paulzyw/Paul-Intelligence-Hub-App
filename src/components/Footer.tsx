@@ -31,6 +31,7 @@ export function Footer() {
             <h3 className="font-semibold text-text-hero-primary">Quick Links</h3>
             <nav className="flex flex-col space-y-2">
               <Link to="/" className="text-sm text-text-hero-secondary hover:text-accent transition-colors">Home</Link>
+              <Link to="/theme" className="text-sm text-text-hero-secondary hover:text-accent transition-colors">Theme</Link>
               <Link to="/about" className="text-sm text-text-hero-secondary hover:text-accent transition-colors">About</Link>
               <Link to="/insights" className="text-sm text-text-hero-secondary hover:text-accent transition-colors">Insights</Link>
               <Link to="/impact" className="text-sm text-text-hero-secondary hover:text-accent transition-colors">Impact</Link>
