@@ -5,4 +5,4 @@ package: .
 env:
   SERVER_PORT: "80"
   SERVER_ROOT: /public
-  SERVER_FALLBACK_PAGE: /public/index.html
+  SERVER_PAGE_FALLBACK: /public/index.html
