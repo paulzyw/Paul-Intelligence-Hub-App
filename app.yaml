@@ -3,8 +3,6 @@ kind: wasmer.io/App.v0
 name: digital-intelligence-hub
 package: .
 env:
-  SERVER_PORT: "8080"
+  SERVER_PORT: "80"
   SERVER_ROOT: /public
-  SERVER_PAGE_FALLBACK: /public/index.html
-  SERVER_FALLBACK_PAGE_DOCUMENT: /public/index.html
-  SERVER_ERROR_PAGE_404: /public/index.html
+  SERVER_FALLBACK_PAGE: /public/index.html
