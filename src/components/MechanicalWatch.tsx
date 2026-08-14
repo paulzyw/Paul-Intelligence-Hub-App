@@ -128,7 +128,7 @@ export default function MechanicalWatch() {
       <div 
         ref={canvasContainerRef}
         id="hero" 
-        className="w-full max-w-[800px] aspect-square relative rounded-2xl shadow-2xl bg-[#121416] overflow-hidden border border-white/5"
+        className="w-full max-w-[800px] aspect-square relative rounded-2xl shadow-2xl bg-bg-hero-primary overflow-hidden border border-bg-hero-primary"
       ></div>
       
       {/* Tool Section Container matching Dial Color with subtle outline */}
@@ -155,14 +155,14 @@ export default function MechanicalWatch() {
             e.stopPropagation();
             setIsExpanded(true);
           }}
-          className={`w-11 h-11 bg-[#121416] border border-[#ed8936]/50 text-[#ed8936] rounded-full flex items-center justify-center cursor-pointer transition-all duration-300 hover:bg-[#1c1e21] absolute ${
+          className={`w-11 h-11 bg-bg-hero-primary border border-[#ED8936]/50 text-[#ED8936] rounded-full flex items-center justify-center cursor-pointer transition-all duration-300 hover:bg-[#1c1e21] absolute ${
             isExpanded 
               ? "opacity-0 scale-50 pointer-events-none" 
               : "opacity-100 scale-100 pointer-events-auto animate-breathing"
           }`}
           title="Click me to manipulate watch"
         >
-          <Sliders className="w-4.5 h-4.5 text-[#ed8936]" />
+          <Sliders className="w-4.5 h-4.5 text-[#ED8936]" />
         </button>
 
         {/* Tool Section Container with smooth toggle height & opacity */}
