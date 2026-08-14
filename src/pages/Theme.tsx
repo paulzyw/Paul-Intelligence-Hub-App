@@ -1,4 +1,5 @@
 import MechanicalWatch from '../components/MechanicalWatch';
+import { ScrollytellingContainer } from '../components/theme-story';
 
 export function Theme() {
   return (
@@ -12,6 +13,10 @@ export function Theme() {
           <MechanicalWatch />
         </div>
       </section>
+
+      {/* SCROLLYTELLING COMPONENT */}
+      <ScrollytellingContainer />
     </div>
   );
 }
+
