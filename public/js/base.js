@@ -27,12 +27,6 @@ function download_file(file_path, handler) {
 }
 
 function load_model_buffer(filePath, remoteFallbackUrl, expectedBytes, callback) {
-    if (filePath.indexOf("watch_vertices.dat") !== -1) {
-        filePath = "/api/models/watch_vertices.dat";
-    } else if (filePath.indexOf("watch_indices.dat") !== -1) {
-        filePath = "/api/models/watch_indices.dat";
-    }
-
     const dbName = "watch_model_cache_db";
     const storeName = "buffers";
 

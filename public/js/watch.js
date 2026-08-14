@@ -870,8 +870,8 @@ var gear_train5_explainers;
         }
 
         load_model_buffer(
-            "/models/watch_vertices.dat?v=3",
-            "https://paulwang.eu.cc/models/watch_vertices.dat?v=3",
+            "/models/watch_vertices.dat?v=4",
+            "https://paulwang.eu.cc/models/watch_vertices.dat?v=4",
             4549392,
             function (buffer) {
                 gl.bindBuffer(gl.ARRAY_BUFFER, vertex_buffer);
@@ -883,8 +883,8 @@ var gear_train5_explainers;
         );
 
         load_model_buffer(
-            "/models/watch_indices.dat?v=3",
-            "https://paulwang.eu.cc/models/watch_indices.dat?v=3",
+            "/models/watch_indices.dat?v=4",
+            "https://paulwang.eu.cc/models/watch_indices.dat?v=4",
             1513200,
             function (buffer) {
                 gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, index_buffer);
