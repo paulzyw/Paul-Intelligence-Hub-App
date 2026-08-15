@@ -18,7 +18,7 @@ export function Footer() {
               <img 
                 src={theme === 'dark' ? prevosLogoDark : prevosLogoDark} 
                 alt="Prevos Logo" 
-                className="h-9 w-auto transition-opacity duration-300" 
+                className="h-10 w-auto transition-opacity duration-300" 
               />
             </Link>
             <h2 className="text-2xl font-medium mt-2.5 mb-1 text-text-hero-primary">
