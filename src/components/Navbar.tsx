@@ -127,7 +127,7 @@ import prevosLogoLight from '../../my_asset/Prevos_logo_light.svg';
               <img 
                 src={theme === 'dark' ? prevosLogoDark : prevosLogoLight} 
                 alt="Prevos Logo" 
-                className="h-7.5 w-auto transition-opacity duration-300" 
+                className="h-5.5 w-auto transition-opacity duration-300" 
               />
             </Link>
           </div>
