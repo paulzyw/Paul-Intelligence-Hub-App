@@ -8,7 +8,10 @@ import { useTheme } from '../context/ThemeContext';
 import { useAuth } from '../hooks/useAuth';
 import { supabase } from '../lib/supabase';
 
-export function Navbar() {
+import prevosLogoDark from '../../my_asset/Prevos_logo_dark.svg';
+import prevosLogoLight from '../../my_asset/Prevos_logo_light.svg';
+
+  export function Navbar() {
   const location = useLocation();
   const navigate = useNavigate();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -122,9 +125,9 @@ export function Navbar() {
           <div className="flex-shrink-0">
             <Link to="/" className="flex items-center gap-2">
               <img 
-                src={theme === 'dark' ? "/paul wang_dark mode.svg" : "/paul wang_light mode.svg"} 
-                alt="Paul Wang Logo" 
-                className="h-6 w-auto transition-opacity duration-300" 
+                src={theme === 'dark' ? prevosLogoDark : prevosLogoLight} 
+                alt="Prevos Logo" 
+                className="h-7.5 w-auto transition-opacity duration-300" 
               />
             </Link>
           </div>
