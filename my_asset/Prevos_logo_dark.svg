@@ -1,9 +1,9 @@
 <?xml version="1.0" encoding="UTF-8" standalone="no"?>
 <!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
-<svg width="100%" height="100%" viewBox="0 0 1622 411" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" xml:space="preserve" xmlns:serif="http://www.serif.com/" style="fill-rule:evenodd;clip-rule:evenodd;stroke-linecap:round;stroke-linejoin:round;stroke-miterlimit:1.5;">
-    <g transform="matrix(1,0,0,1,-143.806734,-590.293394)">
+<svg width="100%" height="100%" viewBox="0 0 1542 328" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" xml:space="preserve" xmlns:serif="http://www.serif.com/" style="fill-rule:evenodd;clip-rule:evenodd;stroke-linecap:round;stroke-linejoin:round;stroke-miterlimit:1.5;">
+    <g transform="matrix(1,0,0,1,-224.635109,-641.156154)">
         <g id="Logo_dark" transform="matrix(1.094324,0,0,1.094324,-67.412575,156.314484)">
-            <g id="Obsidian-Charcoal" serif:id="Obsidian Charcoal" transform="matrix(0.450239,0,0,0.450239,-248.512698,348.731088)">
+            <g id="Obsidian-Charcoal" serif:id="Obsidian Charcoal" transform="matrix(0.358803,0,0,0.358803,-84.984336,404.925625)">
                 <g transform="matrix(1,0,0,1,389.853409,0)">
                     <path d="M1059.537,313.923L1140.251,233.209C1176.317,197.143 1240.735,202.999 1284.014,246.279C1327.293,289.558 1333.149,353.976 1297.083,390.042L1275.145,411.98L1192.024,411.98C1153.047,411.98 1119.673,441 1106.1,482.001C1094.193,476.016 1082.812,467.892 1072.606,457.686C1062.401,447.481 1054.276,436.1 1048.292,424.192C1028.896,385.603 1031.976,341.484 1059.537,313.923Z" style="fill:none;stroke:rgb(237,137,54);stroke-width:50.9px;"/>
                 </g>
