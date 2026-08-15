@@ -1,7 +1,7 @@
 [package]
 name = "paulzyw02/digital-intelligence-hub"
 version = "0.1.0"
-description = "Paul Wang Digital Intelligence Hub"
+description = "B2B Revenue Growth Accelerator"
 
 [dependencies]
 "wasmer/static-web-server" = "^1"
