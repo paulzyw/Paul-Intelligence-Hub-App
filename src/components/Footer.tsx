@@ -2,8 +2,8 @@ import { Link } from 'react-router-dom';
 import { Linkedin, Mail } from 'lucide-react';
 import { useTheme } from '../context/ThemeContext';
 
-import prevosLogoDark from '../../my_asset/Prevos_logo_dark.svg';
-import prevosLogoLight from '../../my_asset/Prevos_logo_light.svg';
+import apprevosLogoDark from '../../my_asset/apprevos_logo_dark.svg';
+import apprevosLogoLight from '../../my_asset/apprevos_logo_light.svg';
 
 export function Footer() {
   const { theme } = useTheme();
@@ -16,19 +16,19 @@ export function Footer() {
           <div className="flex flex-col space-y-4">
             <Link to="/" className="flex items-center gap-2">
               <img 
-                src={theme === 'dark' ? prevosLogoDark : prevosLogoDark} 
+                src={theme === 'dark' ? apprevosLogoDark : apprevosLogoDark} 
                 alt="Prevos Logo" 
                 className="h-10 w-auto transition-opacity duration-300" 
               />
             </Link>
             <h2 className="text-2xl font-medium mt-2.5 mb-1 text-text-hero-primary">
-              Prevos Technology
+              Apprevos Technology
             </h2>
             <p className="text-sm text-text-hero-secondary max-w-xs">
               Turning Data and Technology Into Measurable Business Growth
             </p>
             <p className="text-xs text-text-hero-secondary mt-4">
-              © {new Date().getFullYear()} Prevos Technology. All rights reserved.
+              © {new Date().getFullYear()} Apprevos Technology. All rights reserved.
             </p>
           </div>
 

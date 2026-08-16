@@ -9291,7 +9291,7 @@ var gear_train5_explainers;
 
 
                 // =========================================================================
-                // 2D Canvas Texture approach for baking dynamic text on dial surface for "Prevos Technology"
+                // 2D Canvas Texture approach for baking dynamic text on dial surface for "Apprevos Technology"
                 // =========================================================================
                 let draw_pw_canvas_text = (textString, px, py, width, height, self_angle_deg = 0, dial_center_angle_deg = 0) => {
                     let rawGL = gl.gl || gl;
@@ -9347,7 +9347,7 @@ var gear_train5_explainers;
                         canvas.height = 256;
                         let ctx = canvas.getContext("2d");
                         ctx.clearRect(0, 0, 1024, 256);
-                        ctx.font = "400 72px 'Segoe UI', Arial, sans-serif"; // bold, normal, light, 200, 300, 400, 500
+                        ctx.font = "400 68px 'Segoe UI', Arial, sans-serif"; // bold, normal, light, 200, 300, 400, 500
                         ctx.fillStyle = colorStr;
                         ctx.textAlign = "center";
                         ctx.textBaseline = "middle";
@@ -9415,12 +9415,12 @@ var gear_train5_explainers;
                     rawGL.depthMask(true);
                 };
 
-                // Draw "PW Technology" on dial surface:
+                // Draw "Apprevos Technology" on dial surface:
                 // 6th param (self_angle_deg): Rotation around text's own center
                 // 7th param (dial_center_angle_deg): Rotation around center of the dial (Z-axis)
                 let text_pw_self_angle_deg = 0;        // e.g. 0, 90, 180, -90
                 let dial_pw_center_angle_deg = 90;      // e.g. 0, 90 (3 o'clock), 180 (12 o'clock), -90 (9 o'clock)
-                draw_pw_canvas_text("Prevos Technology", 6.0, -0.535, 9.0, 2.0, text_pw_self_angle_deg, dial_pw_center_angle_deg); // parameter note: (px, py, width, height, self_angle_deg, dial_center_angle_deg)
+                draw_pw_canvas_text("Apprevos Technology", 6.0, -0.535, 9.0, 2.0, text_pw_self_angle_deg, dial_pw_center_angle_deg); // parameter note: (px, py, width, height, self_angle_deg, dial_center_angle_deg)
 
 
                 // =========================================================================

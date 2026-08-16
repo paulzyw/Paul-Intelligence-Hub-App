@@ -8,8 +8,8 @@ import { useTheme } from '../context/ThemeContext';
 import { useAuth } from '../hooks/useAuth';
 import { supabase } from '../lib/supabase';
 
-import prevosLogoDark from '../../my_asset/Prevos_logo_dark.svg';
-import prevosLogoLight from '../../my_asset/Prevos_logo_light.svg';
+import apprevosLogoDark from '../../my_asset/apprevos_logo_dark.svg';
+import apprevosLogoLight from '../../my_asset/apprevos_logo_light.svg';
 
   export function Navbar() {
   const location = useLocation();
@@ -125,8 +125,8 @@ import prevosLogoLight from '../../my_asset/Prevos_logo_light.svg';
           <div className="flex-shrink-0">
             <Link to="/" className="flex items-center gap-2">
               <img 
-                src={theme === 'dark' ? prevosLogoDark : prevosLogoLight} 
-                alt="Prevos Logo" 
+                src={theme === 'dark' ? apprevosLogoDark : apprevosLogoLight} 
+                alt="Apprevos Logo" 
                 className="h-6 w-auto transition-opacity duration-300" 
               />
             </Link>
