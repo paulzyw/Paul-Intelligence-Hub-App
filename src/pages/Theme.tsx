@@ -1,43 +1,99 @@
+import { motion } from 'motion/react';
+import { Link } from 'react-router-dom';
+import { 
+  ArrowRight, 
+  Brain, 
+  Workflow, 
+  Network, 
+  Zap, 
+  CheckCircle2 
+} from 'lucide-react';
 import MechanicalWatch from '../components/MechanicalWatch';
 import { ScrollytellingContainer } from '../components/theme-story';
-import { GearTrainBg } from '../components/GearTrainBg';
+import GradientWaves from '../components/GradientWaves';
 
 export function Theme() {
   return (
     <div className="flex flex-col w-full">
-      {/* NEW HERO SECTION WITH GEAR TRAIN BACKGROUND ANIMATION */}
-      <section id="hero" className="relative w-full bg-bg-hero-primary py-12 lg:py-0 overflow-hidden flex items-center lg:h-[880px] lg:min-h-[880px] min-h-[600px] transition-colors duration-400 border-b border-border-hero/20">
-        <div className="absolute inset-0 opacity-20 bg-[linear-gradient(to_right,#80808012_1px,transparent_1px),linear-gradient(to_bottom,#80808012_1px,transparent_1px)] bg-[size:24px_24px]"></div>
-        <div className="absolute inset-0 bg-gradient-to-t from-bg-hero-primary to-transparent"></div>
-        
-        <div className="relative z-10 mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8 lg:h-[880px] lg:min-h-[880px] flex items-center">
-          {/* Left Column: Heading & Content */}
-          <div className="w-full lg:max-w-[65%] text-left flex flex-col items-start space-y-6 z-10 relative">
-            
-            <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold tracking-tight text-text-hero-primary leading-tight">
-              Accelerate Revenue Growth with an AI-Native Revenue Operating System
-            </h1>
-            <p className="max-w-xl text-lg text-text-hero-secondary leading-relaxed">
-              RevOS connects strategy, execution, intelligence and optimization into one continuously improving revenue engine 
-              T—helping enterprises accelerate growth, increase revenue operations efficiency and improve predictability.
-            </p>
-            <div className="flex flex-wrap gap-4 justify-start pt-4">
-              <button className="px-6 py-3 rounded-lg font-medium bg-[#ED8936] text-white hover:bg-[#dd7926] transition-colors duration-300 shadow-lg shadow-[#ED8936]/20">
-                Get Started
-              </button>
-              <button className="px-6 py-3 rounded-lg font-medium border border-border-hero/40 text-text-hero-primary hover:bg-[#ED8936]/10 transition-all duration-300">
-                Learn More
-              </button>
-            </div>
-          </div>
-
-          {/* Right/Overlay Column: Overlapping Background Gear Train without border */}
-          <div className="absolute inset-y-0 right-0 w-full lg:w-[65%] flex items-center justify-end z-0 pointer-events-none overflow-hidden">
-            <div className="w-full max-w-[550px] md:max-w-[680px] lg:max-w-[800px] xl:max-w-[880px] aspect-square flex items-center justify-end p-0 m-0 opacity-40 lg:opacity-75">
-              <GearTrainBg />
-            </div>
-          </div>
+      {/* NEW HERO SECTION DUPLICATING SOLUTIONS HERO CONTENT (WITHOUT THREADS OR GEAR TRAIN) */}
+      <section id="hero" className="relative w-full bg-bg-hero-primary pt-32 pb-28 overflow-hidden transition-colors duration-400">
+        {/* WebGL Gradient Waves background */}
+        <div className="absolute inset-0 z-0 opacity-100">
+          <GradientWaves 
+            horizonColor="#1b2f3e"
+            waveColor="#00a3e0"
+            crestColor="#A0AEC0"
+            speed={0.5}
+            amplitude={2.5}
+            waveScale={0.6}
+            opacity={1.0}
+            brightness={2.0}
+            detail="medium"
+          />
         </div>
+
+        {/* Grid overlay over the WebGL waves for a technical mesh look */}
+        <div className="absolute inset-0 opacity-20 bg-[linear-gradient(to_right,#80808012_1px,transparent_1px),linear-gradient(to_bottom,#80808012_1px,transparent_1px)] bg-[size:24px_24px] z-10 pointer-events-none"></div>
+        {/* Soft fade-out gradient overlay to blend waves with the rest of the dark page */}
+        <div className="absolute inset-0 bg-gradient-to-t from-bg-hero-primary via-bg-hero-primary/10 to-transparent z-10 pointer-events-none"></div>
+    
+        <div className="mx-auto max-w-7xl px-6 lg:px-8 text-center relative z-20">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6 }}
+          >
+            <h2 className="text-sm font-bold tracking-[0.2em] uppercase text-accent mb-4">
+              AI-Native Intelligence System
+            </h2>
+            
+            <h1 className="text-4xl md:text-7xl font-extrabold tracking-tight text-text-hero-primary mb-10 max-w-5xl mx-auto leading-[1.1]">
+              AI-Native Revenue Operating System Accelerates your <br className="hidden md:block" /> 
+              <span className="text-transparent bg-clip-text bg-gradient-to-r from-text-hero-primary via-accent to-text-primary bg-[length:200%_auto] animate-gradient">
+                Revenue Growth
+              </span>
+            </h1>
+            
+            <p className="text-base md:text-lg text-text-hero-secondary max-w-5xl mx-auto leading-relaxed font-medium mb-12">
+              RevOS connects strategy, execution, intelligence and optimization into one continuously improving revenue engine - 
+              helping enterprises accelerate growth, increase revenue operations efficiency and improve predictability.
+            </p>
+
+            <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
+              <Link 
+                to="/solutions/revos" 
+                className="group relative px-8 py-4 bg-accent text-text-hero-primary font-bold rounded-full overflow-hidden transition-all hover:scale-105 active:scale-95"
+              >
+                <div className="relative z-10 flex items-center gap-2">
+                  Explore RevOS <ArrowRight className="h-4 w-4 group-hover:translate-x-1 transition-transform" />
+                </div>
+              </Link>
+            </div>
+          </motion.div>
+        </div>
+
+        {/* SCROLL INDICATOR */}
+        <motion.div 
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 1.2, duration: 1 }}
+          className="absolute bottom-6 left-1/2 -translate-x-1/2 flex justify-center pointer-events-none z-10"
+        >
+          <div className="w-5 h-8 border-2 border-text-hero-secondary/30 rounded-full flex justify-center p-1">
+            <motion.div
+              animate={{
+                y: [0, 12, 0],
+                opacity: [1, 0.2, 1]
+              }}
+              transition={{
+                duration: 2,
+                repeat: Infinity,
+                ease: "easeInOut"
+              }}
+              className="w-1 h-1.5 bg-accent rounded-full"
+            />
+          </div>
+        </motion.div>
       </section>
 
       {/* GROWTH OUTCOMES SECTION */}
