@@ -2258,6 +2258,23 @@ var gear_train5_explainers;
         }
 
         this.draw_gear_teeth_mesh = function (name, mvp, rotation, color, opacity, shader_type, params, outline_color) {
+            if (window.__watchFilterVisible) {
+                const allowed = [
+                    "Ratchet_wheel", "wrat", "Click", "click_spring", "Click_spring",
+                    "Barrel_main", "Barrel_arbor", "Barrel_lid", "Main_spring", "Mainspring_base", "Mainspring_cut", "w11",
+                    "Second_wheel", "w20", "w21", "Pinion_center",
+                    "Third_wheel", "w30", "w31",
+                    "Fourth_wheel", "w40", "w41",
+                    "Escape_wheel", "w50", "Pallet_fork", "Pallet_fork_horn", "Pallet_jewel_1", "Pallet_jewel_2",
+                    "Balance_wheel", "Balance_spring_base", "Balance_safety", "Balance_shaft_end",
+                    "Stud", "Stud_base", "Index_stud", "Upper_index", "Lower_index",
+                    "jewel", "Jewel_bearing", "jewel_pretty", "Jewel_pretty", "Shock_jewel", "shock_spring", "Shock_spring",
+                    "Cylinder"
+                ];
+                if (!allowed.includes(name)) {
+                    return;
+                }
+            }
 
             let is_undefined_color = false;
             if (color === undefined) {
@@ -2448,6 +2465,23 @@ var gear_train5_explainers;
         }
 
         this.draw_mesh = function (name, mvp, rotation, color, opacity, shader_type, params, outline_color) {
+            if (window.__watchFilterVisible) {
+                const allowed = [
+                    "Ratchet_wheel", "wrat", "Click", "click_spring", "Click_spring",
+                    "Barrel_main", "Barrel_arbor", "Barrel_lid", "Main_spring", "Mainspring_base", "Mainspring_cut", "w11",
+                    "Second_wheel", "w20", "w21", "Pinion_center",
+                    "Third_wheel", "w30", "w31",
+                    "Fourth_wheel", "w40", "w41",
+                    "Escape_wheel", "w50", "Pallet_fork", "Pallet_fork_horn", "Pallet_jewel_1", "Pallet_jewel_2",
+                    "Balance_wheel", "Balance_spring_base", "Balance_safety", "Balance_shaft_end",
+                    "Stud", "Stud_base", "Index_stud", "Upper_index", "Lower_index",
+                    "jewel", "Jewel_bearing", "jewel_pretty", "Jewel_pretty", "Shock_jewel", "shock_spring", "Shock_spring",
+                    "Cylinder"
+                ];
+                if (!allowed.includes(name)) {
+                    return;
+                }
+            }
 
             let is_undefined_color = false;
             if (color === undefined) {
@@ -2696,6 +2730,7 @@ var gear_train5_explainers;
 
 
         this.draw_procedural_minute_hand = function (mvp, rotation, color) {
+            if (window.__watchFilterVisible) return;
             // Apply Z counter-translation
             mvp = mat4_mul(mvp, translation_mat4([0, 0, -121.15]));
             mvp = mat4_mul(mvp, rot_z_mat4(-Math.PI / 2));
@@ -2916,6 +2951,7 @@ var gear_train5_explainers;
         }
 
         this.draw_procedural_hour_hand = function (mvp, rotation, color) {
+            if (window.__watchFilterVisible) return;
             // Apply Z counter-translation
             mvp = mat4_mul(mvp, translation_mat4([0, 0, -121.25]));
             mvp = mat4_mul(mvp, rot_z_mat4(-Math.PI / 2));
@@ -3137,6 +3173,7 @@ var gear_train5_explainers;
 
 
         this.draw_procedural_second_hand = function (mvp, rotation, color, outline_color) {
+            if (window.__watchFilterVisible) return;
             // Counteract the hardcoded +124.7 Z translation applied by the original mesh rendering logic,
             // placing the procedural hand physically down on the fourth wheel shaft (Z ~ 2.65).
             mvp = mat4_mul(mvp, translation_mat4([0, 0, -120.95]));
@@ -8706,6 +8743,7 @@ var gear_train5_explainers;
                 // 2D Canvas Texture approach for baking Dial Ring 1 on dial surface
                 // =========================================================================
                 let draw_dial_ring_1_canvas_texture = (outerDiameter, innerDiameter, fillColor, outlineColor, outlineLineWidth = 3, px = 0.0, py = 0.0) => {
+                    if (window.__watchFilterVisible) return;
                     let rawGL = gl.gl || gl;
                     if (!rawGL || !rawGL.createShader) return;
 
@@ -8844,6 +8882,7 @@ var gear_train5_explainers;
                 // 2D Canvas Texture approach for baking Dial Ring 2 on dial surface
                 // =========================================================================
                 let draw_dial_ring_2_canvas_texture = (outerDiameter, innerDiameter, fillColor, outlineColor, outlineLineWidth = 3, px = 0.0, py = 0.0) => {
+                    if (window.__watchFilterVisible) return;
                     let rawGL = gl.gl || gl;
                     if (!rawGL || !rawGL.createShader) return;
 
@@ -9037,6 +9076,7 @@ var gear_train5_explainers;
 
                 // Helper to render 3D Triangular Prism for inward-pointing hour ticks
                 let draw_triangular_prism = (mvp, rotation, color) => {
+                    if (window.__watchFilterVisible) return;
                     let rawGL = gl.gl || gl;
                     if (!rawGL || !rawGL.createShader) return;
 
@@ -9161,6 +9201,7 @@ var gear_train5_explainers;
                 // 2D Canvas Texture approach for baking dynamic text on dial surface FOR "REVOS"
                 // =========================================================================
                 let draw_revos_canvas_text = (textString, px, py, width, height, self_angle_deg = 0, dial_center_angle_deg = 0) => {
+                    if (window.__watchFilterVisible) return;
                     let rawGL = gl.gl || gl;
                     if (!rawGL || !rawGL.createShader) return;
 
@@ -9294,6 +9335,7 @@ var gear_train5_explainers;
                 // 2D Canvas Texture approach for baking dynamic text on dial surface for "Apprevos Technology"
                 // =========================================================================
                 let draw_pw_canvas_text = (textString, px, py, width, height, self_angle_deg = 0, dial_center_angle_deg = 0) => {
+                    if (window.__watchFilterVisible) return;
                     let rawGL = gl.gl || gl;
                     if (!rawGL || !rawGL.createShader) return;
 
@@ -9427,6 +9469,7 @@ var gear_train5_explainers;
                 // 2D Canvas Texture approach for baking Pie Chart_1 on dial surface at 9 o'clock
                 // =========================================================================
                 let draw_pie_chart_1_canvas_texture = (targetPercentage, px, py, width, height, self_angle_deg = 0, dial_center_angle_deg = 0, anim_duration_sec = 2.0, active_line_width = 26, track_line_width = 22, start_delay_sec = 0.0) => {
+                    if (window.__watchFilterVisible) return;
                     let rawGL = gl.gl || gl;
                     if (!rawGL || !rawGL.createShader) return;
 
@@ -9635,6 +9678,7 @@ var gear_train5_explainers;
                 // 2D Canvas Texture approach for baking Pie Chart_2 on dial surface at 9 o'clock
                 // =========================================================================
                 let draw_pie_chart_2_canvas_texture = (targetPercentage, px, py, width, height, self_angle_deg = 0, dial_center_angle_deg = 0, anim_duration_sec = 2.0, active_line_width = 26, track_line_width = 22, start_delay_sec = 0.0) => {
+                    if (window.__watchFilterVisible) return;
                     let rawGL = gl.gl || gl;
                     if (!rawGL || !rawGL.createShader) return;
 
@@ -9839,6 +9883,7 @@ var gear_train5_explainers;
                 // 2D Canvas Texture approach for baking Pie Chart_3 on dial surface at 3 o'clock
                 // =========================================================================
                 let draw_pie_chart_3_canvas_texture = (targetPercentage, px, py, width, height, self_angle_deg = 0, dial_center_angle_deg = 0, anim_duration_sec = 2.0, active_line_width = 26, track_line_width = 22, start_delay_sec = 0.0) => {
+                    if (window.__watchFilterVisible) return;
                     let rawGL = gl.gl || gl;
                     if (!rawGL || !rawGL.createShader) return;
 

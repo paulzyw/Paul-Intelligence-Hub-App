@@ -4,6 +4,7 @@ import WatchSlider, { WatchSliderRef } from './WatchSlider';
 
 export default function MechanicalWatch() {
   const [isExpanded, setIsExpanded] = useState(false);
+  const [isIsolated, setIsIsolated] = useState(false);
   const toolSectionRef = useRef<HTMLDivElement>(null);
   const canvasContainerRef = useRef<HTMLDivElement>(null);
   const sliderRef = useRef<WatchSliderRef | null>(null);
@@ -18,6 +19,11 @@ export default function MechanicalWatch() {
       }
     }
   });
+
+  const handleToggleIsolate = (isolate: boolean) => {
+    setIsIsolated(isolate);
+    (window as any).__watchFilterVisible = isolate;
+  };
 
   const handleResetPose = () => {
     if (drawerRef.current && typeof drawerRef.current.reset_pose === 'function') {
@@ -49,6 +55,7 @@ export default function MechanicalWatch() {
 
   useEffect(() => {
     (window as any).autoInitializeWatch = false;
+    (window as any).__watchFilterVisible = false;
 
     const initEngine = () => {
       if (!canvasContainerRef.current || !(window as any).createWatchWithSliders) return;
@@ -186,6 +193,33 @@ export default function MechanicalWatch() {
             </div>
             
             <div className="flex items-center gap-3">
+              <div className="flex items-center gap-1.5 mr-2">
+                <button
+                  onClick={() => handleToggleIsolate(true)}
+                  className={`px-2.5 py-1 text-[10px] font-bold rounded-full border transition-all cursor-pointer ${
+                    isIsolated
+                      ? "bg-[#00e5ff] text-[#121416] border-[#00e5ff] shadow-[0_0_8px_rgba(0,229,255,0.4)]"
+                      : "bg-[#121416] text-[#00e5ff] border-[#00e5ff]/40 hover:border-[#00e5ff] hover:bg-[#1c1e21]"
+                  }`}
+                  title="Only display gear train components"
+                >
+                  Isolate Gear Train
+                </button>
+                <button
+                  onClick={() => handleToggleIsolate(false)}
+                  className={`px-2.5 py-1 text-[10px] font-bold rounded-full border transition-all cursor-pointer ${
+                    !isIsolated
+                      ? "bg-[#00e5ff] text-[#121416] border-[#00e5ff] shadow-[0_0_8px_rgba(0,229,255,0.4)]"
+                      : "bg-[#121416] text-[#00e5ff] border-[#00e5ff]/40 hover:border-[#00e5ff] hover:bg-[#1c1e21]"
+                  }`}
+                  title="Show all movement components"
+                >
+                  Show All Parts
+                </button>
+              </div>
+
+              <div className="h-4 w-[1px] bg-white/10 mr-1"></div>
+
               <button
                 onClick={handleResetPose}
                 className="w-8 h-8 bg-[#121416] text-[#00e5ff] rounded-full flex items-center justify-center shadow-[0_0_0_2px_#00e5ff,0_0_8px_rgba(0,229,255,0.35)] transition-all hover:scale-110 active:scale-95 hover:bg-[#1c1e21] cursor-pointer"
