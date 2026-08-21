@@ -27,7 +27,7 @@ export function Theme() {
             amplitude={2.5}
             waveScale={0.6}
             opacity={1.0}
-            brightness={2.0}
+            brightness={1.5}
             detail="medium"
           />
         </div>
@@ -48,15 +48,14 @@ export function Theme() {
             </h2>
             
             <h1 className="text-4xl md:text-7xl font-extrabold tracking-tight text-text-hero-primary mb-10 max-w-5xl mx-auto leading-[1.1]">
-              AI-Native Revenue Operating System Accelerates your <br className="hidden md:block" /> 
+              RevOS Enables B2B Enterprises to <br className="hidden md:block" /> 
               <span className="text-transparent bg-clip-text bg-gradient-to-r from-text-hero-primary via-accent to-text-primary bg-[length:200%_auto] animate-gradient">
-                Revenue Growth
+                Accelerate Revenue Growth
               </span>
             </h1>
             
-            <p className="text-base md:text-lg text-text-hero-secondary max-w-5xl mx-auto leading-relaxed font-medium mb-12">
-              RevOS connects strategy, execution, intelligence and optimization into one continuously improving revenue engine - 
-              helping enterprises accelerate growth, increase revenue operations efficiency and improve predictability.
+            <p className="text-lg md:text-lg text-text-hero-secondary max-w-2xl mx-auto leading-relaxed font-medium mb-12">
+              RevOS connects strategy, execution, intelligence and optimization into one continuously improving revenue engine.
             </p>
 
             <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
