@@ -30,13 +30,13 @@ import {
 import { MQLDataService } from '../services/mqlDataService';
 import { supabase } from '@/src/lib/supabase';
 
-interface QualificationResultProps {
+interface MQL_QualificationResultProps {
   result: MQLQualificationResult;
   onSave?: () => Promise<void> | void;
   saving?: boolean;
 }
 
-export const QualificationResult: React.FC<QualificationResultProps> = ({ result, onSave, saving }) => {
+export const MQL_QualificationResult: React.FC<MQL_QualificationResultProps> = ({ result, onSave, saving }) => {
   const [handoverExpanded, setHandoverExpanded] = useState(false);
   const [auditExpanded, setAuditExpanded] = useState(false);
   const [submittingHandover, setSubmittingHandover] = useState(false);

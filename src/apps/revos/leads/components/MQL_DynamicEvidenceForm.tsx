@@ -1,14 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { MQLConfigService } from '../services/mqlConfigLoader';
 
-interface DynamicEvidenceFormProps {
+interface MQL_DynamicEvidenceFormProps {
   industryId: string;
   initialData?: any[];
   onChange?: (data: any[]) => void;
   readOnly?: boolean;
 }
 
-export const DynamicEvidenceForm: React.FC<DynamicEvidenceFormProps> = ({ industryId, initialData = [], onChange, readOnly = false }) => {
+export const MQL_DynamicEvidenceForm: React.FC<MQL_DynamicEvidenceFormProps> = ({ industryId, initialData = [], onChange, readOnly = false }) => {
   const [config, setConfig] = useState<any>(null);
   const [formData, setFormData] = useState<Record<string, any>>({});
   const [expanded, setExpanded] = useState<Record<string, boolean>>({

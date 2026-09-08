@@ -1,0 +1,1 @@
+console.log('ENV KEYS:', Object.keys(process.env).filter(k => k.toLowerCase().includes('role') || k.toLowerCase().includes('service') || k.toLowerCase().includes('secret') || k.toLowerCase().includes('pass') || k.toLowerCase().includes('key')));

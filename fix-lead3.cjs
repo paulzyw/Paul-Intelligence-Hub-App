@@ -1,0 +1,17 @@
+const { createClient } = require('@supabase/supabase-js');
+
+const supabase = createClient(
+  'https://yfonihlpdvelssfmzokp.supabase.co',
+  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inlmb25paGxwZHZlbHNzZm16b2twIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzUyNzIwODcsImV4cCI6MjA5MDg0ODA4N30.CMDWSUSfFm1esCuZA19sgR_HHh7PVuOfm-OzM8cSf60'
+);
+
+async function fix() {
+  const { data, error } = await supabase
+    .from('mql_leads')
+    .update({ status: 'Highly Qualified MQL' })
+    .eq('id', '4cfcd510-ed42-484e-af34-59aeeeaebde9')
+    .select();
+  
+  console.log('Update result:', data, error);
+}
+fix();

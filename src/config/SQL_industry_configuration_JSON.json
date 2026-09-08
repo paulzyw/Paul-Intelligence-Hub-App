@@ -1,0 +1,2155 @@
+{
+  "metadata": {
+    "version": "1.0",
+    "configuration": "Universal SQL Qualification",
+    "supportedRevenueMotions": 6,
+    "supportedIndustries": 16,
+    "supportedDimensions": 10
+  },
+  "revenueMotionTemplates": [
+    {
+      "id": "digital_solution_selling_base",
+      "name": "Digital Solution Selling",
+      "dimensions": {
+        "businessProblem": [
+          {
+            "evidenceId": "bp_business_problem_defined",
+            "required": true,
+            "priority": "Critical",
+            "weight": 1.00
+          },
+          {
+            "evidenceId": "bp_problem_severity",
+            "required": true,
+            "priority": "Critical",
+            "weight": 0.95
+          },
+          {
+            "evidenceId": "bp_business_impact",
+            "required": true,
+            "priority": "High",
+            "weight": 0.90
+          },
+          {
+            "evidenceId": "bp_urgency_for_change",
+            "required": true,
+            "priority": "High",
+            "weight": 0.90
+          },
+          {
+            "evidenceId": "bp_consequence_of_inaction",
+            "required": false,
+            "priority": "High",
+            "weight": 0.80
+          }
+        ],
+
+        "metricsSuccessCriteria": [
+          {
+            "evidenceId": "metrics_success_kpis_defined",
+            "required": true,
+            "priority": "Critical",
+            "weight": 1.00
+          },
+          {
+            "evidenceId": "metrics_target_business_outcomes",
+            "required": true,
+            "priority": "High",
+            "weight": 0.90
+          },
+          {
+            "evidenceId": "metrics_roi_expectation",
+            "required": false,
+            "priority": "Medium",
+            "weight": 0.75
+          },
+          {
+            "evidenceId": "metrics_payback_expectation",
+            "required": false,
+            "priority": "Medium",
+            "weight": 0.70
+          }
+        ],
+
+        "businessValue": [
+          {
+            "evidenceId": "value_financial_value",
+            "required": true,
+            "priority": "Critical",
+            "weight": 1.00
+          },
+          {
+            "evidenceId": "value_operational_value",
+            "required": true,
+            "priority": "High",
+            "weight": 0.90
+          },
+          {
+            "evidenceId": "value_strategic_value",
+            "required": true,
+            "priority": "High",
+            "weight": 0.90
+          },
+          {
+            "evidenceId": "value_risk_reduction",
+            "required": false,
+            "priority": "Medium",
+            "weight": 0.75
+          }
+        ],
+
+        "solutionAlignment": [
+          {
+            "evidenceId": "solution_business_fit",
+            "required": true,
+            "priority": "Critical",
+            "weight": 1.00
+          },
+          {
+            "evidenceId": "solution_functional_fit",
+            "required": true,
+            "priority": "Critical",
+            "weight": 0.95
+          },
+          {
+            "evidenceId": "solution_technical_fit",
+            "required": true,
+            "priority": "High",
+            "weight": 0.90
+          },
+          {
+            "evidenceId": "solution_security_fit",
+            "required": false,
+            "priority": "Medium",
+            "weight": 0.75
+          },
+          {
+            "evidenceId": "solution_scalability_fit",
+            "required": false,
+            "priority": "Medium",
+            "weight": 0.70
+          },
+          {
+            "evidenceId": "solution_integration_complexity",
+            "required": false,
+            "priority": "Medium",
+            "weight": 0.70
+          }
+        ],
+
+        "stakeholderAlignment": [
+          {
+            "evidenceId": "stakeholder_economic_buyer_identified",
+            "required": true,
+            "priority": "Critical",
+            "weight": 1.00
+          },
+          {
+            "evidenceId": "stakeholder_business_sponsor",
+            "required": true,
+            "priority": "Critical",
+            "weight": 0.95
+          },
+          {
+            "evidenceId": "stakeholder_champion_identified",
+            "required": true,
+            "priority": "Critical",
+            "weight": 0.95
+          },
+          {
+            "evidenceId": "stakeholder_champion_strength",
+            "required": true,
+            "priority": "High",
+            "weight": 0.90
+          },
+          {
+            "evidenceId": "stakeholder_buying_committee",
+            "required": false,
+            "priority": "High",
+            "weight": 0.85
+          }
+        ],
+
+        "decisionCriteria": [
+          {
+            "evidenceId": "decision_business_criteria",
+            "required": true,
+            "priority": "Critical",
+            "weight": 1.00
+          },
+          {
+            "evidenceId": "decision_technical_criteria",
+            "required": true,
+            "priority": "High",
+            "weight": 0.90
+          },
+          {
+            "evidenceId": "decision_security_requirements",
+            "required": false,
+            "priority": "Medium",
+            "weight": 0.75
+          },
+          {
+            "evidenceId": "decision_vendor_selection_process",
+            "required": true,
+            "priority": "High",
+            "weight": 0.85
+          }
+        ],
+
+        "buyingProcessGovernance": [
+          {
+            "evidenceId": "buying_decision_process_defined",
+            "required": true,
+            "priority": "Critical",
+            "weight": 1.00
+          },
+          {
+            "evidenceId": "buying_procurement_process",
+            "required": true,
+            "priority": "High",
+            "weight": 0.90
+          },
+          {
+            "evidenceId": "buying_legal_review",
+            "required": false,
+            "priority": "Medium",
+            "weight": 0.70
+          },
+          {
+            "evidenceId": "buying_target_decision_date",
+            "required": true,
+            "priority": "High",
+            "weight": 0.90
+          }
+        ],
+
+        "commercialReadiness": [
+          {
+            "evidenceId": "commercial_budget_confirmed",
+            "required": true,
+            "priority": "Critical",
+            "weight": 1.00
+          },
+          {
+            "evidenceId": "commercial_budget_owner",
+            "required": true,
+            "priority": "High",
+            "weight": 0.90
+          },
+          {
+            "evidenceId": "commercial_investment_model",
+            "required": false,
+            "priority": "Medium",
+            "weight": 0.75
+          },
+          {
+            "evidenceId": "commercial_procurement_readiness",
+            "required": false,
+            "priority": "Medium",
+            "weight": 0.75
+          }
+        ],
+
+        "opportunityMomentum": [
+          {
+            "evidenceId": "momentum_discovery_completed",
+            "required": true,
+            "priority": "Critical",
+            "weight": 1.00
+          },
+          {
+            "evidenceId": "momentum_next_step_defined",
+            "required": true,
+            "priority": "Critical",
+            "weight": 0.95
+          },
+          {
+            "evidenceId": "momentum_customer_responsiveness",
+            "required": true,
+            "priority": "High",
+            "weight": 0.90
+          },
+          {
+            "evidenceId": "momentum_evaluation_progress",
+            "required": false,
+            "priority": "Medium",
+            "weight": 0.75
+          }
+        ],
+
+        "competitivePosition": [
+          {
+            "evidenceId": "competition_incumbent_identified",
+            "required": true,
+            "priority": "High",
+            "weight": 0.90
+          },
+          {
+            "evidenceId": "competition_known_competitors",
+            "required": true,
+            "priority": "High",
+            "weight": 0.90
+          },
+          {
+            "evidenceId": "competition_differentiation_identified",
+            "required": true,
+            "priority": "Critical",
+            "weight": 1.00
+          },
+          {
+            "evidenceId": "competition_win_strategy_defined",
+            "required": false,
+            "priority": "Medium",
+            "weight": 0.75
+          }
+        ]
+      },
+      "qualificationPreferences": {
+        "minimumRequiredDimensions": 10,
+        "allowAIEstimation": true,
+        "allowMissingOptionalEvidence": true,
+        "requireCriticalEvidence": true,
+        "requireBusinessProblem": true,
+        "requireEconomicBuyer": true,
+        "requireChampion": true,
+        "requireBudgetConfirmation": true,
+        "requireNextStep": true,
+        "explainDecision": true,
+        "recommendNextActions": true
+
+      }
+    },
+    {
+      "id": "professional_solution_services_base",
+      "name": "Professional & Solution Services",
+      "dimensions": {
+            "businessProblem": [
+      {
+        "evidenceId": "bp_business_problem_defined",
+        "required": true,
+        "priority": "Critical",
+        "weight": 1.00
+      },
+      {
+        "evidenceId": "bp_business_transformation_driver",
+        "required": true,
+        "priority": "Critical",
+        "weight": 0.95
+      },
+      {
+        "evidenceId": "bp_current_service_gap",
+        "required": true,
+        "priority": "High",
+        "weight": 0.90
+      },
+      {
+        "evidenceId": "bp_operational_impact",
+        "required": true,
+        "priority": "High",
+        "weight": 0.85
+      },
+      {
+        "evidenceId": "bp_consequence_of_inaction",
+        "required": false,
+        "priority": "Medium",
+        "weight": 0.75
+      }
+    ],
+
+    "metricsSuccessCriteria": [
+      {
+        "evidenceId": "metrics_project_success_kpis",
+        "required": true,
+        "priority": "Critical",
+        "weight": 1.00
+      },
+      {
+        "evidenceId": "metrics_expected_business_outcomes",
+        "required": true,
+        "priority": "High",
+        "weight": 0.90
+      },
+      {
+        "evidenceId": "metrics_service_performance_targets",
+        "required": true,
+        "priority": "High",
+        "weight": 0.85
+      },
+      {
+        "evidenceId": "metrics_roi_expectation",
+        "required": false,
+        "priority": "Medium",
+        "weight": 0.70
+      }
+    ],
+
+    "businessValue": [
+      {
+        "evidenceId": "value_business_transformation",
+        "required": true,
+        "priority": "Critical",
+        "weight": 1.00
+      },
+      {
+        "evidenceId": "value_operational_improvement",
+        "required": true,
+        "priority": "High",
+        "weight": 0.90
+      },
+      {
+        "evidenceId": "value_productivity_improvement",
+        "required": true,
+        "priority": "High",
+        "weight": 0.85
+      },
+      {
+        "evidenceId": "value_risk_reduction",
+        "required": false,
+        "priority": "Medium",
+        "weight": 0.75
+      }
+    ],
+
+    "solutionAlignment": [
+      {
+        "evidenceId": "solution_scope_defined",
+        "required": true,
+        "priority": "Critical",
+        "weight": 1.00
+      },
+      {
+        "evidenceId": "solution_service_capability_fit",
+        "required": true,
+        "priority": "Critical",
+        "weight": 0.95
+      },
+      {
+        "evidenceId": "solution_delivery_methodology_fit",
+        "required": true,
+        "priority": "High",
+        "weight": 0.90
+      },
+      {
+        "evidenceId": "solution_resource_feasibility",
+        "required": true,
+        "priority": "High",
+        "weight": 0.85
+      },
+      {
+        "evidenceId": "solution_delivery_risk",
+        "required": false,
+        "priority": "Medium",
+        "weight": 0.70
+      }
+    ],
+
+    "stakeholderAlignment": [
+      {
+        "evidenceId": "stakeholder_executive_sponsor",
+        "required": true,
+        "priority": "Critical",
+        "weight": 1.00
+      },
+      {
+        "evidenceId": "stakeholder_business_owner",
+        "required": true,
+        "priority": "Critical",
+        "weight": 0.95
+      },
+      {
+        "evidenceId": "stakeholder_project_sponsor",
+        "required": true,
+        "priority": "High",
+        "weight": 0.90
+      },
+      {
+        "evidenceId": "stakeholder_champion_strength",
+        "required": true,
+        "priority": "High",
+        "weight": 0.90
+      },
+      {
+        "evidenceId": "stakeholder_delivery_team_alignment",
+        "required": false,
+        "priority": "Medium",
+        "weight": 0.70
+      }
+    ],
+
+    "decisionCriteria": [
+      {
+        "evidenceId": "decision_service_selection_criteria",
+        "required": true,
+        "priority": "Critical",
+        "weight": 1.00
+      },
+      {
+        "evidenceId": "decision_delivery_capability_requirements",
+        "required": true,
+        "priority": "High",
+        "weight": 0.90
+      },
+      {
+        "evidenceId": "decision_consulting_experience_required",
+        "required": false,
+        "priority": "Medium",
+        "weight": 0.75
+      },
+      {
+        "evidenceId": "decision_reference_requirements",
+        "required": false,
+        "priority": "Medium",
+        "weight": 0.70
+      }
+    ],
+
+    "buyingProcessGovernance": [
+      {
+        "evidenceId": "buying_service_procurement_process",
+        "required": true,
+        "priority": "Critical",
+        "weight": 1.00
+      },
+      {
+        "evidenceId": "buying_proposal_evaluation_process",
+        "required": true,
+        "priority": "High",
+        "weight": 0.90
+      },
+      {
+        "evidenceId": "buying_contract_review_process",
+        "required": true,
+        "priority": "High",
+        "weight": 0.85
+      },
+      {
+        "evidenceId": "buying_project_approval_date",
+        "required": true,
+        "priority": "High",
+        "weight": 0.85
+      }
+    ],
+
+    "commercialReadiness": [
+      {
+        "evidenceId": "commercial_service_budget_confirmed",
+        "required": true,
+        "priority": "Critical",
+        "weight": 1.00
+      },
+      {
+        "evidenceId": "commercial_budget_owner",
+        "required": true,
+        "priority": "High",
+        "weight": 0.90
+      },
+      {
+        "evidenceId": "commercial_commercial_model",
+        "required": true,
+        "priority": "High",
+        "weight": 0.85
+      },
+      {
+        "evidenceId": "commercial_procurement_readiness",
+        "required": false,
+        "priority": "Medium",
+        "weight": 0.75
+      }
+    ],
+
+    "opportunityMomentum": [
+      {
+        "evidenceId": "momentum_discovery_completed",
+        "required": true,
+        "priority": "Critical",
+        "weight": 1.00
+      },
+      {
+        "evidenceId": "momentum_solution_workshop_completed",
+        "required": true,
+        "priority": "High",
+        "weight": 0.90
+      },
+      {
+        "evidenceId": "momentum_proposal_requested",
+        "required": true,
+        "priority": "High",
+        "weight": 0.90
+      },
+      {
+        "evidenceId": "momentum_next_step_defined",
+        "required": true,
+        "priority": "Critical",
+        "weight": 0.95
+      }
+    ],
+
+    "competitivePosition": [
+      {
+        "evidenceId": "competition_existing_service_provider",
+        "required": true,
+        "priority": "High",
+        "weight": 0.90
+      },
+      {
+        "evidenceId": "competition_competing_consultancies",
+        "required": true,
+        "priority": "High",
+        "weight": 0.90
+      },
+      {
+        "evidenceId": "competition_service_differentiation",
+        "required": true,
+        "priority": "Critical",
+        "weight": 1.00
+      },
+      {
+        "evidenceId": "competition_win_strategy_defined",
+        "required": false,
+        "priority": "Medium",
+        "weight": 0.75
+      }
+    ]
+      },
+      "qualificationPreferences": {
+        "minimumRequiredDimensions": 10,
+        "allowAIEstimation": true,
+        "allowMissingOptionalEvidence": true,
+        "requireCriticalEvidence": true,
+        "requireBusinessProblem": true,
+        "requireExecutiveSponsor": true,
+        "requireChampion": true,
+        "requireBudgetConfirmation": true,
+        "requireNextStep": true,
+        "explainDecision": true,
+        "recommendNextActions": true
+
+      }
+    },
+    {
+      "id": "digital_transformation_ot_base",
+      "name": "Digital Transformation & OT",
+      "dimensions": {
+            "businessProblem": [
+      {
+        "evidenceId": "bp_transformation_business_driver",
+        "required": true,
+        "priority": "Critical",
+        "weight": 1.00
+      },
+      {
+        "evidenceId": "bp_current_operational_challenges",
+        "required": true,
+        "priority": "Critical",
+        "weight": 0.95
+      },
+      {
+        "evidenceId": "bp_digital_maturity_gap",
+        "required": true,
+        "priority": "High",
+        "weight": 0.90
+      },
+      {
+        "evidenceId": "bp_operational_risk",
+        "required": true,
+        "priority": "High",
+        "weight": 0.85
+      },
+      {
+        "evidenceId": "bp_consequence_of_inaction",
+        "required": false,
+        "priority": "Medium",
+        "weight": 0.75
+      }
+    ],
+
+    "metricsSuccessCriteria": [
+      {
+        "evidenceId": "metrics_transformation_success_kpis",
+        "required": true,
+        "priority": "Critical",
+        "weight": 1.00
+      },
+      {
+        "evidenceId": "metrics_operational_performance_targets",
+        "required": true,
+        "priority": "High",
+        "weight": 0.90
+      },
+      {
+        "evidenceId": "metrics_digital_adoption_targets",
+        "required": true,
+        "priority": "High",
+        "weight": 0.85
+      },
+      {
+        "evidenceId": "metrics_roi_expectation",
+        "required": false,
+        "priority": "Medium",
+        "weight": 0.75
+      }
+    ],
+
+    "businessValue": [
+      {
+        "evidenceId": "value_operational_excellence",
+        "required": true,
+        "priority": "Critical",
+        "weight": 1.00
+      },
+      {
+        "evidenceId": "value_productivity_improvement",
+        "required": true,
+        "priority": "High",
+        "weight": 0.90
+      },
+      {
+        "evidenceId": "value_cost_optimization",
+        "required": true,
+        "priority": "High",
+        "weight": 0.90
+      },
+      {
+        "evidenceId": "value_business_resilience",
+        "required": false,
+        "priority": "Medium",
+        "weight": 0.75
+      }
+    ],
+
+    "solutionAlignment": [
+      {
+        "evidenceId": "solution_transformation_scope_defined",
+        "required": true,
+        "priority": "Critical",
+        "weight": 1.00
+      },
+      {
+        "evidenceId": "solution_ot_it_integration_fit",
+        "required": true,
+        "priority": "Critical",
+        "weight": 0.95
+      },
+      {
+        "evidenceId": "solution_existing_system_compatibility",
+        "required": true,
+        "priority": "High",
+        "weight": 0.90
+      },
+      {
+        "evidenceId": "solution_data_integration_feasibility",
+        "required": true,
+        "priority": "High",
+        "weight": 0.85
+      },
+      {
+        "evidenceId": "solution_cybersecurity_alignment",
+        "required": false,
+        "priority": "Medium",
+        "weight": 0.75
+      },
+      {
+        "evidenceId": "solution_scalability",
+        "required": false,
+        "priority": "Medium",
+        "weight": 0.70
+      }
+    ],
+
+    "stakeholderAlignment": [
+      {
+        "evidenceId": "stakeholder_business_executive",
+        "required": true,
+        "priority": "Critical",
+        "weight": 1.00
+      },
+      {
+        "evidenceId": "stakeholder_digital_transformation_leader",
+        "required": true,
+        "priority": "Critical",
+        "weight": 0.95
+      },
+      {
+        "evidenceId": "stakeholder_it_leader",
+        "required": true,
+        "priority": "High",
+        "weight": 0.90
+      },
+      {
+        "evidenceId": "stakeholder_operations_leader",
+        "required": true,
+        "priority": "High",
+        "weight": 0.90
+      },
+      {
+        "evidenceId": "stakeholder_champion_strength",
+        "required": true,
+        "priority": "High",
+        "weight": 0.90
+      }
+    ],
+
+    "decisionCriteria": [
+      {
+        "evidenceId": "decision_transformation_success_criteria",
+        "required": true,
+        "priority": "Critical",
+        "weight": 1.00
+      },
+      {
+        "evidenceId": "decision_technical_architecture_requirements",
+        "required": true,
+        "priority": "High",
+        "weight": 0.90
+      },
+      {
+        "evidenceId": "decision_cybersecurity_requirements",
+        "required": true,
+        "priority": "High",
+        "weight": 0.85
+      },
+      {
+        "evidenceId": "decision_platform_selection_criteria",
+        "required": false,
+        "priority": "Medium",
+        "weight": 0.75
+      }
+    ],
+
+    "buyingProcessGovernance": [
+      {
+        "evidenceId": "buying_transformation_governance",
+        "required": true,
+        "priority": "Critical",
+        "weight": 1.00
+      },
+      {
+        "evidenceId": "buying_program_approval_process",
+        "required": true,
+        "priority": "High",
+        "weight": 0.90
+      },
+      {
+        "evidenceId": "buying_procurement_strategy",
+        "required": true,
+        "priority": "High",
+        "weight": 0.85
+      },
+      {
+        "evidenceId": "buying_target_go_live_date",
+        "required": true,
+        "priority": "High",
+        "weight": 0.85
+      }
+    ],
+
+    "commercialReadiness": [
+      {
+        "evidenceId": "commercial_program_budget_confirmed",
+        "required": true,
+        "priority": "Critical",
+        "weight": 1.00
+      },
+      {
+        "evidenceId": "commercial_investment_owner",
+        "required": true,
+        "priority": "High",
+        "weight": 0.90
+      },
+      {
+        "evidenceId": "commercial_funding_model",
+        "required": true,
+        "priority": "High",
+        "weight": 0.85
+      },
+      {
+        "evidenceId": "commercial_procurement_readiness",
+        "required": false,
+        "priority": "Medium",
+        "weight": 0.75
+      }
+    ],
+
+    "opportunityMomentum": [
+      {
+        "evidenceId": "momentum_assessment_completed",
+        "required": true,
+        "priority": "Critical",
+        "weight": 1.00
+      },
+      {
+        "evidenceId": "momentum_workshop_completed",
+        "required": true,
+        "priority": "High",
+        "weight": 0.90
+      },
+      {
+        "evidenceId": "momentum_solution_blueprint_review",
+        "required": true,
+        "priority": "High",
+        "weight": 0.90
+      },
+      {
+        "evidenceId": "momentum_next_step_defined",
+        "required": true,
+        "priority": "Critical",
+        "weight": 0.95
+      }
+    ],
+
+    "competitivePosition": [
+      {
+        "evidenceId": "competition_existing_transformation_partner",
+        "required": true,
+        "priority": "High",
+        "weight": 0.90
+      },
+      {
+        "evidenceId": "competition_competing_platforms",
+        "required": true,
+        "priority": "High",
+        "weight": 0.90
+      },
+      {
+        "evidenceId": "competition_solution_differentiation",
+        "required": true,
+        "priority": "Critical",
+        "weight": 1.00
+      },
+      {
+        "evidenceId": "competition_win_strategy_defined",
+        "required": false,
+        "priority": "Medium",
+        "weight": 0.75
+      }
+    ]
+      },
+      "qualificationPreferences": {
+        "minimumRequiredDimensions": 10,
+        "allowAIEstimation": true,
+        "allowMissingOptionalEvidence": true,
+        "requireCriticalEvidence": true,
+        "requireBusinessProblem": true,
+        "requireExecutiveSponsor": true,
+        "requireChampion": true,
+        "requireBudgetConfirmation": true,
+        "requireNextStep": true,
+        "explainDecision": true,
+        "recommendNextActions": true
+
+      }
+    },
+    {
+      "id": "engineering_project_solutions_base",
+      "name": "Engineering & Project Solutions",
+      "dimensions": {
+            "businessProblem": [
+      {
+        "evidenceId": "bp_project_business_driver",
+        "required": true,
+        "priority": "Critical",
+        "weight": 1.00
+      },
+      {
+        "evidenceId": "bp_operational_capacity_gap",
+        "required": true,
+        "priority": "Critical",
+        "weight": 0.95
+      },
+      {
+        "evidenceId": "bp_asset_performance_gap",
+        "required": true,
+        "priority": "High",
+        "weight": 0.90
+      },
+      {
+        "evidenceId": "bp_regulatory_or_safety_requirement",
+        "required": true,
+        "priority": "High",
+        "weight": 0.85
+      },
+      {
+        "evidenceId": "bp_consequence_of_inaction",
+        "required": false,
+        "priority": "Medium",
+        "weight": 0.75
+      }
+    ],
+
+    "metricsSuccessCriteria": [
+      {
+        "evidenceId": "metrics_project_success_kpis",
+        "required": true,
+        "priority": "Critical",
+        "weight": 1.00
+      },
+      {
+        "evidenceId": "metrics_schedule_target",
+        "required": true,
+        "priority": "High",
+        "weight": 0.90
+      },
+      {
+        "evidenceId": "metrics_cost_target",
+        "required": true,
+        "priority": "High",
+        "weight": 0.90
+      },
+      {
+        "evidenceId": "metrics_operational_performance_target",
+        "required": true,
+        "priority": "High",
+        "weight": 0.85
+      }
+    ],
+
+    "businessValue": [
+      {
+        "evidenceId": "value_project_roi",
+        "required": true,
+        "priority": "Critical",
+        "weight": 1.00
+      },
+      {
+        "evidenceId": "value_operational_efficiency",
+        "required": true,
+        "priority": "High",
+        "weight": 0.90
+      },
+      {
+        "evidenceId": "value_asset_reliability",
+        "required": true,
+        "priority": "High",
+        "weight": 0.90
+      },
+      {
+        "evidenceId": "value_safety_improvement",
+        "required": false,
+        "priority": "Medium",
+        "weight": 0.75
+      }
+    ],
+
+    "solutionAlignment": [
+      {
+        "evidenceId": "solution_project_scope_defined",
+        "required": true,
+        "priority": "Critical",
+        "weight": 1.00
+      },
+      {
+        "evidenceId": "solution_engineering_feasibility",
+        "required": true,
+        "priority": "Critical",
+        "weight": 0.95
+      },
+      {
+        "evidenceId": "solution_technical_specification_fit",
+        "required": true,
+        "priority": "High",
+        "weight": 0.90
+      },
+      {
+        "evidenceId": "solution_constructability",
+        "required": true,
+        "priority": "High",
+        "weight": 0.85
+      },
+      {
+        "evidenceId": "solution_delivery_risk",
+        "required": false,
+        "priority": "Medium",
+        "weight": 0.70
+      }
+    ],
+
+    "stakeholderAlignment": [
+      {
+        "evidenceId": "stakeholder_project_owner",
+        "required": true,
+        "priority": "Critical",
+        "weight": 1.00
+      },
+      {
+        "evidenceId": "stakeholder_project_director",
+        "required": true,
+        "priority": "Critical",
+        "weight": 0.95
+      },
+      {
+        "evidenceId": "stakeholder_engineering_manager",
+        "required": true,
+        "priority": "High",
+        "weight": 0.90
+      },
+      {
+        "evidenceId": "stakeholder_champion_strength",
+        "required": true,
+        "priority": "High",
+        "weight": 0.90
+      },
+      {
+        "evidenceId": "stakeholder_project_team_alignment",
+        "required": false,
+        "priority": "Medium",
+        "weight": 0.75
+      }
+    ],
+
+    "decisionCriteria": [
+      {
+        "evidenceId": "decision_technical_specification",
+        "required": true,
+        "priority": "Critical",
+        "weight": 1.00
+      },
+      {
+        "evidenceId": "decision_engineering_capability",
+        "required": true,
+        "priority": "High",
+        "weight": 0.90
+      },
+      {
+        "evidenceId": "decision_project_delivery_experience",
+        "required": true,
+        "priority": "High",
+        "weight": 0.85
+      },
+      {
+        "evidenceId": "decision_hse_requirements",
+        "required": false,
+        "priority": "Medium",
+        "weight": 0.75
+      }
+    ],
+
+    "buyingProcessGovernance": [
+      {
+        "evidenceId": "buying_project_approval_process",
+        "required": true,
+        "priority": "Critical",
+        "weight": 1.00
+      },
+      {
+        "evidenceId": "buying_tender_process",
+        "required": true,
+        "priority": "High",
+        "weight": 0.90
+      },
+      {
+        "evidenceId": "buying_contracting_strategy",
+        "required": true,
+        "priority": "High",
+        "weight": 0.85
+      },
+      {
+        "evidenceId": "buying_award_schedule",
+        "required": true,
+        "priority": "High",
+        "weight": 0.85
+      }
+    ],
+
+    "commercialReadiness": [
+      {
+        "evidenceId": "commercial_project_budget_approved",
+        "required": true,
+        "priority": "Critical",
+        "weight": 1.00
+      },
+      {
+        "evidenceId": "commercial_project_funding_secured",
+        "required": true,
+        "priority": "High",
+        "weight": 0.90
+      },
+      {
+        "evidenceId": "commercial_procurement_strategy",
+        "required": true,
+        "priority": "High",
+        "weight": 0.85
+      },
+      {
+        "evidenceId": "commercial_contract_model",
+        "required": false,
+        "priority": "Medium",
+        "weight": 0.75
+      }
+    ],
+
+    "opportunityMomentum": [
+      {
+        "evidenceId": "momentum_feasibility_completed",
+        "required": true,
+        "priority": "Critical",
+        "weight": 1.00
+      },
+      {
+        "evidenceId": "momentum_front_end_engineering_completed",
+        "required": true,
+        "priority": "High",
+        "weight": 0.90
+      },
+      {
+        "evidenceId": "momentum_tender_preparation",
+        "required": true,
+        "priority": "High",
+        "weight": 0.90
+      },
+      {
+        "evidenceId": "momentum_next_step_defined",
+        "required": true,
+        "priority": "Critical",
+        "weight": 0.95
+      }
+    ],
+
+    "competitivePosition": [
+      {
+        "evidenceId": "competition_existing_contractor",
+        "required": true,
+        "priority": "High",
+        "weight": 0.90
+      },
+      {
+        "evidenceId": "competition_competing_engineering_firms",
+        "required": true,
+        "priority": "High",
+        "weight": 0.90
+      },
+      {
+        "evidenceId": "competition_technical_differentiation",
+        "required": true,
+        "priority": "Critical",
+        "weight": 1.00
+      },
+      {
+        "evidenceId": "competition_win_strategy_defined",
+        "required": false,
+        "priority": "Medium",
+        "weight": 0.75
+      }
+    ]
+      },
+      "qualificationPreferences": {
+        "minimumRequiredDimensions": 10,
+        "allowAIEstimation": true,
+        "allowMissingOptionalEvidence": true,
+        "requireCriticalEvidence": true,
+        "requireBusinessProblem": true,
+        "requireProjectOwner": true,
+        "requireChampion": true,
+        "requireBudgetConfirmation": true,
+        "requireNextStep": true,
+        "explainDecision": true,
+        "recommendNextActions": true
+
+      }
+    },
+    {
+      "id": "project_procurement_base",
+      "name": "Project & Procurement",
+      "dimensions": {
+            "businessProblem": [
+      {
+        "evidenceId": "bp_project_business_case",
+        "required": true,
+        "priority": "Critical",
+        "weight": 1.00
+      },
+      {
+        "evidenceId": "bp_capex_driver",
+        "required": true,
+        "priority": "Critical",
+        "weight": 0.95
+      },
+      {
+        "evidenceId": "bp_capacity_or_expansion_need",
+        "required": true,
+        "priority": "High",
+        "weight": 0.90
+      },
+      {
+        "evidenceId": "bp_regulatory_requirement",
+        "required": true,
+        "priority": "High",
+        "weight": 0.85
+      },
+      {
+        "evidenceId": "bp_consequence_of_delay",
+        "required": false,
+        "priority": "Medium",
+        "weight": 0.75
+      }
+    ],
+
+    "metricsSuccessCriteria": [
+      {
+        "evidenceId": "metrics_project_roi",
+        "required": true,
+        "priority": "Critical",
+        "weight": 1.00
+      },
+      {
+        "evidenceId": "metrics_project_schedule",
+        "required": true,
+        "priority": "High",
+        "weight": 0.90
+      },
+      {
+        "evidenceId": "metrics_budget_target",
+        "required": true,
+        "priority": "High",
+        "weight": 0.90
+      },
+      {
+        "evidenceId": "metrics_operational_performance_target",
+        "required": true,
+        "priority": "High",
+        "weight": 0.85
+      }
+    ],
+
+    "businessValue": [
+      {
+        "evidenceId": "value_project_return",
+        "required": true,
+        "priority": "Critical",
+        "weight": 1.00
+      },
+      {
+        "evidenceId": "value_operational_efficiency",
+        "required": true,
+        "priority": "High",
+        "weight": 0.90
+      },
+      {
+        "evidenceId": "value_asset_lifecycle_improvement",
+        "required": true,
+        "priority": "High",
+        "weight": 0.90
+      },
+      {
+        "evidenceId": "value_risk_reduction",
+        "required": false,
+        "priority": "Medium",
+        "weight": 0.75
+      }
+    ],
+
+    "solutionAlignment": [
+      {
+        "evidenceId": "solution_scope_confirmed",
+        "required": true,
+        "priority": "Critical",
+        "weight": 1.00
+      },
+      {
+        "evidenceId": "solution_technical_compliance",
+        "required": true,
+        "priority": "Critical",
+        "weight": 0.95
+      },
+      {
+        "evidenceId": "solution_specification_compliance",
+        "required": true,
+        "priority": "High",
+        "weight": 0.90
+      },
+      {
+        "evidenceId": "solution_delivery_capability",
+        "required": true,
+        "priority": "High",
+        "weight": 0.85
+      },
+      {
+        "evidenceId": "solution_execution_risk",
+        "required": false,
+        "priority": "Medium",
+        "weight": 0.70
+      }
+    ],
+
+    "stakeholderAlignment": [
+      {
+        "evidenceId": "stakeholder_project_sponsor",
+        "required": true,
+        "priority": "Critical",
+        "weight": 1.00
+      },
+      {
+        "evidenceId": "stakeholder_procurement_manager",
+        "required": true,
+        "priority": "Critical",
+        "weight": 0.95
+      },
+      {
+        "evidenceId": "stakeholder_technical_evaluator",
+        "required": true,
+        "priority": "High",
+        "weight": 0.90
+      },
+      {
+        "evidenceId": "stakeholder_champion_strength",
+        "required": true,
+        "priority": "High",
+        "weight": 0.90
+      },
+      {
+        "evidenceId": "stakeholder_procurement_committee",
+        "required": false,
+        "priority": "Medium",
+        "weight": 0.75
+      }
+    ],
+
+    "decisionCriteria": [
+      {
+        "evidenceId": "decision_bid_evaluation_criteria",
+        "required": true,
+        "priority": "Critical",
+        "weight": 1.00
+      },
+      {
+        "evidenceId": "decision_vendor_selection_method",
+        "required": true,
+        "priority": "High",
+        "weight": 0.90
+      },
+      {
+        "evidenceId": "decision_commercial_requirements",
+        "required": true,
+        "priority": "High",
+        "weight": 0.85
+      },
+      {
+        "evidenceId": "decision_contract_requirements",
+        "required": false,
+        "priority": "Medium",
+        "weight": 0.75
+      }
+    ],
+
+    "buyingProcessGovernance": [
+      {
+        "evidenceId": "buying_procurement_process_defined",
+        "required": true,
+        "priority": "Critical",
+        "weight": 1.00
+      },
+      {
+        "evidenceId": "buying_tender_schedule",
+        "required": true,
+        "priority": "High",
+        "weight": 0.90
+      },
+      {
+        "evidenceId": "buying_contract_approval_workflow",
+        "required": true,
+        "priority": "High",
+        "weight": 0.85
+      },
+      {
+        "evidenceId": "buying_award_date",
+        "required": true,
+        "priority": "High",
+        "weight": 0.85
+      }
+    ],
+
+    "commercialReadiness": [
+      {
+        "evidenceId": "commercial_budget_approved",
+        "required": true,
+        "priority": "Critical",
+        "weight": 1.00
+      },
+      {
+        "evidenceId": "commercial_funding_secured",
+        "required": true,
+        "priority": "High",
+        "weight": 0.90
+      },
+      {
+        "evidenceId": "commercial_procurement_readiness",
+        "required": true,
+        "priority": "High",
+        "weight": 0.85
+      },
+      {
+        "evidenceId": "commercial_contract_model",
+        "required": false,
+        "priority": "Medium",
+        "weight": 0.75
+      }
+    ],
+
+    "opportunityMomentum": [
+      {
+        "evidenceId": "momentum_rfq_received",
+        "required": true,
+        "priority": "Critical",
+        "weight": 1.00
+      },
+      {
+        "evidenceId": "momentum_bid_preparation_started",
+        "required": true,
+        "priority": "High",
+        "weight": 0.90
+      },
+      {
+        "evidenceId": "momentum_customer_clarification_completed",
+        "required": true,
+        "priority": "High",
+        "weight": 0.90
+      },
+      {
+        "evidenceId": "momentum_next_step_defined",
+        "required": true,
+        "priority": "Critical",
+        "weight": 0.95
+      }
+    ],
+
+    "competitivePosition": [
+      {
+        "evidenceId": "competition_incumbent_supplier",
+        "required": true,
+        "priority": "High",
+        "weight": 0.90
+      },
+      {
+        "evidenceId": "competition_known_bidders",
+        "required": true,
+        "priority": "High",
+        "weight": 0.90
+      },
+      {
+        "evidenceId": "competition_competitive_advantage",
+        "required": true,
+        "priority": "Critical",
+        "weight": 1.00
+      },
+      {
+        "evidenceId": "competition_win_strategy_defined",
+        "required": false,
+        "priority": "Medium",
+        "weight": 0.75
+      }
+    ]
+      },
+      "qualificationPreferences": {
+        "minimumRequiredDimensions": 10,
+        "allowAIEstimation": true,
+        "allowMissingOptionalEvidence": true,
+        "requireCriticalEvidence": true,
+        "requireBusinessProblem": true,
+        "requireProjectSponsor": true,
+        "requireChampion": true,
+        "requireBudgetConfirmation": true,
+        "requireNextStep": true,
+        "explainDecision": true,
+        "recommendNextActions": true
+
+      }
+    },
+    {
+      "id": "generic_solution_selling_base",
+      "name": "Generic Solution Selling",
+      "dimensions": {
+            "businessProblem": [
+      {
+        "evidenceId": "bp_business_problem_defined",
+        "required": true,
+        "priority": "Critical",
+        "weight": 1.00
+      },
+      {
+        "evidenceId": "bp_business_priority",
+        "required": true,
+        "priority": "Critical",
+        "weight": 0.95
+      },
+      {
+        "evidenceId": "bp_current_pain_level",
+        "required": true,
+        "priority": "High",
+        "weight": 0.90
+      },
+      {
+        "evidenceId": "bp_business_impact",
+        "required": true,
+        "priority": "High",
+        "weight": 0.85
+      },
+      {
+        "evidenceId": "bp_consequence_of_inaction",
+        "required": false,
+        "priority": "Medium",
+        "weight": 0.75
+      }
+    ],
+
+    "metricsSuccessCriteria": [
+      {
+        "evidenceId": "metrics_success_criteria_defined",
+        "required": true,
+        "priority": "Critical",
+        "weight": 1.00
+      },
+      {
+        "evidenceId": "metrics_business_outcomes",
+        "required": true,
+        "priority": "High",
+        "weight": 0.90
+      },
+      {
+        "evidenceId": "metrics_roi_expectation",
+        "required": false,
+        "priority": "Medium",
+        "weight": 0.75
+      },
+      {
+        "evidenceId": "metrics_payback_expectation",
+        "required": false,
+        "priority": "Medium",
+        "weight": 0.70
+      }
+    ],
+
+    "businessValue": [
+      {
+        "evidenceId": "value_expected_business_value",
+        "required": true,
+        "priority": "Critical",
+        "weight": 1.00
+      },
+      {
+        "evidenceId": "value_operational_improvement",
+        "required": true,
+        "priority": "High",
+        "weight": 0.90
+      },
+      {
+        "evidenceId": "value_financial_impact",
+        "required": true,
+        "priority": "High",
+        "weight": 0.90
+      },
+      {
+        "evidenceId": "value_risk_reduction",
+        "required": false,
+        "priority": "Medium",
+        "weight": 0.75
+      }
+    ],
+
+    "solutionAlignment": [
+      {
+        "evidenceId": "solution_business_fit",
+        "required": true,
+        "priority": "Critical",
+        "weight": 1.00
+      },
+      {
+        "evidenceId": "solution_functional_fit",
+        "required": true,
+        "priority": "Critical",
+        "weight": 0.95
+      },
+      {
+        "evidenceId": "solution_technical_fit",
+        "required": true,
+        "priority": "High",
+        "weight": 0.90
+      },
+      {
+        "evidenceId": "solution_scalability",
+        "required": false,
+        "priority": "Medium",
+        "weight": 0.75
+      },
+      {
+        "evidenceId": "solution_delivery_feasibility",
+        "required": false,
+        "priority": "Medium",
+        "weight": 0.70
+      }
+    ],
+
+    "stakeholderAlignment": [
+      {
+        "evidenceId": "stakeholder_economic_buyer",
+        "required": true,
+        "priority": "Critical",
+        "weight": 1.00
+      },
+      {
+        "evidenceId": "stakeholder_business_owner",
+        "required": true,
+        "priority": "Critical",
+        "weight": 0.95
+      },
+      {
+        "evidenceId": "stakeholder_champion",
+        "required": true,
+        "priority": "Critical",
+        "weight": 0.95
+      },
+      {
+        "evidenceId": "stakeholder_buying_committee",
+        "required": false,
+        "priority": "High",
+        "weight": 0.85
+      },
+      {
+        "evidenceId": "stakeholder_consensus_level",
+        "required": false,
+        "priority": "Medium",
+        "weight": 0.70
+      }
+    ],
+
+    "decisionCriteria": [
+      {
+        "evidenceId": "decision_business_requirements",
+        "required": true,
+        "priority": "Critical",
+        "weight": 1.00
+      },
+      {
+        "evidenceId": "decision_technical_requirements",
+        "required": true,
+        "priority": "High",
+        "weight": 0.90
+      },
+      {
+        "evidenceId": "decision_commercial_requirements",
+        "required": true,
+        "priority": "High",
+        "weight": 0.85
+      },
+      {
+        "evidenceId": "decision_selection_process",
+        "required": false,
+        "priority": "Medium",
+        "weight": 0.75
+      }
+    ],
+
+    "buyingProcessGovernance": [
+      {
+        "evidenceId": "buying_decision_process",
+        "required": true,
+        "priority": "Critical",
+        "weight": 1.00
+      },
+      {
+        "evidenceId": "buying_procurement_process",
+        "required": true,
+        "priority": "High",
+        "weight": 0.90
+      },
+      {
+        "evidenceId": "buying_target_decision_date",
+        "required": true,
+        "priority": "High",
+        "weight": 0.85
+      },
+      {
+        "evidenceId": "buying_contract_process",
+        "required": false,
+        "priority": "Medium",
+        "weight": 0.75
+      }
+    ],
+
+    "commercialReadiness": [
+      {
+        "evidenceId": "commercial_budget_confirmed",
+        "required": true,
+        "priority": "Critical",
+        "weight": 1.00
+      },
+      {
+        "evidenceId": "commercial_budget_owner",
+        "required": true,
+        "priority": "High",
+        "weight": 0.90
+      },
+      {
+        "evidenceId": "commercial_procurement_readiness",
+        "required": true,
+        "priority": "High",
+        "weight": 0.85
+      },
+      {
+        "evidenceId": "commercial_commercial_model",
+        "required": false,
+        "priority": "Medium",
+        "weight": 0.75
+      }
+    ],
+
+    "opportunityMomentum": [
+      {
+        "evidenceId": "momentum_discovery_completed",
+        "required": true,
+        "priority": "Critical",
+        "weight": 1.00
+      },
+      {
+        "evidenceId": "momentum_solution_presented",
+        "required": true,
+        "priority": "High",
+        "weight": 0.90
+      },
+      {
+        "evidenceId": "momentum_customer_engagement",
+        "required": true,
+        "priority": "High",
+        "weight": 0.90
+      },
+      {
+        "evidenceId": "momentum_next_step_defined",
+        "required": true,
+        "priority": "Critical",
+        "weight": 0.95
+      }
+    ],
+
+    "competitivePosition": [
+      {
+        "evidenceId": "competition_incumbent_vendor",
+        "required": true,
+        "priority": "High",
+        "weight": 0.90
+      },
+      {
+        "evidenceId": "competition_known_competitors",
+        "required": true,
+        "priority": "High",
+        "weight": 0.90
+      },
+      {
+        "evidenceId": "competition_differentiation",
+        "required": true,
+        "priority": "Critical",
+        "weight": 1.00
+      },
+      {
+        "evidenceId": "competition_win_strategy",
+        "required": false,
+        "priority": "Medium",
+        "weight": 0.75
+      }
+    ]
+      },
+      "qualificationPreferences": {
+        "minimumRequiredDimensions": 10,
+        "allowAIEstimation": true,
+        "allowMissingOptionalEvidence": true,
+        "requireCriticalEvidence": true,
+        "requireBusinessProblem": true,
+        "requireEconomicBuyer": true,
+        "requireChampion": true,
+        "requireBudgetConfirmation": true,
+        "requireNextStep": true,
+        "explainDecision": true,
+        "recommendNextActions": true
+
+      }
+    }
+  ],
+  "industries": [
+    {
+      "id": "saas_software",
+      "inherits": "digital_solution_selling_base",
+      "overrides": {}
+    },
+    {
+      "id": "enterprise_software",
+      "inherits": "digital_solution_selling_base",
+      "overrides": {
+        "solutionAlignment": [
+          {
+            "evidenceId": "solution_enterprise_architecture_fit",
+            "required": true,
+            "priority": "Critical",
+            "weight": 1.00
+          }
+        ]
+      }
+    },
+    {
+      "id": "ai_solutions",
+      "inherits": "digital_solution_selling_base",
+      "overrides": {
+        "solutionAlignment": [
+          {
+            "evidenceId": "solution_ai_model_accuracy",
+            "required": true,
+            "priority": "High",
+            "weight": 0.90
+          },
+          {
+            "evidenceId": "solution_ai_governance",
+            "required": true,
+            "priority": "High",
+            "weight": 0.90
+          }
+        ]
+      }
+    },
+    {
+      "id": "cloud_transformation",
+      "inherits": "digital_solution_selling_base",
+      "overrides": {
+        "solutionAlignment": [
+          {
+            "evidenceId": "solution_cloud_migration_scope",
+            "required": true,
+            "priority": "Critical",
+            "weight": 1.00
+          },
+          {
+            "evidenceId": "solution_cloud_platform_alignment",
+            "required": true,
+            "priority": "High",
+            "weight": 0.90
+          }
+        ]
+      }
+    },
+    {
+      "id": "consulting",
+      "inherits": "professional_solution_services_base",
+      "overrides": {
+        "solutionAlignment": [
+          {
+            "evidenceId": "solution_consulting_methodology_fit",
+            "required": true,
+            "priority": "High",
+            "weight": 0.90
+          }
+        ]
+      }
+    },
+    {
+      "id": "professional_services",
+      "inherits": "professional_solution_services_base",
+      "overrides": {
+        "solutionAlignment": [
+          {
+            "evidenceId": "solution_service_delivery_capacity",
+            "required": true,
+            "priority": "High",
+            "weight": 0.90
+          }
+        ]
+      }
+    },
+    {
+      "id": "system_integration",
+      "inherits": "professional_solution_services_base",
+      "overrides": {
+        "solutionAlignment": [
+          {
+            "evidenceId": "solution_system_integration_complexity",
+            "required": true,
+            "priority": "Critical",
+            "weight": 1.00
+          },
+          {
+            "evidenceId": "solution_existing_system_compatibility",
+            "required": true,
+            "priority": "High",
+            "weight": 0.90
+          }
+        ]
+      }
+    },
+    {
+      "id": "managed_services",
+      "inherits": "professional_solution_services_base",
+      "overrides": {
+        "metricsSuccessCriteria": [
+          {
+            "evidenceId": "metrics_service_sla_targets",
+            "required": true,
+            "priority": "Critical",
+            "weight": 1.00
+          }
+        ],
+        "solutionAlignment": [
+          {
+            "evidenceId": "solution_service_operating_model",
+            "required": true,
+            "priority": "High",
+            "weight": 0.90
+          }
+        ]
+      }
+    },
+    {
+      "id": "digital_transformation",
+      "inherits": "digital_transformation_ot_base",
+      "overrides": {
+        "solutionAlignment": [
+          {
+            "evidenceId": "solution_enterprise_transformation_roadmap",
+            "required": true,
+            "priority": "Critical",
+            "weight": 1.00
+          }
+        ]
+      }
+    },
+    {
+      "id": "ot_it_solutions",
+      "inherits": "digital_transformation_ot_base",
+      "overrides": {
+        "solutionAlignment": [
+          {
+            "evidenceId": "solution_industrial_connectivity",
+            "required": true,
+            "priority": "Critical",
+            "weight": 1.00
+          },
+          {
+            "evidenceId": "solution_ot_cybersecurity",
+            "required": true,
+            "priority": "High",
+            "weight": 0.90
+          },
+          {
+            "evidenceId": "solution_scada_plc_compatibility",
+            "required": true,
+            "priority": "High",
+            "weight": 0.90
+          }
+        ]
+      }
+    },
+    {
+      "id": "engineering_solutions",
+      "inherits": "engineering_project_solutions_base",
+      "overrides": {
+        "solutionAlignment": [
+          {
+            "evidenceId": "solution_engineering_design_capability",
+            "required": true,
+            "priority": "Critical",
+            "weight": 1.00
+          },
+          {
+            "evidenceId": "solution_multidiscipline_engineering_support",
+            "required": true,
+            "priority": "High",
+            "weight": 0.90
+          }
+        ]
+      }
+    },
+    {
+      "id": "infrastructure_projects",
+      "inherits": "engineering_project_solutions_base",
+      "overrides": {
+        "solutionAlignment": [
+          {
+            "evidenceId": "solution_infrastructure_project_experience",
+            "required": true,
+            "priority": "Critical",
+            "weight": 1.00
+          },
+          {
+            "evidenceId": "solution_large_scale_delivery_capability",
+            "required": true,
+            "priority": "High",
+            "weight": 0.90
+          },
+          {
+            "evidenceId": "solution_public_sector_compliance",
+            "required": false,
+            "priority": "Medium",
+            "weight": 0.75
+          }
+        ]
+      }
+    },
+    {
+      "id": "epc_ep_projects",
+      "inherits": "project_procurement_base",
+      "overrides": {
+        "solutionAlignment": [
+          {
+            "evidenceId": "solution_epc_execution_capability",
+            "required": true,
+            "priority": "Critical",
+            "weight": 1.00
+          },
+          {
+            "evidenceId": "solution_project_delivery_record",
+            "required": true,
+            "priority": "High",
+            "weight": 0.90
+          },
+          {
+            "evidenceId": "solution_hse_management_capability",
+            "required": true,
+            "priority": "High",
+            "weight": 0.85
+          }
+        ]
+      }
+    },
+    {
+      "id": "enterprise_procurement",
+      "inherits": "project_procurement_base",
+      "overrides": {
+        "decisionCriteria": [
+          {
+            "evidenceId": "decision_procurement_policy_compliance",
+            "required": true,
+            "priority": "Critical",
+            "weight": 1.00
+          },
+          {
+            "evidenceId": "decision_supplier_risk_assessment",
+            "required": true,
+            "priority": "High",
+            "weight": 0.90
+          }
+        ],
+        "buyingProcessGovernance": [
+          {
+            "evidenceId": "buying_supplier_onboarding_process",
+            "required": true,
+            "priority": "High",
+            "weight": 0.85
+          }
+        ]
+      }
+    },
+    {
+      "id": "solution_selling_organizations",
+      "inherits": "generic_solution_selling_base",
+      "overrides": {}
+    },
+    {
+      "id": "other_solutions",
+      "inherits": "generic_solution_selling_base",
+      "overrides": {
+        "solutionAlignment": [
+          {
+            "evidenceId": "solution_industry_specific_requirements",
+            "required": false,
+            "priority": "Medium",
+            "weight": 0.70
+          }
+        ]
+      }
+    }
+  ]
+}

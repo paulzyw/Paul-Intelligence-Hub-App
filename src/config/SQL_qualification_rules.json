@@ -1,0 +1,1821 @@
+{
+ "SQL_Qualification_Rules": {
+
+    "metadata": {
+        "knowledge_base_name": "SQL Qualification Policy Engine",
+        "description": "AI-native policy engine governing SQL qualification decisions by evaluating evidence, scoring qualification dimensions, calculating confidence, applying qualification gates, generating recommendations, and guiding Gemini reasoning.",
+        "schema_version": "SQL_Qualification_Rules_Schema_v1.0",
+        "policy_version": "1.0",
+        "status": "frozen_canonical",
+        "compatible_urekb_version": "UREKB_SQL_v1.0",
+        "compatible_industry_configuration_version": "Industry_Configuration_v1.0",
+        "compatible_campaign_configuration_version": "Campaign_Configuration_v1.0",
+        "created_date": "2026-08-02",
+        "last_updated": "2026-08-02",
+        "owner": "RevOS AI Revenue Intelligence Platform",
+        "scope": {
+            "revenue_motions_supported": [
+            "Digital Solution Selling",
+            "Professional & Solution Services",
+            "Digital Transformation & OT",
+            "Engineering & Project Solutions",
+            "Project & Procurement",
+            "Generic Solution Selling"
+            ],
+            "sql_dimensions_supported": [
+            "Business Problem",
+            "Metrics & Success Criteria",
+            "Business Value",
+            "Solution Alignment",
+            "Stakeholder Alignment",
+            "Decision Criteria",
+            "Buying Process & Governance",
+            "Commercial Readiness",
+            "Opportunity Momentum",
+            "Competitive Position"
+            ]
+        }
+    },
+
+        "qualification_policy": {
+      "policy_id": "QP001",
+      "purpose": "Defines the global qualification philosophy and minimum requirements for converting assessed opportunities into SQL decisions.",
+
+      "ai_policy": {
+        "purpose": "Govern Gemini on applying qualification philosophy before calculating qualification outcomes.",
+        "execution_priority": "Qualification logic must prioritize evidence quality, business context, and buyer validation over simple numerical scoring.",
+        "gemini_behavior": "Gemini must evaluate whether the opportunity demonstrates genuine buying readiness rather than only relying on completed fields.",
+        "explanation_requirement": "Every qualification decision must include rationale, supporting evidence references, and identified gaps."
+      },
+
+      "qualification_method": {
+        "method_type": "evidence_based_multi_dimension_evaluation",
+        "description": "SQL qualification is determined through evaluation of ten qualification dimensions supported by validated business evidence."
+      },
+
+      "qualification_requirements": {
+        "minimum_dimension_completion": 0.8,
+        "minimum_required_dimensions": 10,
+        "minimum_evidence_completion": 0.75,
+        "allow_partial_qualification": true,
+        "allow_manual_override": true,
+        "manual_override_requires_reason": true
+      },
+
+      "qualification_levels": {
+        "qualified_sql": {
+          "definition": "Opportunity demonstrates sufficient business need, buying readiness, stakeholder engagement, and commercial viability."
+        },
+        "borderline_sql": {
+          "definition": "Opportunity shows potential but requires additional evidence or risk mitigation before full qualification."
+        },
+        "needs_nurturing": {
+          "definition": "Opportunity lacks sufficient evidence maturity and requires further engagement."
+        },
+        "disqualified": {
+          "definition": "Opportunity does not meet qualification requirements or contains critical blocking conditions."
+        }
+      },
+
+      "qualification_priority_order": [
+        "Critical Gates",
+        "Evidence Completeness",
+        "Evidence Validation",
+        "Dimension Scores",
+        "Overall Score",
+        "Confidence Level",
+        "Recommendations"
+      ]
+    },
+
+    "evidence_evaluation_policy": {
+      "policy_id": "EEP001",
+      "purpose": "Defines how individual evidence objects are evaluated before dimension scoring.",
+
+      "ai_policy": {
+        "purpose": "Guide Gemini in assessing evidence quality and reliability.",
+        "execution_priority": "Evidence quality must be evaluated before evidence quantity.",
+        "gemini_behavior": "Gemini must distinguish between customer-confirmed evidence, seller assumptions, and unsupported claims.",
+        "explanation_requirement": "Gemini must explain why evidence is considered strong, weak, incomplete, or unreliable."
+      },
+
+      "evidence_framework": {
+        "evidence_objects": [
+          {
+            "evidence_type": "Evidence Identification",
+            "weight": 0.2,
+            "evaluation_focus": "Whether relevant evidence exists and is clearly identified."
+          },
+          {
+            "evidence_type": "Evidence Validation",
+            "weight": 0.25,
+            "evaluation_focus": "Whether evidence has been validated by customer stakeholders or reliable sources."
+          },
+          {
+            "evidence_type": "Evidence Depth",
+            "weight": 0.2,
+            "evaluation_focus": "Whether evidence demonstrates sufficient detail and understanding."
+          },
+          {
+            "evidence_type": "Evidence Business Context",
+            "weight": 0.2,
+            "evaluation_focus": "Whether evidence connects to business impact, strategic objectives, or measurable outcomes."
+          },
+          {
+            "evidence_type": "Evidence Risk Assessment",
+            "weight": 0.15,
+            "evaluation_focus": "Whether risks, uncertainties, and potential blockers are identified."
+          }
+        ]
+      },
+
+      "evidence_quality_levels": {
+        "strong": {
+          "score_range": {
+            "minimum": 80,
+            "maximum": 100
+          },
+          "description": "Evidence is validated, specific, customer-confirmed, and strategically relevant."
+        },
+        "moderate": {
+          "score_range": {
+            "minimum": 50,
+            "maximum": 79
+          },
+          "description": "Evidence exists but requires further validation or deeper understanding."
+        },
+        "weak": {
+          "score_range": {
+            "minimum": 20,
+            "maximum": 49
+          },
+          "description": "Evidence is incomplete, assumed, or insufficiently validated."
+        },
+        "missing": {
+          "score_range": {
+            "minimum": 0,
+            "maximum": 19
+          },
+          "description": "Required evidence is unavailable or unsupported."
+        }
+      },
+
+      "evidence_scoring_rules": {
+        "validation_multiplier_enabled": true,
+        "business_context_multiplier_enabled": true,
+        "risk_adjustment_enabled": true,
+        "missing_evidence_penalty_enabled": true
+      }
+    },
+
+      "dimension_scoring_policy": {
+    "policy_id": "DSP001",
+    "purpose": "Defines how the five evidence objects within each SQL qualification dimension are evaluated and converted into dimension-level scores.",
+
+    "ai_policy": {
+      "purpose": "Guide Gemini in transforming evidence assessments into dimension-level qualification scores.",
+      "execution_priority": "Gemini must evaluate evidence quality before calculating dimension scores.",
+      "gemini_behavior": "Gemini must consider evidence completeness, validation strength, business relevance, and risk exposure when determining dimension maturity.",
+      "explanation_requirement": "Every dimension score must include evidence references, scoring rationale, strengths, weaknesses, and improvement recommendations."
+    },
+
+    "dimension_framework": {
+
+      "scoring_method": "weighted_evidence_aggregation",
+
+      "evidence_object_weights": {
+        "Evidence Identification": 0.20,
+        "Evidence Validation": 0.25,
+        "Evidence Depth": 0.20,
+        "Evidence Business Context": 0.20,
+        "Evidence Risk Assessment": 0.15
+      },
+
+      "dimension_score_range": {
+        "minimum": 0,
+        "maximum": 100
+      },
+
+      "dimension_maturity_levels": {
+        "advanced": {
+          "minimum_score": 80,
+          "description": "Dimension has strong validated evidence and demonstrates buyer readiness."
+        },
+        "developing": {
+          "minimum_score": 60,
+          "description": "Dimension demonstrates progress but requires additional validation."
+        },
+        "weak": {
+          "minimum_score": 40,
+          "description": "Dimension lacks sufficient evidence depth or business confirmation."
+        },
+        "insufficient": {
+          "minimum_score": 0,
+          "description": "Dimension lacks required evidence."
+        }
+      }
+    },
+
+    "sql_dimensions": {
+
+      "Business Problem": {
+        "dimension_id": "DIM001",
+        "weight": 0.15,
+        "mandatory": true,
+        "minimum_score_required": 60
+      },
+
+      "Metrics & Success Criteria": {
+        "dimension_id": "DIM002",
+        "weight": 0.10,
+        "mandatory": true,
+        "minimum_score_required": 50
+      },
+
+      "Business Value": {
+        "dimension_id": "DIM003",
+        "weight": 0.15,
+        "mandatory": true,
+        "minimum_score_required": 60
+      },
+
+      "Solution Alignment": {
+        "dimension_id": "DIM004",
+        "weight": 0.10,
+        "mandatory": true,
+        "minimum_score_required": 50
+      },
+
+      "Stakeholder Alignment": {
+        "dimension_id": "DIM005",
+        "weight": 0.10,
+        "mandatory": true,
+        "minimum_score_required": 50
+      },
+
+      "Decision Criteria": {
+        "dimension_id": "DIM006",
+        "weight": 0.10,
+        "mandatory": true,
+        "minimum_score_required": 50
+      },
+
+      "Buying Process & Governance": {
+        "dimension_id": "DIM007",
+        "weight": 0.10,
+        "mandatory": true,
+        "minimum_score_required": 50
+      },
+
+      "Commercial Readiness": {
+        "dimension_id": "DIM008",
+        "weight": 0.05,
+        "mandatory": true,
+        "minimum_score_required": 40
+      },
+
+      "Opportunity Momentum": {
+        "dimension_id": "DIM009",
+        "weight": 0.10,
+        "mandatory": true,
+        "minimum_score_required": 50
+      },
+
+      "Competitive Position": {
+        "dimension_id": "DIM010",
+        "weight": 0.05,
+        "mandatory": false,
+        "minimum_score_required": 40
+      }
+    },
+
+    "dimension_calculation_rules": {
+      "formula": "Dimension Score = Σ(Evidence Score × Evidence Weight)",
+
+      "adjustments": {
+        "validated_customer_evidence_bonus": 10,
+        "unsupported_assumption_penalty": 15,
+        "missing_business_context_penalty": 10,
+        "high_risk_penalty": 10
+      }
+    }
+  },
+
+
+  "overall_scoring_policy": {
+    "policy_id": "OSP001",
+    "purpose": "Defines how the ten SQL qualification dimension scores are aggregated into an overall SQL opportunity score.",
+
+    "ai_policy": {
+      "purpose": "Guide Gemini in calculating overall qualification strength.",
+      "execution_priority": "Overall scoring must consider dimension importance and strategic relevance.",
+      "gemini_behavior": "Gemini must not interpret a high overall score as qualified when critical dimensions are weak.",
+      "explanation_requirement": "Overall score explanations must identify strongest dimensions, weakest dimensions, and qualification risks."
+    },
+
+    "scoring_method": {
+      "method_type": "weighted_dimension_aggregation",
+      "formula": "Overall SQL Score = Σ(Dimension Score × Dimension Weight)"
+    },
+
+    "dimension_weight_distribution": {
+
+      "high_impact_dimensions": [
+        "Business Problem",
+        "Business Value"
+      ],
+
+      "medium_impact_dimensions": [
+        "Metrics & Success Criteria",
+        "Solution Alignment",
+        "Stakeholder Alignment",
+        "Decision Criteria",
+        "Buying Process & Governance",
+        "Opportunity Momentum"
+      ],
+
+      "lower_impact_dimensions": [
+        "Commercial Readiness",
+        "Competitive Position"
+      ]
+    },
+
+    "overall_score_levels": {
+
+      "excellent": {
+        "minimum_score": 85,
+        "description": "Opportunity demonstrates strong SQL readiness across critical dimensions."
+      },
+
+      "strong": {
+        "minimum_score": 70,
+        "description": "Opportunity is qualified but may require targeted risk mitigation."
+      },
+
+      "moderate": {
+        "minimum_score": 50,
+        "description": "Opportunity has potential but requires additional evidence."
+      },
+
+      "weak": {
+        "minimum_score": 0,
+        "description": "Opportunity lacks sufficient qualification maturity."
+      }
+    },
+
+    "score_adjustment_rules": {
+
+      "positive_adjustments": [
+        {
+          "condition": "All mandatory dimensions exceed minimum threshold",
+          "score_adjustment": 5
+        }
+      ],
+
+      "negative_adjustments": [
+        {
+          "condition": "Two or more mandatory dimensions below threshold",
+          "score_adjustment": -10
+        },
+        {
+          "condition": "Critical evidence gaps exist",
+          "score_adjustment": -15
+        }
+      ]
+    }
+  },
+
+    "qualification_decision_policy": {
+    "policy_id": "QDP001",
+    "purpose": "Defines how SQL qualification outcomes are determined based on overall score, confidence level, mandatory dimensions, and critical qualification conditions.",
+
+    "ai_policy": {
+      "purpose": "Guide Gemini in making final qualification decisions using transparent and explainable logic.",
+      "execution_priority": "Decision logic must evaluate critical gates and confidence before relying on numerical scores.",
+      "gemini_behavior": "Gemini must avoid qualifying opportunities solely based on high scores when evidence quality, buyer validation, or governance readiness is insufficient.",
+      "explanation_requirement": "Every qualification decision must include decision rationale, supporting evidence, qualification risks, and recommended next actions."
+    },
+
+    "decision_framework": {
+      "decision_method": "multi_factor_policy_evaluation",
+
+      "evaluation_sequence": [
+        "Critical Gate Evaluation",
+        "Evidence Completeness Evaluation",
+        "Confidence Evaluation",
+        "Overall Score Evaluation",
+        "Qualification Level Assignment",
+        "Recommendation Generation"
+      ]
+    },
+
+    "qualification_outcomes": {
+
+      "SQL_Qualified": {
+        "decision_id": "DEC001",
+
+        "definition": "Opportunity has sufficient evidence maturity, business alignment, stakeholder engagement, and buying readiness to enter active sales pipeline management.",
+
+        "requirements": {
+          "minimum_overall_score": 75,
+          "minimum_confidence": 70,
+          "mandatory_dimensions_above_threshold": true,
+          "critical_gate_failures_allowed": false
+        },
+
+        "required_conditions": [
+          "Business Problem validated",
+          "Business Value demonstrated",
+          "Solution Alignment confirmed",
+          "Buying Process identified",
+          "Commercial readiness acceptable"
+        ]
+      },
+
+
+      "Borderline_SQL": {
+        "decision_id": "DEC002",
+
+        "definition": "Opportunity shows meaningful potential but requires additional evidence or risk mitigation before full SQL confirmation.",
+
+        "requirements": {
+          "minimum_overall_score": 55,
+          "minimum_confidence": 45,
+          "critical_gate_failures_allowed": false
+        },
+
+        "typical_conditions": [
+          "Strong business problem but incomplete governance",
+          "Strong solution fit but unclear decision criteria",
+          "High interest but insufficient commercial confirmation"
+        ]
+      },
+
+
+      "Needs_Nurturing": {
+        "decision_id": "DEC003",
+
+        "definition": "Opportunity requires further engagement, education, or discovery before qualification readiness.",
+
+        "requirements": {
+          "minimum_overall_score": 30,
+          "minimum_confidence": 30
+        },
+
+        "typical_conditions": [
+          "Problem awareness exists but urgency is unclear",
+          "Stakeholder engagement is limited",
+          "Business value is not quantified"
+        ]
+      },
+
+
+      "Disqualified": {
+        "decision_id": "DEC004",
+
+        "definition": "Opportunity does not demonstrate sufficient qualification evidence or violates critical qualification requirements.",
+
+        "trigger_conditions": [
+          "Critical qualification gate failure",
+          "No confirmed business problem",
+          "No customer validation",
+          "No realistic buying pathway"
+        ]
+      }
+    },
+
+    "decision_priority_rules": {
+
+      "highest_priority": [
+        "Critical Gate Failure",
+        "Evidence Integrity Issues",
+        "Low Confidence"
+      ],
+
+      "medium_priority": [
+        "Overall Score",
+        "Dimension Balance",
+        "Commercial Risk"
+      ],
+
+      "lowest_priority": [
+        "Individual High Scores",
+        "Seller Assumptions"
+      ]
+    }
+  },
+
+
+  "confidence_policy": {
+    "policy_id": "CFP001",
+    "purpose": "Defines how confidence in SQL qualification decisions is calculated independently from opportunity score.",
+
+    "ai_policy": {
+      "purpose": "Ensure Gemini evaluates confidence based on evidence reliability rather than opportunity attractiveness.",
+      "execution_priority": "Confidence calculation must prioritize evidence quality, validation, and completeness.",
+      "gemini_behavior": "Gemini must reduce confidence when evidence is incomplete, assumed, contradictory, or insufficiently validated.",
+      "explanation_requirement": "Confidence explanations must identify confidence drivers, uncertainty sources, and required evidence improvements."
+    },
+
+    "confidence_framework": {
+
+      "calculation_method": "weighted_confidence_assessment",
+
+      "confidence_dimensions": {
+
+        "Evidence Completeness": {
+          "weight": 0.30,
+          "description": "Measures whether required evidence across dimensions has been collected."
+        },
+
+        "Evidence Validation": {
+          "weight": 0.30,
+          "description": "Measures whether evidence is confirmed by appropriate customer stakeholders."
+        },
+
+        "Evidence Consistency": {
+          "weight": 0.20,
+          "description": "Measures whether evidence is internally consistent without contradictions."
+        },
+
+        "Business Context Quality": {
+          "weight": 0.10,
+          "description": "Measures whether evidence connects to strategic business outcomes."
+        },
+
+        "Risk Transparency": {
+          "weight": 0.10,
+          "description": "Measures whether risks and uncertainties are properly identified."
+        }
+      }
+    },
+
+
+    "confidence_levels": {
+
+      "High Confidence": {
+        "minimum_score": 80,
+
+        "description": "Qualification decision is strongly supported by validated evidence."
+      },
+
+      "Medium Confidence": {
+        "minimum_score": 60,
+
+        "description": "Qualification decision is reasonable but additional evidence may improve certainty."
+      },
+
+      "Low Confidence": {
+        "minimum_score": 40,
+
+        "description": "Qualification decision contains significant uncertainty."
+      },
+
+      "Insufficient Confidence": {
+        "minimum_score": 0,
+
+        "description": "Evidence quality is insufficient to support reliable qualification."
+      }
+    },
+
+
+    "confidence_adjustment_rules": {
+
+      "positive_adjustments": [
+        {
+          "condition": "Executive stakeholder confirmation available",
+          "confidence_adjustment": 10
+        },
+        {
+          "condition": "Customer quantified business impact",
+          "confidence_adjustment": 10
+        }
+      ],
+
+      "negative_adjustments": [
+        {
+          "condition": "Seller assumption without customer validation",
+          "confidence_adjustment": -15
+        },
+        {
+          "condition": "Contradictory evidence detected",
+          "confidence_adjustment": -20
+        },
+        {
+          "condition": "Mandatory evidence missing",
+          "confidence_adjustment": -15
+        }
+      ]
+    }
+  },
+
+    "critical_gate_policy": {
+    "policy_id": "CGP001",
+    "purpose": "Defines mandatory qualification conditions that can override numerical scores and prevent inaccurate SQL qualification decisions.",
+
+    "ai_policy": {
+      "purpose": "Guide Gemini in applying non-negotiable qualification controls before final SQL decisions.",
+      "execution_priority": "Critical gates must be evaluated before score-based qualification logic.",
+      "gemini_behavior": "Gemini must not qualify an opportunity when critical business, stakeholder, buying, or commercial evidence requirements are absent.",
+      "explanation_requirement": "Every gate evaluation must state the triggered condition, impact on qualification, and required remediation action."
+    },
+
+    "gate_evaluation_framework": {
+
+      "evaluation_method": "rule_based_blocking_and_limitation",
+
+      "gate_priority": [
+        "Business Need Validation",
+        "Customer Confirmation",
+        "Stakeholder Readiness",
+        "Buying Process Visibility",
+        "Commercial Feasibility"
+      ],
+
+      "gate_actions": [
+        "block_sql_qualification",
+        "reduce_maximum_confidence",
+        "reduce_maximum_score",
+        "trigger_recommendation"
+      ]
+    },
+
+
+    "critical_gates": {
+
+      "CG001": {
+        "gate_name": "Business Problem Validation",
+
+        "condition": {
+          "trigger": "Business Problem dimension score below minimum threshold OR no validated business challenge identified"
+        },
+
+        "impact": {
+          "block_sql_qualification": true,
+          "maximum_confidence": 40
+        },
+
+        "required_action": "Conduct business discovery to validate customer problem, urgency, and impact."
+      },
+
+
+      "CG002": {
+        "gate_name": "Customer Evidence Validation",
+
+        "condition": {
+          "trigger": "Evidence exists primarily from seller assumptions without customer confirmation"
+        },
+
+        "impact": {
+          "block_sql_qualification": true,
+          "maximum_confidence": 50
+        },
+
+        "required_action": "Obtain customer-confirmed evidence from relevant stakeholders."
+      },
+
+
+      "CG003": {
+        "gate_name": "Stakeholder Alignment",
+
+        "condition": {
+          "trigger": "No identified business owner, sponsor, or decision participant"
+        },
+
+        "impact": {
+          "maximum_confidence": 60,
+          "qualification_limit": "Borderline_SQL"
+        },
+
+        "required_action": "Map stakeholders and identify decision influence structure."
+      },
+
+
+      "CG004": {
+        "gate_name": "Buying Process Visibility",
+
+        "condition": {
+          "trigger": "No understanding of customer evaluation, approval, or procurement process"
+        },
+
+        "impact": {
+          "maximum_confidence": 60,
+          "qualification_limit": "Borderline_SQL"
+        },
+
+        "required_action": "Complete buying process and governance discovery."
+      },
+
+
+      "CG005": {
+        "gate_name": "Commercial Feasibility",
+
+        "condition": {
+          "trigger": "No realistic commercial pathway identified"
+        },
+
+        "impact": {
+          "block_sql_qualification": true
+        },
+
+        "required_action": "Validate budget, procurement pathway, commercial model, and purchasing feasibility."
+      }
+    }
+  },
+
+
+  "risk_penalty_policy": {
+    "policy_id": "RPP001",
+    "purpose": "Defines how identified opportunity risks reduce SQL scores, confidence, and qualification readiness.",
+
+    "ai_policy": {
+      "purpose": "Guide Gemini in incorporating risk exposure into qualification decisions.",
+      "execution_priority": "Risks must be evaluated separately from opportunity attractiveness.",
+      "gemini_behavior": "Gemini must identify qualification risks even when positive evidence exists.",
+      "explanation_requirement": "Every risk adjustment must include risk source, severity, impact, and mitigation recommendation."
+    },
+
+
+    "risk_framework": {
+
+      "risk_categories": [
+
+        {
+          "risk_type": "Business Risk",
+          "description": "Risk that customer problem, urgency, or strategic importance is insufficient."
+        },
+
+        {
+          "risk_type": "Stakeholder Risk",
+          "description": "Risk caused by missing sponsors, decision makers, or stakeholder alignment."
+        },
+
+        {
+          "risk_type": "Solution Risk",
+          "description": "Risk caused by unclear solution fit or technical uncertainty."
+        },
+
+        {
+          "risk_type": "Commercial Risk",
+          "description": "Risk caused by budget, procurement, pricing, or commercial uncertainty."
+        },
+
+        {
+          "risk_type": "Competitive Risk",
+          "description": "Risk caused by competitors, alternatives, or lack of differentiation."
+        },
+
+        {
+          "risk_type": "Execution Risk",
+          "description": "Risk caused by timeline, resources, governance, or implementation concerns."
+        }
+      ]
+    },
+
+
+    "risk_severity_levels": {
+
+      "Low": {
+        "score_penalty": 5,
+        "confidence_penalty": 5
+      },
+
+      "Medium": {
+        "score_penalty": 10,
+        "confidence_penalty": 10
+      },
+
+      "High": {
+        "score_penalty": 20,
+        "confidence_penalty": 20
+      },
+
+      "Critical": {
+        "score_penalty": 30,
+        "confidence_penalty": 30
+      }
+    },
+
+
+    "risk_adjustment_rules": {
+
+      "risk_accumulation": {
+        "enabled": true,
+        "maximum_total_penalty": 40
+      },
+
+
+      "risk_mitigation_bonus": {
+
+        "enabled": true,
+
+        "conditions": [
+          {
+            "condition": "Documented mitigation plan exists",
+            "confidence_bonus": 5
+          },
+          {
+            "condition": "Customer agrees with mitigation approach",
+            "confidence_bonus": 10
+          }
+        ]
+      }
+    },
+
+
+    "risk_decision_rules": {
+
+      "critical_risk_conditions": [
+        {
+          "condition": "Multiple High or Critical risks exist across mandatory dimensions",
+          "recommended_decision": "Needs_Nurturing"
+        },
+
+        {
+          "condition": "Critical Commercial Risk exists",
+          "recommended_decision": "Disqualified"
+        }
+      ]
+    }
+  },
+
+    "recommendation_policy": {
+    "policy_id": "RCP001",
+    "purpose": "Defines how RevOS generates evidence improvement actions, qualification recommendations, and next-best actions based on SQL assessment results.",
+
+    "ai_policy": {
+      "purpose": "Guide Gemini in generating actionable recommendations after qualification evaluation.",
+      "execution_priority": "Recommendations must address qualification gaps before suggesting acceleration activities.",
+      "gemini_behavior": "Gemini must prioritize actions that improve evidence quality, reduce qualification risks, and increase buying readiness.",
+      "explanation_requirement": "Every recommendation must explain the identified gap, expected business impact, recommended action, and desired outcome."
+    },
+
+
+    "recommendation_framework": {
+
+      "recommendation_types": [
+
+        "Evidence Improvement",
+        "Stakeholder Engagement",
+        "Business Discovery",
+        "Value Quantification",
+        "Decision Process Mapping",
+        "Commercial Alignment",
+        "Competitive Strategy",
+        "Opportunity Acceleration"
+      ],
+
+
+      "recommendation_priority_order": [
+
+        "Critical Qualification Gaps",
+        "Low Confidence Drivers",
+        "High Risk Factors",
+        "Weak Qualification Dimensions",
+        "Optimization Opportunities"
+      ]
+    },
+
+
+    "recommendation_rules": {
+
+
+      "missing_business_problem_evidence": {
+
+        "trigger_condition": "Business Problem dimension evidence incomplete or weak",
+
+        "recommendation": {
+          "action": "Conduct customer discovery workshop",
+          "objective": "Validate customer pain points, urgency, business impact, and strategic importance."
+        }
+      },
+
+
+      "missing_business_value_evidence": {
+
+        "trigger_condition": "Business Value dimension score below threshold",
+
+        "recommendation": {
+          "action": "Quantify business impact",
+          "objective": "Connect solution outcomes to measurable business results."
+        }
+      },
+
+
+      "missing_stakeholder_alignment": {
+
+        "trigger_condition": "Stakeholder Alignment dimension incomplete",
+
+        "recommendation": {
+          "action": "Perform stakeholder mapping",
+          "objective": "Identify decision makers, influencers, sponsors, and approval owners."
+        }
+      },
+
+
+      "missing_decision_criteria": {
+
+        "trigger_condition": "Decision Criteria evidence insufficient",
+
+        "recommendation": {
+          "action": "Discover evaluation requirements",
+          "objective": "Understand customer selection criteria and buying priorities."
+        }
+      },
+
+
+      "missing_buying_process": {
+
+        "trigger_condition": "Buying Process & Governance evidence insufficient",
+
+        "recommendation": {
+          "action": "Map procurement and approval process",
+          "objective": "Understand customer governance, timeline, procurement steps, and decision workflow."
+        }
+      },
+
+
+      "competitive_risk_detected": {
+
+        "trigger_condition": "Competitive Position risk identified",
+
+        "recommendation": {
+          "action": "Develop competitive differentiation strategy",
+          "objective": "Strengthen value positioning against alternatives."
+        }
+      }
+    },
+
+
+    "next_best_action_policy": {
+
+      "selection_method": "highest_qualification_impact",
+
+      "action_priority_factors": {
+
+        "business_impact": 0.30,
+
+        "qualification_blocking_power": 0.30,
+
+        "confidence_improvement": 0.20,
+
+        "execution_feasibility": 0.20
+      }
+    }
+  },
+
+
+  "gemini_reasoning_policy": {
+    "policy_id": "GRP001",
+    "purpose": "Defines how Gemini should reason, interpret evidence, apply qualification policies, and generate explainable SQL decisions.",
+
+    "ai_policy": {
+      "purpose": "Establish the reasoning governance framework for Gemini qualification analysis.",
+      "execution_priority": "Gemini must follow structured reasoning sequence and avoid unsupported assumptions.",
+      "gemini_behavior": "Gemini must reason from evidence to conclusion rather than from desired qualification outcome backward.",
+      "explanation_requirement": "All decisions must be explainable through evidence references, policy references, and reasoning summary."
+    },
+
+
+    "reasoning_framework": {
+
+      "reasoning_sequence": [
+
+        "Understand Customer Context",
+
+        "Retrieve Applicable Evidence",
+
+        "Evaluate Evidence Quality",
+
+        "Score Qualification Dimensions",
+
+        "Calculate Overall Score",
+
+        "Calculate Confidence",
+
+        "Apply Critical Gates",
+
+        "Determine Qualification Outcome",
+
+        "Generate Recommendations"
+      ],
+
+
+      "reasoning_principles": {
+
+
+        "evidence_first": {
+
+          "rule": "Evidence quality must drive conclusions.",
+          "behavior": "Do not infer qualification without supporting evidence."
+        },
+
+
+        "customer_validation_priority": {
+
+          "rule": "Customer-confirmed information has higher reliability than seller assumptions.",
+          "behavior": "Reduce confidence when validation is missing."
+        },
+
+
+        "business_context_priority": {
+
+          "rule": "Strategic business impact is more important than feature interest.",
+          "behavior": "Prioritize measurable business outcomes."
+        },
+
+
+        "risk_transparency": {
+
+          "rule": "Risks must be surfaced rather than hidden.",
+          "behavior": "Include risks even when qualification likelihood is high."
+        },
+
+
+        "explainability": {
+
+          "rule": "Every decision must be understandable.",
+          "behavior": "Provide evidence-backed reasoning."
+        }
+      }
+    },
+
+
+    "conflict_resolution_policy": {
+
+      "purpose": "Defines how Gemini handles conflicting information.",
+
+
+      "rules": [
+
+        {
+          "conflict": "High score but weak evidence validation",
+
+          "resolution": "Reduce confidence and highlight evidence weakness."
+        },
+
+        {
+          "conflict": "Strong solution fit but unclear business problem",
+
+          "resolution": "Do not qualify until business problem is validated."
+        },
+
+        {
+          "conflict": "Positive stakeholder feedback but unclear buying process",
+
+          "resolution": "Maintain opportunity potential but limit qualification confidence."
+        }
+      ]
+    },
+
+
+    "hallucination_prevention_policy": {
+
+      "rules": [
+
+        {
+          "rule": "Never create unsupported customer facts."
+        },
+
+        {
+          "rule": "Never assume budget, authority, timeline, or urgency without evidence."
+        },
+
+        {
+          "rule": "Always distinguish confirmed evidence from inferred possibilities."
+        }
+      ]
+    },
+
+
+    "output_requirements": {
+
+      "qualification_output": [
+        "SQL Decision",
+        "Overall Score",
+        "Confidence Score",
+        "Dimension Scores",
+        "Supporting Evidence",
+        "Qualification Risks",
+        "Missing Evidence",
+        "Recommended Actions"
+      ],
+
+
+      "explanation_standard": {
+
+        "required": true,
+
+        "minimum_explanation_elements": [
+
+          "Why this decision was reached",
+
+          "Which evidence influenced the decision",
+
+          "Which policies were applied",
+
+          "What should happen next"
+        ]
+      }
+    }
+  },
+
+    "revenue_motion_overrides": {
+
+    "override_policy": {
+      "policy_id": "RMO001",
+
+      "purpose": "Defines revenue-motion-specific qualification adjustments while maintaining the global SQL qualification policy framework.",
+
+      "ai_policy": {
+        "purpose": "Guide Gemini in adapting qualification interpretation according to revenue motion characteristics.",
+        "execution_priority": "Revenue motion context may adjust dimension importance but cannot override mandatory qualification principles.",
+        "gemini_behavior": "Gemini must apply revenue-motion-specific priorities while preserving evidence-based qualification logic.",
+        "explanation_requirement": "Every revenue-motion adjustment must explain why certain dimensions receive higher importance."
+      },
+
+
+      "global_override_rules": {
+
+        "mandatory_dimensions_remain": true,
+
+        "critical_gate_override_allowed": false,
+
+        "score_weight_adjustment_allowed": true,
+
+        "qualification_logic_override_allowed": false
+      }
+    },
+
+
+    "Digital Solution Selling": {
+
+      "override_id": "RMO-DSS-001",
+
+      "description": "Qualification model adjustment for scalable digital solutions including SaaS, software platforms, cloud solutions, and digital products.",
+
+
+      "priority_dimensions": {
+
+        "Business Problem": 0.15,
+
+        "Metrics & Success Criteria": 0.15,
+
+        "Business Value": 0.15,
+
+        "Solution Alignment": 0.15,
+
+        "Stakeholder Alignment": 0.10,
+
+        "Decision Criteria": 0.10,
+
+        "Buying Process & Governance": 0.05,
+
+        "Commercial Readiness": 0.05,
+
+        "Opportunity Momentum": 0.05,
+
+        "Competitive Position": 0.05
+      },
+
+
+      "qualification_focus": [
+
+        "Customer digital transformation objectives",
+
+        "Business impact measurement",
+
+        "Platform adoption readiness",
+
+        "Scalability requirements",
+
+        "Executive sponsorship"
+      ],
+
+
+      "gemini_adjustment": {
+
+        "emphasize": [
+
+          "Business value quantification",
+
+          "Adoption potential",
+
+          "Strategic alignment"
+        ],
+
+        "de_emphasize": [
+
+          "Traditional procurement complexity"
+        ]
+      }
+    },
+
+
+    "Professional & Solution Services": {
+
+      "override_id": "RMO-PSS-001",
+
+      "description": "Qualification adjustment for consulting, advisory, implementation, managed services, and expertise-driven solutions.",
+
+
+      "priority_dimensions": {
+
+        "Business Problem": 0.20,
+
+        "Business Value": 0.15,
+
+        "Stakeholder Alignment": 0.15,
+
+        "Solution Alignment": 0.15,
+
+        "Decision Criteria": 0.10,
+
+        "Buying Process & Governance": 0.10,
+
+        "Metrics & Success Criteria": 0.05,
+
+        "Commercial Readiness": 0.05,
+
+        "Opportunity Momentum": 0.03,
+
+        "Competitive Position": 0.02
+      },
+
+
+      "qualification_focus": [
+
+        "Customer business challenge",
+
+        "Required expertise",
+
+        "Transformation objectives",
+
+        "Service outcome expectations",
+
+        "Stakeholder trust"
+      ],
+
+
+      "gemini_adjustment": {
+
+        "emphasize": [
+
+          "Problem understanding",
+
+          "Relationship maturity",
+
+          "Outcome alignment"
+        ]
+      }
+    },
+
+
+    "Digital Transformation & OT": {
+
+      "override_id": "RMO-DTOT-001",
+
+      "description": "Qualification adjustment for enterprise digital transformation involving IT, OT, industrial systems, and operational improvement initiatives.",
+
+
+      "priority_dimensions": {
+
+        "Business Problem": 0.15,
+
+        "Business Value": 0.15,
+
+        "Stakeholder Alignment": 0.15,
+
+        "Solution Alignment": 0.15,
+
+        "Buying Process & Governance": 0.10,
+
+        "Metrics & Success Criteria": 0.10,
+
+        "Decision Criteria": 0.10,
+
+        "Opportunity Momentum": 0.05,
+
+        "Commercial Readiness": 0.03,
+
+        "Competitive Position": 0.02
+      },
+
+
+      "qualification_focus": [
+
+        "Operational improvement objectives",
+
+        "Digital maturity",
+
+        "IT/OT stakeholder alignment",
+
+        "Transformation roadmap",
+
+        "Business impact"
+      ],
+
+
+      "gemini_adjustment": {
+
+        "emphasize": [
+
+          "Cross-functional alignment",
+
+          "Transformation value",
+
+          "Implementation feasibility"
+        ]
+      }
+    },
+
+
+    "Engineering & Project Solutions": {
+
+      "override_id": "RMO-EPS-001",
+
+      "description": "Qualification adjustment for engineering solutions, infrastructure projects, and complex technical solution delivery.",
+
+
+      "priority_dimensions": {
+
+        "Business Problem": 0.15,
+
+        "Solution Alignment": 0.15,
+
+        "Buying Process & Governance": 0.15,
+
+        "Stakeholder Alignment": 0.15,
+
+        "Decision Criteria": 0.10,
+
+        "Business Value": 0.10,
+
+        "Metrics & Success Criteria": 0.05,
+
+        "Commercial Readiness": 0.05,
+
+        "Opportunity Momentum": 0.05,
+
+        "Competitive Position": 0.05
+      },
+
+
+      "qualification_focus": [
+
+        "Project requirements",
+
+        "Technical specifications",
+
+        "Engineering feasibility",
+
+        "Approval process",
+
+        "Project governance"
+      ],
+
+
+      "gemini_adjustment": {
+
+        "emphasize": [
+
+          "Technical fit",
+
+          "Stakeholder structure",
+
+          "Project execution risk"
+        ]
+      }
+    },
+
+
+    "Project & Procurement": {
+
+      "override_id": "RMO-PP-001",
+
+      "description": "Qualification adjustment for EPC projects, enterprise procurement, and purchasing-driven opportunities.",
+
+
+      "priority_dimensions": {
+
+        "Buying Process & Governance": 0.20,
+
+        "Decision Criteria": 0.15,
+
+        "Commercial Readiness": 0.15,
+
+        "Stakeholder Alignment": 0.15,
+
+        "Business Problem": 0.10,
+
+        "Solution Alignment": 0.10,
+
+        "Business Value": 0.05,
+
+        "Metrics & Success Criteria": 0.05,
+
+        "Opportunity Momentum": 0.03,
+
+        "Competitive Position": 0.02
+      },
+
+
+      "qualification_focus": [
+
+        "Procurement pathway",
+
+        "Tender requirements",
+
+        "Budget availability",
+
+        "Approval authority",
+
+        "Commercial terms"
+      ],
+
+
+      "gemini_adjustment": {
+
+        "emphasize": [
+
+          "Buying process visibility",
+
+          "Commercial feasibility",
+
+          "Decision governance"
+        ]
+      }
+    },
+
+
+    "Generic Solution Selling": {
+
+      "override_id": "RMO-GSS-001",
+
+      "description": "Balanced qualification model for general solution selling scenarios where industry and buying behavior vary.",
+
+
+      "priority_dimensions": {
+
+        "Business Problem": 0.15,
+
+        "Metrics & Success Criteria": 0.10,
+
+        "Business Value": 0.15,
+
+        "Solution Alignment": 0.10,
+
+        "Stakeholder Alignment": 0.10,
+
+        "Decision Criteria": 0.10,
+
+        "Buying Process & Governance": 0.10,
+
+        "Commercial Readiness": 0.05,
+
+        "Opportunity Momentum": 0.10,
+
+        "Competitive Position": 0.05
+      },
+
+
+      "qualification_focus": [
+
+        "Customer problem",
+
+        "Business outcome",
+
+        "Solution relevance",
+
+        "Buying readiness",
+
+        "Opportunity progression"
+      ],
+
+
+      "gemini_adjustment": {
+
+        "emphasize": [
+
+          "Balanced evidence evaluation",
+
+          "Business outcome alignment",
+
+          "Qualification completeness"
+        ]
+      }
+    }
+  },
+
+    "validation_policy": {
+
+    "policy_id": "VLP001",
+
+    "purpose": "Defines validation controls to ensure SQL qualification assessments are complete, consistent, reliable, and suitable for AI-driven decision making.",
+
+
+    "ai_policy": {
+
+      "purpose": "Guide Gemini and system validation services in verifying assessment integrity before qualification decisions are finalized.",
+
+      "execution_priority": "Validation must occur before final SQL decision output.",
+
+      "gemini_behavior": "Gemini must identify incomplete, inconsistent, contradictory, or unsupported assessment inputs before generating qualification conclusions.",
+
+      "explanation_requirement": "Every validation issue must include the detected problem, impact, severity, and recommended correction."
+    },
+
+
+    "validation_framework": {
+
+
+      "validation_sequence": [
+
+        "Schema Validation",
+
+        "Evidence Completeness Validation",
+
+        "Evidence Quality Validation",
+
+        "Dimension Coverage Validation",
+
+        "Consistency Validation",
+
+        "Qualification Logic Validation",
+
+        "Output Validation"
+      ],
+
+
+      "validation_principles": {
+
+
+        "data_integrity": {
+
+          "rule": "Assessment data must follow defined schema requirements.",
+
+          "validation_scope": [
+
+            "Required fields",
+
+            "Valid data types",
+
+            "Valid identifiers",
+
+            "No corrupted records"
+          ]
+        },
+
+
+        "evidence_integrity": {
+
+          "rule": "Qualification decisions must be supported by valid evidence.",
+
+          "validation_scope": [
+
+            "Evidence existence",
+
+            "Evidence relevance",
+
+            "Evidence validation status",
+
+            "Evidence completeness"
+          ]
+        },
+
+
+        "reasoning_integrity": {
+
+          "rule": "Gemini reasoning must be traceable to evidence and policies.",
+
+          "validation_scope": [
+
+            "Evidence references",
+
+            "Policy references",
+
+            "Decision rationale",
+
+            "Recommendation rationale"
+          ]
+        }
+      }
+    },
+
+
+    "assessment_validation_rules": {
+
+
+      "VAL001": {
+
+        "validation_name": "Required Dimension Completion",
+
+        "condition": "All mandatory SQL qualification dimensions must contain assessment results.",
+
+        "severity": "High",
+
+        "failure_action": "Prevent final SQL qualification decision",
+
+        "recommended_action": "Complete missing dimension assessments."
+      },
+
+
+      "VAL002": {
+
+        "validation_name": "Evidence Completeness Check",
+
+        "condition": "Required evidence objects must be completed according to evidence evaluation policy.",
+
+        "severity": "High",
+
+        "failure_action": "Reduce confidence",
+
+        "recommended_action": "Collect missing evidence."
+      },
+
+
+      "VAL003": {
+
+        "validation_name": "Evidence Validation Check",
+
+        "condition": "Critical evidence must include customer validation.",
+
+        "severity": "High",
+
+        "failure_action": "Limit qualification confidence",
+
+        "recommended_action": "Obtain customer confirmation."
+      },
+
+
+      "VAL004": {
+
+        "validation_name": "Contradiction Detection",
+
+        "condition": "Assessment responses contain conflicting information.",
+
+        "severity": "Medium",
+
+        "failure_action": "Trigger Gemini review",
+
+        "recommended_action": "Resolve conflicting evidence."
+      },
+
+
+      "VAL005": {
+
+        "validation_name": "Unsupported Assumption Detection",
+
+        "condition": "Qualification conclusions rely on assumptions without evidence.",
+
+        "severity": "High",
+
+        "failure_action": "Reduce confidence",
+
+        "recommended_action": "Replace assumptions with validated evidence."
+      },
+
+
+      "VAL006": {
+
+        "validation_name": "Score Consistency Validation",
+
+        "condition": "Dimension scores are inconsistent with evidence quality ratings.",
+
+        "severity": "Medium",
+
+        "failure_action": "Require recalculation",
+
+        "recommended_action": "Review scoring logic."
+      }
+    },
+
+
+    "schema_validation_policy": {
+
+
+      "required_sections": [
+
+        "metadata",
+
+        "qualification_policy",
+
+        "evidence_evaluation_policy",
+
+        "dimension_scoring_policy",
+
+        "overall_scoring_policy",
+
+        "qualification_decision_policy",
+
+        "confidence_policy",
+
+        "critical_gate_policy",
+
+        "risk_penalty_policy",
+
+        "recommendation_policy",
+
+        "gemini_reasoning_policy",
+
+        "revenue_motion_overrides",
+
+        "validation_policy"
+      ],
+
+
+      "required_policy_attributes": [
+
+        "policy_id",
+
+        "purpose",
+
+        "ai_policy"
+      ],
+
+
+      "validation_behavior": {
+
+        "missing_required_section": "Configuration invalid",
+
+        "missing_policy_id": "Configuration invalid",
+
+        "missing_ai_policy": "AI governance incomplete"
+      }
+    },
+
+
+    "output_validation_policy": {
+
+
+      "required_outputs": [
+
+        "SQL Qualification Decision",
+
+        "Overall SQL Score",
+
+        "Confidence Score",
+
+        "Dimension Scores",
+
+        "Evidence Summary",
+
+        "Qualification Risks",
+
+        "Missing Evidence",
+
+        "Recommended Actions"
+      ],
+
+
+      "output_quality_rules": {
+
+
+        "explainability_required": true,
+
+
+        "unsupported_claims_allowed": false,
+
+
+        "recommendations_required": true,
+
+
+        "risk_disclosure_required": true
+      }
+    },
+
+
+    "continuous_improvement_policy": {
+
+
+      "purpose": "Enable future optimization of qualification rules based on operational learning.",
+
+
+      "feedback_sources": [
+
+        "Sales outcomes",
+
+        "Opportunity progression",
+
+        "Win/loss analysis",
+
+        "User feedback",
+
+        "AI recommendation performance"
+      ],
+
+
+      "improvement_actions": [
+
+        "Adjust scoring weights",
+
+        "Refine qualification thresholds",
+
+        "Improve recommendation rules",
+
+        "Update revenue motion overrides"
+      ]
+    }
+  }
+ }
+}

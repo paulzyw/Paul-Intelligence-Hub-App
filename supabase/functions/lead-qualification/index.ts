@@ -134,6 +134,332 @@ serve(async (req: Request) => {
 
     const ai = new GoogleGenAI({ apiKey });
 
+    // ---------------------------------------------------------
+    // SQL QUALIFICATION MODULE ACTIONS ROUTER
+    // ---------------------------------------------------------
+    if (action === 'create-sql-assessment') {
+      const { opportunity_id } = body;
+      const supabaseUrl = Deno.env.get('SUPABASE_URL') || process.env.VITE_SUPABASE_URL;
+      const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || process.env.VITE_SUPABASE_ANON_KEY;
+      if (!supabaseUrl || !supabaseKey) throw new Error('Supabase credentials not configured.');
+      const supabase = createClient(supabaseUrl, supabaseKey);
+
+      const { data, error } = await supabase.from('sql_assessments').insert({
+        opportunity_id,
+        assessment_status: 'created'
+      }).select().single();
+      if (error) throw error;
+
+      return new Response(JSON.stringify({ assessment_id: data.id, status: 'created' }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
+
+    if (action === 'submit-sql-evidence') {
+      const { assessment_id, evidence } = body; // evidence is array of records
+      const supabaseUrl = Deno.env.get('SUPABASE_URL') || process.env.VITE_SUPABASE_URL;
+      const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || process.env.VITE_SUPABASE_ANON_KEY;
+      if (!supabaseUrl || !supabaseKey) throw new Error('Supabase credentials not configured.');
+      const supabase = createClient(supabaseUrl, supabaseKey);
+
+      // Insert or upsert multiple evidence records
+      const { data, error } = await supabase.from('sql_evidence_records').upsert(
+        evidence.map((ev: any) => ({
+          assessment_id,
+          dimension_code: ev.dimension_code,
+          evidence_object_id: ev.evidence_object_id,
+          evidence_content: ev.evidence_content,
+          evidence_source: ev.evidence_source || 'Sales Rep',
+          validation_status: ev.validation_status || 'unverified'
+        })),
+        { onConflict: 'assessment_id,evidence_object_id' }
+      ).select();
+
+      if (error) throw error;
+
+      // Update assessment status
+      await supabase.from('sql_assessments').update({
+        assessment_status: 'collecting_evidence'
+      }).eq('id', assessment_id);
+
+      return new Response(JSON.stringify({ status: 'success', upserted: data }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
+
+    if (action === 'execute-sql-reasoning') {
+      const { assessment_id, industry_context, evidence_context, qualification_policy } = body;
+      const supabaseUrl = Deno.env.get('SUPABASE_URL') || process.env.VITE_SUPABASE_URL;
+      const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || process.env.VITE_SUPABASE_ANON_KEY;
+      if (!supabaseUrl || !supabaseKey) throw new Error('Supabase credentials not configured.');
+      const supabase = createClient(supabaseUrl, supabaseKey);
+
+      // Update assessment status to processing
+      await supabase.from('sql_assessments').update({ assessment_status: 'ai_processing' }).eq('id', assessment_id);
+
+      // Fetch opportunity details
+      const { data: assessment, error: assessError } = await supabase.from('sql_assessments').select('*, opportunities(*)').eq('id', assessment_id).single();
+      if (assessError) throw assessError;
+
+      const opportunity = assessment.opportunities;
+
+      // Fetch all evidence records entered so far
+      const { data: evidenceRecords, error: evError } = await supabase.from('sql_evidence_records').select('*').eq('assessment_id', assessment_id);
+      if (evError) throw evError;
+
+      // Format the prompt for Gemini using 10 MEDDPICC dimensions
+      const systemInstruction = `You are the RevOS SQL Qualification Reasoning Engine.
+You are an AI sales qualification strategist specialized in enterprise opportunity assessment.
+Your role is to analyze sales opportunities using evidence-based reasoning, qualification policies, and structured business analysis.
+You must follow SQL Reasoning Strategy Specification v1.0.
+All conclusions must be grounded in available evidence. Do not fabricate facts.`;
+
+      const prompt = `
+=== OPPORTUNITY CONTEXT ===
+Opportunity Name: ${opportunity.opportunity_name}
+Company Name: ${opportunity.company_name}
+Revenue Motion: ${opportunity.revenue_motion || 'Generic Solution Selling'}
+Industry: ${opportunity.industry || 'Enterprise Software'}
+Description: ${opportunity.description || 'N/A'}
+Source: ${opportunity.source || 'MQL'}
+MQL Reference ID: ${opportunity.mql_reference_id || 'N/A'}
+
+=== APPLICABLE INDUSTRY CONTEXT ===
+${JSON.stringify(industry_context || {})}
+
+=== EVIDENCE DEFINITIONS & KNOWLEDGE BASE ===
+${JSON.stringify(evidence_context || {})}
+
+=== QUALIFICATION POLICY & RULES ===
+${JSON.stringify(qualification_policy || {})}
+
+=== USER-PROVIDED EVIDENCE RECORDS ===
+${evidenceRecords.map(rec => `
+- **Dimension**: ${rec.dimension_code}
+- **Evidence Object ID**: ${rec.evidence_object_id}
+- **Content**: "${rec.evidence_content}"
+- **Source**: ${rec.evidence_source}
+- **Validation Status**: ${rec.validation_status}
+`).join('\n')}
+
+Analyze this opportunity across the 10 SQL qualification dimensions:
+1. Business Problem (businessProblem)
+2. Metrics & Success Criteria (metricsSuccessCriteria)
+3. Business Value (businessValue)
+4. Solution Alignment (solutionAlignment)
+5. Stakeholder Alignment (stakeholderAlignment)
+6. Decision Criteria (decisionCriteria)
+7. Buying Process & Governance (buyingProcessGovernance)
+8. Commercial Readiness (commercialReadiness)
+9. Opportunity Momentum (opportunityMomentum)
+10. Competitive Position (competitivePosition)
+
+Follow the 10-stage reasoning lifecycle. Generate qualification status (Qualified, Conditionally Qualified, Needs More Evidence, Disqualified), overall score, confidence score, and specific dimension-level results (0-100 score, confidence, summary, strengths, weaknesses, risks). Generate priority actionable recommendations.
+`;
+
+      const startTime = Date.now();
+
+      const response = await ai.models.generateContent({
+        model: 'gemini-3.1-flash-lite',
+        contents: prompt,
+        config: {
+          systemInstruction,
+          responseMimeType: "application/json",
+          responseSchema: {
+            type: Type.OBJECT,
+            properties: {
+              qualification_summary: {
+                type: Type.OBJECT,
+                properties: {
+                  qualification_status: { type: Type.STRING },
+                  overall_score: { type: Type.NUMBER },
+                  confidence_score: { type: Type.NUMBER },
+                  summary: { type: Type.STRING }
+                },
+                required: ["qualification_status", "overall_score", "confidence_score", "summary"]
+              },
+              dimension_assessments: {
+                type: Type.ARRAY,
+                items: {
+                  type: Type.OBJECT,
+                  properties: {
+                    dimension_code: { type: Type.STRING },
+                    dimension_name: { type: Type.STRING },
+                    score: { type: Type.NUMBER },
+                    confidence: { type: Type.NUMBER },
+                    assessment_summary: { type: Type.STRING },
+                    strengths: { type: Type.ARRAY, items: { type: Type.STRING } },
+                    weaknesses: { type: Type.ARRAY, items: { type: Type.STRING } },
+                    risks: { type: Type.ARRAY, items: { type: Type.STRING } }
+                  },
+                  required: ["dimension_code", "dimension_name", "score", "confidence", "assessment_summary", "strengths", "weaknesses", "risks"]
+                }
+              },
+              evidence_assessments: {
+                type: Type.ARRAY,
+                items: {
+                  type: Type.OBJECT,
+                  properties: {
+                    evidence_object_id: { type: Type.STRING },
+                    evidence_strength: { type: Type.STRING },
+                    validation_assessment: { type: Type.STRING },
+                    depth_assessment: { type: Type.STRING }
+                  },
+                  required: ["evidence_object_id", "evidence_strength", "validation_assessment", "depth_assessment"]
+                }
+              },
+              risk_analysis: {
+                type: Type.ARRAY,
+                items: {
+                  type: Type.OBJECT,
+                  properties: {
+                    category: { type: Type.STRING },
+                    risk_description: { type: Type.STRING },
+                    severity: { type: Type.STRING }
+                  },
+                  required: ["category", "risk_description", "severity"]
+                }
+              },
+              recommendations: {
+                type: Type.ARRAY,
+                items: {
+                  type: Type.OBJECT,
+                  properties: {
+                    recommendation_id: { type: Type.STRING },
+                    category: { type: Type.STRING },
+                    priority: { type: Type.STRING },
+                    related_dimension: { type: Type.STRING },
+                    action: { type: Type.STRING },
+                    expected_business_impact: { type: Type.STRING }
+                  },
+                  required: ["recommendation_id", "category", "priority", "related_dimension", "action", "expected_business_impact"]
+                }
+              },
+              explainability: {
+                type: Type.OBJECT,
+                properties: {
+                  decision_reasoning: { type: Type.STRING },
+                  key_decision_factors: { type: Type.ARRAY, items: { type: Type.STRING } }
+                },
+                required: ["decision_reasoning", "key_decision_factors"]
+              },
+              validation: {
+                type: Type.OBJECT,
+                properties: {
+                  validation_status: { type: Type.STRING },
+                  missing_information: { type: Type.ARRAY, items: { type: Type.STRING } }
+                },
+                required: ["validation_status", "missing_information"]
+              }
+            },
+            required: ["qualification_summary", "dimension_assessments", "evidence_assessments", "risk_analysis", "recommendations", "explainability", "validation"]
+          }
+        }
+      });
+
+      const result = JSON.parse(response.text || '{}');
+      const executionTimeMs = Date.now() - startTime;
+
+      // Save Reasoning Session
+      await supabase.from('sql_reasoning_sessions').insert({
+        assessment_id,
+        model_name: 'gemini-3.1-flash-lite',
+        prompt_version: 'v1.0',
+        input_context: { opportunity, evidenceRecords },
+        output_response: result,
+        execution_status: 'success',
+        execution_time_ms: executionTimeMs
+      });
+
+      // Save Dimension Results
+      if (result.dimension_assessments && Array.isArray(result.dimension_assessments)) {
+        await supabase.from('sql_dimension_results').delete().eq('assessment_id', assessment_id);
+        
+        await supabase.from('sql_dimension_results').insert(
+          result.dimension_assessments.map((da: any) => ({
+            assessment_id,
+            dimension_code: da.dimension_code,
+            dimension_name: da.dimension_name,
+            score: da.score,
+            confidence: da.confidence,
+            assessment_summary: da.assessment_summary,
+            strengths: da.strengths,
+            weaknesses: da.weaknesses,
+            risks: da.risks
+          }))
+        );
+      }
+
+      // Save Recommendations
+      if (result.recommendations && Array.isArray(result.recommendations)) {
+        await supabase.from('sql_recommendations').delete().eq('assessment_id', assessment_id);
+        
+        await supabase.from('sql_recommendations').insert(
+          result.recommendations.map((rec: any) => ({
+            assessment_id,
+            dimension_code: rec.related_dimension,
+            priority: rec.priority,
+            recommendation: rec.action,
+            expected_impact: rec.expected_business_impact,
+            status: 'pending'
+          }))
+        );
+      }
+
+      // Update assessment with results
+      const { data: updatedAssessment, error: updateAssessError } = await supabase.from('sql_assessments').update({
+        assessment_status: 'completed',
+        qualification_status: result.qualification_summary.qualification_status,
+        overall_score: result.qualification_summary.overall_score,
+        confidence_score: result.qualification_summary.confidence_score,
+        completed_at: new Date().toISOString()
+      }).eq('id', assessment_id).select().single();
+
+      if (updateAssessError) throw updateAssessError;
+
+      return new Response(JSON.stringify({
+        assessment: updatedAssessment,
+        result
+      }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
+
+    if (action === 'retrieve-sql-assessment-result') {
+      const { assessment_id } = body;
+      const supabaseUrl = Deno.env.get('SUPABASE_URL') || process.env.VITE_SUPABASE_URL;
+      const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || process.env.VITE_SUPABASE_ANON_KEY;
+      if (!supabaseUrl || !supabaseKey) throw new Error('Supabase credentials not configured.');
+      const supabase = createClient(supabaseUrl, supabaseKey);
+
+      // Fetch assessment & opportunity
+      const { data: assessment, error: assessError } = await supabase.from('sql_assessments').select('*, opportunities(*)').eq('id', assessment_id).single();
+      if (assessError) throw assessError;
+
+      // Fetch dimension results
+      const { data: dimensions, error: dimError } = await supabase.from('sql_dimension_results').select('*').eq('assessment_id', assessment_id);
+      if (dimError) throw dimError;
+
+      // Fetch recommendations
+      const { data: recommendations, error: recError } = await supabase.from('sql_recommendations').select('*').eq('assessment_id', assessment_id);
+      if (recError) throw recError;
+
+      // Fetch evidence records
+      const { data: evidence, error: evError } = await supabase.from('sql_evidence_records').select('*').eq('assessment_id', assessment_id);
+      if (evError) throw evError;
+
+      return new Response(JSON.stringify({
+        assessment,
+        dimensions,
+        recommendations,
+        evidence
+      }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
+
+    const ai = new GoogleGenAI({ apiKey });
+
     if (action === 'generate-sales-handover') {
       const { lead, campaign, qualificationResult } = body;
       

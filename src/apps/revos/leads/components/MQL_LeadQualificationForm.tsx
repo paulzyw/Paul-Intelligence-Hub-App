@@ -3,7 +3,7 @@ import { MQLConfigService } from '../services/mqlConfigLoader';
 import { MQLLead, MQLCampaign, MQLEvidenceAssessment } from '../../types/mql';
 import { Save, Bot, AlertTriangle, CheckCircle, Info, Sparkles, AlertCircle, HelpCircle } from 'lucide-react';
 
-interface LeadQualificationFormProps {
+interface MQL_LeadQualificationFormProps {
   campaign: MQLCampaign;
   lead: MQLLead;
   initialData?: MQLEvidenceAssessment[];
@@ -182,7 +182,7 @@ const EvidenceCard: React.FC<EvidenceCardProps> = ({
   );
 };
 
-export const LeadQualificationForm: React.FC<LeadQualificationFormProps> = ({
+export const MQL_LeadQualificationForm: React.FC<MQL_LeadQualificationFormProps> = ({
   campaign,
   lead,
   initialData = [],
@@ -411,7 +411,7 @@ export const LeadQualificationForm: React.FC<LeadQualificationFormProps> = ({
         <div>
           <span className="text-[10px] font-mono text-text-secondary uppercase">Unified Diagnostic Suite</span>
           <h2 className="text-base font-black text-text-primary uppercase tracking-wide mt-0.5">
-            Lead Qualification Form
+            MQL Qualification Form
           </h2>
           <p className="text-xs text-text-secondary mt-1">
             Populate evidence points retrieved matching <span className="font-bold text-text-primary">{config.industry.name}</span> configurations under <span className="font-bold text-text-primary">{config.industry.revenueMotion.replace(/_/g, ' ')}</span> motion.

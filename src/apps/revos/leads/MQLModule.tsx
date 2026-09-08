@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { CampaignForm } from './components/CampaignForm';
-import { DynamicEvidenceForm } from './components/DynamicEvidenceForm';
-import { LeadQualificationForm } from './components/LeadQualificationForm';
-import { QualificationResult } from './components/QualificationResult';
+import { MQL_DynamicEvidenceForm } from './components/MQL_DynamicEvidenceForm';
+import { MQL_LeadQualificationForm } from './components/MQL_LeadQualificationForm';
+import { MQL_QualificationResult } from './components/MQL_QualificationResult';
+import { SQLQualificationModule } from './components/SQLQualificationModule';
 import { LeadDashboard } from './components/LeadDashboard';
 import { LeadCanvas } from './components/LeadCanvas';
+import { MQLToSQLDetailsPage } from './components/MQLToSQLDetailsPage';
 import { CsvImportModal } from './components/CsvImportModal';
 import { MQLDataService } from './services/mqlDataService';
 import { MQLConfigService } from './services/mqlConfigLoader';
@@ -71,12 +73,12 @@ export const MQLModule: React.FC = () => {
   const [campaignFilterId, setCampaignFilterId] = useState<string>('all');
   const [targetCampaignId, setTargetCampaignId] = useState<string>('');
   
-  // Views: campaign_config (Campaign Details), lead_list, lead_create, lead_assess
-  const [view, setView] = useState<'campaign_config' | 'lead_list' | 'lead_create' | 'lead_assess' | 'lead_canvas'>('campaign_config');
+  // Views: campaign_config (Campaign Details), lead_list, lead_create, lead_assess, sql_handover
+  const [view, setView] = useState<'campaign_config' | 'lead_list' | 'lead_create' | 'lead_assess' | 'lead_canvas' | 'sql_handover'>('campaign_config');
   const [loading, setLoading] = useState(true);
 
-  // High-level horizontal navigation: 'campaign' | 'lead_canvas' | 'lead' | 'dashboard'
-  const [activeTab, setActiveTab] = useState<'campaign' | 'lead_canvas' | 'lead' | 'dashboard'>('campaign');
+  // High-level horizontal navigation: 'campaign' | 'lead_canvas' | 'lead' | 'dashboard' | 'sql_qualification'
+  const [activeTab, setActiveTab] = useState<'campaign' | 'lead_canvas' | 'lead' | 'dashboard' | 'sql_qualification'>('campaign');
 
   // Campaign qualification results for the Lead Dashboard
   const [campaignQualResults, setCampaignQualResults] = useState<MQLQualificationResult[]>([]);
@@ -129,6 +131,36 @@ export const MQLModule: React.FC = () => {
     loadInitialData();
   }, []);
 
+  // Temporary fix to restore Birty Technology lead back to MQL
+  useEffect(() => {
+    const fixLead = async () => {
+      const target = leads.find(l => l.company_name?.includes('Birty') && l.status === 'SQL');
+      if (target) {
+        try {
+          await MQLDataService.updateLead(target.id, { status: 'Highly Qualified MQL', handover_status: undefined });
+          localStorage.removeItem(`mql_handover_${target.id}`);
+          const newLeads = await MQLDataService.getLeads();
+          setLeads(newLeads);
+          
+          // Try to delete opp if it exists, but do it quietly
+          try {
+            const { supabase } = await import('@/src/lib/supabase');
+            const { data } = await supabase.from('opportunities').select('id').eq('lead_id', target.id);
+            if (data && data.length > 0) {
+              await supabase.from('opportunities').delete().eq('id', data[0].id);
+            }
+          } catch(e) {}
+          
+        } catch (e) {
+          console.error('Failed to fix lead:', e);
+        }
+      }
+    };
+    if (leads.length > 0) {
+      fixLead();
+    }
+  }, [leads]);
+
   const loadInitialData = async () => {
     setLoading(true);
     try {
@@ -170,7 +202,7 @@ export const MQLModule: React.FC = () => {
     }
   };
 
-  const handleTabChange = (tab: 'campaign' | 'lead_canvas' | 'lead' | 'dashboard') => {
+  const handleTabChange = (tab: 'campaign' | 'lead_canvas' | 'lead' | 'dashboard' | 'sql_qualification') => {
     setActiveTab(tab);
     if (tab === 'campaign') {
       setView('campaign_config');
@@ -205,7 +237,7 @@ export const MQLModule: React.FC = () => {
     }
   };
 
-  const handleEditLeadClick = async (lead: MQLLead) => {
+  const handleEditLeadClick = async (lead: MQLLead, columnType?: 'lead' | 'mql' | 'sql' | 'opp') => {
     setSelectedLead(lead);
     setTargetCampaignId(lead.campaign_id);
     const leadCampaign = campaigns.find(c => c.id === lead.campaign_id);
@@ -238,7 +270,18 @@ export const MQLModule: React.FC = () => {
         lead_date: lead.lead_date || extra.lead_date || ''
       });
       
-      setView('lead_create');
+      // Isolate lead column clicks from mql column clicks.
+      // Clicks on the 'mql' column cards go to the new MQL-to-SQL details and Opportunity Form page (sql_handover view).
+      // Clicks on the 'lead' column cards or any other source always go to the original lead creation / MQL qualification engine view (lead_create).
+      if (columnType === 'mql') {
+        if (lead.status && (lead.status.includes('Qualified') || lead.status === 'Highly Qualified MQL')) {
+          setView('sql_handover');
+        } else {
+          setView('lead_create');
+        }
+      } else {
+        setView('lead_create');
+      }
     } catch (e) {
       console.error(e);
     } finally {
@@ -609,7 +652,7 @@ export const MQLModule: React.FC = () => {
           // 4. Email
           const email = (lead.email || '').toLowerCase();
           
-          // 5. Industry from extra details
+          // 5. Segment from extra details
           let leadIndustry = '—';
           try {
             const extraJson = localStorage.getItem(`mql_lead_extra_${lead.id}`);
@@ -655,7 +698,7 @@ export const MQLModule: React.FC = () => {
             }
           }
 
-          // 9. Qualification Status
+          // 9. MQL Status
           const statusVal = (lead.status || 'New').toLowerCase();
 
           const matches = contactName.includes(query) ||
@@ -689,11 +732,11 @@ export const MQLModule: React.FC = () => {
           "Organization",
           "Title",
           "Email",
-          "Industry",
+          "Segment",
           "Overall Score",
           "Confidence",
           "Sales Handover",
-          "Qualification Status"
+          "MQL Status"
         ];
 
         const rows = leadsToExport.map(lead => {
@@ -1055,7 +1098,7 @@ export const MQLModule: React.FC = () => {
                     </th>
                     <th className="px-6 py-2.5 font-bold">Contact</th>
                     <th className="px-6 py-2.5 font-bold">Organization</th>
-                    <th className="px-6 py-2.5 font-bold">Industry</th>
+                    <th className="px-6 py-2.5 font-bold">Segment</th>
                     <th className="px-6 py-2.5 font-bold">Score</th>
                     <th className="px-6 py-2.5 font-bold">Confidence</th>
                     <th className="px-6 py-2.5 font-bold">Handover</th>
@@ -1486,7 +1529,7 @@ export const MQLModule: React.FC = () => {
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-bold text-text-primary mb-1.5 font-sans">Industry *</label>
+                    <label className="block text-xs font-bold text-text-primary mb-1.5 font-sans">Business Segment *</label>
                     <input
                       required
                       disabled={isSaved}
@@ -1626,7 +1669,7 @@ export const MQLModule: React.FC = () => {
           {/* Lead Qualification Form Unfolds Right Below */}
           {isLeadSaved && (
             <div className="p-6 sm:p-8 rounded-2xl bg-bg-surface border border-border space-y-6 animate-in fade-in duration-300">
-              <LeadQualificationForm
+              <MQL_LeadQualificationForm
                 campaign={selectedCampaign || campaigns.find(c => c.id === selectedLead?.campaign_id) || campaigns[0]}
                 lead={selectedLead!}
                 initialData={assessmentData}
@@ -1641,7 +1684,7 @@ export const MQLModule: React.FC = () => {
           {/* AI Qualification Results displays right below after evaluation */}
           {isLeadSaved && qualResult && (
             <div className="animate-in fade-in slide-in-from-top-3 duration-300">
-              <QualificationResult 
+              <MQL_QualificationResult 
                 result={qualResult} 
                 onSave={handleSaveQualificationResult}
                 saving={savingQual}
@@ -1703,7 +1746,7 @@ export const MQLModule: React.FC = () => {
                 )}
                 {lead_industry && (
                   <div>
-                    <span className="text-[10px] font-mono text-text-secondary uppercase block">Industry</span>
+                    <span className="text-[10px] font-mono text-text-secondary uppercase block">Business Segment</span>
                     <span className="text-text-primary font-bold mt-0.5 block">{lead_industry}</span>
                   </div>
                 )}
@@ -1748,7 +1791,7 @@ export const MQLModule: React.FC = () => {
           </div>
           
           <div className="p-6 sm:p-8 rounded-2xl bg-bg-surface border border-border">
-            <LeadQualificationForm
+            <MQL_LeadQualificationForm
               campaign={selectedCampaign || campaigns.find(c => c.id === selectedLead?.campaign_id) || campaigns[0]}
               lead={selectedLead}
               initialData={assessmentData}
@@ -1761,7 +1804,7 @@ export const MQLModule: React.FC = () => {
 
           {qualResult && (
             <div className="animate-in fade-in slide-in-from-top-3 duration-300">
-              <QualificationResult 
+              <MQL_QualificationResult 
                 result={qualResult} 
                 onSave={handleSaveQualificationResult}
                 saving={savingQual}
@@ -1769,6 +1812,32 @@ export const MQLModule: React.FC = () => {
             </div>
           )}
         </div>
+      );
+    }
+
+    if (view === 'sql_handover' && selectedLead) {
+      return (
+        <MQLToSQLDetailsPage 
+          lead={selectedLead}
+          campaign={selectedCampaign}
+          qualResult={qualResult}
+          onBack={() => {
+            setSelectedLead(null);
+            setView('lead_canvas');
+          }}
+          onPromoteSuccess={async () => {
+            try {
+              const fetchedLeads = await MQLDataService.getLeads();
+              setLeads(fetchedLeads);
+            } catch (err) {
+              console.error(err);
+            }
+            setSelectedLead(null);
+            setView('lead_canvas');
+            // Navigate the user to the SQL Qualification tab so they see their new opportunity instantly!
+            handleTabChange('sql_qualification');
+          }}
+        />
       );
     }
 
@@ -1802,7 +1871,7 @@ export const MQLModule: React.FC = () => {
           <span className="text-[10px] font-mono text-text-secondary uppercase">Unified qualification lifecycle sequence</span>
           <span className="text-xs font-bold text-accent">
             Active qualification step: {
-              activeTab === 'campaign' ? '1 / 3' : (activeTab === 'lead_canvas' || activeTab === 'lead') ? '2 / 3' : '3 / 3'
+              activeTab === 'campaign' ? '1 / 4' : (activeTab === 'lead_canvas' || activeTab === 'lead') ? '2 / 4' : activeTab === 'dashboard' ? '3 / 4' : '4 / 4'
             }
           </span>
         </div>
@@ -1844,11 +1913,27 @@ export const MQLModule: React.FC = () => {
             <span className="font-mono">3.</span>
             <span>Lead Dashboard</span>
           </button>
+
+          <button
+            onClick={() => handleTabChange('sql_qualification')}
+            className={`inline-flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl border text-[10px] sm:text-xs font-bold uppercase transition-all shrink-0 cursor-pointer ${
+              activeTab === 'sql_qualification'
+                ? 'bg-accent border-accent text-black font-black scale-105 shadow-md shadow-accent/15'
+                : 'bg-bg-primary/50 border-border/70 text-text-secondary hover:text-text-primary hover:border-text-secondary/40'
+            }`}
+          >
+            <span className="font-mono">4.</span>
+            <span>SQL Qualification</span>
+          </button>
         </div>
       </div>
 
       {/* Main Core Columns */}
-      {activeTab === 'campaign' ? (
+      {activeTab === 'sql_qualification' ? (
+        <div className="bg-bg-surface border border-border rounded-2xl shadow-sm overflow-hidden">
+          <SQLQualificationModule />
+        </div>
+      ) : activeTab === 'campaign' ? (
         <div className="flex flex-col lg:grid lg:grid-cols-12 gap-6">
           {/* Left Side: Campaigns Register List (Col 4) */}
           <div className="w-full lg:col-span-4 p-5 rounded-2xl bg-bg-surface border border-border flex flex-col shadow-sm">
