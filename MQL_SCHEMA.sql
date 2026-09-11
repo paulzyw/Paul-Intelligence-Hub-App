@@ -80,9 +80,16 @@ ALTER TABLE public.mql_qualification_results ENABLE ROW LEVEL SECURITY;
 -- In a real app we'd join on org_id with the user's profile. Here we allow authenticated users to access data.
 
 CREATE POLICY "Allow authenticated access to mql_campaigns" ON public.mql_campaigns FOR ALL TO authenticated USING (true);
+CREATE POLICY "Allow anon access to mql_campaigns" ON public.mql_campaigns FOR ALL TO anon USING (true);
+
 CREATE POLICY "Allow authenticated access to mql_leads" ON public.mql_leads FOR ALL TO authenticated USING (true);
+CREATE POLICY "Allow anon access to mql_leads" ON public.mql_leads FOR ALL TO anon USING (true);
+
 CREATE POLICY "Allow authenticated access to mql_evidence_assessments" ON public.mql_evidence_assessments FOR ALL TO authenticated USING (true);
+CREATE POLICY "Allow anon access to mql_evidence_assessments" ON public.mql_evidence_assessments FOR ALL TO anon USING (true);
+
 CREATE POLICY "Allow authenticated access to mql_qualification_results" ON public.mql_qualification_results FOR ALL TO authenticated USING (true);
+CREATE POLICY "Allow anon access to mql_qualification_results" ON public.mql_qualification_results FOR ALL TO anon USING (true);
 
 -- Grant permissions to Data API (Supabase requirement post-May 2026)
 GRANT SELECT, INSERT, UPDATE, DELETE ON public.mql_campaigns TO anon;
