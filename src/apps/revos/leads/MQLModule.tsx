@@ -252,11 +252,15 @@ export const MQLModule: React.FC = () => {
         lead_date: initialLeadData.lead_date || extra.lead_date || ''
       });
       
-      // Isolate lead column clicks from mql column clicks.
-      // Clicks on the 'mql' column cards go to the new MQL-to-SQL details and Opportunity Form page (sql_handover view).
+      // Isolate lead column clicks from mql, sql, and opp column clicks.
+      // Clicks on these cards go to the new MQL-to-SQL details and Opportunity Form page (sql_handover view) if qualified or already promoted.
       // Clicks on the 'lead' column cards or any other source always go to the original lead creation / MQL qualification engine view (lead_create).
-      if (columnType === 'mql') {
-        if (lead.status && (lead.status.includes('Qualified') || lead.status === 'Highly Qualified MQL')) {
+      if (columnType === 'mql' || columnType === 'sql' || columnType === 'opp') {
+        const promotedLeadIdsJson = localStorage.getItem('mql_promoted_leads');
+        const promotedLeadIds = promotedLeadIdsJson ? JSON.parse(promotedLeadIdsJson) : [];
+        const isPromoted = lead.status === 'SQL' || promotedLeadIds.includes(lead.id);
+
+        if (isPromoted || (lead.status && (lead.status.includes('Qualified') || lead.status === 'Highly Qualified MQL'))) {
           setView('sql_handover');
         } else {
           setView('lead_create');
