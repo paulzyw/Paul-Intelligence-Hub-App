@@ -7,6 +7,14 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+const getEnv = (key: string): string => {
+  try {
+    return Deno.env.get(key) || "";
+  } catch (e) {
+    return "";
+  }
+};
+
 function buildQualificationPrompt(lead: any, assessments: any[], campaign: any, combinedConfig: any, ruleSet: any) {
   // Build a mapping of evidence definitions for easy prompt injection
   const evidenceMap = new Map();
@@ -139,8 +147,8 @@ serve(async (req: Request) => {
     // ---------------------------------------------------------
     if (action === 'create-sql-assessment') {
       const { opportunity_id } = body;
-      const supabaseUrl = Deno.env.get('SUPABASE_URL') || process.env.VITE_SUPABASE_URL;
-      const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || process.env.VITE_SUPABASE_ANON_KEY;
+      const supabaseUrl = getEnv('SUPABASE_URL');
+      const supabaseKey = getEnv('SUPABASE_SERVICE_ROLE_KEY') || getEnv('SUPABASE_ANON_KEY');
       if (!supabaseUrl || !supabaseKey) throw new Error('Supabase credentials not configured.');
       const supabase = createClient(supabaseUrl, supabaseKey);
 
@@ -157,8 +165,8 @@ serve(async (req: Request) => {
 
     if (action === 'submit-sql-evidence') {
       const { assessment_id, evidence } = body; // evidence is array of records
-      const supabaseUrl = Deno.env.get('SUPABASE_URL') || process.env.VITE_SUPABASE_URL;
-      const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || process.env.VITE_SUPABASE_ANON_KEY;
+      const supabaseUrl = getEnv('SUPABASE_URL');
+      const supabaseKey = getEnv('SUPABASE_SERVICE_ROLE_KEY') || getEnv('SUPABASE_ANON_KEY');
       if (!supabaseUrl || !supabaseKey) throw new Error('Supabase credentials not configured.');
       const supabase = createClient(supabaseUrl, supabaseKey);
 
@@ -189,8 +197,8 @@ serve(async (req: Request) => {
 
     if (action === 'execute-sql-reasoning') {
       const { assessment_id, industry_context, evidence_context, qualification_policy } = body;
-      const supabaseUrl = Deno.env.get('SUPABASE_URL') || process.env.VITE_SUPABASE_URL;
-      const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || process.env.VITE_SUPABASE_ANON_KEY;
+      const supabaseUrl = getEnv('SUPABASE_URL');
+      const supabaseKey = getEnv('SUPABASE_SERVICE_ROLE_KEY') || getEnv('SUPABASE_ANON_KEY');
       if (!supabaseUrl || !supabaseKey) throw new Error('Supabase credentials not configured.');
       const supabase = createClient(supabaseUrl, supabaseKey);
 
@@ -207,12 +215,113 @@ serve(async (req: Request) => {
       const { data: evidenceRecords, error: evError } = await supabase.from('sql_evidence_records').select('*').eq('assessment_id', assessment_id);
       if (evError) throw evError;
 
-      // Format the prompt for Gemini using 10 MEDDPICC dimensions
+      // Extract and map all defined evidence objects across all dimensions in evidence_context
+      const allDefinedEvidence: any[] = [];
+      if (evidence_context) {
+        Object.entries(evidence_context).forEach(([dimensionName, items]) => {
+          if (Array.isArray(items)) {
+            items.forEach((item: any) => {
+              allDefinedEvidence.push({
+                ...item,
+                dimension_name: dimensionName
+              });
+            });
+          }
+        });
+      }
+
+      // Map evidenceRecords by evidence_object_id for easy lookup
+      const evidenceRecordsMap = new Map();
+      if (evidenceRecords && Array.isArray(evidenceRecords)) {
+        evidenceRecords.forEach((rec: any) => {
+          evidenceRecordsMap.set(rec.evidence_object_id, rec);
+        });
+      }
+
+       // Format the prompt for Gemini using 10 MEDDPICC dimensions and canonical SQL_qualification_rules.json policies
+      const canonicalDimensions = [
+        { code: 'businessProblem', name: 'Business Problem Validation', weight: 0.15, min: 60, mandatory: true },
+        { code: 'businessValue', name: 'Business Value & Financial Impact', weight: 0.15, min: 60, mandatory: true },
+        { code: 'metricsSuccessCriteria', name: 'Metrics & Success Criteria', weight: 0.10, min: 50, mandatory: false },
+        { code: 'solutionAlignment', name: 'Solution Alignment & Technical Fit', weight: 0.10, min: 50, mandatory: false },
+        { code: 'stakeholderAlignment', name: 'Stakeholder Alignment & Champion', weight: 0.10, min: 60, mandatory: true },
+        { code: 'decisionCriteria', name: 'Decision Criteria & Evaluation Process', weight: 0.10, min: 50, mandatory: false },
+        { code: 'buyingProcessGovernance', name: 'Buying Process & Governance', weight: 0.10, min: 50, mandatory: false },
+        { code: 'opportunityMomentum', name: 'Opportunity Momentum & Urgency', weight: 0.10, min: 50, mandatory: false },
+        { code: 'commercialReadiness', name: 'Commercial Readiness & Budget', weight: 0.05, min: 50, mandatory: false },
+        { code: 'competitivePosition', name: 'Competitive Position & Differentiation', weight: 0.05, min: 40, mandatory: false },
+      ];
+
+      const normalizeDimCode = (nameOrCode: string): string => {
+        const s = (nameOrCode || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+        if (s.includes('problem')) return 'businessProblem';
+        if (s.includes('value') || s.includes('financial')) return 'businessValue';
+        if (s.includes('metric') || s.includes('success')) return 'metricsSuccessCriteria';
+        if (s.includes('solution') || s.includes('technical')) return 'solutionAlignment';
+        if (s.includes('stakeholder') || s.includes('champion')) return 'stakeholderAlignment';
+        if (s.includes('criteria') || s.includes('evaluation')) return 'decisionCriteria';
+        if (s.includes('buying') || s.includes('governance') || s.includes('procurement')) return 'buyingProcessGovernance';
+        if (s.includes('momentum') || s.includes('urgency')) return 'opportunityMomentum';
+        if (s.includes('commercial') || s.includes('budget')) return 'commercialReadiness';
+        if (s.includes('competit') || s.includes('differentiat')) return 'competitivePosition';
+        return s;
+      };
+
       const systemInstruction = `You are the RevOS SQL Qualification Reasoning Engine.
 You are an AI sales qualification strategist specialized in enterprise opportunity assessment.
-Your role is to analyze sales opportunities using evidence-based reasoning, qualification policies, and structured business analysis.
-You must follow SQL Reasoning Strategy Specification v1.0.
-All conclusions must be grounded in available evidence. Do not fabricate facts.`;
+Your core persona is an elite synthesis of: Senior McKinsey Strategy Partner + Enterprise Chief Revenue Officer (CRO) + B2B RevOps Architect + Solution Selling Authority.
+Your role is to analyze sales opportunities using rigorous, evidence-based reasoning governed strictly by the canonical SQL Qualification Policy Engine (SQL_qualification_rules.json).
+
+CANONICAL REASONING GOVERNANCE (BASED ON SQL_QUALIFICATION_RULES.JSON - GRP001):
+1. REASONING SEQUENCE (GRP001):
+   - Step 1: Understand Customer Context & Revenue Motion Nuances.
+   - Step 2: Extract & Verify Defined Evidence against Positive/Negative Criteria.
+   - Step 3: Evaluate Evidence Quality & Discount Unverified Claims (EEP001).
+   - Step 4: Calculate Dimension Scores with Evidence Weighting (DSP001).
+   - Step 5: Synthesize Overall Score & Confidence (OSP001 & CFP001).
+   - Step 6: Test Against Non-Negotiable Critical Gates (CG001 - CG005).
+   - Step 7: Determine Qualification Outcome & Generate Actionable Discovery Remediation (QDP001 & RCP001).
+
+2. EVIDENCE QUALITY TIERS (EEP001):
+   - Strong (80-100): Evidence is verified, specific, customer-confirmed, and tied to strategic objectives.
+   - Moderate (50-79): Evidence exists but requires customer validation or quantified metric confirmation.
+   - Weak (20-49): Evidence is incomplete, based on seller assumptions, or insufficiently validated.
+   - Missing / Negative (0-19): Required evidence is unanswered, unknown, or explicitly negated.
+
+3. CRITICAL GATE EVALUATION (CGP001 - MANDATORY GATES):
+   - CG001 (Business Problem Validation): Dimension score below threshold (<60) OR no validated business challenge identified -> BLOCKS SQL qualification (Outcome must be 'Needs_Nurturing' or 'Disqualified', Max Confidence: 40).
+   - CG002 (Customer Evidence Validation): Evidence exists primarily from seller assumptions without customer confirmation -> BLOCKS SQL qualification (Outcome must be 'Needs_Nurturing', Max Confidence: 50).
+   - CG003 (Stakeholder Alignment): No identified business owner, sponsor, or champion -> LIMITS qualification to 'Borderline_SQL' (Max Confidence: 60).
+   - CG004 (Buying Process Visibility): No understanding of customer evaluation, approval, or procurement workflow -> LIMITS qualification to 'Borderline_SQL' (Max Confidence: 60).
+   - CG005 (Commercial Feasibility): No realistic commercial pathway or budget identified -> BLOCKS SQL qualification (Outcome must be 'Disqualified', Max Confidence: 50).
+
+4. DIMENSION WEIGHTING (DSP001 & OSP001):
+   - Business Problem Validation (businessProblem): 15% (Min Threshold: 60, Mandatory)
+   - Business Value & Financial Impact (businessValue): 15% (Min Threshold: 60, Mandatory)
+   - Metrics & Success Criteria (metricsSuccessCriteria): 10% (Min Threshold: 50)
+   - Solution Alignment & Technical Fit (solutionAlignment): 10% (Min Threshold: 50)
+   - Stakeholder Alignment & Champion (stakeholderAlignment): 10% (Min Threshold: 60, Mandatory)
+   - Decision Criteria & Evaluation Process (decisionCriteria): 10% (Min Threshold: 50)
+   - Buying Process & Governance (buyingProcessGovernance): 10% (Min Threshold: 50)
+   - Opportunity Momentum & Urgency (opportunityMomentum): 10% (Min Threshold: 50)
+   - Commercial Readiness & Budget (commercialReadiness): 5% (Min Threshold: 50)
+   - Competitive Position & Differentiation (competitivePosition): 5% (Min Threshold: 40)
+
+5. QUALIFICATION DECISION POLICY (QDP001):
+   - 'SQL_Qualified': Score >= 75, Confidence >= 70, all mandatory dimensions pass (>=60), zero critical gate failures.
+   - 'Borderline_SQL': Score >= 55, Confidence >= 45, zero blocking critical gates (CG001, CG002, CG005 not failed).
+   - 'Needs_Nurturing': Score >= 30, Confidence >= 30, or non-disqualifying gate triggered.
+   - 'Disqualified': Score < 30 OR severe blocker (e.g. CG005 failed).
+
+CORE TONE & FORMAT RULES (ANTI-MACHINERY & CONSULTATIVE PROSE):
+- Write like a polished enterprise consultant and revenue strategist. Use natural, assertive, elegant, and factual business language.
+- Avoid machinery phrasing, programmatic keys, database column names, or question identifiers in your narrative summaries.
+- Relate evidence gaps directly to prospective deal slippage, procurement friction, or competitor displacement risks.
+
+EVIDENCE MATCHING & SCORING FIDELITY (QDP001 / EEP001):
+- High-quality, customer-confirmed evidence answers providing specific metrics, operational impact, strategic linkages, and executive validation represent authentic enterprise qualification excellence. You MUST score these answers in the Strong tier (85-100) and highlight them as key opportunity strengths.
+- Do NOT downgrade an answer that provides explicit customer-verified facts and positive signals.
+- For missing, uncollected, or adverse responses, score in the Missing (0-19) or Weak (20-45) tier and flag appropriate risks.`;
 
       const prompt = `
 === OPPORTUNITY CONTEXT ===
@@ -227,34 +336,86 @@ MQL Reference ID: ${opportunity.mql_reference_id || 'N/A'}
 === APPLICABLE INDUSTRY CONTEXT ===
 ${JSON.stringify(industry_context || {})}
 
-=== EVIDENCE DEFINITIONS & KNOWLEDGE BASE ===
-${JSON.stringify(evidence_context || {})}
+=== CANONICAL QUALIFICATION RULES SPECIFICATION ===
+- Governing Framework: 10 MEDDPICC Dimensions with Canonical Weights:
+  1. Business Problem Validation (15%, Min: 60)
+  2. Business Value & Financial Impact (15%, Min: 60)
+  3. Metrics & Success Criteria (10%, Min: 50)
+  4. Solution Alignment & Technical Fit (10%, Min: 50)
+  5. Stakeholder Alignment & Champion (10%, Min: 60)
+  6. Decision Criteria & Evaluation Process (10%, Min: 50)
+  7. Buying Process & Governance (10%, Min: 50)
+  8. Opportunity Momentum & Urgency (10%, Min: 50)
+  9. Commercial Readiness & Budget (5%, Min: 50)
+  10. Competitive Position & Differentiation (5%, Min: 40)
 
-=== QUALIFICATION POLICY & RULES ===
-${JSON.stringify(qualification_policy || {})}
+- Critical Gates (CG001-CG005):
+  * CG001: BP score < 60 or no validated business challenge -> BLOCKS SQL (Outcome: Needs_Nurturing / Disqualified, Max Conf: 40)
+  * CG002: Customer evidence unconfirmed seller assumptions -> BLOCKS SQL (Outcome: Needs_Nurturing, Max Conf: 50)
+  * CG003: No identified business owner / champion -> LIMITS to Borderline_SQL (Max Conf: 60)
+  * CG004: Unknown evaluation / procurement process -> LIMITS to Borderline_SQL (Max Conf: 60)
+  * CG005: No realistic budget / commercial pathway -> BLOCKS SQL (Outcome: Disqualified, Max Conf: 50)
 
-=== USER-PROVIDED EVIDENCE RECORDS ===
-${evidenceRecords.map(rec => `
-- **Dimension**: ${rec.dimension_code}
-- **Evidence Object ID**: ${rec.evidence_object_id}
-- **Content**: "${rec.evidence_content}"
-- **Source**: ${rec.evidence_source}
-- **Validation Status**: ${rec.validation_status}
-`).join('\n')}
+=== DEFINED EVIDENCE QUESTIONS & ACTUAL USER RESPONSES ===
+Analyze the actual user-entered answer for each and every evidence question below:
 
-Analyze this opportunity across the 10 SQL qualification dimensions:
-1. Business Problem (businessProblem)
-2. Metrics & Success Criteria (metricsSuccessCriteria)
-3. Business Value (businessValue)
-4. Solution Alignment (solutionAlignment)
-5. Stakeholder Alignment (stakeholderAlignment)
-6. Decision Criteria (decisionCriteria)
-7. Buying Process & Governance (buyingProcessGovernance)
-8. Commercial Readiness (commercialReadiness)
-9. Opportunity Momentum (opportunityMomentum)
-10. Competitive Position (competitivePosition)
+${allDefinedEvidence.map(item => {
+  const rec = evidenceRecordsMap.get(item.evidence_id);
+  let actualResponse = "";
+  let notes = "";
 
-Follow the 10-stage reasoning lifecycle. Generate qualification status (Qualified, Conditionally Qualified, Needs More Evidence, Disqualified), overall score, confidence score, and specific dimension-level results (0-100 score, confidence, summary, strengths, weaknesses, risks). Generate priority actionable recommendations.
+  if (rec) {
+    try {
+      const parsed = JSON.parse(rec.evidence_content || "{}");
+      actualResponse = parsed.response || parsed.suggested || "";
+      notes = parsed.notes || "";
+    } catch (e) {
+      actualResponse = rec.evidence_content || "";
+    }
+  }
+
+  const isBlank = !actualResponse || actualResponse.trim() === "" || actualResponse.toLowerCase() === "not specified / unknown";
+  const displayResponse = isBlank ? "[UNANSWERED / NO EVIDENCE COLLECTED]" : actualResponse.trim();
+
+  return `
+  - **Dimension**: ${item.dimension_name}
+  - **Evidence ID**: ${item.evidence_id}
+  - **Evidence Name**: ${item.evidence_name}
+  - **Question Prompt**: "${item.question}"
+  - **Required**: ${item.required ? 'Yes' : 'No'}
+  - **Expected Positive Signals (Reference Standards)**: ${JSON.stringify(item.positive_signals || [])}
+  - **Expected Negative Signals (Adverse Indicators)**: ${JSON.stringify(item.negative_signals || [])}
+  - **Actual User-Entered Answer**: "${displayResponse}"
+  ${notes ? `- **Additional User Notes**: "${notes}"` : ''}
+  `;
+}).join('\n')}
+
+EVALUATION INSTRUCTIONS:
+1. For every question in "evidence_assessments":
+   - CRITICAL: You MUST include an assessment entry for EVERY SINGLE EVIDENCE QUESTION listed above (all ${allDefinedEvidence.length} questions). Do NOT omit, skip, or truncate any question.
+   - "evidence_object_id" MUST be the EXACT "Evidence ID" string provided in the question details above (e.g. "${allDefinedEvidence[0]?.evidence_id || 'ev_01'}").
+   - EVALUATE THE USER'S ACTUAL ANSWER OBJECTIVELY ON ITS SUBSTANTIVE CONTENT:
+     * The user's answer may be manual text input (e.g. discovery findings, interview quotes, operational metrics) or a chosen response.
+     * DO NOT rely on or look for pre-assigned tier categories. Judge the actual semantic content of "Actual User-Entered Answer" directly against "Expected Positive Signals" and "Expected Negative Signals".
+     * POSITIVE SIGNAL EVALUATION (80-100 score, evidence_strength: "strong", matched_type: "positive"):
+       When the text articulates tangible customer validation, quantified operational metrics, executive sponsorship, or clear strategic priority aligning with Expected Positive Signals, you MUST award a Strong Positive score (80-100). Do NOT discount or label customer-verified statements as unverified seller assumptions unless the text itself states it is merely a speculative seller guess.
+     * MODERATE / IN-PROGRESS EVALUATION (50-79 score, evidence_strength: "moderate", matched_type: "neutral"):
+       When the text reflects acknowledged pain or early alignment, but operational metrics or formal approvals remain in progress.
+     * WEAK / ADVERSE EVALUATION (20-49 score, evidence_strength: "weak", matched_type: "negative"):
+       When the text reflects low priority, rep conjecture without customer confirmation, or partial friction.
+     * CRITICAL BLOCKER / MISSING EVALUATION (0-19 score, evidence_strength: "missing", matched_type: "negative"):
+       When the text confirms explicit blocker conditions (e.g. budget frozen, competitor locked in, pain dismissed by leadership), OR when the question is marked [UNANSWERED / NO EVIDENCE COLLECTED].
+   - CRITICAL REQUIREMENT FOR "identification_assessment":
+     Write an authentic, professional, 2-3 sentence executive audit evaluating the user's specific answer against the Expected Positive/Negative signals and citing details from the user's text. Explain why the evidence is strong, moderate, weak, or missing, and its impact on deal qualification under Policy EEP001. If unanswered, state clearly what customer evidence is missing and the specific deal risk it creates.
+   - For "validation_assessment", summarize customer validation rigor and stakeholder confirmation demonstrated in the text.
+   - For "depth_assessment", summarize operational depth and metric quantification demonstrated in the text.
+2. For every dimension in "dimension_assessments", calculate the dimension score (0-100) mathematically reflecting the evidence question scores in that dimension.
+3. In "critical_gates", evaluate all 5 gates (CG001 to CG005) objectively. A gate is triggered (triggered=true) ONLY if the actual evidence text demonstrates the blocker condition.
+4. Calculate "overall_score" and "qualification_status" strictly adhering to QDP001.
+5. Formulate "sql_promotion_recommendation" which contains:
+   - "should_promote": boolean, true if qualification status is 'SQL_Qualified' or 'Borderline_SQL', false otherwise.
+   - "decision": "YES" if should_promote is true, else "NO".
+   - "recommendation_rationale": A dynamic, context-aware 2-3 sentence strategic executive rationale explaining the decision. If yes, highlight key positive evidence, deal momentum, and any trailing validation next steps. If no, highlight the critical evidence gaps or blocker risks. Keep the tone elite, McKinsey-style consultative prose without database or machinery jargon.
 `;
 
       const startTime = Date.now();
@@ -263,6 +424,7 @@ Follow the 10-stage reasoning lifecycle. Generate qualification status (Qualifie
         model: 'gemini-3.1-flash-lite',
         contents: prompt,
         config: {
+          temperature: 0.0,
           systemInstruction,
           responseMimeType: "application/json",
           responseSchema: {
@@ -277,6 +439,19 @@ Follow the 10-stage reasoning lifecycle. Generate qualification status (Qualifie
                   summary: { type: Type.STRING }
                 },
                 required: ["qualification_status", "overall_score", "confidence_score", "summary"]
+              },
+              critical_gates: {
+                type: Type.ARRAY,
+                items: {
+                  type: Type.OBJECT,
+                  properties: {
+                    gate_id: { type: Type.STRING },
+                    gate_name: { type: Type.STRING },
+                    triggered: { type: Type.BOOLEAN },
+                    reason: { type: Type.STRING }
+                  },
+                  required: ["gate_id", "gate_name", "triggered", "reason"]
+                }
               },
               dimension_assessments: {
                 type: Type.ARRAY,
@@ -302,10 +477,13 @@ Follow the 10-stage reasoning lifecycle. Generate qualification status (Qualifie
                   properties: {
                     evidence_object_id: { type: Type.STRING },
                     evidence_strength: { type: Type.STRING },
+                    matched_type: { type: Type.STRING },
+                    signal_score: { type: Type.NUMBER },
+                    identification_assessment: { type: Type.STRING },
                     validation_assessment: { type: Type.STRING },
                     depth_assessment: { type: Type.STRING }
                   },
-                  required: ["evidence_object_id", "evidence_strength", "validation_assessment", "depth_assessment"]
+                  required: ["evidence_object_id", "evidence_strength", "matched_type", "signal_score", "identification_assessment", "validation_assessment", "depth_assessment"]
                 }
               },
               risk_analysis: {
@@ -350,9 +528,18 @@ Follow the 10-stage reasoning lifecycle. Generate qualification status (Qualifie
                   missing_information: { type: Type.ARRAY, items: { type: Type.STRING } }
                 },
                 required: ["validation_status", "missing_information"]
+              },
+              sql_promotion_recommendation: {
+                type: Type.OBJECT,
+                properties: {
+                  should_promote: { type: Type.BOOLEAN },
+                  decision: { type: Type.STRING },
+                  recommendation_rationale: { type: Type.STRING }
+                },
+                required: ["should_promote", "decision", "recommendation_rationale"]
               }
             },
-            required: ["qualification_summary", "dimension_assessments", "evidence_assessments", "risk_analysis", "recommendations", "explainability", "validation"]
+            required: ["qualification_summary", "critical_gates", "dimension_assessments", "evidence_assessments", "risk_analysis", "recommendations", "explainability", "validation", "sql_promotion_recommendation"]
           }
         }
       });
@@ -360,11 +547,194 @@ Follow the 10-stage reasoning lifecycle. Generate qualification status (Qualifie
       const result = JSON.parse(response.text || '{}');
       const executionTimeMs = Date.now() - startTime;
 
+      // =========================================================================
+      // DETERMINISTIC RULE GUARDRAIL ENGINE (DSP001, OSP001, CGP001, QDP001)
+      // =========================================================================
+
+      // 1. Harmonize evidence assessments from Gemini reasoning engine and guarantee complete coverage
+      const eaMap = new Map<string, any>();
+      if (Array.isArray(result.evidence_assessments)) {
+        result.evidence_assessments.forEach((ea: any) => {
+          if (ea && ea.evidence_object_id) {
+            eaMap.set(ea.evidence_object_id, ea);
+          }
+        });
+      }
+
+      const verifiedEvidenceAssessments = allDefinedEvidence.map((evDef: any) => {
+        const ea = eaMap.get(evDef.evidence_id);
+        const matchType = ea?.matched_type === 'positive' || (typeof ea?.signal_score === 'number' && ea.signal_score >= 80) ? 'positive'
+          : ea?.matched_type === 'negative' || (typeof ea?.signal_score === 'number' && ea.signal_score < 50) ? 'negative'
+          : 'neutral';
+        
+        return {
+          evidence_object_id: evDef.evidence_id,
+          evidence_name: evDef.evidence_name || evDef.question || evDef.evidence_id,
+          dimension_name: evDef.dimension_name || '',
+          evidence_strength: ea?.evidence_strength || (matchType === 'positive' ? 'strong' : matchType === 'negative' ? 'weak' : 'moderate'),
+          matched_type: ea?.matched_type || matchType,
+          signal_score: typeof ea?.signal_score === 'number' ? ea.signal_score : (matchType === 'positive' ? 85 : matchType === 'negative' ? 35 : 60),
+          identification_assessment: ea?.identification_assessment || ea?.depth_assessment || ea?.validation_assessment || "No AI audit assessment provided by reasoning engine for this question.",
+          validation_assessment: ea?.validation_assessment || "",
+          depth_assessment: ea?.depth_assessment || "",
+          tags: [
+            { label: evDef.dimension_name || 'Dimension', type: 'dimension' },
+            { label: matchType === 'positive' ? 'POSITIVE MATCH' : matchType === 'negative' ? 'NEGATIVE MATCH' : 'NEUTRAL MATCH', type: matchType }
+          ]
+        };
+      });
+
+      result.evidence_assessments = verifiedEvidenceAssessments;
+
+      const dimCodeToEvidenceScores: Record<string, number[]> = {};
+      result.evidence_assessments.forEach((ea: any) => {
+        const dimCode = normalizeDimCode(ea.dimension_name || '');
+        if (!dimCodeToEvidenceScores[dimCode]) dimCodeToEvidenceScores[dimCode] = [];
+        if (typeof ea.signal_score === 'number') {
+          dimCodeToEvidenceScores[dimCode].push(ea.signal_score);
+        }
+      });
+
+      // 2. Harmonize & verify all 10 canonical dimensions
+      const existingDimMap = new Map();
+      if (Array.isArray(result.dimension_assessments)) {
+        result.dimension_assessments.forEach((da: any) => {
+          const c = normalizeDimCode(da.dimension_code || da.dimension_name);
+          existingDimMap.set(c, da);
+        });
+      }
+
+      let weightedScoreSum = 0;
+      let totalWeight = 0;
+      const verifiedDimensionAssessments: any[] = [];
+
+      canonicalDimensions.forEach(dim => {
+        const existing = existingDimMap.get(dim.code);
+        const evScores = dimCodeToEvidenceScores[dim.code] || [];
+        const evAvg = evScores.length > 0 ? Math.round(evScores.reduce((a, b) => a + b, 0) / evScores.length) : null;
+
+        let dimScore = existing && typeof existing.score === 'number' ? existing.score : (evAvg ?? 50);
+
+        // Guardrail: if Gemini's dimension score significantly diverges from evidence scores, snap to evidence average
+        if (evAvg !== null && Math.abs(dimScore - evAvg) > 15) {
+          dimScore = evAvg;
+        }
+
+        weightedScoreSum += dimScore * dim.weight;
+        totalWeight += dim.weight;
+
+        verifiedDimensionAssessments.push({
+          dimension_code: dim.code,
+          dimension_name: dim.name,
+          score: dimScore,
+          confidence: existing && typeof existing.confidence === 'number' ? existing.confidence : 70,
+          assessment_summary: existing?.assessment_summary || `${dim.name} evaluated.`,
+          strengths: Array.isArray(existing?.strengths) ? existing.strengths : [],
+          weaknesses: Array.isArray(existing?.weaknesses) ? existing.weaknesses : [],
+          risks: Array.isArray(existing?.risks) ? existing.risks : []
+        });
+      });
+
+      result.dimension_assessments = verifiedDimensionAssessments;
+
+      // 3. Compute mathematically verified Overall Score (OSP001)
+      const calculatedOverallScore = Math.round(weightedScoreSum / (totalWeight || 1));
+
+      // 4. Evaluate Critical Gates Deterministically (CG001 - CG005)
+      const bpDim = verifiedDimensionAssessments.find(d => d.dimension_code === 'businessProblem');
+      const shaDim = verifiedDimensionAssessments.find(d => d.dimension_code === 'stakeholderAlignment');
+      const bpgDim = verifiedDimensionAssessments.find(d => d.dimension_code === 'buyingProcessGovernance');
+      const crDim = verifiedDimensionAssessments.find(d => d.dimension_code === 'commercialReadiness');
+
+      const bpScore = bpDim?.score ?? 0;
+      const shaScore = shaDim?.score ?? 0;
+      const bpgScore = bpgDim?.score ?? 0;
+      const crScore = crDim?.score ?? 0;
+
+      const aiGates: any[] = Array.isArray(result.critical_gates) ? result.critical_gates : [];
+      const isAIGateTriggered = (id: string) => aiGates.some(g => g.gate_id === id && g.triggered === true);
+
+      const cg001Triggered = bpScore < 60 || isAIGateTriggered('CG001');
+      const cg002Triggered = isAIGateTriggered('CG002');
+      const cg003Triggered = shaScore < 50 || isAIGateTriggered('CG003');
+      const cg004Triggered = bpgScore < 45 || isAIGateTriggered('CG004');
+      const cg005Triggered = crScore < 40 || isAIGateTriggered('CG005');
+
+      // 5. Calculate Confidence Score & Apply Gate Caps (CFP001)
+      let calculatedConfidence = typeof result.qualification_summary?.confidence_score === 'number'
+        ? result.qualification_summary.confidence_score
+        : 65;
+
+      if (cg001Triggered) calculatedConfidence = Math.min(calculatedConfidence, 40);
+      if (cg002Triggered) calculatedConfidence = Math.min(calculatedConfidence, 50);
+      if (cg005Triggered) calculatedConfidence = Math.min(calculatedConfidence, 50);
+      if (cg003Triggered) calculatedConfidence = Math.min(calculatedConfidence, 60);
+      if (cg004Triggered) calculatedConfidence = Math.min(calculatedConfidence, 60);
+
+      // 6. Determine Qualification Status Strictly from Policy Rules (QDP001)
+      let finalStatus = 'Borderline_SQL';
+      let statusRationale = '';
+
+      if (cg005Triggered || calculatedOverallScore < 30) {
+        finalStatus = 'Disqualified';
+        statusRationale = cg005Triggered
+          ? 'Disqualified by Critical Gate CG005: Commercial feasibility and purchasing pathway are unviable.'
+          : 'Disqualified: Overall qualification score falls below the minimum viable threshold (30).';
+      } else if (cg001Triggered || cg002Triggered) {
+        finalStatus = 'Needs_Nurturing';
+        statusRationale = cg001Triggered
+          ? 'Qualification Blocked by Critical Gate CG001: Business Problem validation score is below mandatory threshold (60).'
+          : 'Qualification Blocked by Critical Gate CG002: Evidence is primarily unconfirmed seller assumptions.';
+      } else if (cg003Triggered || cg004Triggered) {
+        finalStatus = 'Borderline_SQL';
+        statusRationale = cg003Triggered
+          ? 'Limited to Borderline SQL by Critical Gate CG003: Executive stakeholder or champion is unconfirmed.'
+          : 'Limited to Borderline SQL by Critical Gate CG004: Customer buying and procurement governance process is unverified.';
+      } else if (calculatedOverallScore >= 75 && calculatedConfidence >= 70 && bpScore >= 60 && shaScore >= 60) {
+        finalStatus = 'SQL_Qualified';
+        statusRationale = 'SQL Qualified: Strong evidence maturity, verified business problem, and clear buying readiness.';
+      } else if (calculatedOverallScore >= 55 && calculatedConfidence >= 45) {
+        finalStatus = 'Borderline_SQL';
+        statusRationale = 'Borderline SQL: Moderate qualification maturity; requires targeted discovery before full confirmation.';
+      } else {
+        finalStatus = 'Needs_Nurturing';
+        statusRationale = 'Needs Nurturing: Insufficient qualification maturity across core MEDDPICC dimensions.';
+      }
+
+      // 7. Update qualification_summary with verified canonical data
+      if (!result.qualification_summary) result.qualification_summary = {};
+      result.qualification_summary.overall_score = calculatedOverallScore;
+      result.qualification_summary.confidence_score = calculatedConfidence;
+      result.qualification_summary.qualification_status = finalStatus;
+
+      if (statusRationale) {
+        const existingSummary = result.qualification_summary.summary || '';
+        if (!existingSummary.toLowerCase().includes(finalStatus.toLowerCase().replace(/_/g, ' '))) {
+          result.qualification_summary.summary = `${statusRationale} ${existingSummary}`.trim();
+        }
+        if (result.explainability) {
+          result.explainability.decision_reasoning = `${statusRationale} ${result.explainability.decision_reasoning || ''}`.trim();
+        }
+      }
+
+      // 8. Harmonize SQL Promotion Recommendation with verified canonical status
+      if (!result.sql_promotion_recommendation) {
+        result.sql_promotion_recommendation = {};
+      }
+      const shouldPromote = finalStatus === 'SQL_Qualified' || finalStatus === 'Borderline_SQL';
+      result.sql_promotion_recommendation.should_promote = shouldPromote;
+      result.sql_promotion_recommendation.decision = shouldPromote ? "YES" : "NO";
+      if (!result.sql_promotion_recommendation.recommendation_rationale) {
+        result.sql_promotion_recommendation.recommendation_rationale = shouldPromote
+          ? `All core MEDDPICC dimensions show strong alignment. The opportunity is cleared for standard pipeline promotion and executive resource allocation.`
+          : `Do not promote yet. Critical business problems, metrics, or stakeholder inputs are missing. Re-engage in active discovery before promoting.`;
+      }
+
       // Save Reasoning Session
       await supabase.from('sql_reasoning_sessions').insert({
         assessment_id,
         model_name: 'gemini-3.1-flash-lite',
-        prompt_version: 'v1.0',
+        prompt_version: 'v2.0-guardrailed',
         input_context: { opportunity, evidenceRecords },
         output_response: result,
         execution_status: 'success',
@@ -427,8 +797,8 @@ Follow the 10-stage reasoning lifecycle. Generate qualification status (Qualifie
 
     if (action === 'retrieve-sql-assessment-result') {
       const { assessment_id } = body;
-      const supabaseUrl = Deno.env.get('SUPABASE_URL') || process.env.VITE_SUPABASE_URL;
-      const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || process.env.VITE_SUPABASE_ANON_KEY;
+      const supabaseUrl = getEnv('SUPABASE_URL');
+      const supabaseKey = getEnv('SUPABASE_SERVICE_ROLE_KEY') || getEnv('SUPABASE_ANON_KEY');
       if (!supabaseUrl || !supabaseKey) throw new Error('Supabase credentials not configured.');
       const supabase = createClient(supabaseUrl, supabaseKey);
 
@@ -457,8 +827,6 @@ Follow the 10-stage reasoning lifecycle. Generate qualification status (Qualifie
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       });
     }
-
-    const ai = new GoogleGenAI({ apiKey });
 
     if (action === 'generate-sales-handover') {
       const { lead, campaign, qualificationResult } = body;
@@ -515,13 +883,133 @@ Follow the 10-stage reasoning lifecycle. Generate qualification status (Qualifie
       });
     }
 
+    if (action === 'generate-sql-suggested-answers') {
+      const { opportunity_id, revenue_motion, industry, evidence_questions } = body;
+
+      const supabaseUrl = getEnv('SUPABASE_URL');
+      const supabaseKey = getEnv('SUPABASE_SERVICE_ROLE_KEY') || getEnv('SUPABASE_ANON_KEY');
+      let opp: any = null;
+
+      if (supabaseUrl && supabaseKey && opportunity_id) {
+        try {
+          const supabase = createClient(supabaseUrl, supabaseKey);
+          const { data } = await supabase.from('opportunities').select('*').eq('id', opportunity_id).maybeSingle();
+          opp = data;
+        } catch (e) {
+          console.warn("Could not fetch opportunity details for suggested answers:", e);
+        }
+      }
+
+      const oppContext = `
+- Opportunity Name: ${opp?.opportunity_name || 'Enterprise Account Initiative'}
+- Company / Customer: ${opp?.company_name || 'Target Enterprise Account'}
+- Industry: ${opp?.industry || industry || 'Enterprise Software / SaaS'}
+- Revenue Motion: ${opp?.revenue_motion || revenue_motion || 'Digital Solution Selling'}
+- Estimated Deal Size: ${opp?.amount ? `$${opp.amount}` : '$150,000 - $350,000 ARR'}
+- Stage: ${opp?.stage_name || 'Discovery / SQL Qualification'}
+- Description / Scope: ${opp?.description || 'Enterprise platform modernization and operational efficiency initiative'}
+`;
+
+      const questionsList = (Array.isArray(evidence_questions) ? evidence_questions : []).map((q: any) => {
+        return `
+### EVIDENCE QUESTION ID: ${q.evidence_id}
+- Dimension: ${q.dimension_name || ''}
+- Question Title: ${q.evidence_name || q.name || q.evidence_id}
+- Question Prompt: "${q.question || ''}"
+- Required: ${q.required ? 'Yes' : 'No'}
+- Expected Positive Signals: ${JSON.stringify(q.positive_signals || [])}
+- Expected Negative Signals: ${JSON.stringify(q.negative_signals || [])}
+`;
+      }).join('\n');
+
+      const prompt = `
+You are the RevOS Chief Revenue Officer and Enterprise Lead Qualification Engine.
+Your task is to generate dynamic, authentic, highly contextualized suggested discovery response options for sales representatives qualifying an enterprise deal under the MEDDPICC framework.
+
+OPPORTUNITY CONTEXT:
+${oppContext}
+
+EVIDENCE QUESTIONS TO EVALUATE:
+${questionsList}
+
+GENERATION REQUIREMENTS:
+For EVERY evidence question, generate exactly 4 distinct response options covering 4 qualification tiers:
+1. 'strong' (Strong Positive Match, 85-100 score):
+   - A customer-confirmed, quantified, executive-backed discovery response with specific operational metrics (% improvement, dollar value, verified timeline, or executive sponsorship).
+   - Must explicitly satisfy the Expected Positive Signals so that the SQL qualification reasoning engine scores it as an indisputable Strong Positive Match (85-100).
+   - "label": Must start with "[Strong Positive]" followed by a brief 4-8 word title (e.g. "[Strong Positive] VP confirmed 18% churn increase with Q4 mandate").
+   - "text": 1-2 realistic, professional sentences articulating customer-verified evidence.
+
+2. 'moderate' (Moderate / In-Progress Match, 55-70 score):
+   - Customer acknowledged pain or need, but ROI metrics are approximate and formal executive sign-off is pending.
+   - "label": Must start with "[Moderate / In-Progress]" followed by a brief 4-8 word title.
+   - "text": 1-2 realistic sentences reflecting genuine customer interest with pending validation.
+
+3. 'weak' (Weak / Seller Assumption, 25-45 score):
+   - High-level conversational interest or seller speculation without verified customer data or executive champion confirmation.
+   - "label": Must start with "[Weak / Assumption]" followed by a brief 4-8 word title.
+   - "text": 1 sentence showing seller impression without customer proof.
+
+4. 'negative' (Adverse / Blocker, 0-20 score):
+   - Discovery shows frozen budget, no active challenge, or competitor lock-in.
+   - "label": Must start with "[Adverse / Blocker]" followed by a brief 4-8 word title.
+   - "text": 1 sentence stating the blocker.
+
+Return a valid JSON object matching the requested schema.
+`;
+
+      const response = await ai.models.generateContent({
+        model: 'gemini-3.1-flash-lite',
+        contents: prompt,
+        config: {
+          temperature: 0.0,
+          systemInstruction: "You are an elite enterprise B2B sales qualification consultant. Generate precise, realistic, high-signal discovery answers adhering strictly to enterprise MEDDPICC qualification standards. Never use robotic phrases.",
+          responseMimeType: "application/json",
+          responseSchema: {
+            type: Type.OBJECT,
+            properties: {
+              suggested_answers: {
+                type: Type.ARRAY,
+                items: {
+                  type: Type.OBJECT,
+                  properties: {
+                    evidence_id: { type: Type.STRING },
+                    options: {
+                      type: Type.ARRAY,
+                      items: {
+                        type: Type.OBJECT,
+                        properties: {
+                          tier: { type: Type.STRING, enum: ["strong", "moderate", "weak", "negative"] },
+                          label: { type: Type.STRING },
+                          text: { type: Type.STRING }
+                        },
+                        required: ["tier", "label", "text"]
+                      }
+                    }
+                  },
+                  required: ["evidence_id", "options"]
+                }
+              }
+            },
+            required: ["suggested_answers"]
+          }
+        }
+      });
+
+      const parsed = JSON.parse(response.text || '{"suggested_answers":[]}');
+
+      return new Response(JSON.stringify(parsed), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
+
     const { leadId, combinedConfig, ruleSet } = body;
     if (!leadId) {
       throw new Error('leadId is required');
     }
 
-    const supabaseUrl = Deno.env.get('SUPABASE_URL') || process.env.VITE_SUPABASE_URL;
-    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || process.env.VITE_SUPABASE_ANON_KEY;
+    const supabaseUrl = getEnv('SUPABASE_URL');
+    const supabaseKey = getEnv('SUPABASE_SERVICE_ROLE_KEY') || getEnv('SUPABASE_ANON_KEY');
     
     if (!supabaseUrl || !supabaseKey) {
        throw new Error('Supabase credentials not configured.');

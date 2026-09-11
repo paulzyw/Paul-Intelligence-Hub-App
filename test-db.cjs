@@ -1,12 +1,14 @@
 const { createClient } = require('@supabase/supabase-js');
-const supabase = createClient(
-  'https://yfonihlpdvelssfmzokp.supabase.co',
-  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inlmb25paGxwZHZlbHNzZm16b2twIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzUyNzIwODcsImV4cCI6MjA5MDg0ODA4N30.CMDWSUSfFm1esCuZA19sgR_HHh7PVuOfm-OzM8cSf60'
-);
-
-async function run() {
-  const { data, error } = await supabase.from('opportunities').select('id, company_name, opportunity_name');
-  console.log(data);
+require('dotenv').config();
+const supabase = createClient(process.env.VITE_SUPABASE_URL, process.env.VITE_SUPABASE_ANON_KEY);
+async function check() {
+  const { data, error } = await supabase.from('sql_reasoning_sessions').insert({
+    assessment_id: '00000000-0000-0000-0000-000000000000',
+    model_name: 'test',
+    prompt_version: '1.0',
+    execution_status: 'success',
+    output_response: { testing: true }
+  }).select();
+  console.log("sql_reasoning_sessions insert error:", error);
 }
-
-run();
+check();

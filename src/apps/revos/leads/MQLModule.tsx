@@ -70,6 +70,7 @@ export const MQLModule: React.FC = () => {
   const [selectedCampaign, setSelectedCampaign] = useState<MQLCampaign | null>(null);
   const [leads, setLeads] = useState<MQLLead[]>([]);
   const [selectedLead, setSelectedLead] = useState<MQLLead | null>(null);
+  const [selectedLeadColumnType, setSelectedLeadColumnType] = useState<'lead' | 'mql' | 'sql' | 'opp' | null>(null);
   const [campaignFilterId, setCampaignFilterId] = useState<string>('all');
   const [targetCampaignId, setTargetCampaignId] = useState<string>('');
   
@@ -238,6 +239,7 @@ export const MQLModule: React.FC = () => {
   };
 
   const handleEditLeadClick = async (lead: MQLLead, columnType?: 'lead' | 'mql' | 'sql' | 'opp') => {
+    setSelectedLeadColumnType(columnType || null);
     setSelectedLead(lead);
     setTargetCampaignId(lead.campaign_id);
     const leadCampaign = campaigns.find(c => c.id === lead.campaign_id);
@@ -254,20 +256,30 @@ export const MQLModule: React.FC = () => {
       
       const extraJson = localStorage.getItem(`mql_lead_extra_${lead.id}`);
       const extra = extraJson ? JSON.parse(extraJson) : {};
+
+      let initialLeadData = { ...lead };
+      if (columnType === 'sql') {
+        const isolated = localStorage.getItem(`sql_isolated_card_edits_${lead.id}`);
+        if (isolated) {
+          try {
+            initialLeadData = { ...lead, ...JSON.parse(isolated) };
+          } catch (e) {}
+        }
+      }
       
       setNewLead({
-        name: `${lead.first_name || ''} ${lead.last_name || ''}`.trim(),
-        email: lead.email || '',
-        company_name: lead.company_name || '',
-        job_title: lead.job_title || '',
-        website: lead.website || extra.website || '',
-        lead_industry: lead.lead_industry || extra.lead_industry || '',
-        employee_size: lead.employee_size || extra.employee_size || '',
-        location: lead.location || extra.location || '',
-        annual_revenue: lead.annual_revenue || extra.annual_revenue || '',
-        phone: lead.phone || extra.phone || '',
-        department: lead.department || extra.department || '',
-        lead_date: lead.lead_date || extra.lead_date || ''
+        name: `${initialLeadData.first_name || ''} ${initialLeadData.last_name || ''}`.trim(),
+        email: initialLeadData.email || '',
+        company_name: initialLeadData.company_name || '',
+        job_title: initialLeadData.job_title || '',
+        website: initialLeadData.website || extra.website || '',
+        lead_industry: initialLeadData.lead_industry || extra.lead_industry || '',
+        employee_size: initialLeadData.employee_size || extra.employee_size || '',
+        location: initialLeadData.location || extra.location || '',
+        annual_revenue: initialLeadData.annual_revenue || extra.annual_revenue || '',
+        phone: initialLeadData.phone || extra.phone || '',
+        department: initialLeadData.department || extra.department || '',
+        lead_date: initialLeadData.lead_date || extra.lead_date || ''
       });
       
       // Isolate lead column clicks from mql column clicks.
@@ -313,6 +325,31 @@ export const MQLModule: React.FC = () => {
       };
 
       if (selectedLead) {
+        if (selectedLeadColumnType === 'sql') {
+          const isolatedData = {
+            first_name,
+            last_name,
+            email: newLead.email,
+            company_name: newLead.company_name,
+            job_title: newLead.job_title,
+            website: newLead.website,
+            lead_industry: newLead.lead_industry,
+            employee_size: newLead.employee_size,
+            location: newLead.location,
+            annual_revenue: newLead.annual_revenue,
+            phone: newLead.phone,
+            department: newLead.department,
+            lead_date: newLead.lead_date,
+          };
+          localStorage.setItem(`sql_isolated_card_edits_${selectedLead.id}`, JSON.stringify(isolatedData));
+          alert('SQL opportunity card details updated successfully (isolated from MQL card)!');
+          await loadInitialData();
+          setView('lead_canvas');
+          setSelectedLead(null);
+          setSelectedLeadColumnType(null);
+          return;
+        }
+
         // We are updating an existing lead!
         const updated = await MQLDataService.updateLead(selectedLead.id, {
           first_name,

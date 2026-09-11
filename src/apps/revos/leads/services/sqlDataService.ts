@@ -70,6 +70,54 @@ export class SQLDataService {
   }
 
   // SQL Assessment management
+  static async saveFullQualificationResult(opportunityId: string, result: any) {
+    let assessment = await this.getAssessmentByOpportunity(opportunityId);
+    let assessmentId = assessment?.id;
+    
+    if (!assessment) {
+      const created = await this.createAssessment(opportunityId);
+      assessmentId = created.assessment_id;
+    }
+    
+    // Update assessment status
+    await supabase.from('sql_assessments').update({
+      assessment_status: 'completed',
+      qualification_status: result.qualification_summary?.qualification_status,
+      overall_score: result.qualification_summary?.overall_score,
+      confidence_score: result.qualification_summary?.confidence_score
+    }).eq('id', assessmentId);
+
+    // Save full JSON in reasoning sessions
+    const { error } = await supabase.from('sql_reasoning_sessions').insert({
+      assessment_id: assessmentId,
+      model_name: 'gemini-3.1-pro',
+      prompt_version: '1.0',
+      execution_status: 'success',
+      output_response: result
+    });
+    
+    if (error) {
+      console.error('Error saving full qualification result:', error);
+      throw error;
+    }
+    return true;
+  }
+
+  static async getSavedQualificationResult(opportunityId: string) {
+    const assessment = await this.getAssessmentByOpportunity(opportunityId);
+    if (!assessment) return null;
+    
+    const { data, error } = await supabase
+      .from('sql_reasoning_sessions')
+      .select('output_response')
+      .eq('assessment_id', assessment.id)
+      .order('created_at', { ascending: false })
+      .limit(1);
+      
+    if (error || !data || data.length === 0) return null;
+    return data[0].output_response;
+  }
+
   static async getAssessmentByOpportunity(opportunityId: string) {
     const { data, error } = await supabase
       .from('sql_assessments')
@@ -135,6 +183,28 @@ export class SQLDataService {
     });
     if (error) throw error;
     return data;
+  }
+
+  static async generateSuggestedAnswers(
+    opportunityId?: string,
+    revenueMotion?: string,
+    industry?: string,
+    evidenceQuestions?: any[]
+  ) {
+    const { data, error } = await supabase.functions.invoke('lead-qualification', {
+      body: {
+        action: 'generate-sql-suggested-answers',
+        opportunity_id: opportunityId,
+        revenue_motion: revenueMotion,
+        industry: industry,
+        evidence_questions: evidenceQuestions
+      }
+    });
+    if (error) {
+      console.error('Error generating suggested answers:', error);
+      throw error;
+    }
+    return data?.suggested_answers || [];
   }
 
   static async retrieveAssessmentResult(assessmentId: string) {

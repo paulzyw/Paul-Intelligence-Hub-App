@@ -1,19 +1,147 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
-import { HelpCircle, CheckCircle2, ChevronDown, Check, Save, Zap, AlertCircle, Bot } from 'lucide-react';
+import { HelpCircle, CheckCircle2, ChevronDown, Check, Save, Zap, AlertCircle, Bot, Sparkles, Loader2 } from 'lucide-react';
 import UREKB_Config from '../../../../config/SQL_evidence_knowledge_base.json';
+import sqlRulesJson from '../../../../config/SQL_qualification_rules.json';
+import sqlConfigJson from '../../../../config/SQL_industry_configuration_JSON.json';
 import { SQLDataService } from '../services/sqlDataService';
+
+const SQL_RULES = (sqlRulesJson as any).SQL_Qualification_Rules;
+const SQL_CONFIG = sqlConfigJson as any;
+
+export const ensureUICompatibleResult = (rawResult: any, motionData: any): any => {
+  if (!rawResult) return null;
+
+  // Clone to avoid mutation
+  const result = JSON.parse(JSON.stringify(rawResult));
+
+  // Initialize arrays if missing
+  if (!result.evidence_assessments) result.evidence_assessments = [];
+  if (!result.dimension_assessments) result.dimension_assessments = [];
+  if (!result.risk_analysis) result.risk_analysis = [];
+  if (!result.recommendations) result.recommendations = [];
+
+  // Create a mapping of evidence_object_id to its metadata from motionData
+  const evidenceMeta: Record<string, { name: string; dimension: string }> = {};
+  if (motionData) {
+    Object.entries(motionData).forEach(([dimName, dimEv]: [string, any]) => {
+      const evs = Array.isArray(dimEv) ? dimEv : dimEv?.evidence_objects || [];
+      if (Array.isArray(evs)) {
+        evs.forEach((eo: any) => {
+          evidenceMeta[eo.evidence_id] = {
+            name: eo.evidence_name || eo.question,
+            dimension: dimName
+          };
+        });
+      }
+    });
+  }
+
+  // Map each evidence assessment to match UI requirements and ensure ALL defined questions are included
+  const assessmentMap = new Map();
+  if (Array.isArray(result.evidence_assessments)) {
+    result.evidence_assessments.forEach((ea: any) => {
+      if (ea && ea.evidence_object_id) {
+        assessmentMap.set(ea.evidence_object_id, ea);
+      }
+    });
+  }
+
+  const completeEvidenceAssessments: any[] = [];
+  if (motionData) {
+    Object.entries(motionData).forEach(([dimName, dimEv]: [string, any]) => {
+      const evs = Array.isArray(dimEv) ? dimEv : dimEv?.evidence_objects || [];
+      if (Array.isArray(evs)) {
+        evs.forEach((eo: any) => {
+          const ea = assessmentMap.get(eo.evidence_id);
+          
+          const signalScore = ea && typeof ea.signal_score === 'number' 
+            ? ea.signal_score 
+            : 0;
+
+          const matchType = ea?.matched_type || 'neutral';
+
+          const tags = ea?.tags || [
+            { label: dimName, type: 'dimension' },
+            { label: matchType === 'positive' ? 'POSITIVE MATCH' : matchType === 'negative' ? 'NEGATIVE MATCH' : 'NEUTRAL MATCH', type: matchType }
+          ];
+
+          // Strictly use Gemini's authentic reasoning context from the Edge Function without frontend modification or synthetic template replacement
+          const identificationAssessment = ea?.identification_assessment || "";
+
+          completeEvidenceAssessments.push({
+            evidence_object_id: eo.evidence_id,
+            evidence_name: ea?.evidence_name || eo.evidence_name || eo.question,
+            tags: tags,
+            identification_assessment: identificationAssessment,
+            signal_score: signalScore
+          });
+        });
+      }
+    });
+  }
+
+  result.evidence_assessments = completeEvidenceAssessments;
+
+  // Ensure dimension assessments have correct fields
+  result.dimension_assessments = result.dimension_assessments.map((da: any) => {
+    return {
+      dimension_code: da.dimension_code,
+      dimension_name: da.dimension_name,
+      score: typeof da.score === 'number' ? da.score : 70,
+      confidence: typeof da.confidence === 'number' ? da.confidence : 80,
+      assessment_summary: da.assessment_summary || 'Analysis complete.',
+      strengths: Array.isArray(da.strengths) ? da.strengths : [],
+      weaknesses: Array.isArray(da.weaknesses) ? da.weaknesses : [],
+      risks: Array.isArray(da.risks) ? da.risks : []
+    };
+  });
+
+  // Ensure risk_analysis matches array structure
+  result.risk_analysis = result.risk_analysis.map((ra: any) => {
+    if (Array.isArray(ra.risks)) {
+      return ra;
+    }
+    return {
+      category: ra.category || 'General Risk',
+      risks: [ra.risk_description || ra.description || 'General risk identified.']
+    };
+  });
+
+  // Ensure recommendations map correctly
+  result.recommendations = result.recommendations.map((rec: any) => {
+    return {
+      priority: rec.priority || 'Medium',
+      action: rec.action || rec.recommendation || 'Further validation.',
+      related_dimension: rec.related_dimension || rec.dimension_code || 'General',
+      expected_impact: rec.expected_impact || rec.expected_business_impact || 'Lower qualification friction.',
+      status: rec.status || 'Pending'
+    };
+  });
+
+  if (!result.explainability) {
+    result.explainability = {
+      decision_summary: result.qualification_summary?.summary || 'Analysis complete.'
+    };
+  } else if (!result.explainability.decision_summary) {
+    result.explainability.decision_summary = result.explainability.decision_reasoning || result.qualification_summary?.summary || 'Analysis complete.';
+  }
+
+  return result;
+};
 
 interface SQLDynamicEvidenceFormProps {
   industry?: string;
   revenueMotion?: string;
   opportunityId?: string;
+  onQualificationComplete?: (data: any) => void;
 }
 
 export const SQLDynamicEvidenceForm: React.FC<SQLDynamicEvidenceFormProps> = ({
   industry = "SaaS / Software",
   revenueMotion = "Digital Solution Selling",
-  opportunityId
+  opportunityId,
+  onQualificationComplete
 }) => {
   const library = UREKB_Config.UREKB_SQL.revenue_motion_library;
   const motionData = library[revenueMotion as keyof typeof library];
@@ -25,6 +153,7 @@ export const SQLDynamicEvidenceForm: React.FC<SQLDynamicEvidenceFormProps> = ({
   const [activeDimension, setActiveDimension] = useState<string>(dimensions[0] || "");
   const [formData, setFormData] = useState<Record<string, any>>({});
   const [isSaving, setIsSaving] = useState(false);
+  const [isQualifying, setIsQualifying] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [validationError, setValidationError] = useState<string | null>(null);
@@ -71,7 +200,7 @@ export const SQLDynamicEvidenceForm: React.FC<SQLDynamicEvidenceFormProps> = ({
       }
     };
     loadExistingEvidence();
-  }, [opportunityId]);
+  }, [opportunityId, motionData]);
 
   if (!motionData) {
     return <div className="p-8 text-text-primary">Configuration not found for the selected revenue motion.</div>;
@@ -79,14 +208,55 @@ export const SQLDynamicEvidenceForm: React.FC<SQLDynamicEvidenceFormProps> = ({
 
   const currentEvidences = motionData[activeDimension as keyof typeof motionData] || [];
 
-  const handleInputChange = (id: string, field: string, value: string) => {
-    setFormData(prev => ({
-      ...prev,
-      [id]: {
-        ...prev[id],
-        [field]: value
+  const getOptionsForEvidence = (evidence: any) => {
+    if (!evidence) return [];
+    
+    const options: Array<{ tier: string; label: string; text: string }> = [];
+    
+    const positiveSignals = evidence.positive_signals || [];
+    const negativeSignals = evidence.negative_signals || [];
+    
+    positiveSignals.forEach((sig: string) => {
+      options.push({
+        tier: 'positive',
+        label: `[Positive Match] ${sig}`,
+        text: sig
+      });
+    });
+    
+    negativeSignals.forEach((sig: string) => {
+      options.push({
+        tier: 'negative',
+        label: `[Negative/Adverse] ${sig}`,
+        text: sig
+      });
+    });
+
+    options.push({
+      tier: 'neutral',
+      label: '[Neutral] Information not yet fully verified or unknown.',
+      text: 'Information not yet fully verified or unknown.'
+    });
+
+    return options;
+  };
+
+  const handleInputChange = (id: string, field: string, value: string, updates?: Record<string, string>) => {
+    setFormData(prev => {
+      const currentObj = prev[id] || {};
+      const newObj = { ...currentObj, [field]: value };
+      if (updates) {
+        Object.entries(updates).forEach(([k, v]) => {
+          newObj[k] = v;
+        });
       }
-    }));
+      const updatedFormData = {
+        ...prev,
+        [id]: newObj
+      };
+
+      return updatedFormData;
+    });
   };
 
   const getDimensionProgress = (dim: string) => {
@@ -157,14 +327,15 @@ export const SQLDynamicEvidenceForm: React.FC<SQLDynamicEvidenceFormProps> = ({
               dimension_code: dim,
               evidence_object_id: ev.evidence_id,
               evidence_content: JSON.stringify(formData[ev.evidence_id]),
-              evidence_source: 'Manual Input',
-              validation_status: 'unverified'
+              evidence_source: 'Discovery Findings',
+              validation_status: 'collected'
             });
           }
         });
       });
 
-      await SQLDataService.submitEvidence(assessment.id || assessment.assessment_id, evidenceArray);
+      await SQLDataService.submitEvidence(assessment.id, evidenceArray);
+
       setSaveSuccess(true);
       setTimeout(() => setSaveSuccess(false), 3000);
     } catch (err: any) {
@@ -175,11 +346,64 @@ export const SQLDynamicEvidenceForm: React.FC<SQLDynamicEvidenceFormProps> = ({
     }
   };
 
-  const handleRunQualification = () => {
+  const handleRunQualification = async () => {
     const isValid = validateForm();
-    if (isValid) {
-      // Placeholder for next step
-      console.log("Form is valid, running qualification...");
+    if (!isValid) return;
+
+    setIsQualifying(true);
+    setValidationError(null);
+
+    try {
+      // 1. Get or create assessment
+      let assessment = await SQLDataService.getAssessmentByOpportunity(opportunityId);
+      if (!assessment && opportunityId) {
+        const created = await SQLDataService.createAssessment(opportunityId);
+        assessment = { id: created.assessment_id } as any;
+      }
+
+      if (!assessment) throw new Error("Could not initialize assessment record");
+
+      // 2. Submit evidence first
+      const evidenceArray: any[] = [];
+      Object.keys(motionData).forEach(dim => {
+        const evs = motionData[dim as keyof typeof motionData] || [];
+        evs.forEach((ev: any) => {
+          if (formData[ev.evidence_id] && formData[ev.evidence_id].response) {
+            evidenceArray.push({
+              dimension_code: dim,
+              evidence_object_id: ev.evidence_id,
+              evidence_content: JSON.stringify(formData[ev.evidence_id]),
+              evidence_source: 'Discovery Findings',
+              validation_status: 'collected'
+            });
+          }
+        });
+      });
+
+      await SQLDataService.submitEvidence(assessment.id, evidenceArray);
+
+      // 3. Assemble contexts
+      const idSearch = industry.toLowerCase().replace(/[^a-z0-9]+/g, '_');
+      const contexts = {
+        industry_context: SQL_CONFIG.industries?.find((ind: any) => ind.id === idSearch || ind.id?.replace(/_/g, ' ') === industry.toLowerCase()) || {},
+        evidence_context: UREKB_Config.UREKB_SQL.revenue_motion_library?.[revenueMotion] || {},
+        qualification_policy: SQL_RULES || {}
+      };
+
+      // 4. Run Edge Function reasoning
+      const response = await SQLDataService.executeReasoning(assessment.id, contexts);
+      
+      // 5. Ensure it is compatible and complete
+      const uiResult = ensureUICompatibleResult(response.result, motionData);
+      
+      if (onQualificationComplete) {
+        onQualificationComplete(uiResult);
+      }
+    } catch (err: any) {
+      console.error("Edge Function qualification failed:", err);
+      setValidationError(`AI reasoning engine failed: ${err.message || "Failed to execute reasoning in Edge Function"}. Please retry or check database connection.`);
+    } finally {
+      setIsQualifying(false);
     }
   };
 
@@ -228,14 +452,16 @@ export const SQLDynamicEvidenceForm: React.FC<SQLDynamicEvidenceFormProps> = ({
       </div>
 
       {/* Content */}
-      <div className="mb-6">
-        <h3 className="text-sm font-black text-text-primary uppercase tracking-wider flex items-center gap-2">
-          <span className="w-1.5 h-1.5 rounded-full bg-accent block"></span>
-          {activeDimension} EVIDENCE
-        </h3>
-        <p className="text-xs text-text-secondary mt-1 ml-3.5">
-          Validation of {activeDimension.toLowerCase()} parameters aligned with standard ICP requirements.
-        </p>
+      <div className="mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div>
+          <h3 className="text-sm font-black text-text-primary uppercase tracking-wider flex items-center gap-2">
+            <span className="w-1.5 h-1.5 rounded-full bg-accent block"></span>
+            {activeDimension} EVIDENCE
+          </h3>
+          <p className="text-xs text-text-secondary mt-1 ml-3.5">
+            Validation of {activeDimension.toLowerCase()} parameters aligned with standard ICP requirements.
+          </p>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
@@ -298,31 +524,36 @@ export const SQLDynamicEvidenceForm: React.FC<SQLDynamicEvidenceFormProps> = ({
                     className="w-full bg-bg-surface/50 border border-border/60 rounded-lg px-3 py-2.5 text-xs text-text-primary placeholder-text-secondary/30 focus:outline-none focus:border-accent transition-colors"
                   />
                 </div>
-                {evidence.accepted_values && evidence.accepted_values.length > 0 && (
-                  <div>
-                    <label className="block text-[9px] font-mono uppercase tracking-widest text-text-secondary mb-1.5">
+                <div>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label className="block text-[9px] font-mono uppercase tracking-widest text-text-secondary">
                       Suggested Answers
                     </label>
-                    <div className="relative">
-                      <select
-                        value={formData[evidence.evidence_id]?.suggested || ''}
-                        onChange={(e) => {
-                          handleInputChange(evidence.evidence_id, 'suggested', e.target.value);
-                          if (e.target.value && !formData[evidence.evidence_id]?.response) {
-                             handleInputChange(evidence.evidence_id, 'response', e.target.value);
-                          }
-                        }}
-                        className="w-full bg-bg-surface/50 border border-border/60 rounded-lg px-3 py-2.5 text-xs text-text-primary appearance-none focus:outline-none focus:border-accent transition-colors cursor-pointer"
-                      >
-                        <option value="">Select response...</option>
-                        {evidence.accepted_values.map((val: string) => (
-                          <option key={val} value={val}>{val}</option>
-                        ))}
-                      </select>
-                      <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-text-secondary pointer-events-none" />
-                    </div>
                   </div>
-                )}
+                  <div className="relative">
+                    <select
+                      value={formData[evidence.evidence_id]?.suggested || ''}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        const opts = getOptionsForEvidence(evidence);
+                        const selectedOption = opts.find((o: any) => o.text === val || o.label === val);
+                        const textVal = selectedOption?.text || val;
+                        handleInputChange(evidence.evidence_id, 'suggested', val, { response: textVal });
+                      }}
+                      className="w-full bg-bg-surface/50 border border-border/60 rounded-lg px-3 py-2.5 text-xs text-text-primary appearance-none focus:outline-none focus:border-accent transition-colors cursor-pointer"
+                    >
+                      <option value="">
+                        Select static evidence response...
+                      </option>
+                      {getOptionsForEvidence(evidence).map((opt: any, idx: number) => (
+                        <option key={idx} value={opt.text}>
+                          {opt.label}
+                        </option>
+                      ))}
+                    </select>
+                    <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-text-secondary pointer-events-none" />
+                  </div>
+                </div>
               </div>
 
               <div>
@@ -401,10 +632,15 @@ export const SQLDynamicEvidenceForm: React.FC<SQLDynamicEvidenceFormProps> = ({
           <button
             type="button"
             onClick={handleRunQualification}
-            className="px-6 py-2.5 bg-accent hover:bg-accent/90 text-white font-black uppercase text-xs rounded-xl transition-all shadow-md shadow-accent/20 flex items-center gap-2"
+            disabled={isQualifying}
+            className="px-6 py-2.5 bg-accent hover:bg-accent/90 text-white font-black uppercase text-xs rounded-xl transition-all shadow-md shadow-accent/20 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            <Bot className="h-4 w-4" />
-            <span>Run Qualification</span>
+            {isQualifying ? (
+              <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+            ) : (
+              <Bot className="h-4 w-4" />
+            )}
+            <span>{isQualifying ? 'Analyzing...' : 'Run Qualification'}</span>
           </button>
         </div>
       </div>

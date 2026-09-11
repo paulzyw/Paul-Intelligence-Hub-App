@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { MQLLead, MQLCampaign } from '../../types/mql';
 import { Search, Edit, LayoutGrid, ChevronRight, ChevronLeft, CheckCircle2, AlertTriangle, AlertCircle, Table } from 'lucide-react';
+import { MqlToSqlTable } from './MqlToSqlTable';
 
 interface LeadCanvasProps {
   leads: MQLLead[];
@@ -10,6 +11,7 @@ interface LeadCanvasProps {
 }
 
 export const LeadCanvas: React.FC<LeadCanvasProps> = ({ leads, campaigns, onLeadSelect, onViewTable }) => {
+  const [canvasView, setCanvasView] = useState<'kanban' | 'mql_table'>('kanban');
   const [searchQuery, setSearchQuery] = useState('');
 
   // Pagination states
@@ -35,9 +37,16 @@ export const LeadCanvas: React.FC<LeadCanvasProps> = ({ leads, campaigns, onLead
     return name.includes(query) || company.includes(query);
   });
 
+  const promotedLeadIdsJson = localStorage.getItem('mql_promoted_leads');
+  const promotedLeadIds = promotedLeadIdsJson ? JSON.parse(promotedLeadIdsJson) : [];
+
   const allLeads = filteredLeads;
-  const mqlLeads = filteredLeads.filter(l => l.status && (l.status.includes('Qualified') || l.status === 'Highly Qualified MQL'));
-  const sqlLeads = filteredLeads.filter(l => l.status === 'SQL');
+  const mqlLeads = filteredLeads.filter(l => 
+    (l.status && (l.status.includes('Qualified') || l.status === 'Highly Qualified MQL')) ||
+    promotedLeadIds.includes(l.id) ||
+    l.status === 'SQL'
+  );
+  const sqlLeads = filteredLeads.filter(l => l.status === 'SQL' || promotedLeadIds.includes(l.id));
   // For Opportunity, we don't have a strict DB field, so let's mock it for the demo using a subset of SQL leads
   // or we can just say if handover_status is 'Opportunity' (though it might just be 'Handover to Sales' right now)
   // Let's assume Opportunity is a subset of SQL where some opportunity field is true. We'll simulate it by checking if annual_revenue > 0 or randomly.
@@ -157,6 +166,20 @@ export const LeadCanvas: React.FC<LeadCanvasProps> = ({ leads, campaigns, onLead
     </div>
   );
 
+  const getIsolatedLead = (lead: MQLLead, type: 'lead' | 'mql' | 'sql' | 'opp') => {
+    if (type === 'sql') {
+      const stored = localStorage.getItem(`sql_isolated_card_edits_${lead.id}`);
+      if (stored) {
+        try {
+          return { ...lead, ...JSON.parse(stored) };
+        } catch (e) {
+          return lead;
+        }
+      }
+    }
+    return lead;
+  };
+
   const getCampaignName = (id: string) => {
     return campaigns.find(c => c.id === id)?.name || 'Unknown Campaign';
   };
@@ -166,12 +189,20 @@ export const LeadCanvas: React.FC<LeadCanvasProps> = ({ leads, campaigns, onLead
     const isDisqual = lead.status?.includes('Disqualified');
     const isNurture = lead.status?.includes('Nurture');
     const isHandover = lead.handover_status === 'Handover to Sales';
+    const isPromoted = promotedLeadIds.includes(lead.id) || lead.status === 'SQL';
 
     let mqlTag = null;
-    if (isQual) mqlTag = <span className="px-1.5 py-0.5 rounded bg-green-500/20 text-green-600 dark:text-green-400 border border-green-500/30 text-[8px] font-black uppercase tracking-wider">MQL</span>;
-    else if (isDisqual) mqlTag = <span className="px-1.5 py-0.5 rounded bg-red-500/20 text-red-600 dark:text-red-400 border border-red-500/30 text-[8px] font-black uppercase tracking-wider">Disqualified</span>;
-    else if (isNurture) mqlTag = <span className="px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-600 dark:text-amber-400 border border-amber-500/30 text-[8px] font-black uppercase tracking-wider">Nurture</span>;
-    else mqlTag = <span className="px-1.5 py-0.5 rounded border border-border text-text-secondary text-[8px] font-black uppercase tracking-wider">Lead</span>;
+    if (isPromoted && type === 'mql') {
+      mqlTag = <span className="px-1.5 py-0.5 rounded bg-blue-500 text-white border border-blue-600 text-[8px] font-black uppercase tracking-wider shadow-sm">SQL</span>;
+    } else if (isQual) {
+      mqlTag = <span className="px-1.5 py-0.5 rounded bg-green-500/20 text-green-600 dark:text-green-400 border border-green-500/30 text-[8px] font-black uppercase tracking-wider">MQL</span>;
+    } else if (isDisqual) {
+      mqlTag = <span className="px-1.5 py-0.5 rounded bg-red-500/20 text-red-600 dark:text-red-400 border border-red-500/30 text-[8px] font-black uppercase tracking-wider">Disqualified</span>;
+    } else if (isNurture) {
+      mqlTag = <span className="px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-600 dark:text-amber-400 border border-amber-500/30 text-[8px] font-black uppercase tracking-wider">Nurture</span>;
+    } else {
+      mqlTag = <span className="px-1.5 py-0.5 rounded border border-border text-text-secondary text-[8px] font-black uppercase tracking-wider">Lead</span>;
+    }
 
     let handoverTag = null;
     if (isHandover) {
@@ -183,8 +214,11 @@ export const LeadCanvas: React.FC<LeadCanvasProps> = ({ leads, campaigns, onLead
     }
 
     let sqlTag = null;
-    if (lead.status === 'SQL') sqlTag = <span className="px-1.5 py-0.5 rounded bg-green-500 text-white border border-green-600 text-[8px] font-black uppercase tracking-wider shadow-sm">SQL</span>;
-    else if (isDisqual) sqlTag = <span className="px-1.5 py-0.5 rounded bg-black text-white dark:bg-white dark:text-black border border-border text-[8px] font-black uppercase tracking-wider shadow-sm">Disqualified</span>;
+    if (lead.status === 'SQL' || isPromoted) {
+      sqlTag = <span className="px-1.5 py-0.5 rounded bg-blue-500 text-white border border-blue-600 text-[8px] font-black uppercase tracking-wider shadow-sm">SQL</span>;
+    } else if (isDisqual) {
+      sqlTag = <span className="px-1.5 py-0.5 rounded bg-black text-white dark:bg-white dark:text-black border border-border text-[8px] font-black uppercase tracking-wider shadow-sm">Disqualified</span>;
+    }
 
     let oppTag = null;
     if ((lead as any).is_opportunity || lead.status === 'Opportunity') {
@@ -211,12 +245,10 @@ export const LeadCanvas: React.FC<LeadCanvasProps> = ({ leads, campaigns, onLead
         {type === 'mql' && (
           <>
             {mqlTag}
-            {sqlTag}
           </>
         )}
         {type === 'sql' && (
           <>
-            {mqlTag}
             {sqlTag}
           </>
         )}
@@ -232,52 +264,63 @@ export const LeadCanvas: React.FC<LeadCanvasProps> = ({ leads, campaigns, onLead
   };
 
   const LeadCard = ({ lead, type }: { lead: MQLLead, type: 'lead' | 'mql' | 'sql' | 'opp' }) => {
+    const currentLead = getIsolatedLead(lead, type);
     return (
       <div 
-        onClick={() => onLeadSelect(lead, type)}
+        onClick={() => onLeadSelect(currentLead, type)}
         className="bg-bg-surface border border-border rounded-xl p-3 cursor-pointer hover:border-accent/50 hover:shadow-md transition-all group flex flex-col gap-1.5"
       >
         <div className="flex justify-between items-start">
           <span className="px-2 py-0.5 rounded bg-bg-primary/50 text-text-secondary text-[10px] font-medium truncate max-w-[120px] lg:max-w-[140px]">
-            {lead.company_name || 'Unknown Co'}
+            {currentLead.company_name || 'Unknown Co'}
           </span>
           <Edit className="w-3.5 h-3.5 text-text-secondary opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
         </div>
         
         <div className="mt-1">
           <h4 className="text-sm font-bold text-text-primary font-sans leading-tight truncate">
-            {lead.first_name} {lead.last_name}
+            {currentLead.first_name} {currentLead.last_name}
           </h4>
           {(type === 'lead' || type === 'mql') && (
             <p className="text-xs font-semibold text-text-primary mt-0.5 truncate text-opacity-80">
-              {getCampaignName(lead.campaign_id)}
+              {getCampaignName(currentLead.campaign_id)}
             </p>
           )}
           {(type === 'sql' || type === 'opp') && (
             <p className="text-xs font-semibold text-text-primary mt-0.5">
-              {lead.annual_revenue || '$0'}
+              {currentLead.annual_revenue || '$0'}
             </p>
           )}
         </div>
 
         <div className="flex justify-between items-end mt-1.5 gap-2">
           <div className="flex flex-wrap gap-1.5 items-center">
-            {lead.lead_industry && (
+            {currentLead.lead_industry && (
               <span className="px-1.5 py-0.5 rounded border border-border text-text-secondary text-[9px] font-medium truncate max-w-[70px]">
-                {lead.lead_industry}
+                {currentLead.lead_industry}
               </span>
             )}
-            {lead.job_title && (
+            {currentLead.job_title && (
               <span className="px-1.5 py-0.5 rounded border border-border text-text-secondary text-[9px] font-medium truncate max-w-[80px]">
-                {lead.job_title}
+                {currentLead.job_title}
               </span>
             )}
           </div>
-          {getLeadTags(lead, type)}
+          {getLeadTags(currentLead, type)}
         </div>
       </div>
     );
   };
+
+  if (canvasView === 'mql_table') {
+    return (
+      <MqlToSqlTable 
+        leads={leads}
+        campaigns={campaigns}
+        onBack={() => setCanvasView('kanban')}
+      />
+    );
+  }
 
   return (
     <div className="h-full flex flex-col space-y-6">
@@ -337,9 +380,13 @@ export const LeadCanvas: React.FC<LeadCanvasProps> = ({ leads, campaigns, onLead
               ratioNum={mqlToSqlRatio} 
             />
             <div className="flex justify-end -mt-1 -mb-1 px-1">
-              <div className="p-1 text-text-secondary/50" title="Table View (MQL)">
+              <button 
+                onClick={() => setCanvasView('mql_table')}
+                className="p-1 hover:bg-black/5 dark:hover:bg-white/5 rounded transition-colors text-text-secondary hover:text-text-primary cursor-pointer animate-pulse" 
+                title="MQL Table View"
+              >
                 <Table className="w-4 h-4" />
-              </div>
+              </button>
             </div>
             <div className="flex-1 overflow-y-auto custom-scrollbar-vertical flex flex-col gap-3 pb-2">
               {paginatedMqlLeads.map(lead => (

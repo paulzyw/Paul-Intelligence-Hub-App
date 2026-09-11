@@ -10,7 +10,9 @@ import {
   Sparkles, CheckCircle2, AlertTriangle, AlertCircle, Building2,
   Calendar, Check, Landmark, Award
 } from 'lucide-react';
-import { SQLDynamicEvidenceForm } from './SQL_DynamicEvidenceForm';
+import { SQLDynamicEvidenceForm, ensureUICompatibleResult } from './SQL_DynamicEvidenceForm';
+import { SQLQualificationResult, SQLQualificationResultData } from './SQL_QualificationResult';
+import UREKB_Config from '../../../../config/SQL_evidence_knowledge_base.json';
 
 interface MQLToSQLDetailsPageProps {
   lead: MQLLead;
@@ -125,6 +127,7 @@ export const MQLToSQLDetailsPage: React.FC<MQLToSQLDetailsPageProps> = ({
   const [saveError, setSaveError] = useState<string | null>(null);
   const [saveSuccessMessage, setSaveSuccessMessage] = useState<string | null>(null);
   const [showEvidenceForm, setShowEvidenceForm] = useState(false);
+  const [qualificationResult, setQualificationResult] = useState<SQLQualificationResultData | null>(null);
 
   useEffect(() => {
     const loadExistingOpportunity = async () => {
@@ -148,11 +151,19 @@ export const MQLToSQLDetailsPage: React.FC<MQLToSQLDetailsPageProps> = ({
               // Not JSON description
             }
           }
-
           // Check if there's an existing draft/assessment and auto-expand
           const assessment = await SQLDataService.getAssessmentByOpportunity(opp.id);
           if (assessment) {
             setShowEvidenceForm(true);
+          }
+          // Check for saved qualification result
+          const savedResult = await SQLDataService.getSavedQualificationResult(opp.id);
+          if (savedResult) {
+            const motion = campaign?.revenue_motion || opp.revenue_motion || 'Digital Solution Selling';
+            const library = UREKB_Config.UREKB_SQL.revenue_motion_library;
+            const motionData = library[motion as keyof typeof library];
+            const uiResult = ensureUICompatibleResult(savedResult, motionData);
+            setQualificationResult(uiResult);
           }
         }
       } catch (err) {
@@ -924,6 +935,67 @@ export const MQLToSQLDetailsPage: React.FC<MQLToSQLDetailsPageProps> = ({
             industry={formIndustry}
             revenueMotion={formRevenueMotion}
             opportunityId={existingOpp?.id}
+            onQualificationComplete={(data) => {
+              setQualificationResult(data);
+            }}
+          />
+        </div>
+      )}
+
+      {qualificationResult && (
+        <div id="sql-qualification-result-section">
+          <SQLQualificationResult 
+            data={qualificationResult} 
+            opportunityId={existingOpp?.id} 
+            leadId={lead.id}
+            onPromote={async () => {
+              try {
+                // First, check if there is an existing opportunity, if not, save it!
+                let oppId = existingOpp?.id;
+                if (!oppId) {
+                  const descriptionText = `Inherited MQL Prospect Lead Profile: ${inheritanceContext.lead_profile.contact_name} (${inheritanceContext.lead_profile.job_title}). Customer Objective: ${inheritanceContext.customer_intent_intelligence.customer_goal}`;
+                  const serializedDescription = JSON.stringify({
+                    description: descriptionText,
+                    opportunity_owner: formOpportunityOwner || 'Sales Rep',
+                    opportunity_stage: formOpportunityStage,
+                    estimated_revenue: formEstimatedRevenue,
+                    pipeline_stage: formPipelineStage,
+                    expected_close_date: formExpectedCloseDate
+                  });
+                  const newOpp = await SQLDataService.createOpportunity({
+                    company_name: formCompanyName,
+                    opportunity_name: formOpportunityName,
+                    industry: formIndustry,
+                    revenue_motion: formRevenueMotion,
+                    description: serializedDescription,
+                    source: 'MQL Handover',
+                    mql_reference_id: lead.id
+                  });
+                  setExistingOpp(newOpp);
+                  oppId = newOpp.id;
+                }
+
+                // Update lead status to SQL in Supabase DB
+                await MQLDataService.updateLead(lead.id, { status: 'SQL' });
+                
+                // Save qualification result to SQLOpportunity in the backend too if available
+                if (oppId && qualificationResult) {
+                  await SQLDataService.saveFullQualificationResult(oppId, qualificationResult);
+                }
+
+                // Add to promoted list for double-column display in Lead Canvas
+                const promotedList = JSON.parse(localStorage.getItem('mql_promoted_leads') || '[]');
+                if (!promotedList.includes(lead.id)) {
+                  promotedList.push(lead.id);
+                  localStorage.setItem('mql_promoted_leads', JSON.stringify(promotedList));
+                }
+
+                return true;
+              } catch (err) {
+                console.error("Promotion failed:", err);
+                return false;
+              }
+            }}
           />
         </div>
       )}
