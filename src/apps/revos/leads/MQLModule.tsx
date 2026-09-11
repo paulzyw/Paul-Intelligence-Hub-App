@@ -132,36 +132,6 @@ export const MQLModule: React.FC = () => {
     loadInitialData();
   }, []);
 
-  // Temporary fix to restore Birty Technology lead back to MQL
-  useEffect(() => {
-    const fixLead = async () => {
-      const target = leads.find(l => l.company_name?.includes('Birty') && l.status === 'SQL');
-      if (target) {
-        try {
-          await MQLDataService.updateLead(target.id, { status: 'Highly Qualified MQL', handover_status: undefined });
-          localStorage.removeItem(`mql_handover_${target.id}`);
-          const newLeads = await MQLDataService.getLeads();
-          setLeads(newLeads);
-          
-          // Try to delete opp if it exists, but do it quietly
-          try {
-            const { supabase } = await import('@/src/lib/supabase');
-            const { data } = await supabase.from('opportunities').select('id').eq('lead_id', target.id);
-            if (data && data.length > 0) {
-              await supabase.from('opportunities').delete().eq('id', data[0].id);
-            }
-          } catch(e) {}
-          
-        } catch (e) {
-          console.error('Failed to fix lead:', e);
-        }
-      }
-    };
-    if (leads.length > 0) {
-      fixLead();
-    }
-  }, [leads]);
-
   const loadInitialData = async () => {
     setLoading(true);
     try {
