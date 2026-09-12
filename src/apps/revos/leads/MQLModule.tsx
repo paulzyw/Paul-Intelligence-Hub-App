@@ -115,6 +115,7 @@ export const MQLModule: React.FC = () => {
   const [selectedLeadIds, setSelectedLeadIds] = useState<string[]>([]);
   const [showDeletedOnly, setShowDeletedOnly] = useState<boolean>(false);
   const [searchQuery, setSearchQuery] = useState<string>('');
+  const [leadPage, setLeadPage] = useState<number>(1);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState<boolean>(false);
   const [showPermanentDeleteConfirm, setShowPermanentDeleteConfirm] = useState<boolean>(false);
   const [showCsvImport, setShowCsvImport] = useState<boolean>(false);
@@ -126,6 +127,7 @@ export const MQLModule: React.FC = () => {
 
   useEffect(() => {
     setSelectedLeadIds([]);
+    setLeadPage(1);
   }, [campaignFilterId, showDeletedOnly, searchQuery]);
 
   useEffect(() => {
@@ -728,6 +730,11 @@ export const MQLModule: React.FC = () => {
         return true;
       });
 
+      const leadsPerPage = 10;
+      const totalPages = Math.max(1, Math.ceil(filteredLeads.length / leadsPerPage));
+      const currentPage = Math.min(leadPage, totalPages);
+      const paginatedLeads = filteredLeads.slice((currentPage - 1) * leadsPerPage, currentPage * leadsPerPage);
+
       const handleExportCSV = () => {
         const leadsToExport = selectedLeadIds.length > 0 
           ? leads.filter(l => selectedLeadIds.includes(l.id))
@@ -1096,12 +1103,14 @@ export const MQLModule: React.FC = () => {
                     <th className="px-4 py-4 w-12 text-center select-none">
                       <input 
                         type="checkbox"
-                        checked={filteredLeads.length > 0 && filteredLeads.every(l => selectedLeadIds.includes(l.id))}
+                        checked={paginatedLeads.length > 0 && paginatedLeads.every(l => selectedLeadIds.includes(l.id))}
                         onChange={(e) => {
                           if (e.target.checked) {
-                            setSelectedLeadIds(filteredLeads.map(l => l.id));
+                            const idsToAdd = paginatedLeads.map(l => l.id);
+                            setSelectedLeadIds(prev => Array.from(new Set([...prev, ...idsToAdd])));
                           } else {
-                            setSelectedLeadIds([]);
+                            const idsToRemove = paginatedLeads.map(l => l.id);
+                            setSelectedLeadIds(prev => prev.filter(id => !idsToRemove.includes(id)));
                           }
                         }}
                         className="rounded border-border text-accent focus:ring-accent cursor-pointer h-3.5 w-3.5"
@@ -1117,7 +1126,7 @@ export const MQLModule: React.FC = () => {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border text-text-primary">
-                  {filteredLeads.map(lead => {
+                  {paginatedLeads.map(lead => {
                     const leadQualResult = campaignQualResults.find(r => r.lead_id === lead.id);
 
                     // 1. Industry from lead details / extra JSON
@@ -1174,12 +1183,23 @@ export const MQLModule: React.FC = () => {
                     }
 
                     let displayStatus = (lead.status as string) || 'New';
-                    if (displayStatus === 'Qualified MQL' || displayStatus === 'Highly Qualified MQL') {
+                    if (displayStatus === 'Qualified MQL' || displayStatus === 'Highly Qualified MQL' || displayStatus === 'SQL') {
                       displayStatus = 'Qualified';
                     } else if (displayStatus === 'Disqualified MQL') {
                       displayStatus = 'Disqualified';
                     } else if (displayStatus === 'Marketing Nurture') {
                       displayStatus = 'Nurture';
+                    }
+
+                    if (leadQualResult && leadQualResult.qualification_status) {
+                      const qs = String(leadQualResult.qualification_status);
+                      if (qs === 'Highly Qualified MQL' || qs === 'Qualified MQL' || qs === 'Qualified') {
+                        displayStatus = 'Qualified';
+                      } else if (qs === 'Marketing Nurture') {
+                        displayStatus = 'Nurture';
+                      } else if (qs === 'Disqualified' || qs === 'Disqualified MQL') {
+                        displayStatus = 'Disqualified';
+                      }
                     }
 
                     const statusColor = displayStatus.toLowerCase().includes('highly') || displayStatus.toLowerCase() === 'qualified'
@@ -1257,6 +1277,65 @@ export const MQLModule: React.FC = () => {
                 </tbody>
               </table>
             </div>
+
+            {/* Pagination Footer */}
+            {!loading && filteredLeads.length > 0 && (
+              <div className="flex flex-col sm:flex-row items-center justify-between gap-4 px-6 py-4 border-t border-border bg-bg-surface text-xs text-text-secondary select-none">
+                <div className="font-medium">
+                  Showing <span className="font-semibold text-text-primary">{Math.min(filteredLeads.length, (currentPage - 1) * leadsPerPage + 1)}</span> to{' '}
+                  <span className="font-semibold text-text-primary">{Math.min(filteredLeads.length, currentPage * leadsPerPage)}</span> of{' '}
+                  <span className="font-semibold text-text-primary">{filteredLeads.length}</span> results
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <button
+                    onClick={() => setLeadPage(prev => Math.max(1, prev - 1))}
+                    disabled={currentPage === 1}
+                    className="inline-flex items-center justify-center gap-1 px-3 py-1.5 rounded-lg border border-border bg-bg-surface text-text-primary font-medium hover:bg-bg-primary/50 disabled:opacity-50 disabled:pointer-events-none transition-colors cursor-pointer"
+                  >
+                    Previous
+                  </button>
+
+                  {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => {
+                    const isFirst = page === 1;
+                    const isLast = page === totalPages;
+                    const isWithinRange = Math.abs(page - currentPage) <= 1;
+
+                    if (isFirst || isLast || isWithinRange) {
+                      return (
+                        <button
+                          key={page}
+                          onClick={() => setLeadPage(page)}
+                          className={`inline-flex items-center justify-center w-[26px] h-[26px] rounded-full text-[13px] font-normal transition-colors cursor-pointer ${
+                            currentPage === page
+                              ? 'bg-accent text-white font-medium'
+                              : 'border border-border hover:bg-bg-primary/50 text-text-primary'
+                          }`}
+                        >
+                          {page}
+                        </button>
+                      );
+                    }
+
+                    if (
+                      (page === 2 && currentPage > 3) ||
+                      (page === totalPages - 1 && currentPage < totalPages - 2)
+                    ) {
+                      return <span key={page} className="px-1 text-text-secondary select-none">...</span>;
+                    }
+
+                    return null;
+                  })}
+
+                  <button
+                    onClick={() => setLeadPage(prev => Math.min(totalPages, prev + 1))}
+                    disabled={currentPage === totalPages}
+                    className="inline-flex items-center justify-center gap-1 px-3 py-1.5 rounded-lg border border-border bg-bg-surface text-text-primary font-medium hover:bg-bg-primary/50 disabled:opacity-50 disabled:pointer-events-none transition-colors cursor-pointer"
+                  >
+                    Next
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Soft Delete Confirmation Modal */}
@@ -1845,8 +1924,8 @@ export const MQLModule: React.FC = () => {
             }
             setSelectedLead(null);
             setView('lead_canvas');
-            // Navigate the user to the SQL Qualification tab so they see their new opportunity instantly!
-            handleTabChange('sql_qualification');
+            // Navigate the user to the Lead Canvas tab so they see their new opportunity instantly!
+            handleTabChange('lead_canvas');
           }}
         />
       );
@@ -1882,7 +1961,7 @@ export const MQLModule: React.FC = () => {
           <span className="text-[10px] font-mono text-text-secondary uppercase">Unified qualification lifecycle sequence</span>
           <span className="text-xs font-bold text-accent">
             Active qualification step: {
-              activeTab === 'campaign' ? '1 / 4' : (activeTab === 'lead_canvas' || activeTab === 'lead') ? '2 / 4' : activeTab === 'dashboard' ? '3 / 4' : '4 / 4'
+              activeTab === 'campaign' ? '1 / 3' : (activeTab === 'lead_canvas' || activeTab === 'lead') ? '2 / 3' : '3 / 3'
             }
           </span>
         </div>
@@ -1923,18 +2002,6 @@ export const MQLModule: React.FC = () => {
           >
             <span className="font-mono">3.</span>
             <span>Lead Dashboard</span>
-          </button>
-
-          <button
-            onClick={() => handleTabChange('sql_qualification')}
-            className={`inline-flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl border text-[10px] sm:text-xs font-bold uppercase transition-all shrink-0 cursor-pointer ${
-              activeTab === 'sql_qualification'
-                ? 'bg-accent border-accent text-black font-black scale-105 shadow-md shadow-accent/15'
-                : 'bg-bg-primary/50 border-border/70 text-text-secondary hover:text-text-primary hover:border-text-secondary/40'
-            }`}
-          >
-            <span className="font-mono">4.</span>
-            <span>SQL Qualification</span>
           </button>
         </div>
       </div>

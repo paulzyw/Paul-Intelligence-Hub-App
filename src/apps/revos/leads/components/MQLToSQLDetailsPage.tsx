@@ -8,7 +8,7 @@ import {
   ArrowLeft, BadgeCheck, ShieldAlert, FileText, User, 
   Layers, BarChart3, ChevronRight, Activity, Zap, 
   Sparkles, CheckCircle2, AlertTriangle, AlertCircle, Building2,
-  Calendar, Check, Landmark, Award
+  Calendar, Check, Landmark, Award, X
 } from 'lucide-react';
 import { SQLDynamicEvidenceForm, ensureUICompatibleResult } from './SQL_DynamicEvidenceForm';
 import { SQLQualificationResult, SQLQualificationResultData } from './SQL_QualificationResult';
@@ -244,8 +244,7 @@ export const MQLToSQLDetailsPage: React.FC<MQLToSQLDetailsPageProps> = ({
     }
     setPromoting(true);
     try {
-      // Update lead status to SQL in Supabase DB
-      await MQLDataService.updateLead(lead.id, { status: 'SQL' });
+      // Keep MQL lead status unchanged in mql_leads table
       setPromotionSuccess(true);
       setTimeout(() => {
         onPromoteSuccess();
@@ -261,8 +260,8 @@ export const MQLToSQLDetailsPage: React.FC<MQLToSQLDetailsPageProps> = ({
     <div className="space-y-6 animate-in fade-in-40 duration-200">
       
       {/* HEADER NAVIGATION */}
-      <div className="p-5 rounded-2xl bg-bg-surface border border-border flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-        <div>
+      <div className="p-5 rounded-2xl bg-bg-surface border border-border flex flex-col md:flex-row justify-between items-start md:items-center gap-4 relative">
+        <div className="w-full pr-10 md:pr-0">
           <button 
             onClick={onBack} 
             className="text-xs font-mono text-text-secondary hover:text-accent transition-colors flex items-center gap-1.5 mb-3 cursor-pointer"
@@ -280,6 +279,13 @@ export const MQLToSQLDetailsPage: React.FC<MQLToSQLDetailsPageProps> = ({
             Analyzing validated marketing intelligence handover package for <span className="font-bold text-text-primary">{inheritanceContext.lead_profile.contact_name}</span> at <span className="font-bold text-text-primary">{inheritanceContext.company_context.company_name}</span>
           </p>
         </div>
+        <button
+          onClick={onBack}
+          className="absolute top-5 right-5 md:static p-2.5 rounded-xl border border-border bg-bg-primary/50 text-text-secondary hover:text-red-500 hover:border-red-500/30 hover:bg-red-500/5 transition-all cursor-pointer flex items-center justify-center shrink-0 shadow-sm"
+          title="Close details"
+        >
+          <X className="h-4 w-4" />
+        </button>
       </div>
 
       {/* CLASSIFIED CATEGORY SUB-TABS */}
@@ -510,9 +516,9 @@ export const MQLToSQLDetailsPage: React.FC<MQLToSQLDetailsPageProps> = ({
                 <span className="text-[10px] font-mono text-text-secondary uppercase block mb-2.5">Marketing Touchpoint History</span>
                 <div className="space-y-2">
                   {inheritanceContext.engagement_intelligence.engagement_events.map((event, idx) => (
-                    <div key={idx} className="flex justify-between items-center p-2.5 border-b border-border/40 text-xs">
-                      <span className="text-text-primary font-medium">{event.event}</span>
-                      <span className="text-text-secondary font-mono text-[10px] bg-bg-primary px-2 py-0.5 rounded-lg border border-border/60">{event.date}</span>
+                    <div key={idx} className="flex items-center gap-2.5 p-2.5 bg-bg-primary/40 border border-border/60 rounded-xl text-xs font-medium text-text-primary">
+                      <div className="h-1.5 w-1.5 rounded-full bg-accent shrink-0" />
+                      <span>{event.event}</span>
                     </div>
                   ))}
                 </div>
@@ -975,9 +981,6 @@ export const MQLToSQLDetailsPage: React.FC<MQLToSQLDetailsPageProps> = ({
                   oppId = newOpp.id;
                 }
 
-                // Update lead status to SQL in Supabase DB
-                await MQLDataService.updateLead(lead.id, { status: 'SQL' });
-                
                 // Save qualification result to SQLOpportunity in the backend too if available
                 if (oppId && qualificationResult) {
                   await SQLDataService.saveFullQualificationResult(oppId, qualificationResult);

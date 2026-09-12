@@ -38,7 +38,7 @@ export const LeadCanvas: React.FC<LeadCanvasProps> = ({ leads, campaigns, onLead
   });
 
   const promotedLeadIdsJson = localStorage.getItem('mql_promoted_leads');
-  const promotedLeadIds = promotedLeadIdsJson ? JSON.parse(promotedLeadIdsJson) : [];
+  const promotedLeadIds: string[] = promotedLeadIdsJson ? JSON.parse(promotedLeadIdsJson) : [];
 
   const allLeads = filteredLeads;
   const mqlLeads = filteredLeads.filter(l => 
@@ -318,6 +318,7 @@ export const LeadCanvas: React.FC<LeadCanvasProps> = ({ leads, campaigns, onLead
         leads={leads}
         campaigns={campaigns}
         onBack={() => setCanvasView('kanban')}
+        onLeadSelect={onLeadSelect}
       />
     );
   }

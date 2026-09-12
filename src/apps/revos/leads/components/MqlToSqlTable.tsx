@@ -73,15 +73,21 @@ interface MqlToSqlTableProps {
   leads: MQLLead[];
   campaigns: MQLCampaign[];
   onBack: () => void;
+  onLeadSelect?: (lead: MQLLead, columnType?: 'lead' | 'mql' | 'sql' | 'opp') => void;
 }
 
-export const MqlToSqlTable: React.FC<MqlToSqlTableProps> = ({ leads, campaigns, onBack }) => {
+export const MqlToSqlTable: React.FC<MqlToSqlTableProps> = ({ leads, campaigns, onBack, onLeadSelect }) => {
   const [loading, setLoading] = useState(true);
   const [opportunities, setOpportunities] = useState<SQLOpportunity[]>([]);
   const [assessments, setAssessments] = useState<SQLAssessment[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedLeadIds, setSelectedLeadIds] = useState<string[]>([]);
   const [showDeletedOnly, setShowDeletedOnly] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery, showDeletedOnly]);
 
   // Soft-deleted MQL Lead IDs inside this view
   const [deletedMqlIds, setDeletedMqlIds] = useState<string[]>(() => {
@@ -173,6 +179,7 @@ export const MqlToSqlTable: React.FC<MqlToSqlTableProps> = ({ leads, campaigns, 
 
     return {
       leadId: lead.id,
+      leadRaw: lead,
       companyName: opportunity?.company_name || lead.company_name || '—',
       businessSegment: lead.lead_industry || "Enterprise Cloud Software",
       opportunityName: opportunity?.opportunity_name || '—',
@@ -198,19 +205,28 @@ export const MqlToSqlTable: React.FC<MqlToSqlTableProps> = ({ leads, campaigns, 
 
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase().trim();
+      const promotedText = row.isPromoted ? "yes promoted" : "no not promoted";
       return (
         row.companyName.toLowerCase().includes(q) ||
         row.opportunityName.toLowerCase().includes(q) ||
         row.opportunityOwner.toLowerCase().includes(q) ||
-        row.businessSegment.toLowerCase().includes(q)
+        row.businessSegment.toLowerCase().includes(q) ||
+        row.opportunityStage.toLowerCase().includes(q) ||
+        row.pipelineStage.toLowerCase().includes(q) ||
+        row.sqlStatus.toLowerCase().includes(q) ||
+        promotedText.includes(q)
       );
     }
     return true;
   });
 
+  const itemsPerPage = 10;
+  const totalPages = Math.max(1, Math.ceil(visibleRows.length / itemsPerPage));
+  const paginatedRows = visibleRows.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+
   const handleSelectAll = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.checked) {
-      setSelectedLeadIds(visibleRows.map(r => r.leadId));
+      setSelectedLeadIds(paginatedRows.map(r => r.leadId));
     } else {
       setSelectedLeadIds([]);
     }
@@ -332,7 +348,7 @@ export const MqlToSqlTable: React.FC<MqlToSqlTableProps> = ({ leads, campaigns, 
           </button>
           <div>
             <h2 className="text-xl font-bold text-text-primary font-sans">MQL Sales Qualification Roster</h2>
-            <p className="text-xs text-text-secondary mt-0.5">MEDDPICC aligned sales opportunities converted from Marketing Qualified Leads</p>
+            <p className="text-xs text-text-secondary mt-0.5">Sales opportunities converted from Marketing Qualified Leads (MQL)</p>
           </div>
         </div>
       </div>
@@ -454,34 +470,35 @@ export const MqlToSqlTable: React.FC<MqlToSqlTableProps> = ({ leads, campaigns, 
 
       <div className="bg-bg-surface border border-border rounded-2xl overflow-hidden shadow-sm">
         <div className="overflow-x-auto custom-scrollbar-horizontal pb-2">
-          <table className="w-full text-left text-xs min-w-[1470px]">
+          <table className="w-full text-left text-xs min-w-[1650px]">
             <thead className="bg-bg-primary/50 border-b border-border text-text-secondary font-mono uppercase tracking-wider">
               <tr>
                 <th className="p-4 w-10 text-center">
                   <input
                     type="checkbox"
-                    checked={visibleRows.length > 0 && selectedLeadIds.length === visibleRows.length}
+                    checked={paginatedRows.length > 0 && paginatedRows.every(r => selectedLeadIds.includes(r.leadId))}
                     onChange={handleSelectAll}
                     className="rounded border-border bg-bg-surface focus:ring-0 text-accent cursor-pointer"
                   />
                 </th>
+                <th className="p-4 w-12 min-w-[48px] text-center font-bold">SN</th>
                 <th className="p-4 font-bold">Company Name</th>
                 <th className="p-4 font-bold">Business Segment</th>
                 <th className="p-4 font-bold min-w-[360px] w-[360px]">Opportunity Name</th>
                 <th className="p-4 font-bold">Owner</th>
                 <th className="p-4 font-bold">Opp Stage</th>
                 <th className="p-4 font-bold">Pipeline Stage</th>
-                <th className="p-4 font-bold">Est. Revenue</th>
+                <th className="p-4 font-bold w-[150px] min-w-[150px]">Est. Revenue</th>
                 <th className="p-4 font-bold">Expected Close</th>
                 <th className="p-4 font-bold text-center">SQL Score</th>
-                <th className="p-4 font-bold">SQL Status</th>
+                <th className="p-4 font-bold w-[180px] min-w-[180px]">SQL Status</th>
                 <th className="p-4 font-bold text-center">Promoted</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
               {loading ? (
                 <tr>
-                  <td colSpan={12} className="p-8 text-center text-text-secondary">
+                  <td colSpan={13} className="p-8 text-center text-text-secondary">
                     <div className="flex items-center justify-center gap-2">
                       <div className="w-4 h-4 border-2 border-accent border-t-transparent rounded-full animate-spin" />
                       <span>Loading SQL Data...</span>
@@ -490,59 +507,136 @@ export const MqlToSqlTable: React.FC<MqlToSqlTableProps> = ({ leads, campaigns, 
                 </tr>
               ) : visibleRows.length === 0 ? (
                 <tr>
-                  <td colSpan={12} className="p-8 text-center text-text-secondary">
+                  <td colSpan={13} className="p-8 text-center text-text-secondary">
                     No leads match your selection.
                   </td>
                 </tr>
               ) : (
-                visibleRows.map(row => (
-                  <tr 
-                    key={row.leadId}
-                    className="hover:bg-bg-primary/30 transition-colors"
-                  >
-                    <td className="p-4 text-center">
-                      <input
-                        type="checkbox"
-                        checked={selectedLeadIds.includes(row.leadId)}
-                        onChange={(e) => handleSelectRow(row.leadId, e.target.checked)}
-                        className="rounded border-border bg-bg-surface focus:ring-0 text-accent cursor-pointer"
-                      />
-                    </td>
-                    <td className="p-4 font-bold text-text-primary">{row.companyName}</td>
-                    <td className="p-4 text-text-secondary font-medium">{row.businessSegment}</td>
-                    <td className="p-4 font-bold text-text-primary min-w-[360px] w-[360px]">{row.opportunityName}</td>
-                    <td className="p-4 text-text-secondary">{row.opportunityOwner}</td>
-                    <td className="p-4">
-                      <span className="px-2 py-0.5 bg-bg-primary rounded border border-border text-[10px] text-text-secondary">
-                        {row.opportunityStage}
-                      </span>
-                    </td>
-                    <td className="p-4 text-text-secondary font-medium">{row.pipelineStage}</td>
-                    <td className="p-4 font-mono font-bold text-text-primary">{row.estimatedRevenue}</td>
-                    <td className="p-4 text-text-secondary font-medium">{row.expectedCloseDate}</td>
-                    <td className="p-4 text-center">
-                      <div className="inline-flex justify-center w-full">
-                        <MiniScorePieChart score={row.sqlScore} status={row.sqlStatus} />
-                      </div>
-                    </td>
-                    <td className="p-4">{getSqlStatusBadge(row.sqlStatus)}</td>
-                    <td className="p-4 text-center">
-                      {row.isPromoted ? (
-                        <span className="inline-flex px-1.5 py-0.5 bg-emerald-500/15 text-emerald-500 border border-emerald-500/25 text-[8px] font-black uppercase tracking-wider rounded">
-                          YES
+                paginatedRows.map((row, idx) => {
+                  const serialNumber = (currentPage - 1) * itemsPerPage + idx + 1;
+                  return (
+                    <tr 
+                      key={row.leadId}
+                      className="hover:bg-bg-primary/30 transition-colors"
+                    >
+                      <td className="p-4 text-center">
+                        <input
+                          type="checkbox"
+                          checked={selectedLeadIds.includes(row.leadId)}
+                          onChange={(e) => handleSelectRow(row.leadId, e.target.checked)}
+                          className="rounded border-border bg-bg-surface focus:ring-0 text-accent cursor-pointer"
+                        />
+                      </td>
+                      <td className="p-4 w-12 min-w-[48px] text-center font-mono font-medium text-text-secondary">
+                        {serialNumber}
+                      </td>
+                      <td className="p-4 font-bold text-text-primary">{row.companyName}</td>
+                      <td className="p-4 text-text-secondary font-medium">{row.businessSegment}</td>
+                      <td className="p-4 font-bold min-w-[360px] w-[360px]">
+                        {onLeadSelect ? (
+                          <button
+                            onClick={() => onLeadSelect(row.leadRaw, 'mql')}
+                            className="text-left text-accent hover:underline hover:text-accent/80 font-bold transition-all cursor-pointer focus:outline-none"
+                          >
+                            {row.opportunityName}
+                          </button>
+                        ) : (
+                          <span className="text-text-primary">{row.opportunityName}</span>
+                        )}
+                      </td>
+                      <td className="p-4 text-text-secondary">{row.opportunityOwner}</td>
+                      <td className="p-4">
+                        <span className="px-2 py-0.5 bg-bg-primary rounded border border-border text-[10px] text-text-secondary">
+                          {row.opportunityStage}
                         </span>
-                      ) : (
-                        <span className="inline-flex px-1.5 py-0.5 bg-red-500/15 text-red-500 border border-red-500/25 text-[8px] font-black uppercase tracking-wider rounded">
-                          NO
-                        </span>
-                      )}
-                    </td>
-                  </tr>
-                ))
+                      </td>
+                      <td className="p-4 text-text-secondary font-medium">{row.pipelineStage}</td>
+                      <td className="p-4 font-mono font-bold text-text-primary w-[150px] min-w-[150px]">{row.estimatedRevenue}</td>
+                      <td className="p-4 text-text-secondary font-medium">{row.expectedCloseDate}</td>
+                      <td className="p-4 text-center">
+                        <div className="inline-flex justify-center w-full">
+                          <MiniScorePieChart score={row.sqlScore} status={row.sqlStatus} />
+                        </div>
+                      </td>
+                      <td className="p-4 w-[180px] min-w-[180px]">{getSqlStatusBadge(row.sqlStatus)}</td>
+                      <td className="p-4 text-center">
+                        {row.isPromoted ? (
+                          <span className="inline-flex px-1.5 py-0.5 bg-emerald-500/15 text-emerald-500 border border-emerald-500/25 text-[8px] font-black uppercase tracking-wider rounded">
+                            YES
+                          </span>
+                        ) : (
+                          <span className="inline-flex px-1.5 py-0.5 bg-red-500/15 text-red-500 border border-red-500/25 text-[8px] font-black uppercase tracking-wider rounded">
+                            NO
+                          </span>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })
               )}
             </tbody>
           </table>
         </div>
+
+        {/* Pagination Footer */}
+        {!loading && visibleRows.length > 0 && (
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-4 px-6 py-4 border-t border-border bg-bg-surface text-xs text-text-secondary select-none">
+            <div className="font-medium">
+              Showing <span className="font-semibold text-text-primary">{Math.min(visibleRows.length, (currentPage - 1) * itemsPerPage + 1)}</span> to{' '}
+              <span className="font-semibold text-text-primary">{Math.min(visibleRows.length, currentPage * itemsPerPage)}</span> of{' '}
+              <span className="font-semibold text-text-primary">{visibleRows.length}</span> results
+            </div>
+            <div className="flex items-center gap-1.5">
+              <button
+                onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                disabled={currentPage === 1}
+                className="inline-flex items-center justify-center gap-1 px-3 py-1.5 rounded-lg border border-border bg-bg-surface text-text-primary font-medium hover:bg-bg-primary/50 disabled:opacity-50 disabled:pointer-events-none transition-colors cursor-pointer"
+              >
+                Previous
+              </button>
+              
+              {Array.from({ length: totalPages }, (_, i) => i + 1).map((page, index, arr) => {
+                const isFirst = page === 1;
+                const isLast = page === totalPages;
+                const isWithinRange = Math.abs(page - currentPage) <= 1;
+
+                if (isFirst || isLast || isWithinRange) {
+                  return (
+                    <button
+                      key={page}
+                      onClick={() => setCurrentPage(page)}
+                      className={`inline-flex items-center justify-center w-[26px] h-[26px] rounded-full text-[13px] font-normal transition-colors cursor-pointer ${
+                        currentPage === page
+                          ? 'bg-accent text-white font-medium'
+                          : 'border border-border hover:bg-bg-primary/50 text-text-primary'
+                      }`}
+                    >
+                      {page}
+                    </button>
+                  );
+                }
+
+                // Render ellipsis
+                if (
+                  (page === 2 && currentPage > 3) ||
+                  (page === totalPages - 1 && currentPage < totalPages - 2)
+                ) {
+                  return <span key={page} className="px-1 text-text-secondary select-none">...</span>;
+                }
+
+                return null;
+              })}
+
+              <button
+                onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                disabled={currentPage === totalPages}
+                className="inline-flex items-center justify-center gap-1 px-3 py-1.5 rounded-lg border border-border bg-bg-surface text-text-primary font-medium hover:bg-bg-primary/50 disabled:opacity-50 disabled:pointer-events-none transition-colors cursor-pointer"
+              >
+                Next
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
