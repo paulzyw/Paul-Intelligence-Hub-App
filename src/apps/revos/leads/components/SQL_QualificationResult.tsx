@@ -19,8 +19,10 @@ import {
   BarChart, 
   Award,
   ArrowRight,
-  AlertCircle
+  AlertCircle,
+  Ban
 } from 'lucide-react';
+import { PromotionDataService } from '../services/promotionDataService';
 
 export interface SQLQualificationResultData {
   qualification_summary: {
@@ -84,17 +86,7 @@ export const SQLQualificationResult: React.FC<SQLQualificationResultProps> = ({
   const [isAuditsExpanded, setIsAuditsExpanded] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
-  const [isSuccessfullyPromoted, setIsSuccessfullyPromoted] = useState(() => {
-    if (leadId) {
-      try {
-        const promotedList = JSON.parse(localStorage.getItem('mql_promoted_leads') || '[]');
-        return promotedList.includes(leadId);
-      } catch (e) {
-        return false;
-      }
-    }
-    return false;
-  });
+  const [isSuccessfullyPromoted, setIsSuccessfullyPromoted] = useState(false);
 
   // Safe data wrapper to avoid undefined errors
   const safeData = {
@@ -115,16 +107,17 @@ export const SQLQualificationResult: React.FC<SQLQualificationResultProps> = ({
   };
 
   useEffect(() => {
+    let isMounted = true;
     if (leadId) {
-      try {
-        const promotedList = JSON.parse(localStorage.getItem('mql_promoted_leads') || '[]');
-        setIsSuccessfullyPromoted(promotedList.includes(leadId));
-      } catch (e) {
-        setIsSuccessfullyPromoted(false);
-      }
+      PromotionDataService.isLeadPromoted(leadId).then(promoted => {
+        if (isMounted) setIsSuccessfullyPromoted(promoted);
+      }).catch(() => {
+        if (isMounted) setIsSuccessfullyPromoted(false);
+      });
     } else {
       setIsSuccessfullyPromoted(false);
     }
+    return () => { isMounted = false; };
   }, [leadId]);
 
   const handleSave = async () => {
@@ -992,19 +985,16 @@ export const SQLQualificationResult: React.FC<SQLQualificationResultProps> = ({
           if (onPromote) {
             const success = await onPromote();
             if (success) {
+              if (leadId) await PromotionDataService.promoteLead(leadId, opportunityId);
               setIsSuccessfullyPromoted(true);
             }
           } else if (leadId) {
             try {
-              const promotedList = JSON.parse(localStorage.getItem('mql_promoted_leads') || '[]');
-              if (!promotedList.includes(leadId)) {
-                promotedList.push(leadId);
-                localStorage.setItem('mql_promoted_leads', JSON.stringify(promotedList));
-              }
-              setIsSuccessfullyPromoted(true);
+              await PromotionDataService.promoteLead(leadId, opportunityId);
             } catch (e) {
               console.error(e);
             }
+            setIsSuccessfullyPromoted(true);
           } else {
             setIsSuccessfullyPromoted(true);
           }
@@ -1023,16 +1013,26 @@ export const SQLQualificationResult: React.FC<SQLQualificationResultProps> = ({
             <button 
               onClick={handlePromoteClick}
               disabled={!isRecommendYes || isSuccessfullyPromoted}
-              className={`px-6 py-3 font-sans font-bold text-xs uppercase tracking-wider transition-all duration-150 flex items-center gap-2 rounded-xl shadow-lg ${
+              className={`px-6 py-3 font-sans font-bold text-xs uppercase tracking-wider transition-all duration-150 flex items-center gap-2 rounded-xl shadow-lg group relative ${
                 isSuccessfullyPromoted
-                  ? "bg-emerald-500 text-white shadow-emerald-500/25 cursor-not-allowed"
+                  ? "bg-emerald-600 hover:bg-emerald-600 text-white border border-emerald-500 shadow-emerald-600/30 cursor-not-allowed"
                   : isRecommendYes
                   ? "bg-accent hover:opacity-90 active:scale-[0.98] text-white shadow-accent/25 cursor-pointer"
                   : "bg-neutral-300 dark:bg-neutral-800 text-neutral-400 dark:text-neutral-500 cursor-not-allowed shadow-none border-none"
               }`}
+              title={isSuccessfullyPromoted ? "This opportunity is already promoted to SQL" : undefined}
             >
-              <Zap className="w-3.5 h-3.5 fill-current" />
-              {isSuccessfullyPromoted ? "Promoted to SQL" : "Promote to SQL"}
+              {isSuccessfullyPromoted ? (
+                <>
+                  <Ban className="w-4 h-4 text-white group-hover:rotate-12 transition-transform duration-200" />
+                  <span>Promoted to SQL</span>
+                </>
+              ) : (
+                <>
+                  <Zap className="w-3.5 h-3.5 fill-current" />
+                  <span>Promote to SQL</span>
+                </>
+              )}
             </button>
           </div>
         );

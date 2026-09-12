@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { motion } from 'motion/react';
 import { MQLLead, MQLCampaign, MQLQualificationResult } from '../../types/mql';
 import { SQLDataService } from '../services/sqlDataService';
+import { PromotionDataService } from '../services/promotionDataService';
 import { SQLOpportunity } from '../../types/sql';
 import { MQLDataService } from '../services/mqlDataService';
 import { 
@@ -986,12 +987,8 @@ export const MQLToSQLDetailsPage: React.FC<MQLToSQLDetailsPageProps> = ({
                   await SQLDataService.saveFullQualificationResult(oppId, qualificationResult);
                 }
 
-                // Add to promoted list for double-column display in Lead Canvas
-                const promotedList = JSON.parse(localStorage.getItem('mql_promoted_leads') || '[]');
-                if (!promotedList.includes(lead.id)) {
-                  promotedList.push(lead.id);
-                  localStorage.setItem('mql_promoted_leads', JSON.stringify(promotedList));
-                }
+                // Add to promoted list table in Supabase
+                await PromotionDataService.promoteLead(lead.id, oppId);
 
                 return true;
               } catch (err) {

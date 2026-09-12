@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { MQLLead, MQLCampaign } from '../../types/mql';
 import { SQLOpportunity, SQLAssessment } from '../../types/sql';
 import { SQLDataService } from '../services/sqlDataService';
+import { PromotionDataService } from '../services/promotionDataService';
 import { supabase } from '@/src/lib/supabase';
 import { Search, Download, Trash, Trash2, RefreshCw, ArrowLeft } from 'lucide-react';
 
@@ -103,15 +104,18 @@ export const MqlToSqlTable: React.FC<MqlToSqlTableProps> = ({ leads, campaigns, 
     localStorage.setItem('sql_mql_table_deleted_ids', JSON.stringify(deletedMqlIds));
   }, [deletedMqlIds]);
 
-  const promotedLeadIdsJson = localStorage.getItem('mql_promoted_leads');
-  const promotedLeadIds: string[] = promotedLeadIdsJson ? JSON.parse(promotedLeadIdsJson) : [];
+  const [promotedLeadIds, setPromotedLeadIds] = useState<string[]>([]);
 
   useEffect(() => {
     const fetchData = async () => {
       setLoading(true);
       try {
-        const opps = await SQLDataService.getOpportunities();
+        const [opps, pIds] = await Promise.all([
+          SQLDataService.getOpportunities(),
+          PromotionDataService.getPromotedLeadIds()
+        ]);
         setOpportunities(opps);
+        setPromotedLeadIds(pIds);
 
         const { data: assessList, error } = await supabase
           .from('sql_assessments')
@@ -250,10 +254,11 @@ export const MqlToSqlTable: React.FC<MqlToSqlTableProps> = ({ leads, campaigns, 
     setSelectedLeadIds([]);
   };
 
-  const handlePermanentDeleteSelected = () => {
-    // Actually purge from the list or just filter permanently out
-    const promotedList = promotedLeadIds.filter(id => !selectedLeadIds.includes(id));
-    localStorage.setItem('mql_promoted_leads', JSON.stringify(promotedList));
+  const handlePermanentDeleteSelected = async () => {
+    for (const leadId of selectedLeadIds) {
+      await PromotionDataService.unpromoteLead(leadId);
+    }
+    setPromotedLeadIds(prev => prev.filter(id => !selectedLeadIds.includes(id)));
     setDeletedMqlIds(prev => prev.filter(id => !selectedLeadIds.includes(id)));
     setSelectedLeadIds([]);
   };

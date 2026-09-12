@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { MQLLead, MQLCampaign } from '../../types/mql';
 import { Search, Edit, LayoutGrid, ChevronRight, ChevronLeft, CheckCircle2, AlertTriangle, AlertCircle, Table } from 'lucide-react';
 import { MqlToSqlTable } from './MqlToSqlTable';
+import { PromotionDataService } from '../services/promotionDataService';
 
 interface LeadCanvasProps {
   leads: MQLLead[];
@@ -37,8 +38,15 @@ export const LeadCanvas: React.FC<LeadCanvasProps> = ({ leads, campaigns, onLead
     return name.includes(query) || company.includes(query);
   });
 
-  const promotedLeadIdsJson = localStorage.getItem('mql_promoted_leads');
-  const promotedLeadIds: string[] = promotedLeadIdsJson ? JSON.parse(promotedLeadIdsJson) : [];
+  const [promotedLeadIds, setPromotedLeadIds] = useState<string[]>([]);
+
+  useEffect(() => {
+    PromotionDataService.getPromotedLeadIds().then(ids => {
+      setPromotedLeadIds(ids);
+    }).catch(err => {
+      console.error('Failed to load promoted leads from Supabase:', err);
+    });
+  }, []);
 
   const allLeads = filteredLeads;
   const mqlLeads = filteredLeads.filter(l => 

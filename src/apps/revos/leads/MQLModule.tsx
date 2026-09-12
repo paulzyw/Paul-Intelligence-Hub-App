@@ -9,6 +9,7 @@ import { LeadCanvas } from './components/LeadCanvas';
 import { MQLToSQLDetailsPage } from './components/MQLToSQLDetailsPage';
 import { CsvImportModal } from './components/CsvImportModal';
 import { MQLDataService } from './services/mqlDataService';
+import { PromotionDataService } from './services/promotionDataService';
 import { MQLConfigService } from './services/mqlConfigLoader';
 import { MQLCampaign, MQLLead, MQLQualificationResult } from '../types/mql';
 import { Plus, FolderOpen, Cpu, Users, Settings, PlusCircle, ArrowLeft, Bot, Sparkles, Activity, Check, ChevronDown, ChevronUp, Trash, Trash2, Download, RefreshCw, AlertTriangle } from 'lucide-react';
@@ -258,9 +259,8 @@ export const MQLModule: React.FC = () => {
       // Clicks on these cards go to the new MQL-to-SQL details and Opportunity Form page (sql_handover view) if qualified or already promoted.
       // Clicks on the 'lead' column cards or any other source always go to the original lead creation / MQL qualification engine view (lead_create).
       if (columnType === 'mql' || columnType === 'sql' || columnType === 'opp') {
-        const promotedLeadIdsJson = localStorage.getItem('mql_promoted_leads');
-        const promotedLeadIds = promotedLeadIdsJson ? JSON.parse(promotedLeadIdsJson) : [];
-        const isPromoted = lead.status === 'SQL' || promotedLeadIds.includes(lead.id);
+        const isPromotedInDb = await PromotionDataService.isLeadPromoted(lead.id);
+        const isPromoted = lead.status === 'SQL' || isPromotedInDb;
 
         if (isPromoted || (lead.status && (lead.status.includes('Qualified') || lead.status === 'Highly Qualified MQL'))) {
           setView('sql_handover');
