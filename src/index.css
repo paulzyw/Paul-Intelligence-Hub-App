@@ -357,27 +357,34 @@
   }
 }
 
-@utility scrollbar-none {
+.hide-scrollbar,
+.scrollbar-none {
+  -ms-overflow-style: none;
   scrollbar-width: none;
-  &::-webkit-scrollbar {
-    display: none;
-  }
+}
+.hide-scrollbar::-webkit-scrollbar,
+.scrollbar-none::-webkit-scrollbar {
+  display: none;
 }
 
-@utility custom-scrollbar-horizontal {
+.custom-scrollbar-horizontal {
   scrollbar-width: thin;
-  scrollbar-color: var(--accent) transparent;
-  &::-webkit-scrollbar {
-    height: 5px;
-  }
-  &::-webkit-scrollbar-track {
-    background: rgba(255, 255, 255, 0.03);
-    border-radius: 9999px;
-  }
-  &::-webkit-scrollbar-thumb {
-    background-color: var(--accent);
-    border-radius: 9999px;
-  }
+  scrollbar-color: var(--accent) var(--border-color);
+}
+.custom-scrollbar-horizontal::-webkit-scrollbar {
+  height: 6px;
+}
+.custom-scrollbar-horizontal::-webkit-scrollbar-track {
+  background: var(--bg-surface);
+  border-radius: 9999px;
+  border: 1px solid var(--border-color);
+}
+.custom-scrollbar-horizontal::-webkit-scrollbar-thumb {
+  background-color: var(--accent);
+  border-radius: 9999px;
+}
+.custom-scrollbar-horizontal::-webkit-scrollbar-thumb:hover {
+  background-color: var(--amber);
 }
 
 @media screen {

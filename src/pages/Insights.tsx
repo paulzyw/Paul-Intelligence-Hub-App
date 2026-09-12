@@ -161,7 +161,7 @@ export function Insights() {
             />
           </div>
           
-          <div className="flex overflow-x-auto pb-2 w-full md:w-auto hide-scrollbar gap-2">
+          <div className="flex overflow-x-auto pb-3 w-full md:w-auto custom-scrollbar-horizontal gap-2 scroll-smooth">
             <button
               onClick={() => setActiveCategory('All')}
               className={cn(
