@@ -7,8 +7,12 @@ import { SQLQualificationModule } from './components/SQLQualificationModule';
 import { LeadDashboard } from './components/LeadDashboard';
 import { LeadCanvas } from './components/LeadCanvas';
 import { MQLToSQLDetailsPage } from './components/MQLToSQLDetailsPage';
+import { OpportunityQualificaitonModule } from './components/OpportunityQualificaitonModule';
+import { SQLtoOpportunity } from './components/SQLtoOpportunity';
+import { SqlToOpportunityDetailsPage } from './components/SqlToOpportunityDetailsPage';
 import { CsvImportModal } from './components/CsvImportModal';
 import { MQLDataService } from './services/mqlDataService';
+import { SQLDataService } from './services/sqlDataService';
 import { PromotionDataService } from './services/promotionDataService';
 import { MQLConfigService } from './services/mqlConfigLoader';
 import { MQLCampaign, MQLLead, MQLQualificationResult } from '../types/mql';
@@ -72,15 +76,16 @@ export const MQLModule: React.FC = () => {
   const [leads, setLeads] = useState<MQLLead[]>([]);
   const [selectedLead, setSelectedLead] = useState<MQLLead | null>(null);
   const [selectedLeadColumnType, setSelectedLeadColumnType] = useState<'lead' | 'mql' | 'sql' | 'opp' | null>(null);
+  const [oqOpportunity, setOqOpportunity] = useState<any | null>(null);
   const [campaignFilterId, setCampaignFilterId] = useState<string>('all');
   const [targetCampaignId, setTargetCampaignId] = useState<string>('');
   
-  // Views: campaign_config (Campaign Details), lead_list, lead_create, lead_assess, sql_handover
-  const [view, setView] = useState<'campaign_config' | 'lead_list' | 'lead_create' | 'lead_assess' | 'lead_canvas' | 'sql_handover'>('campaign_config');
+  // Views: campaign_config (Campaign Details), lead_list, lead_create, lead_assess, sql_handover, sql_to_opportunity, sql_to_opportunity_details
+  const [view, setView] = useState<'campaign_config' | 'lead_list' | 'lead_create' | 'lead_assess' | 'lead_canvas' | 'sql_handover' | 'sql_to_opportunity' | 'sql_to_opportunity_details'>('campaign_config');
   const [loading, setLoading] = useState(true);
 
-  // High-level horizontal navigation: 'campaign' | 'lead_canvas' | 'lead' | 'dashboard' | 'sql_qualification'
-  const [activeTab, setActiveTab] = useState<'campaign' | 'lead_canvas' | 'lead' | 'dashboard' | 'sql_qualification'>('campaign');
+  // High-level horizontal navigation: 'campaign' | 'lead_canvas' | 'lead' | 'dashboard' | 'sql_qualification' | 'opportunity_qualification'
+  const [activeTab, setActiveTab] = useState<'campaign' | 'lead_canvas' | 'lead' | 'dashboard' | 'sql_qualification' | 'opportunity_qualification'>('campaign');
 
   // Campaign qualification results for the Lead Dashboard
   const [campaignQualResults, setCampaignQualResults] = useState<MQLQualificationResult[]>([]);
@@ -176,7 +181,7 @@ export const MQLModule: React.FC = () => {
     }
   };
 
-  const handleTabChange = (tab: 'campaign' | 'lead_canvas' | 'lead' | 'dashboard' | 'sql_qualification') => {
+  const handleTabChange = (tab: 'campaign' | 'lead_canvas' | 'lead' | 'dashboard' | 'sql_qualification' | 'opportunity_qualification') => {
     setActiveTab(tab);
     if (tab === 'campaign') {
       setView('campaign_config');
@@ -256,9 +261,38 @@ export const MQLModule: React.FC = () => {
       });
       
       // Isolate lead column clicks from mql, sql, and opp column clicks.
+      // Clicks on the 'sql' column cards go to the dedicated SQL to Opportunity qualification flow.
       // Clicks on these cards go to the new MQL-to-SQL details and Opportunity Form page (sql_handover view) if qualified or already promoted.
       // Clicks on the 'lead' column cards or any other source always go to the original lead creation / MQL qualification engine view (lead_create).
-      if (columnType === 'mql' || columnType === 'sql' || columnType === 'opp') {
+      if (columnType === 'sql') {
+        try {
+          let opp = await SQLDataService.getOpportunityByMqlId(lead.id);
+          if (!opp) {
+            const activeCampaign = campaigns.find(c => c.id === lead.campaign_id);
+            const descriptionText = `Inherited SQL Lead Profile: ${lead.first_name || ''} ${lead.last_name || ''} (${lead.job_title || ''}).`;
+            const serializedDescription = JSON.stringify({
+              description: descriptionText,
+              opportunity_owner: 'Sales Rep',
+              opportunity_stage: 'Validated Opportunity',
+              estimated_revenue: lead.annual_revenue || '$100,000',
+              pipeline_stage: 'Proposal'
+            });
+            opp = await SQLDataService.createOpportunity({
+              company_name: lead.company_name || 'Enterprise Client',
+              opportunity_name: `${lead.company_name || 'Enterprise'} Opportunity`,
+              industry: lead.lead_industry || activeCampaign?.industry || 'Enterprise Software',
+              revenue_motion: activeCampaign?.revenue_motion || 'Digital Solution Selling',
+              description: serializedDescription,
+              source: 'MQL Handover',
+              mql_reference_id: lead.id
+            });
+          }
+          setOqOpportunity(opp);
+          setView('sql_to_opportunity_details');
+        } catch (err) {
+          console.error("Failed to load/create OQ opportunity:", err);
+        }
+      } else if (columnType === 'mql' || columnType === 'opp') {
         const isPromotedInDb = await PromotionDataService.isLeadPromoted(lead.id);
         const isPromoted = lead.status === 'SQL' || isPromotedInDb;
 
@@ -1905,6 +1939,43 @@ export const MQLModule: React.FC = () => {
       );
     }
 
+    if (view === 'sql_to_opportunity_details' && selectedLead && oqOpportunity) {
+      return (
+        <SqlToOpportunityDetailsPage
+          opportunity={oqOpportunity}
+          onBack={() => {
+            setSelectedLead(null);
+            setOqOpportunity(null);
+            setView('lead_canvas');
+          }}
+          onProceedToOQ={() => {
+            setView('sql_to_opportunity');
+          }}
+        />
+      );
+    }
+
+    if (view === 'sql_to_opportunity' && selectedLead && oqOpportunity) {
+      return (
+        <SQLtoOpportunity 
+          opportunity={oqOpportunity}
+          onBack={() => {
+            setSelectedLead(null);
+            setOqOpportunity(null);
+            setView('lead_canvas');
+          }}
+          onPromotedStatusChanged={async () => {
+            try {
+              const fetchedLeads = await MQLDataService.getLeads();
+              setLeads(fetchedLeads);
+            } catch (err) {
+              console.error(err);
+            }
+          }}
+        />
+      );
+    }
+
     if (view === 'sql_handover' && selectedLead) {
       return (
         <MQLToSQLDetailsPage 
@@ -1955,13 +2026,13 @@ export const MQLModule: React.FC = () => {
         </div>
       </div>
 
-      {/* Horizontal rolling workflow timeline stepper (Campaign Canvas, Lead Canvas, Lead Dashboard) */}
+      {/* Horizontal rolling workflow timeline stepper (Campaign Canvas, Lead Canvas, Lead Dashboard, Opportunity Qualification) */}
       <div className="p-4 rounded-2xl bg-bg-surface/60 border border-border/80 shadow relative">
         <div className="flex items-center justify-between pointer-events-none mb-3 border-b border-border/40 pb-2">
           <span className="text-[10px] font-mono text-text-secondary uppercase">Unified qualification lifecycle sequence</span>
           <span className="text-xs font-bold text-accent">
             Active qualification step: {
-              activeTab === 'campaign' ? '1 / 3' : (activeTab === 'lead_canvas' || activeTab === 'lead') ? '2 / 3' : '3 / 3'
+              activeTab === 'campaign' ? '1 / 4' : (activeTab === 'lead_canvas' || activeTab === 'lead') ? '2 / 4' : activeTab === 'dashboard' ? '3 / 4' : '4 / 4'
             }
           </span>
         </div>
@@ -2003,11 +2074,27 @@ export const MQLModule: React.FC = () => {
             <span className="font-mono">3.</span>
             <span>Lead Dashboard</span>
           </button>
+
+          <button
+            onClick={() => handleTabChange('opportunity_qualification')}
+            className={`inline-flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl border text-[10px] sm:text-xs font-bold uppercase transition-all shrink-0 cursor-pointer ${
+              activeTab === 'opportunity_qualification'
+                ? 'bg-accent border-accent text-black font-black scale-105 shadow-md shadow-accent/15'
+                : 'bg-bg-primary/50 border-border/70 text-text-secondary hover:text-text-primary hover:border-text-secondary/40'
+            }`}
+          >
+            <span className="font-mono">4.</span>
+            <span>Opportunity Qualification</span>
+          </button>
         </div>
       </div>
 
       {/* Main Core Columns */}
-      {activeTab === 'sql_qualification' ? (
+      {activeTab === 'opportunity_qualification' ? (
+        <div className="bg-bg-surface border border-border rounded-2xl shadow-sm p-6">
+          <OpportunityQualificaitonModule />
+        </div>
+      ) : activeTab === 'sql_qualification' ? (
         <div className="bg-bg-surface border border-border rounded-2xl shadow-sm overflow-hidden">
           <SQLQualificationModule />
         </div>

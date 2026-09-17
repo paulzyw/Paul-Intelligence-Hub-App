@@ -828,6 +828,558 @@ EVALUATION INSTRUCTIONS:
       });
     }
 
+    // ---------------------------------------------------------
+    // OPPORTUNITY QUALIFICATION MODULE ACTIONS ROUTER
+    // ---------------------------------------------------------
+    if (action === 'create-opportunity-session') {
+      const { opportunity_id, sql_inheritance_data, revenue_motion, industry } = body;
+      const supabaseUrl = getEnv('SUPABASE_URL');
+      const supabaseKey = getEnv('SUPABASE_SERVICE_ROLE_KEY') || getEnv('SUPABASE_ANON_KEY');
+      if (!supabaseUrl || !supabaseKey) throw new Error('Supabase credentials not configured.');
+      const supabase = createClient(supabaseUrl, supabaseKey);
+
+      // Check if session already exists
+      const { data: existingSession, error: checkError } = await supabase
+        .from('opportunity_qualification_sessions')
+        .select('*')
+        .eq('opportunity_id', opportunity_id)
+        .maybeSingle();
+
+      if (existingSession) {
+        return new Response(JSON.stringify(existingSession), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        });
+      }
+
+      // Create new session
+      const { data, error } = await supabase.from('opportunity_qualification_sessions').insert({
+        opportunity_id,
+        revenue_motion,
+        industry,
+        sql_inheritance_data,
+        qualification_status: 'NOT_STARTED',
+        overall_score: 0,
+        confidence_score: 0,
+        is_promoted: false
+      }).select().single();
+
+      if (error) throw error;
+
+      return new Response(JSON.stringify(data), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
+
+    if (action === 'submit-opportunity-evidence') {
+      const { session_id, evidence } = body; // evidence is array of records
+      const supabaseUrl = getEnv('SUPABASE_URL');
+      const supabaseKey = getEnv('SUPABASE_SERVICE_ROLE_KEY') || getEnv('SUPABASE_ANON_KEY');
+      if (!supabaseUrl || !supabaseKey) throw new Error('Supabase credentials not configured.');
+      const supabase = createClient(supabaseUrl, supabaseKey);
+
+      // Delete existing evidence for this session first
+      await supabase.from('opportunity_qualification_evidence').delete().eq('session_id', session_id);
+
+      if (evidence && evidence.length > 0) {
+        const recordsToInsert = evidence.map((ev: any) => ({
+          session_id,
+          dimension_code: ev.dimension_code,
+          evidence_id: ev.evidence_id,
+          question_text: ev.question_text,
+          answer_value: ev.answer_value,
+          evidence_source: ev.evidence_source || 'Sales Rep',
+          evidence_strength: ev.evidence_strength || 'unverified'
+        }));
+
+        const { error: insertError } = await supabase.from('opportunity_qualification_evidence').insert(recordsToInsert);
+        if (insertError) throw insertError;
+      }
+
+      // Update session status to in_progress
+      await supabase.from('opportunity_qualification_sessions').update({
+        qualification_status: 'IN_PROGRESS'
+      }).eq('id', session_id);
+
+      return new Response(JSON.stringify({ status: 'success' }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
+
+    if (action === 'generate-opportunity-suggested-answers') {
+      const { opportunity_id, revenue_motion, industry, evidence_questions } = body;
+      const supabaseUrl = getEnv('SUPABASE_URL');
+      const supabaseKey = getEnv('SUPABASE_SERVICE_ROLE_KEY') || getEnv('SUPABASE_ANON_KEY');
+      let opp: any = null;
+
+      if (supabaseUrl && supabaseKey && opportunity_id) {
+        try {
+          const supabase = createClient(supabaseUrl, supabaseKey);
+          const { data } = await supabase.from('opportunities').select('*').eq('id', opportunity_id).maybeSingle();
+          opp = data;
+        } catch (e) {
+          console.warn("Could not fetch opportunity details for suggested answers:", e);
+        }
+      }
+
+      const oppContext = `
+- Opportunity Name: ${opp?.opportunity_name || 'Enterprise Expansion Project'}
+- Company / Customer: ${opp?.company_name || 'Client Enterprise'}
+- Industry: ${opp?.industry || industry || 'Industrial Technology / Software'}
+- Revenue Motion: ${opp?.revenue_motion || revenue_motion || 'Digital Solution Selling'}
+- Description / Scope: ${opp?.description || 'Enterprise platform and custom infrastructure alignment.'}
+`;
+
+      const questionsList = (Array.isArray(evidence_questions) ? evidence_questions : []).map((q: any) => {
+        return `
+### EVIDENCE QUESTION ID: ${q.id || q.evidence_id}
+- Dimension: ${q.dimension_code || ''}
+- Question Title: ${q.question_text || q.question || q.id}
+- Question Prompt: "${q.question_text || q.question || ''}"
+- Required: ${q.required ? 'Yes' : 'No'}
+- Expected Evidence: "${q.expected_evidence || ''}"
+- Positive Signals: ${JSON.stringify(q.positive_signals || [])}
+- Negative Signals: ${JSON.stringify(q.negative_signals || [])}
+`;
+      }).join('\n');
+
+      const prompt = `
+You are the RevOS Chief Revenue Officer and Opportunity Qualification System.
+Your task is to generate dynamic, realistic, highly contextualized suggested discovery response options for sales representatives qualifying an enterprise sales opportunity under the OQ01-OQ10 framework.
+
+OPPORTUNITY CONTEXT:
+${oppContext}
+
+EVIDENCE QUESTIONS TO EVALUATE:
+${questionsList}
+
+GENERATION REQUIREMENTS:
+For EVERY evidence question, generate exactly 4 distinct response options covering 4 qualification tiers:
+1. 'strong' (Strong Positive Match, 85-100 score):
+   - A customer-confirmed, quantified, executive-backed discovery response with specific project timelines, budget alignment, or executive confirmation.
+   - Must explicitly satisfy the Expected Positive Signals so that the Opportunity Qualification reasoning engine scores it as a Strong Positive Match (85-100).
+   - "label": Must start with "[Strong Positive]" followed by a brief 4-8 word title (e.g. "[Strong Positive] COO confirmed $150k Q4 funding").
+   - "text": 1-2 realistic, professional sentences articulating customer-verified evidence.
+
+2. 'moderate' (Moderate / In-Progress Match, 55-70 score):
+   - Customer acknowledged pain or need, but formal executive approval or budget allocation is still under discussion.
+   - "label": Must start with "[Moderate / In-Progress]" followed by a brief 4-8 word title.
+   - "text": 1-2 realistic sentences reflecting genuine customer engagement with pending confirmation.
+
+3. 'weak' (Weak / Seller Assumption, 25-45 score):
+   - High-level interest or seller speculation without verified customer details, or based on outdated discovery.
+   - "label": Must start with "[Weak / Assumption]" followed by a brief 4-8 word title.
+   - "text": 1 sentence showing seller impression without customer proof.
+
+4. 'negative' (Adverse / Blocker, 0-20 score):
+   - Discovery shows a lack of urgency, frozen budget, competitor preference, or procurement blocker.
+   - "label": Must start with "[Adverse / Blocker]" followed by a brief 4-8 word title.
+   - "text": 1 sentence stating the blocker.
+
+Return a valid JSON object matching the requested schema.
+`;
+
+      const response = await ai.models.generateContent({
+        model: 'gemini-3.1-flash-lite',
+        contents: prompt,
+        config: {
+          temperature: 0.0,
+          systemInstruction: "You are an elite enterprise B2B sales qualification consultant. Generate precise, realistic, high-signal discovery answers adhering strictly to enterprise opportunity qualification standards.",
+          responseMimeType: "application/json",
+          responseSchema: {
+            type: Type.OBJECT,
+            properties: {
+              suggested_answers: {
+                type: Type.ARRAY,
+                items: {
+                  type: Type.OBJECT,
+                  properties: {
+                    evidence_id: { type: Type.STRING },
+                    options: {
+                      type: Type.ARRAY,
+                      items: {
+                        type: Type.OBJECT,
+                        properties: {
+                          tier: { type: Type.STRING, enum: ["strong", "moderate", "weak", "negative"] },
+                          label: { type: Type.STRING },
+                          text: { type: Type.STRING }
+                        },
+                        required: ["tier", "label", "text"]
+                      }
+                    }
+                  },
+                  required: ["evidence_id", "options"]
+                }
+              }
+            },
+            required: ["suggested_answers"]
+          }
+        }
+      });
+
+      const parsed = JSON.parse(response.text || '{"suggested_answers":[]}');
+
+      return new Response(JSON.stringify(parsed), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
+
+    if (action === 'execute-opportunity-reasoning') {
+      const { session_id, sql_inheritance_context, opportunity_assessment_context, industry_config, evidence_kb, qualification_rules } = body;
+      const supabaseUrl = getEnv('SUPABASE_URL');
+      const supabaseKey = getEnv('SUPABASE_SERVICE_ROLE_KEY') || getEnv('SUPABASE_ANON_KEY');
+      if (!supabaseUrl || !supabaseKey) throw new Error('Supabase credentials not configured.');
+      const supabase = createClient(supabaseUrl, supabaseKey);
+
+      // Fetch opportunity details
+      const { data: session, error: sessionErr } = await supabase.from('opportunity_qualification_sessions').select('*, opportunities(*)').eq('id', session_id).single();
+      if (sessionErr) throw sessionErr;
+
+      const opportunity = session.opportunities;
+
+      // Fetch all evidence records entered so far for this session
+      const { data: evidenceRecords, error: evErr } = await supabase.from('opportunity_qualification_evidence').select('*').eq('session_id', session_id);
+      if (evErr) throw evErr;
+
+      const startTime = Date.now();
+
+      const systemInstruction = `You are the RevOS Opportunity Qualification Reasoning Engine.
+Your responsibility is to determine whether a Sales Qualified Lead (SQL) has matured sufficiently to become an officially managed sales opportunity in the revenue pipeline.
+You must produce a structured, evidence-grounded qualification assessment following the Opportunity Qualification Rules, Evidence Knowledge Base, and Industry Configuration.
+
+MANDATORY BEHAVIORAL DIRECTIVES:
+1. FACT / INFERENCE / UNCERTAINTY:
+   - FACT: Information explicitly supported by customer evidence or inherited validated intelligence.
+   - INFERENCE: A logical interpretation derived from available evidence.
+   - UNCERTAINTY: Information that is missing, weak, contradictory, or unvalidated.
+   Never present an inference as a fact. Never present an assumption as validated evidence.
+2. DO NOT INVENT EVIDENCE: Never fabricate customer names, budgets, timelines, or procurement steps.
+3. DETECT CONTRADICTIONS: Explicitly check if newly entered opportunity evidence conflicts with inherited SQL-QIP data (e.g. SQL says 'budget confirmed', but Opportunity says 'budget still under review'). If so, reduce confidence and flag a contradiction.
+4. DETECT EVIDENCE GAPS: Identify required questions from the Evidence Knowledge Base that have no valid customer answers.
+
+QUALIFICATION SCORING PRINCIPLES:
+- Independently calculate dimension scores for OQ01 to OQ10 (0 to 100).
+- Apply Global Qualification Rules and Revenue-Motion-specific thresholds:
+  * OQ10 (Opportunity Creation Readiness) is the final synthesis dimension.
+  * Deterministic scoring: Apply formula/rules configured in the JSON rules.
+  * If critical deal breakers or risk triggers are active (e.g., severe budget/procurement unknowns), set qualification status to DISQUALIFIED or EVIDENCE_INSUFFICIENT, and cap scores accordingly.`;
+
+      const prompt = `
+=== OPPORTUNITY CONTEXT ===
+Opportunity Name: ${opportunity.opportunity_name}
+Company Name: ${opportunity.company_name}
+Revenue Motion: ${session.revenue_motion || opportunity.revenue_motion || 'Digital Solution Selling'}
+Industry: ${session.industry || opportunity.industry || 'Enterprise Software'}
+Description: ${opportunity.description || 'N/A'}
+
+=== SQL INHERITED INTELLIGENCE (SQL-QIP) ===
+${JSON.stringify(sql_inheritance_context || {})}
+
+=== NEWLY COLLECTED OPPORTUNITY EVIDENCE ===
+${evidenceRecords.map(r => `
+- Dimension: ${r.dimension_code}
+- Evidence ID: ${r.evidence_id}
+- Question: "${r.question_text}"
+- Answer: "${r.answer_value || '[UNANSWERED]'}"
+- Source: "${r.evidence_source}"
+- Strength: "${r.evidence_strength}"
+`).join('\n')}
+
+=== APPLICABLE KNOWLEDGE ASSETS ===
+- Industry Configuration: ${JSON.stringify(industry_config || {})}
+- Evidence Requirements: ${JSON.stringify(evidence_kb || {})}
+- Qualification Rules & Logic: ${JSON.stringify(qualification_rules || {})}
+
+EVALUATION INSTRUCTIONS:
+1. Conduct the 26-step reasoning sequence over the structured context.
+2. Evaluate each of the 10 dimensions OQ01 to OQ10.
+3. Perform contradiction detection between Inherited SQL Intelligence and New Opportunity Evidence.
+4. Calculate individual dimension scores, overall score, and confidence score.
+5. Determine the appropriate qualification status according to the rules:
+   - 'QUALIFIED': Strong evidence, key gates passed, zero blocking risks.
+   - 'CONDITIONALLY_QUALIFIED': Strong fit, but minor evidence gaps or trailing verification tasks exist.
+   - 'EVIDENCE_INSUFFICIENT': Critical dimensions lack verified customer evidence.
+   - 'DISQUALIFIED': Active deal breakers, unviable commercial route, or negative signals.
+   - 'ON_HOLD': Engagement paused or postponed by the customer.
+6. Generate Next-Best-Questions to resolve missing critical evidence.
+7. Generate evidence-linked, prioritized recommended actions.
+`;
+
+      const response = await ai.models.generateContent({
+        model: 'gemini-3.1-flash-lite',
+        contents: prompt,
+        config: {
+          temperature: 0.0,
+          systemInstruction,
+          responseMimeType: "application/json",
+          responseSchema: {
+            type: Type.OBJECT,
+            properties: {
+              qualification_summary: {
+                type: Type.OBJECT,
+                properties: {
+                  qualification_status: { type: Type.STRING },
+                  overall_score: { type: Type.NUMBER },
+                  confidence_score: { type: Type.NUMBER },
+                  opportunity_readiness: { type: Type.STRING },
+                  summary: { type: Type.STRING }
+                },
+                required: ["qualification_status", "overall_score", "confidence_score", "opportunity_readiness", "summary"]
+              },
+              dimension_results: {
+                type: Type.ARRAY,
+                items: {
+                  type: Type.OBJECT,
+                  properties: {
+                    dimension_id: { type: Type.STRING },
+                    dimension_name: { type: Type.STRING },
+                    score: { type: Type.NUMBER },
+                    confidence: { type: Type.NUMBER },
+                    evidence_status: { type: Type.STRING },
+                    positive_signals: { type: Type.ARRAY, items: { type: Type.STRING } },
+                    negative_signals: { type: Type.ARRAY, items: { type: Type.STRING } },
+                    missing_evidence: { type: Type.ARRAY, items: { type: Type.STRING } },
+                    reasoning: { type: Type.STRING }
+                  },
+                  required: ["dimension_id", "dimension_name", "score", "confidence", "evidence_status", "positive_signals", "negative_signals", "missing_evidence", "reasoning"]
+                }
+              },
+              validated_evidence: {
+                type: Type.ARRAY,
+                items: {
+                  type: Type.OBJECT,
+                  properties: {
+                    evidence_id: { type: Type.STRING },
+                    status: { type: Type.STRING },
+                    source: { type: Type.STRING },
+                    strength: { type: Type.STRING },
+                    explanation: { type: Type.STRING }
+                  },
+                  required: ["evidence_id", "status", "source", "strength", "explanation"]
+                }
+              },
+              contradictions: {
+                type: Type.ARRAY,
+                items: {
+                  type: Type.OBJECT,
+                  properties: {
+                    evidence_id: { type: Type.STRING },
+                    inherited_value: { type: Type.STRING },
+                    new_value: { type: Type.STRING },
+                    contradiction_severity: { type: Type.STRING },
+                    resolution: { type: Type.STRING }
+                  },
+                  required: ["evidence_id", "inherited_value", "new_value", "contradiction_severity", "resolution"]
+                }
+              },
+              qualification_risks: {
+                type: Type.ARRAY,
+                items: {
+                  type: Type.OBJECT,
+                  properties: {
+                    category: { type: Type.STRING },
+                    risk_description: { type: Type.STRING },
+                    severity: { type: Type.STRING },
+                    dimension_id: { type: Type.STRING }
+                  },
+                  required: ["category", "risk_description", "severity", "dimension_id"]
+                }
+              },
+              next_best_questions: {
+                type: Type.ARRAY,
+                items: {
+                  type: Type.OBJECT,
+                  properties: {
+                    question_id: { type: Type.STRING },
+                    dimension_id: { type: Type.STRING },
+                    question: { type: Type.STRING },
+                    reason: { type: Type.STRING },
+                    priority: { type: Type.STRING }
+                  },
+                  required: ["question_id", "dimension_id", "question", "reason", "priority"]
+                }
+              },
+              recommended_actions: {
+                type: Type.ARRAY,
+                items: {
+                  type: Type.OBJECT,
+                  properties: {
+                    action: { type: Type.STRING },
+                    dimension_id: { type: Type.STRING },
+                    reason: { type: Type.STRING },
+                    risk_addressed: { type: Type.STRING },
+                    priority: { type: Type.STRING }
+                  },
+                  required: ["action", "dimension_id", "reason", "risk_addressed", "priority"]
+                }
+              }
+            },
+            required: ["qualification_summary", "dimension_results", "validated_evidence", "contradictions", "qualification_risks", "next_best_questions", "recommended_actions"]
+          }
+        }
+      });
+
+      const result = JSON.parse(response.text || '{}');
+      const executionTimeMs = Date.now() - startTime;
+
+      // Deterministic scoring calculation based on configuration-driven weights
+      let finalOverallScore = 0;
+      let finalConfidenceScore = 0;
+      let totalWeight = 0;
+
+      const dimWeights: Record<string, number> = {
+        OQ01: 0.10, OQ02: 0.15, OQ03: 0.10, OQ04: 0.10, OQ05: 0.10,
+        OQ06: 0.10, OQ07: 0.10, OQ08: 0.10, OQ09: 0.10, OQ10: 0.05
+      };
+
+      if (Array.isArray(result.dimension_results)) {
+        let weightedSum = 0;
+        let confidenceSum = 0;
+        result.dimension_results.forEach((dr: any) => {
+          const w = dimWeights[dr.dimension_id] || 0.10;
+          weightedSum += (dr.score || 0) * w;
+          confidenceSum += (dr.confidence || 0) * w;
+          totalWeight += w;
+        });
+
+        if (totalWeight > 0) {
+          finalOverallScore = Math.round(weightedSum / totalWeight);
+          finalConfidenceScore = Math.round(confidenceSum / totalWeight);
+        }
+      }
+
+      // Check active deal breakers from qualification rules
+      let status = result.qualification_summary?.qualification_status || 'EVIDENCE_INSUFFICIENT';
+      
+      // Override status if overall score falls below thresholds defined in rules
+      if (finalOverallScore < 30) {
+        status = 'DISQUALIFIED';
+      } else if (finalOverallScore < 50) {
+        status = 'EVIDENCE_INSUFFICIENT';
+      } else if (finalOverallScore < 75 && status === 'QUALIFIED') {
+        status = 'CONDITIONALLY_QUALIFIED';
+      }
+
+      // Check severe contradictions
+      if (result.contradictions && result.contradictions.some((c: any) => c.contradiction_severity === 'High')) {
+        finalConfidenceScore = Math.max(15, finalConfidenceScore - 20);
+        if (status === 'QUALIFIED') {
+          status = 'CONDITIONALLY_QUALIFIED';
+        }
+      }
+
+      result.qualification_summary.overall_score = finalOverallScore;
+      result.qualification_summary.confidence_score = finalConfidenceScore;
+      result.qualification_summary.qualification_status = status;
+
+      // Update Session
+      await supabase.from('opportunity_qualification_sessions').update({
+        overall_score: finalOverallScore,
+        confidence_score: finalConfidenceScore,
+        qualification_status: status,
+        updated_at: new Date().toISOString()
+      }).eq('id', session_id);
+
+      // Save/Upsert Results
+      const { data: savedResult, error: saveErr } = await supabase.from('opportunity_qualification_results').upsert({
+        session_id,
+        qualification_status: status,
+        overall_score: finalOverallScore,
+        confidence_score: finalConfidenceScore,
+        dimension_results: result.dimension_results,
+        qualification_explanation: result.qualification_summary.summary,
+        risks: result.qualification_risks,
+        contradictions: result.contradictions,
+        recommended_actions: result.recommended_actions,
+        next_best_questions: result.next_best_questions,
+        final_decision: result.qualification_summary,
+        configuration_versions: {
+          Opportunity_industry_configuration_JSON_version: "3.0",
+          evidence_kb_version: "3.0",
+          qualification_rules_version: "3.0",
+          reasoning_strategy_version: "1.0",
+          gemini_prompt_version: "1.0"
+        }
+      }, { onConflict: 'session_id' }).select().single();
+
+      if (saveErr) throw saveErr;
+
+      return new Response(JSON.stringify({
+        session_id,
+        result,
+        savedResult
+      }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
+
+    if (action === 'retrieve-opportunity-qualification-result') {
+      const { session_id } = body;
+      const supabaseUrl = getEnv('SUPABASE_URL');
+      const supabaseKey = getEnv('SUPABASE_SERVICE_ROLE_KEY') || getEnv('SUPABASE_ANON_KEY');
+      if (!supabaseUrl || !supabaseKey) throw new Error('Supabase credentials not configured.');
+      const supabase = createClient(supabaseUrl, supabaseKey);
+
+      // Fetch session
+      const { data: session, error: sErr } = await supabase.from('opportunity_qualification_sessions').select('*').eq('id', session_id).single();
+      if (sErr) throw sErr;
+
+      // Fetch evidence records
+      const { data: evidence, error: evErr } = await supabase.from('opportunity_qualification_evidence').select('*').eq('session_id', session_id);
+      if (evErr) throw evErr;
+
+      // Fetch results
+      const { data: results, error: rErr } = await supabase.from('opportunity_qualification_results').select('*').eq('session_id', session_id).maybeSingle();
+      if (rErr) throw rErr;
+
+      return new Response(JSON.stringify({
+        session,
+        evidence,
+        results
+      }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
+
+    if (action === 'promote-sql-to-opportunity') {
+      const { opportunity_id, session_id } = body;
+      const supabaseUrl = getEnv('SUPABASE_URL');
+      const supabaseKey = getEnv('SUPABASE_SERVICE_ROLE_KEY') || getEnv('SUPABASE_ANON_KEY');
+      if (!supabaseUrl || !supabaseKey) throw new Error('Supabase credentials not configured.');
+      const supabase = createClient(supabaseUrl, supabaseKey);
+
+      // 1. Mark session as promoted
+      await supabase.from('opportunity_qualification_sessions').update({
+        is_promoted: true,
+        updated_at: new Date().toISOString()
+      }).eq('id', session_id);
+
+      // 2. Update the parent opportunity record stage or status
+      // We'll update the description/details to represent 'Promoted Pipeline Opportunity'
+      const { data: opp, error: oppErr } = await supabase.from('opportunities').select('*').eq('id', opportunity_id).single();
+      if (oppErr) throw oppErr;
+
+      let descObj: any = {};
+      if (opp.description && opp.description.trim().startsWith('{')) {
+        try { descObj = JSON.parse(opp.description); } catch(e){}
+      } else {
+        descObj.description = opp.description || '';
+      }
+
+      descObj.pipeline_stage = 'Proposal';
+      descObj.opportunity_stage = 'Validated Opportunity';
+
+      const { data: updatedOpp, error: updateErr } = await supabase.from('opportunities').update({
+        description: JSON.stringify(descObj),
+        updated_at: new Date().toISOString()
+      }).eq('id', opportunity_id).select().single();
+
+      if (updateErr) throw updateErr;
+
+      return new Response(JSON.stringify({ success: true, opportunity: updatedOpp }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
+
     if (action === 'generate-sales-handover') {
       const { lead, campaign, qualificationResult } = body;
       

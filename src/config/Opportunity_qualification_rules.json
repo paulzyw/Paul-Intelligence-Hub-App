@@ -1,0 +1,2008 @@
+{
+"opportunity_qualification_rules":{
+"metadata":{
+"ruleset_name":"Opportunity Qualification Rules",
+"version":"3.0",
+"purpose":"AI-driven opportunity qualification decision framework based on evidence evaluation, scoring, risk analysis, and recommendation generation.",
+"architecture":"Global qualification engine + revenue motion specific qualification rules",
+"schema_version":"3.0",
+"qualification_dimensions":[
+"OQ01",
+"OQ02",
+"OQ03",
+"OQ04",
+"OQ05",
+"OQ06",
+"OQ07",
+"OQ08",
+"OQ09",
+"OQ10"
+],
+"supported_revenue_motions":[
+"RM01_Digital_Solution_Selling",
+"RM02_Professional_Solution_Services",
+"RM03_Digital_Transformation_OT",
+"RM04_Engineering_Project_Solutions",
+"RM05_Project_Procurement",
+"RM06_Generic_Solution_Selling"
+]
+},
+"global_qualification_rules":{
+    "metadata":{
+"ruleset_name":"Global Opportunity Qualification Rules",
+"version":"3.0",
+"phase_id":"RULE_PHASE_01",
+"purpose":"Define universal AI decision rules for opportunity qualification across all revenue motions.",
+"design_principle":"Evidence-based opportunity qualification using structured scoring, confidence evaluation, risk detection, and recommendation generation.",
+"applies_to_revenue_motions":[
+"RM01_Digital_Solution_Selling",
+"RM02_Professional_Solution_Services",
+"RM03_Digital_Transformation_OT",
+"RM04_Engineering_Project_Solutions",
+"RM05_Project_Procurement",
+"RM06_Generic_Solution_Selling"
+]
+},
+"scoring_engine":{
+"score_range":{
+"minimum":0,
+"maximum":100
+},
+"scoring_method":"Weighted evidence-based scoring",
+"dimension_score_inputs":[
+"Evidence completeness",
+"Evidence quality",
+"Positive evidence signals",
+"Negative evidence signals",
+"Missing critical evidence",
+"AI reasoning assessment"
+],
+"score_calculation_formula":"Opportunity Qualification Score = Sum(Dimension Score × Dimension Weight)",
+"score_interpretation":{
+"80_100":{
+"level":"Strong",
+"meaning":"Opportunity has strong evidence maturity and high probability of successful advancement."
+},
+"60_79":{
+"level":"Moderate",
+"meaning":"Opportunity is viable but requires additional validation."
+},
+"40_59":{
+"level":"Weak",
+"meaning":"Opportunity contains significant evidence gaps and requires qualification improvement."
+},
+"0_39":{
+"level":"Poor",
+"meaning":"Opportunity lacks sufficient evidence for continued investment."
+}
+},
+"evidence_scoring_rules":{
+"strong_positive_evidence":{
+"score_adjustment":"+10 to +20",
+"impact":"Increase dimension confidence and qualification score."
+},
+"moderate_positive_evidence":{
+"score_adjustment":"+5 to +10",
+"impact":"Increase dimension confidence."
+},
+"strong_negative_evidence":{
+"score_adjustment":"-20 to -40",
+"impact":"Reduce qualification score and increase risk level."
+},
+"moderate_negative_evidence":{
+"score_adjustment":"-5 to -15",
+"impact":"Reduce dimension confidence."
+},
+"critical_missing_evidence":{
+"score_adjustment":"-15",
+"impact":"Reduce confidence due to insufficient qualification evidence."
+}
+}
+},
+"dimension_score_calculation_rules":{
+"global_dimension_rules":{
+"OQ01":{
+"dimension_name":"Opportunity Definition & Business Context",
+"weight":10,
+"calculation_logic":"Evaluate opportunity clarity, customer context, and strategic relevance based on available evidence."
+},
+"OQ02":{
+"dimension_name":"Business Problem & Impact Validation",
+"weight":15,
+"calculation_logic":"Evaluate customer problem severity, measurable impact, and business value validation."
+},
+"OQ03":{
+"dimension_name":"Solution Relevance & Customer Fit",
+"weight":15,
+"calculation_logic":"Evaluate solution alignment, customer requirements, and differentiation strength."
+},
+"OQ04":{
+"dimension_name":"Customer Engagement & Commitment",
+"weight":10,
+"calculation_logic":"Evaluate customer engagement level, collaboration quality, and commitment signals."
+},
+"OQ05":{
+"dimension_name":"Stakeholder Identification & Access",
+"weight":10,
+"calculation_logic":"Evaluate stakeholder mapping, decision-maker access, and organizational alignment."
+},
+"OQ06":{
+"dimension_name":"Buying Process Understanding",
+"weight":10,
+"calculation_logic":"Evaluate understanding of customer buying journey, evaluation process, and approval mechanism."
+},
+"OQ07":{
+"dimension_name":"Commercial Potential & Funding Path",
+"weight":10,
+"calculation_logic":"Evaluate commercial value, budget availability, funding confidence, and purchasing feasibility."
+},
+"OQ08":{
+"dimension_name":"Timeline & Business Urgency",
+"weight":10,
+"calculation_logic":"Evaluate business trigger, urgency level, timeline clarity, and opportunity momentum."
+},
+"OQ09":{
+"dimension_name":"Opportunity Advancement Evidence",
+"weight":5,
+"calculation_logic":"Evaluate progress evidence, milestone achievement, and advancement probability."
+},
+"OQ10":{
+"dimension_name":"Opportunity Qualification Risk Assessment",
+"weight":5,
+"calculation_logic":"Evaluate overall qualification risks, uncertainty level, and probability of failure."
+}
+}
+},
+"qualification_status_rules":{
+"status_definitions":{
+"QUALIFIED":{
+"minimum_score":80,
+"mandatory_conditions":[
+"OQ02_score >= 70",
+"OQ03_score >= 70",
+"No critical qualification risk"
+],
+"ai_interpretation":"Opportunity demonstrates sufficient evidence maturity and should receive continued sales investment."
+},
+"CONDITIONALLY_QUALIFIED":{
+"score_range":"60-79",
+"mandatory_conditions":[
+"Customer problem exists",
+"Customer engagement exists",
+"Evidence gaps can be addressed"
+],
+"ai_interpretation":"Opportunity remains viable but requires focused qualification improvement actions."
+},
+"NOT_QUALIFIED":{
+"maximum_score":59,
+"conditions":[
+"Business problem unclear",
+"Customer commitment insufficient",
+"Buying process unknown",
+"No realistic path to revenue"
+],
+"ai_interpretation":"Opportunity should not receive significant resources until qualification improves."
+}
+}
+},
+
+"confidence_calculation_rules":{
+"confidence_model":{
+"confidence_score_range":{
+"minimum":0,
+"maximum":100
+},
+"calculation_inputs":[
+"Evidence completeness",
+"Evidence quality",
+"Dimension score reliability",
+"Risk severity",
+"Missing critical evidence"
+],
+"calculation_logic":"Confidence Score = Evidence Completeness × Evidence Quality × Risk Adjustment"
+},
+"confidence_levels":{
+"HIGH":{
+"score_range":"80-100",
+"meaning":"Qualification decision is supported by strong and sufficient evidence."
+},
+"MEDIUM":{
+"score_range":"60-79",
+"meaning":"Qualification decision is reasonable but requires additional validation."
+},
+"LOW":{
+"score_range":"0-59",
+"meaning":"Qualification decision has insufficient evidence support."
+}
+}
+},
+"risk_assessment_rules":{
+"risk_framework":{
+"risk_levels":{
+"CRITICAL":{
+"meaning":"Opportunity failure probability is extremely high and requires immediate intervention."
+},
+"HIGH":{
+"meaning":"Opportunity conversion probability is significantly reduced."
+},
+"MEDIUM":{
+"meaning":"Opportunity requires additional validation or mitigation."
+},
+"LOW":{
+"meaning":"Limited impact on opportunity progression."
+}
+}
+},
+"global_risk_rules":{
+"RISK001":{
+"risk_name":"Undefined Business Problem",
+"trigger_condition":"OQ02_score < 50",
+"risk_level":"HIGH",
+"business_impact":"Opportunity lacks validated customer value.",
+"recommended_action":"Conduct business problem discovery and value assessment."
+},
+"RISK002":{
+"risk_name":"Weak Customer Engagement",
+"trigger_condition":"OQ04_score < 50",
+"risk_level":"HIGH",
+"business_impact":"Low customer commitment reduces advancement probability.",
+"recommended_action":"Increase customer interaction and engagement depth."
+},
+"RISK003":{
+"risk_name":"No Decision Maker Access",
+"trigger_condition":"OQ05_score < 50",
+"risk_level":"HIGH",
+"business_impact":"Opportunity lacks influence with key buying stakeholders.",
+"recommended_action":"Identify and engage decision makers."
+},
+"RISK004":{
+"risk_name":"Unknown Buying Process",
+"trigger_condition":"OQ06_score < 50",
+"risk_level":"MEDIUM",
+"business_impact":"Sales strategy may not align with customer decision process.",
+"recommended_action":"Map customer buying journey and approval process."
+},
+"RISK005":{
+"risk_name":"No Commercial Path",
+"trigger_condition":"OQ07_score < 50",
+"risk_level":"HIGH",
+"business_impact":"Revenue potential is uncertain.",
+"recommended_action":"Validate budget, funding source, and commercial feasibility."
+},
+"RISK006":{
+"risk_name":"No Business Urgency",
+"trigger_condition":"OQ08_score < 50",
+"risk_level":"HIGH",
+"business_impact":"Opportunity may stall without customer trigger.",
+"recommended_action":"Identify business event, deadline, or urgency driver."
+},
+"RISK007":{
+"risk_name":"Insufficient Advancement Evidence",
+"trigger_condition":"OQ09_score < 50",
+"risk_level":"MEDIUM",
+"business_impact":"Opportunity progression is not supported by evidence.",
+"recommended_action":"Define next milestone and advancement criteria."
+}
+}
+},
+"adaptive_question_rules":{
+"purpose":"Determine when AI should request additional evidence before final qualification.",
+"rules":{
+"AQ_RULE_001":{
+"trigger_condition":"Any OQ dimension score < 60",
+"action":"Generate additional evidence questions for the weak dimension."
+},
+"AQ_RULE_002":{
+"trigger_condition":"Critical evidence missing",
+"action":"Request mandatory customer clarification."
+},
+"AQ_RULE_003":{
+"trigger_condition":"Critical risk detected",
+"action":"Generate risk validation and mitigation questions."
+},
+"AQ_RULE_004":{
+"trigger_condition":"Confidence score < 70",
+"action":"Collect additional supporting evidence."
+},
+"AQ_RULE_005":{
+"trigger_condition":"Contradictory evidence detected",
+"action":"Request evidence clarification."
+}
+}
+},
+"recommendation_rules":{
+"recommendation_framework":{
+"EVIDENCE_IMPROVEMENT":{
+"purpose":"Improve qualification evidence maturity.",
+"trigger":"Evidence gap detected.",
+"output":"Recommend evidence collection actions."
+},
+"CUSTOMER_ENGAGEMENT":{
+"purpose":"Improve customer alignment.",
+"trigger":"Weak engagement or stakeholder access detected.",
+"output":"Recommend customer engagement actions."
+},
+"SALES_EXECUTION":{
+"purpose":"Improve opportunity progression.",
+"trigger":"Advancement weakness detected.",
+"output":"Recommend next best sales action."
+},
+"RISK_MITIGATION":{
+"purpose":"Reduce qualification risks.",
+"trigger":"Qualification risk detected.",
+"output":"Recommend risk mitigation actions."
+}
+}
+},
+"ai_reasoning_execution_sequence":{
+"reasoning_steps":[
+"Retrieve applicable industry configuration",
+"Retrieve applicable evidence knowledge base",
+"Analyze customer-provided opportunity evidence",
+"Map evidence to OQ01-OQ10 dimensions",
+"Evaluate positive and negative evidence signals",
+"Calculate dimension scores",
+"Apply global scoring weights",
+"Calculate opportunity qualification score",
+"Calculate qualification confidence score",
+"Identify qualification risks",
+"Determine qualification status",
+"Generate missing evidence requirements",
+"Generate recommended next actions"
+]
+},
+"ai_output_requirements":{
+"required_output_fields":[
+"opportunity_score",
+"confidence_score",
+"qualification_status",
+"dimension_scores",
+"qualification_explanation",
+"evidence_strength_analysis",
+"missing_evidence",
+"identified_risks",
+"recommended_actions",
+"next_best_actions"
+]
+}
+}
+},
+
+"revenue_motion_rules":{
+"RM01_Digital_Solution_Selling":{
+    "revenue_motion_metadata":{
+"revenue_motion_id":"RM01",
+"revenue_motion_name":"Digital Solution Selling",
+"revenue_motion_category":"Recurring Digital Solution and Software-Based Selling",
+"applies_to_industries":[
+"IND01_SaaS_Software",
+"IND02_Enterprise_Software",
+"IND03_AI_Solutions",
+"IND04_Cloud_Transformation"
+],
+"business_model_characteristics":[
+"Subscription or recurring revenue model",
+"Software or digital platform based offering",
+"Scalable solution delivery model",
+"Customer adoption and expansion driven growth",
+"Value realization depends on usage and business outcomes"
+],
+"customer_buying_characteristics":[
+"Business outcome driven evaluation",
+"Multiple stakeholder involvement",
+"Technical and business alignment required",
+"Solution adoption assessment",
+"Vendor capability and scalability evaluation"
+],
+"sales_cycle_characteristics":{
+"cycle_length":"Medium to Long",
+"complexity_level":"Medium to High",
+"typical_stages":[
+"Business problem identification",
+"Discovery and qualification",
+"Solution evaluation",
+"Technical validation",
+"Business case development",
+"Commercial negotiation",
+"Subscription or contract approval"
+]
+},
+"primary_qualification_focus":[
+"Business value validation",
+"Solution fit",
+"Customer adoption potential",
+"Stakeholder alignment",
+"Commercial scalability",
+"Long-term expansion potential"
+]
+},
+"qualification_priority_adjustment":{
+"qualification_focus_priority":[
+{
+"priority_rank":1,
+"dimension":"OQ02",
+"dimension_name":"Business Problem & Impact Validation",
+"reason":"Digital solutions require clear business value and measurable customer outcomes."
+},
+{
+"priority_rank":2,
+"dimension":"OQ03",
+"dimension_name":"Solution Relevance & Customer Fit",
+"reason":"Solution adoption depends on strong alignment between customer requirements and digital capability."
+},
+{
+"priority_rank":3,
+"dimension":"OQ05",
+"dimension_name":"Stakeholder Identification & Access",
+"reason":"Digital transformation decisions require alignment across business, technical, and executive stakeholders."
+},
+{
+"priority_rank":4,
+"dimension":"OQ06",
+"dimension_name":"Buying Process Understanding",
+"reason":"Enterprise digital purchases involve complex evaluation and approval processes."
+},
+{
+"priority_rank":5,
+"dimension":"OQ08",
+"dimension_name":"Timeline & Business Urgency",
+"reason":"Digital initiatives require clear transformation triggers and implementation timelines."
+}
+]
+},
+"dimension_weight_adjustment":{
+"adjusted_dimension_weights":{
+"OQ01":{
+"original_weight":10,
+"adjusted_weight":10,
+"adjustment_reason":"Opportunity definition remains important for identifying digital transformation context."
+},
+"OQ02":{
+"original_weight":15,
+"adjusted_weight":20,
+"adjustment_reason":"Business impact is the primary qualification driver for digital solutions."
+},
+"OQ03":{
+"original_weight":15,
+"adjusted_weight":20,
+"adjustment_reason":"Solution fit strongly determines adoption and expansion potential."
+},
+"OQ04":{
+"original_weight":10,
+"adjusted_weight":10,
+"adjustment_reason":"Customer engagement indicates solution adoption readiness."
+},
+"OQ05":{
+"original_weight":10,
+"adjusted_weight":15,
+"adjustment_reason":"Stakeholder alignment is critical in enterprise digital buying decisions."
+},
+"OQ06":{
+"original_weight":10,
+"adjusted_weight":10,
+"adjustment_reason":"Buying process visibility supports sales execution."
+},
+"OQ07":{
+"original_weight":10,
+"adjusted_weight":5,
+"adjustment_reason":"Commercial validation is important but may evolve during digital evaluation."
+},
+"OQ08":{
+"original_weight":10,
+"adjusted_weight":5,
+"adjustment_reason":"Timeline is important but less critical during early digital discovery."
+},
+"OQ09":{
+"original_weight":5,
+"adjusted_weight":3,
+"adjustment_reason":"Advancement evidence supports pipeline management."
+},
+"OQ10":{
+"original_weight":5,
+"adjusted_weight":2,
+"adjustment_reason":"Risk assessment is integrated through other qualification dimensions."
+}
+}
+},
+"scoring_adjustment_rules":{
+"positive_scoring_modifiers":{
+"RULE_RM01_001":{
+"condition":"Customer has quantified business impact or ROI expectation",
+"score_adjustment":"+15",
+"affected_dimensions":[
+"OQ02"
+]
+},
+"RULE_RM01_002":{
+"condition":"Executive sponsor identified and actively engaged",
+"score_adjustment":"+15",
+"affected_dimensions":[
+"OQ05"
+]
+},
+"RULE_RM01_003":{
+"condition":"Solution adoption plan and success metrics defined",
+"score_adjustment":"+10",
+"affected_dimensions":[
+"OQ03",
+"OQ09"
+]
+},
+"RULE_RM01_004":{
+"condition":"Customer has digital transformation roadmap alignment",
+"score_adjustment":"+10",
+"affected_dimensions":[
+"OQ01",
+"OQ08"
+]
+}
+},
+"negative_scoring_modifiers":{
+"RULE_RM01_NEG_001":{
+"condition":"Customer interest exists without defined business problem",
+"score_adjustment":"-20",
+"affected_dimensions":[
+"OQ02"
+]
+},
+"RULE_RM01_NEG_002":{
+"condition":"Technical evaluation without business stakeholder involvement",
+"score_adjustment":"-15",
+"affected_dimensions":[
+"OQ05",
+"OQ06"
+]
+},
+"RULE_RM01_NEG_003":{
+"condition":"No adoption or change management consideration",
+"score_adjustment":"-10",
+"affected_dimensions":[
+"OQ03"
+]
+},
+"RULE_RM01_NEG_004":{
+"condition":"Solution evaluated only as feature comparison",
+"score_adjustment":"-15",
+"affected_dimensions":[
+"OQ02",
+"OQ03"
+]
+}
+}
+}
+},
+
+"RM02_Professional_Solution_Services":{
+    "revenue_motion_metadata":{
+"revenue_motion_id":"RM02",
+"revenue_motion_name":"Professional & Solution Services",
+"revenue_motion_category":"Consulting, Professional Services, System Integration, and Managed Services Selling",
+"applies_to_industries":[
+"IND05_Consulting",
+"IND06_Professional_Services",
+"IND07_System_Integration",
+"IND08_Managed_Services"
+],
+"business_model_characteristics":[
+"Service-based revenue model",
+"Expertise and capability driven value proposition",
+"Project, engagement, or managed service delivery model",
+"Customer outcome and business transformation focused",
+"Revenue depends on delivery capability and customer success"
+],
+"customer_buying_characteristics":[
+"Trust and expertise evaluation",
+"Business outcome driven selection",
+"Service capability assessment",
+"Delivery approach evaluation",
+"Resource and governance consideration"
+],
+"sales_cycle_characteristics":{
+"cycle_length":"Medium to Long",
+"complexity_level":"Medium to High",
+"typical_stages":[
+"Business challenge identification",
+"Service requirement discovery",
+"Capability evaluation",
+"Solution approach definition",
+"Proposal development",
+"Commercial negotiation",
+"Contract approval",
+"Service delivery initiation"
+]
+},
+"primary_qualification_focus":[
+"Customer business challenge clarity",
+"Service value validation",
+"Capability and delivery fit",
+"Stakeholder alignment",
+"Engagement model suitability",
+"Execution confidence"
+]
+},
+"qualification_priority_adjustment":{
+"qualification_focus_priority":[
+{
+"priority_rank":1,
+"dimension":"OQ02",
+"dimension_name":"Business Problem & Impact Validation",
+"reason":"Professional services opportunities require a clear customer challenge and expected business outcome."
+},
+{
+"priority_rank":2,
+"dimension":"OQ03",
+"dimension_name":"Solution Relevance & Customer Fit",
+"reason":"Service success depends on matching expertise, methodology, and delivery capability with customer needs."
+},
+{
+"priority_rank":3,
+"dimension":"OQ05",
+"dimension_name":"Stakeholder Identification & Access",
+"reason":"Service engagements require alignment with business owners and operational stakeholders."
+},
+{
+"priority_rank":4,
+"dimension":"OQ04",
+"dimension_name":"Customer Engagement & Commitment",
+"reason":"Customer collaboration is critical for successful service delivery."
+},
+{
+"priority_rank":5,
+"dimension":"OQ09",
+"dimension_name":"Opportunity Advancement Evidence",
+"reason":"Clear engagement milestones indicate service opportunity maturity."
+}
+]
+},
+"dimension_weight_adjustment":{
+"adjusted_dimension_weights":{
+"OQ01":{
+"original_weight":10,
+"adjusted_weight":10,
+"adjustment_reason":"Service opportunities require clear understanding of customer context and engagement scope."
+},
+"OQ02":{
+"original_weight":15,
+"adjusted_weight":20,
+"adjustment_reason":"Customer business challenge and expected outcome are the foundation of service value."
+},
+"OQ03":{
+"original_weight":15,
+"adjusted_weight":20,
+"adjustment_reason":"Capability fit and delivery approach determine service success."
+},
+"OQ04":{
+"original_weight":10,
+"adjusted_weight":15,
+"adjustment_reason":"Strong customer collaboration is required for successful execution."
+},
+"OQ05":{
+"original_weight":10,
+"adjusted_weight":15,
+"adjustment_reason":"Access to business owners and stakeholders is essential for service alignment."
+},
+"OQ06":{
+"original_weight":10,
+"adjusted_weight":5,
+"adjustment_reason":"Buying process matters but is less differentiated than customer engagement."
+},
+"OQ07":{
+"original_weight":10,
+"adjusted_weight":5,
+"adjustment_reason":"Commercial evaluation is important but follows value validation."
+},
+"OQ08":{
+"original_weight":10,
+"adjusted_weight":5,
+"adjustment_reason":"Timeline is important but delivery planning evolves during engagement definition."
+},
+"OQ09":{
+"original_weight":5,
+"adjusted_weight":3,
+"adjustment_reason":"Advancement evidence supports opportunity maturity evaluation."
+},
+"OQ10":{
+"original_weight":5,
+"adjusted_weight":2,
+"adjustment_reason":"Risk evaluation is embedded across engagement dimensions."
+}
+}
+},
+"scoring_adjustment_rules":{
+"positive_scoring_modifiers":{
+"RULE_RM02_001":{
+"condition":"Customer has clearly defined business challenge and expected outcomes",
+"score_adjustment":"+15",
+"affected_dimensions":[
+"OQ02"
+]
+},
+"RULE_RM02_002":{
+"condition":"Customer recognizes required expertise and service capability gap",
+"score_adjustment":"+15",
+"affected_dimensions":[
+"OQ03"
+]
+},
+"RULE_RM02_003":{
+"condition":"Delivery methodology, scope, and resource model are defined",
+"score_adjustment":"+10",
+"affected_dimensions":[
+"OQ03",
+"OQ09"
+]
+},
+"RULE_RM02_004":{
+"condition":"Customer stakeholders actively participate in discovery and solution design",
+"score_adjustment":"+10",
+"affected_dimensions":[
+"OQ04",
+"OQ05"
+]
+}
+},
+"negative_scoring_modifiers":{
+"RULE_RM02_NEG_001":{
+"condition":"Customer requests proposal without defined business problem",
+"score_adjustment":"-20",
+"affected_dimensions":[
+"OQ02"
+]
+},
+"RULE_RM02_NEG_002":{
+"condition":"Service requirement is based only on price comparison",
+"score_adjustment":"-15",
+"affected_dimensions":[
+"OQ03",
+"OQ07"
+]
+},
+"RULE_RM02_NEG_003":{
+"condition":"No customer stakeholder ownership identified",
+"score_adjustment":"-15",
+"affected_dimensions":[
+"OQ04",
+"OQ05"
+]
+},
+"RULE_RM02_NEG_004":{
+"condition":"Delivery capability or resource availability is uncertain",
+"score_adjustment":"-15",
+"affected_dimensions":[
+"OQ03",
+"OQ10"
+]
+}
+}
+},
+"deal_breaker_rules":{
+"deal_breakers":[
+{
+"rule_id":"RM02_DB001",
+"condition":"Customer cannot articulate business problem or desired outcome",
+"impact":"Opportunity cannot be qualified as value-driven service opportunity."
+},
+{
+"rule_id":"RM02_DB002",
+"condition":"No customer sponsor or responsible stakeholder identified",
+"impact":"Engagement success probability is significantly reduced."
+},
+{
+"rule_id":"RM02_DB003",
+"condition":"Required service capability is outside provider competence",
+"impact":"Solution fit is insufficient."
+},
+{
+"rule_id":"RM02_DB004",
+"condition":"Customer expects execution responsibility without customer participation",
+"impact":"Delivery risk is unacceptable."
+}
+]
+},
+"risk_adjustment_rules":{
+"risk_rules":[
+{
+"risk_id":"RM02_RISK001",
+"risk_name":"Undefined Service Outcome",
+"trigger_condition":"OQ02 < 60",
+"risk_level":"HIGH",
+"recommended_action":"Clarify customer objectives and measurable success criteria."
+},
+{
+"risk_id":"RM02_RISK002",
+"risk_name":"Capability Fit Risk",
+"trigger_condition":"OQ03 < 60",
+"risk_level":"HIGH",
+"recommended_action":"Validate expertise, methodology, and delivery capability."
+},
+{
+"risk_id":"RM02_RISK003",
+"risk_name":"Customer Collaboration Risk",
+"trigger_condition":"OQ04 < 60",
+"risk_level":"MEDIUM",
+"recommended_action":"Confirm customer participation model and governance."
+},
+{
+"risk_id":"RM02_RISK004",
+"risk_name":"Stakeholder Alignment Risk",
+"trigger_condition":"OQ05 < 60",
+"risk_level":"HIGH",
+"recommended_action":"Identify business owners and decision stakeholders."
+}
+]
+},
+"recommended_sales_actions":{
+"action_framework":[
+{
+"action_id":"RM02_ACT001",
+"trigger":"Business problem unclear",
+"recommended_action":"Conduct value discovery workshop."
+},
+{
+"action_id":"RM02_ACT002",
+"trigger":"Capability fit uncertain",
+"recommended_action":"Present relevant case studies, methodologies, and delivery experience."
+},
+{
+"action_id":"RM02_ACT003",
+"trigger":"Stakeholder access limited",
+"recommended_action":"Expand engagement beyond initial contact."
+},
+{
+"action_id":"RM02_ACT004",
+"trigger":"Delivery risk detected",
+"recommended_action":"Define delivery governance, resources, and execution approach."
+}
+]
+}
+},
+
+"RM03_Digital_Transformation_OT":{
+    "revenue_motion_metadata":{
+"revenue_motion_id":"RM03",
+"revenue_motion_name":"Digital Transformation & OT",
+"revenue_motion_category":"Industrial Digital Transformation, OT/IT Convergence, and Operational Technology Solution Selling",
+"applies_to_industries":[
+"IND09_Digital_Transformation",
+"IND10_OT_IT_Solutions"
+],
+"business_model_characteristics":[
+"Transformation-driven revenue model",
+"Combination of digital technology and operational improvement",
+"Complex solution integration across IT and OT environments",
+"Business outcome and operational performance focused",
+"Long-term customer transformation partnership model"
+],
+"customer_buying_characteristics":[
+"Business transformation evaluation",
+"Cross-functional stakeholder involvement",
+"IT and operational alignment requirement",
+"Architecture and integration assessment",
+"Risk and change management consideration"
+],
+"sales_cycle_characteristics":{
+"cycle_length":"Long",
+"complexity_level":"High",
+"typical_stages":[
+"Transformation opportunity identification",
+"Business and operational assessment",
+"Digital maturity evaluation",
+"Solution architecture definition",
+"Pilot or validation",
+"Transformation roadmap approval",
+"Implementation planning",
+"Commercial agreement"
+]
+},
+"primary_qualification_focus":[
+"Transformation objective clarity",
+"Operational business impact",
+"IT/OT solution fit",
+"Stakeholder alignment",
+"Transformation readiness",
+"Execution feasibility"
+]
+},
+"qualification_priority_adjustment":{
+"qualification_focus_priority":[
+{
+"priority_rank":1,
+"dimension":"OQ02",
+"dimension_name":"Business Problem & Impact Validation",
+"reason":"Digital transformation investments require measurable operational and business impact."
+},
+{
+"priority_rank":2,
+"dimension":"OQ03",
+"dimension_name":"Solution Relevance & Customer Fit",
+"reason":"Transformation success depends on architecture, technology, and operational fit."
+},
+{
+"priority_rank":3,
+"dimension":"OQ05",
+"dimension_name":"Stakeholder Identification & Access",
+"reason":"Transformation initiatives require alignment across executives, IT, OT, and business functions."
+},
+{
+"priority_rank":4,
+"dimension":"OQ06",
+"dimension_name":"Buying Process Understanding",
+"reason":"Complex transformation programs require understanding of governance, investment approval, and decision processes."
+},
+{
+"priority_rank":5,
+"dimension":"OQ08",
+"dimension_name":"Timeline & Business Urgency",
+"reason":"Transformation initiatives are usually driven by strategic priorities or operational urgency."
+}
+]
+},
+"dimension_weight_adjustment":{
+"adjusted_dimension_weights":{
+"OQ01":{
+"original_weight":10,
+"adjusted_weight":10,
+"adjustment_reason":"Transformation opportunities require clear understanding of strategic context."
+},
+"OQ02":{
+"original_weight":15,
+"adjusted_weight":20,
+"adjustment_reason":"Business impact and operational improvement are primary transformation drivers."
+},
+"OQ03":{
+"original_weight":15,
+"adjusted_weight":20,
+"adjustment_reason":"Technology, architecture, and operational solution fit determine success."
+},
+"OQ04":{
+"original_weight":10,
+"adjusted_weight":10,
+"adjustment_reason":"Customer engagement supports transformation collaboration."
+},
+"OQ05":{
+"original_weight":10,
+"adjusted_weight":15,
+"adjustment_reason":"Transformation requires executive, IT, and OT stakeholder alignment."
+},
+"OQ06":{
+"original_weight":10,
+"adjusted_weight":10,
+"adjustment_reason":"Governance and decision process understanding are important."
+},
+"OQ07":{
+"original_weight":10,
+"adjusted_weight":5,
+"adjustment_reason":"Funding validation is important but follows strategic alignment."
+},
+"OQ08":{
+"original_weight":10,
+"adjusted_weight":7,
+"adjustment_reason":"Transformation urgency influences investment priority."
+},
+"OQ09":{
+"original_weight":5,
+"adjusted_weight":2,
+"adjustment_reason":"Advancement evidence supports transformation pipeline management."
+},
+"OQ10":{
+"original_weight":5,
+"adjusted_weight":1,
+"adjustment_reason":"Risk evaluation is integrated across transformation dimensions."
+}
+}
+},
+"scoring_adjustment_rules":{
+"positive_scoring_modifiers":{
+"RULE_RM03_001":{
+"condition":"Customer has defined transformation objective and measurable business outcome",
+"score_adjustment":"+15",
+"affected_dimensions":[
+"OQ02"
+]
+},
+"RULE_RM03_002":{
+"condition":"Current operational inefficiency, productivity issue, or digital maturity gap is quantified",
+"score_adjustment":"+15",
+"affected_dimensions":[
+"OQ02"
+]
+},
+"RULE_RM03_003":{
+"condition":"IT and OT architecture requirements are clearly identified",
+"score_adjustment":"+15",
+"affected_dimensions":[
+"OQ03"
+]
+},
+"RULE_RM03_004":{
+"condition":"Executive sponsor and operational owner are engaged",
+"score_adjustment":"+10",
+"affected_dimensions":[
+"OQ05"
+]
+},
+"RULE_RM03_005":{
+"condition":"Transformation roadmap or implementation plan exists",
+"score_adjustment":"+10",
+"affected_dimensions":[
+"OQ06",
+"OQ08"
+]
+}
+},
+"negative_scoring_modifiers":{
+"RULE_RM03_NEG_001":{
+"condition":"Customer interest is technology-driven without transformation objective",
+"score_adjustment":"-20",
+"affected_dimensions":[
+"OQ02"
+]
+},
+"RULE_RM03_NEG_002":{
+"condition":"IT and OT stakeholders are not aligned",
+"score_adjustment":"-20",
+"affected_dimensions":[
+"OQ05"
+]
+},
+"RULE_RM03_NEG_003":{
+"condition":"Solution architecture or integration requirements are unclear",
+"score_adjustment":"-15",
+"affected_dimensions":[
+"OQ03",
+"OQ06"
+]
+},
+"RULE_RM03_NEG_004":{
+"condition":"No organizational readiness or change management consideration",
+"score_adjustment":"-15",
+"affected_dimensions":[
+"OQ08",
+"OQ10"
+]
+}
+}
+},
+"deal_breaker_rules":{
+"deal_breakers":[
+{
+"rule_id":"RM03_DB001",
+"condition":"No identified business transformation objective",
+"impact":"Opportunity is technology exploration rather than qualified transformation initiative."
+},
+{
+"rule_id":"RM03_DB002",
+"condition":"No operational or business owner involvement",
+"impact":"Transformation adoption probability is significantly reduced."
+},
+{
+"rule_id":"RM03_DB003",
+"condition":"Required IT/OT integration feasibility cannot be validated",
+"impact":"Solution execution risk is unacceptable."
+},
+{
+"rule_id":"RM03_DB004",
+"condition":"Customer has no transformation urgency or strategic driver",
+"impact":"Investment priority is insufficient."
+}
+]
+},
+"risk_adjustment_rules":{
+"risk_rules":[
+{
+"risk_id":"RM03_RISK001",
+"risk_name":"Transformation Value Unclear",
+"trigger_condition":"OQ02 < 60",
+"risk_level":"HIGH",
+"recommended_action":"Quantify operational and business improvement objectives."
+},
+{
+"risk_id":"RM03_RISK002",
+"risk_name":"IT OT Alignment Risk",
+"trigger_condition":"OQ05 < 60",
+"risk_level":"HIGH",
+"recommended_action":"Align IT, OT, business, and executive stakeholders."
+},
+{
+"risk_id":"RM03_RISK003",
+"risk_name":"Architecture Integration Risk",
+"trigger_condition":"OQ03 < 60",
+"risk_level":"HIGH",
+"recommended_action":"Validate architecture, integration, cybersecurity, and technical requirements."
+},
+{
+"risk_id":"RM03_RISK004",
+"risk_name":"Transformation Readiness Risk",
+"trigger_condition":"OQ08 < 60",
+"risk_level":"MEDIUM",
+"recommended_action":"Assess organizational readiness and implementation roadmap."
+}
+]
+},
+"recommended_sales_actions":{
+"action_framework":[
+{
+"action_id":"RM03_ACT001",
+"trigger":"Transformation value unclear",
+"recommended_action":"Facilitate business value assessment workshop."
+},
+{
+"action_id":"RM03_ACT002",
+"trigger":"IT/OT alignment weakness",
+"recommended_action":"Conduct cross-functional stakeholder alignment session."
+},
+{
+"action_id":"RM03_ACT003",
+"trigger":"Architecture uncertainty",
+"recommended_action":"Perform solution architecture and integration assessment."
+},
+{
+"action_id":"RM03_ACT004",
+"trigger":"Transformation readiness risk",
+"recommended_action":"Develop phased transformation roadmap and adoption plan."
+}
+]
+}
+
+},
+
+"RM04_Engineering_Project_Solutions":{
+    "revenue_motion_metadata":{
+"revenue_motion_id":"RM04",
+"revenue_motion_name":"Engineering & Project Solutions",
+"revenue_motion_category":"Engineering Solution Delivery, Industrial Project Execution, and Infrastructure Solution Selling",
+"applies_to_industries":[
+"IND11_Engineering_Solutions",
+"IND12_Infrastructure_Projects"
+],
+"business_model_characteristics":[
+"Project-based revenue model",
+"Engineering and technical solution driven",
+"Complex delivery and execution model",
+"Customer-specific solution customization",
+"Revenue realization linked to project milestones and completion"
+],
+"customer_buying_characteristics":[
+"Technical requirement evaluation",
+"Engineering capability assessment",
+"Project risk evaluation",
+"Supplier qualification process",
+"Commercial and contractual negotiation"
+],
+"sales_cycle_characteristics":{
+"cycle_length":"Long",
+"complexity_level":"High",
+"typical_stages":[
+"Project opportunity identification",
+"Technical requirement analysis",
+"Engineering solution development",
+"Feasibility assessment",
+"Proposal preparation",
+"Technical and commercial evaluation",
+"Contract negotiation",
+"Project execution"
+]
+},
+"primary_qualification_focus":[
+"Project definition clarity",
+"Engineering requirement understanding",
+"Technical solution fit",
+"Delivery capability",
+"Project stakeholder alignment",
+"Execution risk management"
+]
+},
+"qualification_priority_adjustment":{
+"qualification_focus_priority":[
+{
+"priority_rank":1,
+"dimension":"OQ01",
+"dimension_name":"Opportunity Definition & Business Context",
+"reason":"Engineering opportunities require clearly defined project scope, requirements, and customer objectives."
+},
+{
+"priority_rank":2,
+"dimension":"OQ03",
+"dimension_name":"Solution Relevance & Customer Fit",
+"reason":"Technical solution alignment determines project success probability."
+},
+{
+"priority_rank":3,
+"dimension":"OQ02",
+"dimension_name":"Business Problem & Impact Validation",
+"reason":"Projects must have clear customer investment drivers and expected outcomes."
+},
+{
+"priority_rank":4,
+"dimension":"OQ06",
+"dimension_name":"Buying Process Understanding",
+"reason":"Engineering projects require understanding of procurement, approval, and evaluation processes."
+},
+{
+"priority_rank":5,
+"dimension":"OQ10",
+"dimension_name":"Opportunity Qualification Risk Assessment",
+"reason":"Project execution risks strongly influence opportunity success."
+}
+]
+},
+"dimension_weight_adjustment":{
+"adjusted_dimension_weights":{
+"OQ01":{
+"original_weight":10,
+"adjusted_weight":20,
+"adjustment_reason":"Project scope and requirement definition are critical for engineering opportunities."
+},
+"OQ02":{
+"original_weight":15,
+"adjusted_weight":15,
+"adjustment_reason":"Customer investment driver and expected project outcome must be validated."
+},
+"OQ03":{
+"original_weight":15,
+"adjusted_weight":20,
+"adjustment_reason":"Engineering solution capability and technical fit are major success factors."
+},
+"OQ04":{
+"original_weight":10,
+"adjusted_weight":5,
+"adjustment_reason":"Customer engagement supports execution but is less critical than technical fit."
+},
+"OQ05":{
+"original_weight":10,
+"adjusted_weight":10,
+"adjustment_reason":"Stakeholder alignment influences project approval and execution."
+},
+"OQ06":{
+"original_weight":10,
+"adjusted_weight":10,
+"adjustment_reason":"Procurement and approval process visibility is important."
+},
+"OQ07":{
+"original_weight":10,
+"adjusted_weight":5,
+"adjustment_reason":"Commercial validation follows technical and project alignment."
+},
+"OQ08":{
+"original_weight":10,
+"adjusted_weight":5,
+"adjustment_reason":"Timeline matters but depends on project planning maturity."
+},
+"OQ09":{
+"original_weight":5,
+"adjusted_weight":3,
+"adjustment_reason":"Project advancement evidence supports pipeline management."
+},
+"OQ10":{
+"original_weight":5,
+"adjusted_weight":7,
+"adjustment_reason":"Project execution risks require additional evaluation."
+}
+}
+},
+"scoring_adjustment_rules":{
+"positive_scoring_modifiers":{
+"RULE_RM04_001":{
+"condition":"Project scope, technical requirements, and customer objectives are clearly defined",
+"score_adjustment":"+15",
+"affected_dimensions":[
+"OQ01"
+]
+},
+"RULE_RM04_002":{
+"condition":"Engineering solution demonstrates strong technical alignment with requirements",
+"score_adjustment":"+15",
+"affected_dimensions":[
+"OQ03"
+]
+},
+"RULE_RM04_003":{
+"condition":"Customer has validated project investment need and expected outcome",
+"score_adjustment":"+10",
+"affected_dimensions":[
+"OQ02"
+]
+},
+"RULE_RM04_004":{
+"condition":"Delivery approach, engineering resources, and execution plan are established",
+"score_adjustment":"+10",
+"affected_dimensions":[
+"OQ03",
+"OQ10"
+]
+},
+"RULE_RM04_005":{
+"condition":"Customer procurement and approval process is understood",
+"score_adjustment":"+10",
+"affected_dimensions":[
+"OQ06"
+]
+}
+},
+"negative_scoring_modifiers":{
+"RULE_RM04_NEG_001":{
+"condition":"Project scope is undefined or continuously changing",
+"score_adjustment":"-20",
+"affected_dimensions":[
+"OQ01"
+]
+},
+"RULE_RM04_NEG_002":{
+"condition":"Technical requirements cannot be validated",
+"score_adjustment":"-20",
+"affected_dimensions":[
+"OQ03"
+]
+},
+"RULE_RM04_NEG_003":{
+"condition":"No understanding of project approval or procurement process",
+"score_adjustment":"-15",
+"affected_dimensions":[
+"OQ06"
+]
+},
+"RULE_RM04_NEG_004":{
+"condition":"Execution resources or delivery capability are uncertain",
+"score_adjustment":"-15",
+"affected_dimensions":[
+"OQ10"
+]
+}
+}
+},
+"deal_breaker_rules":{
+"deal_breakers":[
+{
+"rule_id":"RM04_DB001",
+"condition":"Project scope cannot be clearly defined",
+"impact":"Engineering solution cannot be accurately designed or estimated."
+},
+{
+"rule_id":"RM04_DB002",
+"condition":"Required technical capability is unavailable",
+"impact":"Solution delivery feasibility is insufficient."
+},
+{
+"rule_id":"RM04_DB003",
+"condition":"Customer project ownership and approval path are unclear",
+"impact":"Opportunity progression probability is significantly reduced."
+},
+{
+"rule_id":"RM04_DB004",
+"condition":"Project execution risk cannot be mitigated",
+"impact":"Commercial and delivery risk is unacceptable."
+}
+]
+},
+"risk_adjustment_rules":{
+"risk_rules":[
+{
+"risk_id":"RM04_RISK001",
+"risk_name":"Undefined Project Scope Risk",
+"trigger_condition":"OQ01 < 60",
+"risk_level":"HIGH",
+"recommended_action":"Clarify project requirements, scope boundaries, and customer objectives."
+},
+{
+"risk_id":"RM04_RISK002",
+"risk_name":"Technical Fit Risk",
+"trigger_condition":"OQ03 < 60",
+"risk_level":"HIGH",
+"recommended_action":"Conduct technical validation and solution assessment."
+},
+{
+"risk_id":"RM04_RISK003",
+"risk_name":"Execution Capability Risk",
+"trigger_condition":"OQ10 < 60",
+"risk_level":"HIGH",
+"recommended_action":"Validate engineering resources, delivery model, and execution risks."
+},
+{
+"risk_id":"RM04_RISK004",
+"risk_name":"Procurement Process Uncertainty",
+"trigger_condition":"OQ06 < 60",
+"risk_level":"MEDIUM",
+"recommended_action":"Map customer evaluation and approval process."
+}
+]
+},
+"recommended_sales_actions":{
+"action_framework":[
+{
+"action_id":"RM04_ACT001",
+"trigger":"Project definition incomplete",
+"recommended_action":"Conduct project discovery and requirement clarification workshop."
+},
+{
+"action_id":"RM04_ACT002",
+"trigger":"Technical alignment uncertain",
+"recommended_action":"Perform engineering feasibility assessment."
+},
+{
+"action_id":"RM04_ACT003",
+"trigger":"Execution risk identified",
+"recommended_action":"Develop project delivery and risk mitigation plan."
+},
+{
+"action_id":"RM04_ACT004",
+"trigger":"Procurement process unclear",
+"recommended_action":"Engage procurement and project approval stakeholders."
+}
+]
+}
+
+},
+
+"RM05_Project_Procurement":{
+    "revenue_motion_metadata":{
+"revenue_motion_id":"RM06",
+"revenue_motion_name":"Generic Solution Selling",
+"revenue_motion_category":"General Solution-Based Selling Across Diverse Industries",
+"applies_to_industries":[
+"IND15_Solution_Selling_Organizations",
+"IND16_Other_Solutions"
+],
+"business_model_characteristics":[
+"Solution-oriented revenue model",
+"Customer challenge driven selling approach",
+"Combination of products, services, and capabilities",
+"Value proposition based on customer outcomes",
+"Flexible commercial and delivery models"
+],
+"customer_buying_characteristics":[
+"Business problem evaluation",
+"Solution capability comparison",
+"Value proposition assessment",
+"Supplier relationship evaluation",
+"Commercial and implementation consideration"
+],
+"sales_cycle_characteristics":{
+"cycle_length":"Medium",
+"complexity_level":"Variable",
+"typical_stages":[
+"Customer challenge identification",
+"Opportunity discovery",
+"Solution positioning",
+"Value demonstration",
+"Stakeholder alignment",
+"Commercial discussion",
+"Purchase decision"
+]
+},
+"primary_qualification_focus":[
+"Customer problem clarity",
+"Solution value alignment",
+"Customer engagement quality",
+"Stakeholder understanding",
+"Commercial viability",
+"Opportunity advancement evidence"
+]
+},
+"qualification_priority_adjustment":{
+"qualification_focus_priority":[
+{
+"priority_rank":1,
+"dimension":"OQ02",
+"dimension_name":"Business Problem & Impact Validation",
+"reason":"Solution selling success depends on understanding and solving meaningful customer challenges."
+},
+{
+"priority_rank":2,
+"dimension":"OQ03",
+"dimension_name":"Solution Relevance & Customer Fit",
+"reason":"The ability to connect solution capability with customer requirements determines win probability."
+},
+{
+"priority_rank":3,
+"dimension":"OQ04",
+"dimension_name":"Customer Engagement & Commitment",
+"reason":"Customer collaboration indicates opportunity seriousness and solution alignment."
+},
+{
+"priority_rank":4,
+"dimension":"OQ05",
+"dimension_name":"Stakeholder Identification & Access",
+"reason":"Multiple stakeholder perspectives influence solution acceptance."
+},
+{
+"priority_rank":5,
+"dimension":"OQ07",
+"dimension_name":"Commercial Potential & Funding Path",
+"reason":"Commercial feasibility determines conversion potential."
+}
+]
+},
+"dimension_weight_adjustment":{
+"adjusted_dimension_weights":{
+"OQ01":{
+"original_weight":10,
+"adjusted_weight":10,
+"adjustment_reason":"Opportunity context should be understood but varies by solution type."
+},
+"OQ02":{
+"original_weight":15,
+"adjusted_weight":20,
+"adjustment_reason":"Customer problem validation is the foundation of solution selling."
+},
+"OQ03":{
+"original_weight":15,
+"adjusted_weight":20,
+"adjustment_reason":"Solution fit and value alignment determine customer acceptance."
+},
+"OQ04":{
+"original_weight":10,
+"adjusted_weight":15,
+"adjustment_reason":"Customer engagement quality indicates buying commitment."
+},
+"OQ05":{
+"original_weight":10,
+"adjusted_weight":10,
+"adjustment_reason":"Stakeholder understanding supports solution positioning."
+},
+"OQ06":{
+"original_weight":10,
+"adjusted_weight":5,
+"adjustment_reason":"Buying process importance depends on customer complexity."
+},
+"OQ07":{
+"original_weight":10,
+"adjusted_weight":10,
+"adjustment_reason":"Commercial potential remains important for opportunity prioritization."
+},
+"OQ08":{
+"original_weight":10,
+"adjusted_weight":5,
+"adjustment_reason":"Timeline varies significantly across solution categories."
+},
+"OQ09":{
+"original_weight":5,
+"adjusted_weight":3,
+"adjustment_reason":"Advancement evidence supports opportunity management."
+},
+"OQ10":{
+"original_weight":5,
+"adjusted_weight":2,
+"adjustment_reason":"Risk evaluation is incorporated across qualification dimensions."
+}
+}
+},
+"scoring_adjustment_rules":{
+"positive_scoring_modifiers":{
+"RULE_RM06_001":{
+"condition":"Customer has clearly defined business challenge and expected improvement",
+"score_adjustment":"+15",
+"affected_dimensions":[
+"OQ02"
+]
+},
+"RULE_RM06_002":{
+"condition":"Solution value proposition is directly linked to customer outcomes",
+"score_adjustment":"+15",
+"affected_dimensions":[
+"OQ03"
+]
+},
+"RULE_RM06_003":{
+"condition":"Customer actively participates in discovery and solution discussion",
+"score_adjustment":"+10",
+"affected_dimensions":[
+"OQ04"
+]
+},
+"RULE_RM06_004":{
+"condition":"Key stakeholders recognize the value of the proposed solution",
+"score_adjustment":"+10",
+"affected_dimensions":[
+"OQ05"
+]
+},
+"RULE_RM06_005":{
+"condition":"Commercial model and purchase path are understood",
+"score_adjustment":"+10",
+"affected_dimensions":[
+"OQ07"
+]
+}
+},
+"negative_scoring_modifiers":{
+"RULE_RM06_NEG_001":{
+"condition":"Customer interest is based only on product features without business need",
+"score_adjustment":"-20",
+"affected_dimensions":[
+"OQ02",
+"OQ03"
+]
+},
+"RULE_RM06_NEG_002":{
+"condition":"Solution differentiation is unclear compared with alternatives",
+"score_adjustment":"-15",
+"affected_dimensions":[
+"OQ03"
+]
+},
+"RULE_RM06_NEG_003":{
+"condition":"Customer engagement is limited to information gathering",
+"score_adjustment":"-15",
+"affected_dimensions":[
+"OQ04"
+]
+},
+"RULE_RM06_NEG_004":{
+"condition":"No identified commercial pathway or buying intent",
+"score_adjustment":"-15",
+"affected_dimensions":[
+"OQ07"
+]
+}
+}
+},
+"deal_breaker_rules":{
+"deal_breakers":[
+{
+"rule_id":"RM06_DB001",
+"condition":"No meaningful customer problem or business opportunity identified",
+"impact":"Opportunity is not solution-driven."
+},
+{
+"rule_id":"RM06_DB002",
+"condition":"Solution value cannot be differentiated from alternatives",
+"impact":"Win probability is significantly reduced."
+},
+{
+"rule_id":"RM06_DB003",
+"condition":"Customer unwilling to engage in solution discovery",
+"impact":"Opportunity maturity cannot be validated."
+},
+{
+"rule_id":"RM06_DB004",
+"condition":"No realistic purchase path identified",
+"impact":"Commercial conversion probability is low."
+}
+]
+},
+"risk_adjustment_rules":{
+"risk_rules":[
+{
+"risk_id":"RM06_RISK001",
+"risk_name":"Problem Definition Risk",
+"trigger_condition":"OQ02 < 60",
+"risk_level":"HIGH",
+"recommended_action":"Improve customer problem discovery and value validation."
+},
+{
+"risk_id":"RM06_RISK002",
+"risk_name":"Solution Fit Risk",
+"trigger_condition":"OQ03 < 60",
+"risk_level":"HIGH",
+"recommended_action":"Strengthen solution alignment and differentiation."
+},
+{
+"risk_id":"RM06_RISK003",
+"risk_name":"Customer Commitment Risk",
+"trigger_condition":"OQ04 < 60",
+"risk_level":"MEDIUM",
+"recommended_action":"Increase customer engagement and discovery interaction."
+},
+{
+"risk_id":"RM06_RISK004",
+"risk_name":"Commercial Conversion Risk",
+"trigger_condition":"OQ07 < 60",
+"risk_level":"MEDIUM",
+"recommended_action":"Clarify budget, purchasing process, and commercial model."
+}
+]
+},
+"recommended_sales_actions":{
+"action_framework":[
+{
+"action_id":"RM06_ACT001",
+"trigger":"Customer problem unclear",
+"recommended_action":"Conduct structured discovery and business value assessment."
+},
+{
+"action_id":"RM06_ACT002",
+"trigger":"Solution differentiation weak",
+"recommended_action":"Develop value proposition and competitive positioning."
+},
+{
+"action_id":"RM06_ACT003",
+"trigger":"Customer engagement weak",
+"recommended_action":"Increase discovery sessions and stakeholder involvement."
+},
+{
+"action_id":"RM06_ACT004",
+"trigger":"Commercial pathway unclear",
+"recommended_action":"Identify purchasing process, budget owner, and decision criteria."
+}
+]
+}
+
+},
+
+"RM06_Generic_Solution_Selling":{
+    "revenue_motion_metadata":{
+"revenue_motion_id":"RM06",
+"revenue_motion_name":"Generic Solution Selling",
+"revenue_motion_category":"General Solution-Based Selling Across Diverse Industries",
+"applies_to_industries":[
+"IND15_Solution_Selling_Organizations",
+"IND16_Other_Solutions"
+],
+"business_model_characteristics":[
+"Solution-oriented revenue model",
+"Customer challenge driven selling approach",
+"Combination of products, services, and capabilities",
+"Value proposition based on customer outcomes",
+"Flexible commercial and delivery models"
+],
+"customer_buying_characteristics":[
+"Business problem evaluation",
+"Solution capability comparison",
+"Value proposition assessment",
+"Supplier relationship evaluation",
+"Commercial and implementation consideration"
+],
+"sales_cycle_characteristics":{
+"cycle_length":"Medium",
+"complexity_level":"Variable",
+"typical_stages":[
+"Customer challenge identification",
+"Opportunity discovery",
+"Solution positioning",
+"Value demonstration",
+"Stakeholder alignment",
+"Commercial discussion",
+"Purchase decision"
+]
+},
+"primary_qualification_focus":[
+"Customer problem clarity",
+"Solution value alignment",
+"Customer engagement quality",
+"Stakeholder understanding",
+"Commercial viability",
+"Opportunity advancement evidence"
+]
+},
+"qualification_priority_adjustment":{
+"qualification_focus_priority":[
+{
+"priority_rank":1,
+"dimension":"OQ02",
+"dimension_name":"Business Problem & Impact Validation",
+"reason":"Solution selling success depends on understanding and solving meaningful customer challenges."
+},
+{
+"priority_rank":2,
+"dimension":"OQ03",
+"dimension_name":"Solution Relevance & Customer Fit",
+"reason":"The ability to connect solution capability with customer requirements determines win probability."
+},
+{
+"priority_rank":3,
+"dimension":"OQ04",
+"dimension_name":"Customer Engagement & Commitment",
+"reason":"Customer collaboration indicates opportunity seriousness and solution alignment."
+},
+{
+"priority_rank":4,
+"dimension":"OQ05",
+"dimension_name":"Stakeholder Identification & Access",
+"reason":"Multiple stakeholder perspectives influence solution acceptance."
+},
+{
+"priority_rank":5,
+"dimension":"OQ07",
+"dimension_name":"Commercial Potential & Funding Path",
+"reason":"Commercial feasibility determines conversion potential."
+}
+]
+},
+"dimension_weight_adjustment":{
+"adjusted_dimension_weights":{
+"OQ01":{
+"original_weight":10,
+"adjusted_weight":10,
+"adjustment_reason":"Opportunity context should be understood but varies by solution type."
+},
+"OQ02":{
+"original_weight":15,
+"adjusted_weight":20,
+"adjustment_reason":"Customer problem validation is the foundation of solution selling."
+},
+"OQ03":{
+"original_weight":15,
+"adjusted_weight":20,
+"adjustment_reason":"Solution fit and value alignment determine customer acceptance."
+},
+"OQ04":{
+"original_weight":10,
+"adjusted_weight":15,
+"adjustment_reason":"Customer engagement quality indicates buying commitment."
+},
+"OQ05":{
+"original_weight":10,
+"adjusted_weight":10,
+"adjustment_reason":"Stakeholder understanding supports solution positioning."
+},
+"OQ06":{
+"original_weight":10,
+"adjusted_weight":5,
+"adjustment_reason":"Buying process importance depends on customer complexity."
+},
+"OQ07":{
+"original_weight":10,
+"adjusted_weight":10,
+"adjustment_reason":"Commercial potential remains important for opportunity prioritization."
+},
+"OQ08":{
+"original_weight":10,
+"adjusted_weight":5,
+"adjustment_reason":"Timeline varies significantly across solution categories."
+},
+"OQ09":{
+"original_weight":5,
+"adjusted_weight":3,
+"adjustment_reason":"Advancement evidence supports opportunity management."
+},
+"OQ10":{
+"original_weight":5,
+"adjusted_weight":2,
+"adjustment_reason":"Risk evaluation is incorporated across qualification dimensions."
+}
+}
+},
+"scoring_adjustment_rules":{
+"positive_scoring_modifiers":{
+"RULE_RM06_001":{
+"condition":"Customer has clearly defined business challenge and expected improvement",
+"score_adjustment":"+15",
+"affected_dimensions":[
+"OQ02"
+]
+},
+"RULE_RM06_002":{
+"condition":"Solution value proposition is directly linked to customer outcomes",
+"score_adjustment":"+15",
+"affected_dimensions":[
+"OQ03"
+]
+},
+"RULE_RM06_003":{
+"condition":"Customer actively participates in discovery and solution discussion",
+"score_adjustment":"+10",
+"affected_dimensions":[
+"OQ04"
+]
+},
+"RULE_RM06_004":{
+"condition":"Key stakeholders recognize the value of the proposed solution",
+"score_adjustment":"+10",
+"affected_dimensions":[
+"OQ05"
+]
+},
+"RULE_RM06_005":{
+"condition":"Commercial model and purchase path are understood",
+"score_adjustment":"+10",
+"affected_dimensions":[
+"OQ07"
+]
+}
+},
+"negative_scoring_modifiers":{
+"RULE_RM06_NEG_001":{
+"condition":"Customer interest is based only on product features without business need",
+"score_adjustment":"-20",
+"affected_dimensions":[
+"OQ02",
+"OQ03"
+]
+},
+"RULE_RM06_NEG_002":{
+"condition":"Solution differentiation is unclear compared with alternatives",
+"score_adjustment":"-15",
+"affected_dimensions":[
+"OQ03"
+]
+},
+"RULE_RM06_NEG_003":{
+"condition":"Customer engagement is limited to information gathering",
+"score_adjustment":"-15",
+"affected_dimensions":[
+"OQ04"
+]
+},
+"RULE_RM06_NEG_004":{
+"condition":"No identified commercial pathway or buying intent",
+"score_adjustment":"-15",
+"affected_dimensions":[
+"OQ07"
+]
+}
+}
+},
+"deal_breaker_rules":{
+"deal_breakers":[
+{
+"rule_id":"RM06_DB001",
+"condition":"No meaningful customer problem or business opportunity identified",
+"impact":"Opportunity is not solution-driven."
+},
+{
+"rule_id":"RM06_DB002",
+"condition":"Solution value cannot be differentiated from alternatives",
+"impact":"Win probability is significantly reduced."
+},
+{
+"rule_id":"RM06_DB003",
+"condition":"Customer unwilling to engage in solution discovery",
+"impact":"Opportunity maturity cannot be validated."
+},
+{
+"rule_id":"RM06_DB004",
+"condition":"No realistic purchase path identified",
+"impact":"Commercial conversion probability is low."
+}
+]
+},
+"risk_adjustment_rules":{
+"risk_rules":[
+{
+"risk_id":"RM06_RISK001",
+"risk_name":"Problem Definition Risk",
+"trigger_condition":"OQ02 < 60",
+"risk_level":"HIGH",
+"recommended_action":"Improve customer problem discovery and value validation."
+},
+{
+"risk_id":"RM06_RISK002",
+"risk_name":"Solution Fit Risk",
+"trigger_condition":"OQ03 < 60",
+"risk_level":"HIGH",
+"recommended_action":"Strengthen solution alignment and differentiation."
+},
+{
+"risk_id":"RM06_RISK003",
+"risk_name":"Customer Commitment Risk",
+"trigger_condition":"OQ04 < 60",
+"risk_level":"MEDIUM",
+"recommended_action":"Increase customer engagement and discovery interaction."
+},
+{
+"risk_id":"RM06_RISK004",
+"risk_name":"Commercial Conversion Risk",
+"trigger_condition":"OQ07 < 60",
+"risk_level":"MEDIUM",
+"recommended_action":"Clarify budget, purchasing process, and commercial model."
+}
+]
+},
+"recommended_sales_actions":{
+"action_framework":[
+{
+"action_id":"RM06_ACT001",
+"trigger":"Customer problem unclear",
+"recommended_action":"Conduct structured discovery and business value assessment."
+},
+{
+"action_id":"RM06_ACT002",
+"trigger":"Solution differentiation weak",
+"recommended_action":"Develop value proposition and competitive positioning."
+},
+{
+"action_id":"RM06_ACT003",
+"trigger":"Customer engagement weak",
+"recommended_action":"Increase discovery sessions and stakeholder involvement."
+},
+{
+"action_id":"RM06_ACT004",
+"trigger":"Commercial pathway unclear",
+"recommended_action":"Identify purchasing process, budget owner, and decision criteria."
+}
+]
+}
+
+}
+}
+}
