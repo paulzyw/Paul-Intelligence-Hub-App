@@ -4,6 +4,10 @@
 
 To ensure compatibility with Supabase's updated Data API access policies, any SQL script that creates a new table or function in the `public` schema MUST include explicit `GRANT` statements. This ensures that the `anon`, `authenticated`, and `service_role` roles have the necessary permissions to access these objects via `supabase-js`, PostgREST, or GraphQL.
 
+### ⚠️ IMPORTANT NOTE ON DATABASE COMPATIBILITY
+* **Existing Schema & Tables**: There is **absolutely zero impact** on the existing database. No changes, updates, or modifications are required for any already deployed tables or schemas; they retain their current implicit grants and will continue working perfectly.
+* **New Deployments Only**: The requirement for explicit `GRANT` SQL queries applies **exclusively to newly deployed database schemas or new tables** created in the public schema on or after October 30.
+
 ### Rule for Table Creation
 When creating a new table (e.g., `public.my_table`), always append the following grants:
 

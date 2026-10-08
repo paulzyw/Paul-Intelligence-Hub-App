@@ -310,7 +310,7 @@ export function Home() {
                   Business growth leader with over 10 years of experience driving SaaS subscription revenue, business transformation, and digital transformation across APAC and China.
                 </p>
                 <p>
-                  Specialized in building scalable go-to-market strategies, driving product strategy, developing operating models, establishing high-impact partner ecosystems, and delivering measurable business outcomes for enterprise customers in oil & gas, mining, petrochemical, chemical, electric power, and public utilities sectors.
+                  Specialized in building scalable go-to-market strategies, driving product strategy, developing operating models, establishing high-impact partner ecosystems, and delivering measurable business outcomes for enterprise customers in oil & gas, pharmaceutical, petrochemical, chemical, electric power, and public utilities sectors.
                 </p>
                 <p>
                   Combined strategic thinking with execution excellence to unlock growth, improve profitability, and scale regional businesses.
@@ -550,7 +550,7 @@ export function Home() {
                   "Refinery",
                   "Electric Power",
                   "Power Generation",
-                  "Mining",
+                  "Pharmaceutical",
                   "Manufacturing",
                   "Technology / Software / SaaS"
                 ].concat([
@@ -561,7 +561,7 @@ export function Home() {
                   "Refinery",
                   "Electric Power",
                   "Power Generation",
-                  "Mining",
+                  "Pharmaceutical",
                   "Manufacturing",
                   "Technology / Software / SaaS"
                 ]).map((item, index) => (
