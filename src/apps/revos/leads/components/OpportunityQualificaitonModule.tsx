@@ -6,13 +6,15 @@ import { SQLOpportunity } from '../../types/sql';
 import { OpportunitySession } from '../../types/opportunity_qualification';
 import { SqlToOpportunityTable } from './SqlToOpportunityTable';
 import { SQLtoOpportunity } from './SQLtoOpportunity';
-import { Bot, Sparkles, Check, Play, AlertCircle, RefreshCw, Layers, Clock, TrendingUp, ShieldAlert, Award } from 'lucide-react';
+import { SqlToOpportunityDetailsPage } from './SqlToOpportunityDetailsPage';
+import { Bot, Sparkles, Check, Play, AlertCircle, RefreshCw, Layers, Clock, TrendingUp, ShieldAlert, Award, FileText } from 'lucide-react';
 
 export const OpportunityQualificaitonModule: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [opportunities, setOpportunities] = useState<SQLOpportunity[]>([]);
   const [sessions, setSessions] = useState<Record<string, OpportunitySession>>({});
   const [selectedOpportunity, setSelectedOpportunity] = useState<SQLOpportunity | null>(null);
+  const [activeDetailView, setActiveDetailView] = useState<'handover' | 'canvas'>('handover');
   const [searchQuery, setSearchQuery] = useState('');
 
   useEffect(() => {
@@ -145,7 +147,10 @@ export const OpportunityQualificaitonModule: React.FC = () => {
               <SqlToOpportunityTable
                 opportunities={opportunities}
                 sessions={sessions}
-                onSelect={setSelectedOpportunity}
+                onSelect={(opp) => {
+                  setSelectedOpportunity(opp);
+                  setActiveDetailView('handover');
+                }}
                 searchQuery={searchQuery}
                 onSearchChange={setSearchQuery}
               />
@@ -157,15 +162,58 @@ export const OpportunityQualificaitonModule: React.FC = () => {
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -10 }}
+            className="space-y-4"
           >
-            <SQLtoOpportunity
-              opportunity={selectedOpportunity}
-              onBack={() => {
-                setSelectedOpportunity(null);
-                loadPipelineData();
-              }}
-              onPromotedStatusChanged={loadPipelineData}
-            />
+            {/* View Mode Switcher Header */}
+            <div className="flex items-center justify-between bg-bg-surface border border-border p-2.5 rounded-2xl">
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setActiveDetailView('handover')}
+                  className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                    activeDetailView === 'handover'
+                      ? 'bg-accent text-black font-black shadow-sm'
+                      : 'bg-transparent text-text-secondary hover:text-text-primary hover:bg-bg-primary/50'
+                  }`}
+                >
+                  <FileText className="h-3.5 w-3.5" />
+                  <span>SQL Handover &amp; Opportunity Form</span>
+                </button>
+
+                <button
+                  onClick={() => setActiveDetailView('canvas')}
+                  className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                    activeDetailView === 'canvas'
+                      ? 'bg-accent text-black font-black shadow-sm'
+                      : 'bg-transparent text-text-secondary hover:text-text-primary hover:bg-bg-primary/50'
+                  }`}
+                >
+                  <Layers className="h-3.5 w-3.5" />
+                  <span>OQ Evaluation Canvas</span>
+                </button>
+              </div>
+
+              <span className="text-[10px] font-mono text-text-secondary hidden sm:inline px-3">
+                {selectedOpportunity.company_name} • {selectedOpportunity.opportunity_name}
+              </span>
+            </div>
+
+            {/* Active View Component */}
+            {activeDetailView === 'handover' ? (
+              <SqlToOpportunityDetailsPage
+                opportunity={selectedOpportunity}
+                onBack={() => {
+                  setSelectedOpportunity(null);
+                  loadPipelineData();
+                }}
+                onProceedToOQ={() => setActiveDetailView('canvas')}
+              />
+            ) : (
+              <SQLtoOpportunity
+                opportunity={selectedOpportunity}
+                onBack={() => setActiveDetailView('handover')}
+                onPromotedStatusChanged={loadPipelineData}
+              />
+            )}
           </motion.div>
         )}
       </AnimatePresence>
