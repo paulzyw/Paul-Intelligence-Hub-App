@@ -7,14 +7,18 @@ import { OpportunitySession } from '../../types/opportunity_qualification';
 import { SqlToOpportunityTable } from './SqlToOpportunityTable';
 import { SQLtoOpportunity } from './SQLtoOpportunity';
 import { SqlToOpportunityDetailsPage } from './SqlToOpportunityDetailsPage';
-import { Bot, Sparkles, Check, Play, AlertCircle, RefreshCw, Layers, Clock, TrendingUp, ShieldAlert, Award, FileText } from 'lucide-react';
+import { OpportunityDynamicEvidenceForm } from './Opportunity_DynamicEvidenceForm';
+import { OpportunityQualificaitonResult } from './Opportunity_QualificaitonResult';
+import { Bot, Sparkles, Check, Play, AlertCircle, RefreshCw, Layers, Clock, TrendingUp, ShieldAlert, Award, FileText, ClipboardList, ShieldCheck } from 'lucide-react';
 
 export const OpportunityQualificaitonModule: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [opportunities, setOpportunities] = useState<SQLOpportunity[]>([]);
   const [sessions, setSessions] = useState<Record<string, OpportunitySession>>({});
   const [selectedOpportunity, setSelectedOpportunity] = useState<SQLOpportunity | null>(null);
-  const [activeDetailView, setActiveDetailView] = useState<'handover' | 'canvas'>('handover');
+  const [activeDetailView, setActiveDetailView] = useState<'handover' | 'qualification_form' | 'canvas'>('handover');
+  const [defaultToFormMap, setDefaultToFormMap] = useState<Record<string, boolean>>({});
+  const [hasResultMap, setHasResultMap] = useState<Record<string, boolean>>({});
   const [searchQuery, setSearchQuery] = useState('');
 
   useEffect(() => {
@@ -43,10 +47,61 @@ export const OpportunityQualificaitonModule: React.FC = () => {
         })
       );
       setSessions(sessionsMap);
+
+      // 3. Pre-load default qualification form criteria map & result existence map
+      try {
+        const [formDefaults, resultsMap] = await Promise.all([
+          OpportunityDataService.getQualificationFormDefaultsMap(opps.map(o => o.id)),
+          OpportunityDataService.getQualificationResultsMap(opps.map(o => o.id))
+        ]);
+        setDefaultToFormMap(formDefaults);
+        setHasResultMap(resultsMap);
+      } catch (e) {
+        console.warn("Could not pre-load defaults maps:", e);
+      }
     } catch (e) {
       console.error("Failed to load pipeline data:", e);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleSelectOpportunity = async (opp: SQLOpportunity) => {
+    setSelectedOpportunity(opp);
+
+    // 1. Check if qualification result already exists (highest priority for default display)
+    const hasResultCached = hasResultMap[opp.id] ?? (
+      (typeof window !== 'undefined' && localStorage.getItem('oq_has_result_' + opp.id) === 'true') ||
+      (sessions[opp.id]?.qualification_status && sessions[opp.id]?.qualification_status !== 'NOT_STARTED' && (sessions[opp.id]?.overall_score || 0) > 0)
+    );
+
+    // 2. Check if qualification form criteria met (started + >= 1 evidence saved)
+    const isFormDefault = defaultToFormMap[opp.id] ?? (
+      (typeof window !== 'undefined' && localStorage.getItem('oq_started_' + opp.id) === 'true') &&
+      (typeof window !== 'undefined' && localStorage.getItem('oq_has_saved_evidence_' + opp.id) === 'true')
+    );
+
+    if (hasResultCached) {
+      setActiveDetailView('canvas'); // 3. Opportunity Qualification Result
+    } else if (isFormDefault) {
+      setActiveDetailView('qualification_form'); // 2. Opportunity Qualification Form
+    } else {
+      setActiveDetailView('handover'); // 1. SQL Handover & Opportunity Form
+    }
+
+    // 3. Async verify against Supabase database
+    try {
+      const verifiedResult = await OpportunityDataService.checkHasQualificationResult(opp.id);
+      if (verifiedResult) {
+        setActiveDetailView('canvas');
+        setHasResultMap(prev => ({ ...prev, [opp.id]: true }));
+      } else {
+        const verifiedForm = await OpportunityDataService.checkShouldDefaultToQualificationForm(opp.id);
+        setActiveDetailView(verifiedForm ? 'qualification_form' : 'handover');
+        setDefaultToFormMap(prev => ({ ...prev, [opp.id]: verifiedForm }));
+      }
+    } catch (err) {
+      console.warn('Async default view verification note:', err);
     }
   };
 
@@ -147,10 +202,7 @@ export const OpportunityQualificaitonModule: React.FC = () => {
               <SqlToOpportunityTable
                 opportunities={opportunities}
                 sessions={sessions}
-                onSelect={(opp) => {
-                  setSelectedOpportunity(opp);
-                  setActiveDetailView('handover');
-                }}
+                onSelect={handleSelectOpportunity}
                 searchQuery={searchQuery}
                 onSearchChange={setSearchQuery}
               />
@@ -165,36 +217,68 @@ export const OpportunityQualificaitonModule: React.FC = () => {
             className="space-y-4"
           >
             {/* View Mode Switcher Header */}
-            <div className="flex items-center justify-between bg-bg-surface border border-border p-2.5 rounded-2xl">
-              <div className="flex items-center gap-2">
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between bg-bg-surface border border-border p-2.5 rounded-2xl gap-3">
+              <div className="flex items-center gap-2 overflow-x-auto">
                 <button
+                  type="button"
                   onClick={() => setActiveDetailView('handover')}
-                  className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                  className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 shrink-0 ${
                     activeDetailView === 'handover'
                       ? 'bg-accent text-black font-black shadow-sm'
                       : 'bg-transparent text-text-secondary hover:text-text-primary hover:bg-bg-primary/50'
                   }`}
                 >
                   <FileText className="h-3.5 w-3.5" />
-                  <span>SQL Handover &amp; Opportunity Form</span>
+                  <span>1. SQL Handover &amp; Opportunity Form</span>
                 </button>
 
                 <button
+                  type="button"
+                  onClick={() => setActiveDetailView('qualification_form')}
+                  className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 shrink-0 ${
+                    activeDetailView === 'qualification_form'
+                      ? 'bg-accent text-black font-black shadow-sm'
+                      : 'bg-transparent text-text-secondary hover:text-text-primary hover:bg-bg-primary/50'
+                  }`}
+                >
+                  <ClipboardList className="h-3.5 w-3.5" />
+                  <span>2. Opportunity Qualification Form</span>
+                  <span className={`text-[9px] font-mono px-1.5 py-0.2 rounded ${
+                    activeDetailView === 'qualification_form' ? 'bg-black/20 text-black font-black' : 'bg-bg-primary text-accent font-bold'
+                  }`}>
+                    10 Dims
+                  </span>
+                </button>
+
+                <button
+                  type="button"
                   onClick={() => setActiveDetailView('canvas')}
-                  className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                  className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 shrink-0 ${
                     activeDetailView === 'canvas'
                       ? 'bg-accent text-black font-black shadow-sm'
                       : 'bg-transparent text-text-secondary hover:text-text-primary hover:bg-bg-primary/50'
                   }`}
                 >
-                  <Layers className="h-3.5 w-3.5" />
-                  <span>OQ Evaluation Canvas</span>
+                  <ShieldCheck className="h-3.5 w-3.5" />
+                  <span>3. Opportunity Qualification Result</span>
                 </button>
               </div>
 
-              <span className="text-[10px] font-mono text-text-secondary hidden sm:inline px-3">
-                {selectedOpportunity.company_name} • {selectedOpportunity.opportunity_name}
-              </span>
+              <div className="flex items-center justify-between sm:justify-end gap-2 px-2">
+                <span className="text-[10px] font-mono text-text-secondary hidden md:inline">
+                  {selectedOpportunity.company_name} • {selectedOpportunity.opportunity_name}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectedOpportunity(null);
+                    loadPipelineData();
+                  }}
+                  className="text-[11px] font-bold text-text-secondary hover:text-text-primary px-2 py-1 rounded-lg hover:bg-bg-primary/50 cursor-pointer"
+                >
+                  Exit To List
+                </button>
+              </div>
             </div>
 
             {/* Active View Component */}
@@ -206,12 +290,34 @@ export const OpportunityQualificaitonModule: React.FC = () => {
                   loadPipelineData();
                 }}
                 onProceedToOQ={() => setActiveDetailView('canvas')}
+                onStartQualification={() => {
+                  if (selectedOpportunity?.id) {
+                    OpportunityDataService.recordStartQualification(selectedOpportunity.id);
+                  }
+                }}
               />
-            ) : (
-              <SQLtoOpportunity
+            ) : activeDetailView === 'qualification_form' ? (
+              <OpportunityDynamicEvidenceForm
                 opportunity={selectedOpportunity}
                 onBack={() => setActiveDetailView('handover')}
-                onPromotedStatusChanged={loadPipelineData}
+                onProceedToAssessment={() => setActiveDetailView('canvas')}
+                onEvidenceSaved={() => {
+                  if (selectedOpportunity?.id) {
+                    setDefaultToFormMap(prev => ({ ...prev, [selectedOpportunity.id]: true }));
+                  }
+                  loadPipelineData();
+                }}
+              />
+            ) : (
+              <OpportunityQualificaitonResult
+                opportunityId={selectedOpportunity.id}
+                opportunity={selectedOpportunity}
+                session={sessions[selectedOpportunity.id]}
+                onNavigateToEvidence={() => setActiveDetailView('qualification_form')}
+                onPromote={async () => {
+                  await loadPipelineData();
+                  return true;
+                }}
               />
             )}
           </motion.div>

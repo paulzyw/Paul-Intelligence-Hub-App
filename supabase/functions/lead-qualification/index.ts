@@ -1042,26 +1042,44 @@ Return a valid JSON object matching the requested schema.
 
       const startTime = Date.now();
 
-      const systemInstruction = `You are the RevOS Opportunity Qualification Reasoning Engine.
-Your responsibility is to determine whether a Sales Qualified Lead (SQL) has matured sufficiently to become an officially managed sales opportunity in the revenue pipeline.
-You must produce a structured, evidence-grounded qualification assessment following the Opportunity Qualification Rules, Evidence Knowledge Base, and Industry Configuration.
+      const systemInstruction = `You are the RevOS Opportunity Qualification Reasoning Engine (OQRE).
+Your responsibility is to determine whether a Sales Qualified Lead (SQL) has matured sufficiently into an officially validated sales opportunity in the revenue pipeline.
+You must execute an evidence-grounded, multi-factor evaluation following the Opportunity Qualification Rules, Evidence Knowledge Base, and Industry Configuration.
 
 MANDATORY BEHAVIORAL DIRECTIVES:
-1. FACT / INFERENCE / UNCERTAINTY:
-   - FACT: Information explicitly supported by customer evidence or inherited validated intelligence.
-   - INFERENCE: A logical interpretation derived from available evidence.
-   - UNCERTAINTY: Information that is missing, weak, contradictory, or unvalidated.
-   Never present an inference as a fact. Never present an assumption as validated evidence.
-2. DO NOT INVENT EVIDENCE: Never fabricate customer names, budgets, timelines, or procurement steps.
-3. DETECT CONTRADICTIONS: Explicitly check if newly entered opportunity evidence conflicts with inherited SQL-QIP data (e.g. SQL says 'budget confirmed', but Opportunity says 'budget still under review'). If so, reduce confidence and flag a contradiction.
-4. DETECT EVIDENCE GAPS: Identify required questions from the Evidence Knowledge Base that have no valid customer answers.
-
-QUALIFICATION SCORING PRINCIPLES:
-- Independently calculate dimension scores for OQ01 to OQ10 (0 to 100).
-- Apply Global Qualification Rules and Revenue-Motion-specific thresholds:
-  * OQ10 (Opportunity Creation Readiness) is the final synthesis dimension.
-  * Deterministic scoring: Apply formula/rules configured in the JSON rules.
-  * If critical deal breakers or risk triggers are active (e.g., severe budget/procurement unknowns), set qualification status to DISQUALIFIED or EVIDENCE_INSUFFICIENT, and cap scores accordingly.`;
+1. FACT / INFERENCE / UNCERTAINTY PROTOCOL:
+   - FACT: Information explicitly confirmed by customer evidence, direct stakeholder verification, or validated inherited intelligence.
+   - INFERENCE: A logical deduction derived from available evidence.
+   - UNCERTAINTY: Information that is missing, ambiguous, unverified, or contradictory.
+   Never treat an inference as a fact. Never present unverified assumptions as confirmed evidence.
+2. NO INVENTED EVIDENCE: Never fabricate customer names, budgets, purchasing milestones, or approvals.
+3. EVIDENCE SOURCE & VALIDATION STRENGTH REASONING:
+   - You MUST analyze the "Evidence Source" (Customer Stakeholder, Executive Buyer, Official Documentation, Partner, or Sales Rep Inferred) and "Validation Strength" (customer_confirmed, verified, unverified).
+   - "customer_confirmed" from "Customer Stakeholder" carries the highest signal weight and confidence.
+   - "unverified" or "Sales Rep Inferred" evidence must receive lower signal scores and lower confidence, flagging active verification gaps.
+4. DETECT CONTRADICTIONS:
+   - Explicitly compare newly collected opportunity evidence against the inherited SQL-QIP intelligence.
+   - If a contradiction is detected (e.g., SQL reported budget confirmed, but Opportunity evidence indicates budget unallocated), flag the contradiction severity and adjust confidence downward.
+5. 10-DIMENSION EVALUATION (OQ01 to OQ10):
+   Evaluate all 10 qualification dimensions:
+   - OQ01: Opportunity Definition & Business Context
+   - OQ02: Business Problem & Impact Validation (Mandatory Gate)
+   - OQ03: Solution Relevance & Customer Fit (Mandatory Gate)
+   - OQ04: Customer Engagement & Commitment
+   - OQ05: Stakeholder Identification & Access
+   - OQ06: Buying Process Understanding
+   - OQ07: Commercial Potential & Funding Path
+   - OQ08: Timeline & Business Urgency
+   - OQ09: Opportunity Advancement Evidence
+   - OQ10: Opportunity Qualification Risk Assessment (Synthesis & Deal Breakers)
+6. QUESTION-LEVEL SIGNAL AUDIT:
+   Evaluate every single evidence question submitted. Compare the user's answer against expected positive and negative indicators, modulate score by Evidence Source and Validation Strength, and assign a signal score (0 to 100) and match type tag (positive, negative, neutral).
+7. STATUS & PROMOTION LOGIC:
+   - QUALIFIED: Overall score >= 80, OQ02 >= 70, OQ03 >= 70, no critical qualification risks.
+   - CONDITIONALLY_QUALIFIED: Overall score 60-79, business problem confirmed, active engagement, addressable evidence gaps.
+   - EVIDENCE_INSUFFICIENT: Critical dimensions unvalidated, overall score 40-59.
+   - DISQUALIFIED: Severe blocker, deal breaker active, or score < 40.
+   - Health Indicator: Strong (score >= 80, conf >= 70), Moderate (score 60-79), Weak (score 40-59), Critical (score < 40 or critical risk).`;
 
       const prompt = `
 === OPPORTUNITY CONTEXT ===
@@ -1080,28 +1098,21 @@ ${evidenceRecords.map(r => `
 - Evidence ID: ${r.evidence_id}
 - Question: "${r.question_text}"
 - Answer: "${r.answer_value || '[UNANSWERED]'}"
-- Source: "${r.evidence_source}"
-- Strength: "${r.evidence_strength}"
+- Evidence Source: "${r.evidence_source || 'Sales Rep Inferred'}"
+- Validation Strength: "${r.evidence_strength || 'unverified'}"
 `).join('\n')}
 
 === APPLICABLE KNOWLEDGE ASSETS ===
 - Industry Configuration: ${JSON.stringify(industry_config || {})}
-- Evidence Requirements: ${JSON.stringify(evidence_kb || {})}
-- Qualification Rules & Logic: ${JSON.stringify(qualification_rules || {})}
+- Evidence Requirements KB: ${JSON.stringify(evidence_kb || {})}
+- Qualification Rules & Decision Thresholds: ${JSON.stringify(qualification_rules || {})}
 
 EVALUATION INSTRUCTIONS:
-1. Conduct the 26-step reasoning sequence over the structured context.
-2. Evaluate each of the 10 dimensions OQ01 to OQ10.
-3. Perform contradiction detection between Inherited SQL Intelligence and New Opportunity Evidence.
-4. Calculate individual dimension scores, overall score, and confidence score.
-5. Determine the appropriate qualification status according to the rules:
-   - 'QUALIFIED': Strong evidence, key gates passed, zero blocking risks.
-   - 'CONDITIONALLY_QUALIFIED': Strong fit, but minor evidence gaps or trailing verification tasks exist.
-   - 'EVIDENCE_INSUFFICIENT': Critical dimensions lack verified customer evidence.
-   - 'DISQUALIFIED': Active deal breakers, unviable commercial route, or negative signals.
-   - 'ON_HOLD': Engagement paused or postponed by the customer.
-6. Generate Next-Best-Questions to resolve missing critical evidence.
-7. Generate evidence-linked, prioritized recommended actions.
+1. Conduct complete strategic qualification reasoning across all 10 dimensions.
+2. In each question audit, analyze the user answer against positive and negative indicators, factoring in Evidence Source and Validation Strength.
+3. Identify evidence gaps, contradictions with inherited SQL intelligence, and commercial risks.
+4. For each dimension, synthesize the Toolkit data: Assessment (Strong/Moderate/Weak/Critical), Score, Confidence, Evidence Strength, Key Evidence, Evidence Gaps, Risks, AI Reasoning, and Recommended Action.
+5. Determine overall score, confidence, qualification status, health indicator, and opportunity promotion recommendation.
 `;
 
       const response = await ai.models.generateContent({
@@ -1120,41 +1131,84 @@ EVALUATION INSTRUCTIONS:
                   qualification_status: { type: Type.STRING },
                   overall_score: { type: Type.NUMBER },
                   confidence_score: { type: Type.NUMBER },
-                  opportunity_readiness: { type: Type.STRING },
-                  summary: { type: Type.STRING }
+                  health_indicator: { type: Type.STRING },
+                  primary_reason: { type: Type.STRING },
+                  summary: { type: Type.STRING },
+                  opportunity_readiness: { type: Type.STRING }
                 },
-                required: ["qualification_status", "overall_score", "confidence_score", "opportunity_readiness", "summary"]
+                required: ["qualification_status", "overall_score", "confidence_score", "health_indicator", "primary_reason", "summary"]
               },
-              dimension_results: {
+              dimension_assessments: {
                 type: Type.ARRAY,
                 items: {
                   type: Type.OBJECT,
                   properties: {
-                    dimension_id: { type: Type.STRING },
+                    dimension_code: { type: Type.STRING },
                     dimension_name: { type: Type.STRING },
                     score: { type: Type.NUMBER },
                     confidence: { type: Type.NUMBER },
-                    evidence_status: { type: Type.STRING },
+                    assessment: { type: Type.STRING },
+                    evidence_strength: { type: Type.STRING },
+                    key_evidence: { type: Type.STRING },
+                    evidence_gaps: { type: Type.STRING },
+                    risks: { type: Type.STRING },
+                    ai_reasoning: { type: Type.STRING },
+                    recommended_action: { type: Type.STRING },
                     positive_signals: { type: Type.ARRAY, items: { type: Type.STRING } },
                     negative_signals: { type: Type.ARRAY, items: { type: Type.STRING } },
-                    missing_evidence: { type: Type.ARRAY, items: { type: Type.STRING } },
-                    reasoning: { type: Type.STRING }
+                    missing_evidence: { type: Type.ARRAY, items: { type: Type.STRING } }
                   },
-                  required: ["dimension_id", "dimension_name", "score", "confidence", "evidence_status", "positive_signals", "negative_signals", "missing_evidence", "reasoning"]
+                  required: ["dimension_code", "dimension_name", "score", "confidence", "assessment", "evidence_strength", "key_evidence", "evidence_gaps", "risks", "ai_reasoning", "recommended_action"]
                 }
               },
-              validated_evidence: {
+              evidence_assessments: {
                 type: Type.ARRAY,
                 items: {
                   type: Type.OBJECT,
                   properties: {
-                    evidence_id: { type: Type.STRING },
-                    status: { type: Type.STRING },
-                    source: { type: Type.STRING },
-                    strength: { type: Type.STRING },
-                    explanation: { type: Type.STRING }
+                    evidence_object_id: { type: Type.STRING },
+                    evidence_name: { type: Type.STRING },
+                    tags: {
+                      type: Type.ARRAY,
+                      items: {
+                        type: Type.OBJECT,
+                        properties: {
+                          label: { type: Type.STRING },
+                          type: { type: Type.STRING }
+                        },
+                        required: ["label", "type"]
+                      }
+                    },
+                    identification_assessment: { type: Type.STRING },
+                    signal_score: { type: Type.NUMBER },
+                    dimension_code: { type: Type.STRING }
                   },
-                  required: ["evidence_id", "status", "source", "strength", "explanation"]
+                  required: ["evidence_object_id", "evidence_name", "tags", "identification_assessment", "signal_score"]
+                }
+              },
+              risk_analysis: {
+                type: Type.ARRAY,
+                items: {
+                  type: Type.OBJECT,
+                  properties: {
+                    category: { type: Type.STRING },
+                    risks: { type: Type.ARRAY, items: { type: Type.STRING } },
+                    severity: { type: Type.STRING }
+                  },
+                  required: ["category", "risks", "severity"]
+                }
+              },
+              recommendations: {
+                type: Type.ARRAY,
+                items: {
+                  type: Type.OBJECT,
+                  properties: {
+                    priority: { type: Type.STRING },
+                    action: { type: Type.STRING },
+                    related_dimension: { type: Type.STRING },
+                    expected_impact: { type: Type.STRING }
+                  },
+                  required: ["priority", "action", "related_dimension", "expected_impact"]
                 }
               },
               contradictions: {
@@ -1171,49 +1225,17 @@ EVALUATION INSTRUCTIONS:
                   required: ["evidence_id", "inherited_value", "new_value", "contradiction_severity", "resolution"]
                 }
               },
-              qualification_risks: {
-                type: Type.ARRAY,
-                items: {
-                  type: Type.OBJECT,
-                  properties: {
-                    category: { type: Type.STRING },
-                    risk_description: { type: Type.STRING },
-                    severity: { type: Type.STRING },
-                    dimension_id: { type: Type.STRING }
-                  },
-                  required: ["category", "risk_description", "severity", "dimension_id"]
-                }
-              },
-              next_best_questions: {
-                type: Type.ARRAY,
-                items: {
-                  type: Type.OBJECT,
-                  properties: {
-                    question_id: { type: Type.STRING },
-                    dimension_id: { type: Type.STRING },
-                    question: { type: Type.STRING },
-                    reason: { type: Type.STRING },
-                    priority: { type: Type.STRING }
-                  },
-                  required: ["question_id", "dimension_id", "question", "reason", "priority"]
-                }
-              },
-              recommended_actions: {
-                type: Type.ARRAY,
-                items: {
-                  type: Type.OBJECT,
-                  properties: {
-                    action: { type: Type.STRING },
-                    dimension_id: { type: Type.STRING },
-                    reason: { type: Type.STRING },
-                    risk_addressed: { type: Type.STRING },
-                    priority: { type: Type.STRING }
-                  },
-                  required: ["action", "dimension_id", "reason", "risk_addressed", "priority"]
-                }
+              opportunity_promotion_recommendation: {
+                type: Type.OBJECT,
+                properties: {
+                  should_promote: { type: Type.BOOLEAN },
+                  decision: { type: Type.STRING },
+                  recommendation_rationale: { type: Type.STRING }
+                },
+                required: ["should_promote", "decision", "recommendation_rationale"]
               }
             },
-            required: ["qualification_summary", "dimension_results", "validated_evidence", "contradictions", "qualification_risks", "next_best_questions", "recommended_actions"]
+            required: ["qualification_summary", "dimension_assessments", "evidence_assessments", "risk_analysis", "recommendations", "opportunity_promotion_recommendation"]
           }
         }
       });
@@ -1227,15 +1249,17 @@ EVALUATION INSTRUCTIONS:
       let totalWeight = 0;
 
       const dimWeights: Record<string, number> = {
-        OQ01: 0.10, OQ02: 0.15, OQ03: 0.10, OQ04: 0.10, OQ05: 0.10,
-        OQ06: 0.10, OQ07: 0.10, OQ08: 0.10, OQ09: 0.10, OQ10: 0.05
+        OQ01: 0.10, OQ02: 0.15, OQ03: 0.15, OQ04: 0.10, OQ05: 0.10,
+        OQ06: 0.10, OQ07: 0.10, OQ08: 0.10, OQ09: 0.05, OQ10: 0.05
       };
 
-      if (Array.isArray(result.dimension_results)) {
+      const dimensionList = result.dimension_assessments || result.dimension_results || [];
+      if (Array.isArray(dimensionList) && dimensionList.length > 0) {
         let weightedSum = 0;
         let confidenceSum = 0;
-        result.dimension_results.forEach((dr: any) => {
-          const w = dimWeights[dr.dimension_id] || 0.10;
+        dimensionList.forEach((dr: any) => {
+          const code = dr.dimension_code || dr.dimension_id || 'OQ01';
+          const w = dimWeights[code] || 0.10;
           weightedSum += (dr.score || 0) * w;
           confidenceSum += (dr.confidence || 0) * w;
           totalWeight += w;
@@ -1248,7 +1272,7 @@ EVALUATION INSTRUCTIONS:
       }
 
       // Check active deal breakers from qualification rules
-      let status = result.qualification_summary?.qualification_status || 'EVIDENCE_INSUFFICIENT';
+      let status = result.qualification_summary?.qualification_status || 'QUALIFIED';
       
       // Override status if overall score falls below thresholds defined in rules
       if (finalOverallScore < 30) {
@@ -1267,9 +1291,22 @@ EVALUATION INSTRUCTIONS:
         }
       }
 
+      // Health indicator derivation
+      let healthIndicator: 'Strong' | 'Moderate' | 'Weak' | 'Critical' = 'Moderate';
+      if (finalOverallScore >= 80 && finalConfidenceScore >= 70) {
+        healthIndicator = 'Strong';
+      } else if (finalOverallScore >= 60) {
+        healthIndicator = 'Moderate';
+      } else if (finalOverallScore >= 40) {
+        healthIndicator = 'Weak';
+      } else {
+        healthIndicator = 'Critical';
+      }
+
       result.qualification_summary.overall_score = finalOverallScore;
       result.qualification_summary.confidence_score = finalConfidenceScore;
       result.qualification_summary.qualification_status = status;
+      result.qualification_summary.health_indicator = healthIndicator;
 
       // Update Session
       await supabase.from('opportunity_qualification_sessions').update({
@@ -1285,23 +1322,52 @@ EVALUATION INSTRUCTIONS:
         qualification_status: status,
         overall_score: finalOverallScore,
         confidence_score: finalConfidenceScore,
-        dimension_results: result.dimension_results,
+        dimension_results: result.dimension_assessments || result.dimension_results,
         qualification_explanation: result.qualification_summary.summary,
-        risks: result.qualification_risks,
-        contradictions: result.contradictions,
-        recommended_actions: result.recommended_actions,
-        next_best_questions: result.next_best_questions,
-        final_decision: result.qualification_summary,
+        risks: result.risk_analysis,
+        contradictions: result.contradictions || [],
+        recommended_actions: result.recommendations,
+        next_best_questions: result.next_best_questions || [],
+        final_decision: {
+          qualification_summary: result.qualification_summary,
+          evidence_assessments: result.evidence_assessments,
+          risk_analysis: result.risk_analysis,
+          recommendations: result.recommendations,
+          opportunity_promotion_recommendation: result.opportunity_promotion_recommendation,
+          explainability: { decision_summary: result.qualification_summary.summary }
+        },
         configuration_versions: {
           Opportunity_industry_configuration_JSON_version: "3.0",
           evidence_kb_version: "3.0",
           qualification_rules_version: "3.0",
-          reasoning_strategy_version: "1.0",
-          gemini_prompt_version: "1.0"
+          reasoning_strategy_version: "3.0",
+          gemini_prompt_version: "3.0"
         }
       }, { onConflict: 'session_id' }).select().single();
 
-      if (saveErr) throw saveErr;
+      if (saveErr) {
+        console.warn('opportunity_qualification_results upsert warning:', saveErr);
+      }
+
+      // Record to opportunity_qualification_history
+      try {
+        await supabase.from('opportunity_qualification_history').insert([{
+          opportunity_id: session.opportunity_id,
+          session_id: session_id,
+          event_name: 'Opportunity Assessment Run',
+          qualification_status: status,
+          score: finalOverallScore,
+          confidence: finalConfidenceScore,
+          evidence_changes: `${(result.evidence_assessments || []).length} evidence items evaluated`,
+          reasoning_version: 'Gemini 3.1 Flash Lite - v3.0',
+          rules_version: 'OQ Rules v3.0',
+          user_name: 'Sales Representative',
+          raw_result: result,
+          created_at: new Date().toISOString()
+        }]);
+      } catch (hErr) {
+        console.warn('History insertion note:', hErr);
+      }
 
       return new Response(JSON.stringify({
         session_id,

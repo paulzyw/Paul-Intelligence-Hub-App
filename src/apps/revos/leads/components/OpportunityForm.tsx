@@ -10,11 +10,13 @@ import {
 interface OpportunityFormProps {
   opportunity: any;
   onUpdate?: (updatedFields: any) => void;
+  onStartQualification?: () => void;
 }
 
 export const OpportunityForm: React.FC<OpportunityFormProps> = ({
   opportunity,
-  onUpdate
+  onUpdate,
+  onStartQualification
 }) => {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -447,16 +449,29 @@ export const OpportunityForm: React.FC<OpportunityFormProps> = ({
                 )}
               </button>
 
-              {/* Start Opportunity Qualificaiton Button - positioned at right side of Save Draft, link kept blank for now */}
+              {/* Start Opportunity Qualification Button - triggers Opportunity Qualification Form */}
               <button
                 type="button"
-                onClick={() => {
-                  // Link kept blank for the time being as requested; will be linked in the next step
+                onClick={async () => {
+                  try {
+                    await handleSave(undefined, true);
+                    if (opportunity?.id) {
+                      await OpportunityDataService.recordStartQualification(opportunity.id, {
+                        revenueMotion,
+                        industry
+                      });
+                    }
+                  } catch (e) {
+                    console.warn('Draft save notice:', e);
+                  }
+                  if (onStartQualification) {
+                    onStartQualification();
+                  }
                 }}
                 className="flex-1 sm:flex-none px-6 py-2.5 bg-accent hover:bg-accent-hover text-black font-black uppercase text-xs rounded-xl transition-all shadow-md shadow-accent/15 flex items-center justify-center gap-2 cursor-pointer"
               >
                 <Sparkles className="h-3.5 w-3.5" />
-                <span>Start Opportunity Qualificaiton</span>
+                <span>Start Opportunity Qualification</span>
               </button>
             </div>
           </div>

@@ -1,9 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { motion } from 'motion/react';
 import { supabase } from '@/src/lib/supabase';
 import { SQLDataService } from '../services/sqlDataService';
 import { OpportunityDataService } from '../services/opportunityDataService';
 import { OpportunityForm } from './OpportunityForm';
+import { OpportunityDynamicEvidenceForm } from './Opportunity_DynamicEvidenceForm';
 import { 
   ArrowLeft, BadgeCheck, ShieldAlert, FileText, User, 
   Layers, BarChart3, ChevronRight, Activity, Zap, 
@@ -17,15 +18,29 @@ interface SqlToOpportunityDetailsPageProps {
   opportunity: any;
   onBack: () => void;
   onProceedToOQ?: () => void;
+  onStartQualification?: () => void;
 }
 
 export const SqlToOpportunityDetailsPage: React.FC<SqlToOpportunityDetailsPageProps> = ({
   opportunity,
   onBack,
-  onProceedToOQ: _onProceedToOQ
+  onProceedToOQ: _onProceedToOQ,
+  onStartQualification
 }) => {
   const [activeSubTab, setActiveSubTab] = useState<'overview' | 'static' | 'intel' | 'dimensions' | 'risks'>('overview');
   const [loading, setLoading] = useState(true);
+  const [showQualificationForm, setShowQualificationForm] = useState(false);
+  const qualificationFormRef = useRef<HTMLDivElement>(null);
+
+  const handleStartQualification = () => {
+    setShowQualificationForm(true);
+    setTimeout(() => {
+      qualificationFormRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 120);
+    if (onStartQualification) {
+      onStartQualification();
+    }
+  };
 
   // Raw SQL Assessment Result from SQL Qualification Module
   const [sqlResult, setSqlResult] = useState<any>(null);
@@ -87,6 +102,11 @@ export const SqlToOpportunityDetailsPage: React.FC<SqlToOpportunityDetailsPagePr
 
     if (opportunity?.id) {
       loadInheritanceData();
+      OpportunityDataService.checkShouldDefaultToQualificationForm(opportunity.id).then(shouldShow => {
+        if (shouldShow) {
+          setShowQualificationForm(true);
+        }
+      });
     }
   }, [opportunity]);
 
@@ -1004,7 +1024,14 @@ export const SqlToOpportunityDetailsPage: React.FC<SqlToOpportunityDetailsPagePr
         {/* Opportunity Form - Positioned Just Below SQL Handover Detail Page */}
         <div className="pt-2">
           <OpportunityForm 
-            opportunity={opportunity}
+            opportunity={{
+              ...opportunity,
+              company_name: companyName,
+              opportunity_name: opportunityName,
+              industry,
+              revenue_motion: revenueMotion
+            }}
+            onStartQualification={handleStartQualification}
             onUpdate={(updated) => {
               if (updated.company_name) setCompanyName(updated.company_name);
               if (updated.opportunity_name) setOpportunityName(updated.opportunity_name);
@@ -1017,6 +1044,31 @@ export const SqlToOpportunityDetailsPage: React.FC<SqlToOpportunityDetailsPagePr
             }}
           />
         </div>
+
+        {/* Opportunity Qualification Form - Opened Just Below Opportunity Form */}
+        {showQualificationForm && (
+          <div ref={qualificationFormRef} className="pt-4 scroll-mt-6">
+            <OpportunityDynamicEvidenceForm
+              opportunity={{
+                ...opportunity,
+                company_name: companyName,
+                opportunity_name: opportunityName,
+                industry,
+                revenue_motion: revenueMotion
+              }}
+              industry={industry}
+              revenueMotion={revenueMotion}
+              onProceedToAssessment={_onProceedToOQ}
+              onEvidenceSaved={() => {
+                setShowQualificationForm(true);
+              }}
+              onBack={() => {
+                setShowQualificationForm(false);
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+              }}
+            />
+          </div>
+        )}
         </div>
       )}
 

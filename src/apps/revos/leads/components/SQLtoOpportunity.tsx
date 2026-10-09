@@ -305,9 +305,14 @@ export const SQLtoOpportunity: React.FC<SQLtoOpportunityProps> = ({
                 exit={{ opacity: 0, y: -5 }}
               >
                 <OpportunityQualificaitonResult
+                  opportunityId={opportunity.id}
+                  opportunity={opportunity}
                   session={session!}
                   result={qualificationResult!}
-                  onPromote={handlePromoteToPipeline}
+                  onPromote={async () => {
+                    await handlePromoteToPipeline();
+                    return true;
+                  }}
                   promoting={promoting}
                   onNavigateToEvidence={(dimId) => {
                     setActiveDimension(dimId);
