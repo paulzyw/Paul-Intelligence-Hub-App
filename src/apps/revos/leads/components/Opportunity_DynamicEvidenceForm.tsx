@@ -62,7 +62,7 @@ export interface OpportunityDynamicEvidenceFormProps {
   evidenceKb?: any;
   savedEvidence?: OpportunityEvidenceRecord[];
   onEvidenceSaved?: () => void;
-  onProceedToAssessment?: () => void;
+  onProceedToAssessment?: (resultData?: any) => void;
   onBack?: () => void;
 }
 
@@ -488,9 +488,28 @@ export const OpportunityDynamicEvidenceForm: React.FC<OpportunityDynamicEvidence
       const evRecords = currentSessionId ? await OpportunityDataService.getEvidenceRecords(currentSessionId) : [];
 
       // 3. Trigger Gemini assessment reasoning
+      const allDefinedQuestionsList: any[] = [];
+      Object.entries(allDimensionQuestions).forEach(([dimCode, dimData]) => {
+        dimData.questions.forEach((q: any) => {
+          allDefinedQuestionsList.push({
+            evidence_id: q.question_id,
+            dimension_code: dimCode,
+            dimension_name: dimData.dimensionName,
+            question_text: q.question_text,
+            expected_evidence: q.expected_evidence,
+            positive_signals: q.positive_signals || [],
+            negative_signals: q.negative_signals || [],
+            ai_reasoning_logic: q.ai_reasoning_logic,
+            question_priority: q.question_priority || 'Standard'
+          });
+        });
+      });
+
       const reasoningContext = {
         sql_inheritance_context: opportunity?.sql_qip_package || {},
+        all_defined_questions: allDefinedQuestionsList,
         opportunity_assessment_context: {
+          all_defined_questions: allDefinedQuestionsList,
           evidence: evRecords.map(r => ({
             dimension_code: r.dimension_code,
             evidence_id: r.evidence_id,
@@ -507,24 +526,21 @@ export const OpportunityDynamicEvidenceForm: React.FC<OpportunityDynamicEvidence
 
       let result: any = null;
       if (currentSessionId) {
-        try {
-          result = await OpportunityDataService.executeReasoning(currentSessionId, reasoningContext);
-        } catch (reasonErr) {
-          console.warn('executeReasoning via Edge Function exception, applying client synthesis:', reasonErr);
-        }
+        const rawRes = await OpportunityDataService.executeReasoning(currentSessionId, reasoningContext);
+        result = rawRes?.result || rawRes;
       }
 
-      // 4. Save the full result in Supabase
-      if (currentOppId && currentSessionId) {
-        await OpportunityDataService.saveFullQualificationResult(currentOppId, currentSessionId, result || {});
+      // 4. Save the full result in Supabase and sync local state
+      if (currentOppId && currentSessionId && result) {
+        await OpportunityDataService.saveFullQualificationResult(currentOppId, currentSessionId, result);
         if (typeof window !== 'undefined') {
           localStorage.setItem(`oq_has_result_${currentOppId}`, 'true');
         }
       }
 
-      // 5. Trigger transition to the Opportunity Qualification Result view
+      // 5. Trigger transition to the Opportunity Qualification Result view with live calculated data
       if (onProceedToAssessment) {
-        onProceedToAssessment();
+        onProceedToAssessment(result);
       }
     } catch (err: any) {
       console.error('Failed to run qualification assessment:', err);
@@ -1036,16 +1052,13 @@ export const OpportunityDynamicEvidenceForm: React.FC<OpportunityDynamicEvidence
             className="flex-1 md:flex-none px-6 py-2.5 bg-accent hover:bg-accent-hover text-black font-black uppercase text-xs rounded-xl transition-all shadow-md shadow-accent/15 flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
           >
             {runningQualification ? (
-              <>
-                <RefreshCw className="h-3.5 w-3.5 animate-spin" />
-                <span>Running Qualification...</span>
-              </>
+              <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+              
             ) : (
-              <>
-                <Play className="h-3.5 w-3.5 fill-current" />
-                <span>Run Qualification</span>
-              </>
+              <Bot className="h-4 w-4" />
+              
             )}
+            <span>{runningQualification ? 'Analyzing...' : 'Run Qualification'}</span>
           </button>
         </div>
 

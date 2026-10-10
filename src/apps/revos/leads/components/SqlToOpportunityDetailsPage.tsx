@@ -5,6 +5,7 @@ import { SQLDataService } from '../services/sqlDataService';
 import { OpportunityDataService } from '../services/opportunityDataService';
 import { OpportunityForm } from './OpportunityForm';
 import { OpportunityDynamicEvidenceForm } from './Opportunity_DynamicEvidenceForm';
+import { OpportunityQualificaitonResult } from './Opportunity_QualificaitonResult';
 import { 
   ArrowLeft, BadgeCheck, ShieldAlert, FileText, User, 
   Layers, BarChart3, ChevronRight, Activity, Zap, 
@@ -30,7 +31,12 @@ export const SqlToOpportunityDetailsPage: React.FC<SqlToOpportunityDetailsPagePr
   const [activeSubTab, setActiveSubTab] = useState<'overview' | 'static' | 'intel' | 'dimensions' | 'risks'>('overview');
   const [loading, setLoading] = useState(true);
   const [showQualificationForm, setShowQualificationForm] = useState(false);
+  const [showQualificationResult, setShowQualificationResult] = useState(false);
+  const [sessionData, setSessionData] = useState<any>(null);
+  const [liveQualificationResult, setLiveQualificationResult] = useState<any>(null);
+  const [qualificationRunKey, setQualificationRunKey] = useState(0);
   const qualificationFormRef = useRef<HTMLDivElement>(null);
+  const resultRef = useRef<HTMLDivElement>(null);
 
   const handleStartQualification = () => {
     setShowQualificationForm(true);
@@ -105,6 +111,13 @@ export const SqlToOpportunityDetailsPage: React.FC<SqlToOpportunityDetailsPagePr
       OpportunityDataService.checkShouldDefaultToQualificationForm(opportunity.id).then(shouldShow => {
         if (shouldShow) {
           setShowQualificationForm(true);
+        }
+      });
+      OpportunityDataService.checkHasQualificationResult(opportunity.id).then(async (hasRes) => {
+        if (hasRes) {
+          setShowQualificationResult(true);
+          const sess = await OpportunityDataService.getSessionByOpportunity(opportunity.id);
+          if (sess) setSessionData(sess);
         }
       });
     }
@@ -1058,15 +1071,57 @@ export const SqlToOpportunityDetailsPage: React.FC<SqlToOpportunityDetailsPagePr
               }}
               industry={industry}
               revenueMotion={revenueMotion}
-              onProceedToAssessment={_onProceedToOQ}
+              onProceedToAssessment={async (evalResult?: any) => {
+                if (evalResult) {
+                  setLiveQualificationResult(evalResult);
+                }
+                setShowQualificationResult(true);
+                const sess = await OpportunityDataService.getSessionByOpportunity(opportunity.id);
+                if (sess) setSessionData(sess);
+                // Force a refresh of the result component by updating its key
+                setQualificationRunKey(prev => prev + 1);
+                
+                // Fetch the absolute latest result for this session immediately
+                // before rendering the result component
+                setTimeout(() => {
+                  resultRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }, 120);
+              }}
               onEvidenceSaved={() => {
                 setShowQualificationForm(true);
               }}
               onBack={() => {
                 setShowQualificationForm(false);
+                setShowQualificationResult(false);
                 window.scrollTo({ top: 0, behavior: 'smooth' });
               }}
             />
+
+            {/* Opportunity Qualification Result - Displayed Just Below Qualification Form */}
+            {showQualificationResult && (
+              <div ref={resultRef} className="mt-6 pt-4 border-t border-border/40 scroll-mt-6">
+                <OpportunityQualificaitonResult
+                  key={qualificationRunKey}
+                  result={liveQualificationResult}
+                  opportunityId={opportunity.id}
+                  opportunity={{
+                    ...opportunity,
+                    company_name: companyName,
+                    opportunity_name: opportunityName,
+                    industry,
+                    revenue_motion: revenueMotion
+                  }}
+                  session={sessionData}
+                  onNavigateToEvidence={() => {
+                    setShowQualificationResult(false);
+                    qualificationFormRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                  }}
+                  onPromote={async () => {
+                    return true;
+                  }}
+                />
+              </div>
+            )}
           </div>
         )}
         </div>

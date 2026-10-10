@@ -183,9 +183,14 @@ export class MQLDataService {
   }
 
   static async getAllQualificationResults() {
-    const { data, error } = await supabase.from('mql_qualification_results').select('*');
-    if (error) throw error;
-    return data as MQLQualificationResult[];
+    try {
+      const { data, error } = await supabase.from('mql_qualification_results').select('*');
+      if (error) throw error;
+      return (data as MQLQualificationResult[]) || [];
+    } catch (error) {
+      console.warn('Error fetching all qualification results:', error);
+      return [];
+    }
   }
 
   static async deleteLeads(leadIds: string[]) {

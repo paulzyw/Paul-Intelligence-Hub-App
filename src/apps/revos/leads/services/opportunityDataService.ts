@@ -246,11 +246,12 @@ export class OpportunityDataService {
   static async executeReasoning(
     sessionId: string,
     contexts: {
-      sql_inheritance_context: any;
-      opportunity_assessment_context: any;
-      industry_config: any;
-      evidence_kb: any;
-      qualification_rules: any;
+      sql_inheritance_context?: any;
+      all_defined_questions?: any[];
+      opportunity_assessment_context?: any;
+      industry_config?: any;
+      evidence_kb?: any;
+      qualification_rules?: any;
     }
   ) {
     const { data, error } = await supabase.functions.invoke('lead-qualification', {
@@ -260,8 +261,76 @@ export class OpportunityDataService {
         ...contexts
       }
     });
-    if (error) throw error;
-    return data;
+
+    if (error) {
+      console.error('Error invoking lead-qualification edge function:', error);
+      throw error;
+    }
+
+    if (!data) {
+      throw new Error('Empty response from edge function');
+    }
+
+    // Return the actual structured evaluation output
+    const evalResult = data.result || data;
+
+    // Harmonize evidence assessments to ensure every defined question is present with dimension name tag and match tag
+    const definedQuestions = contexts.all_defined_questions || contexts.opportunity_assessment_context?.all_defined_questions;
+    if (Array.isArray(definedQuestions) && definedQuestions.length > 0) {
+      const eaMap = new Map<string, any>();
+      if (Array.isArray(evalResult.evidence_assessments)) {
+        evalResult.evidence_assessments.forEach((ea: any) => {
+          if (ea && (ea.evidence_object_id || ea.evidence_id)) {
+            eaMap.set(ea.evidence_object_id || ea.evidence_id, ea);
+          }
+        });
+      }
+
+      const evRecordsMap = new Map<string, any>();
+      if (Array.isArray(contexts.opportunity_assessment_context?.evidence)) {
+        contexts.opportunity_assessment_context.evidence.forEach((rec: any) => {
+          evRecordsMap.set(rec.evidence_id, rec);
+        });
+      }
+
+      evalResult.evidence_assessments = definedQuestions.map((q: any) => {
+        const ea = eaMap.get(q.evidence_id);
+        const userRec = evRecordsMap.get(q.evidence_id);
+        const userAnswer = userRec?.answer_value || q.user_answer || '';
+        const isBlank = !userAnswer || userAnswer.trim() === '' || userAnswer.toLowerCase() === '[unanswered]';
+
+        let score = typeof ea?.signal_score === 'number' ? ea.signal_score : (isBlank ? 30 : 80);
+        let matchType = ea?.matched_type === 'positive' || (typeof ea?.signal_score === 'number' && ea.signal_score >= 75) || score >= 75 ? 'positive'
+          : ea?.matched_type === 'negative' || (typeof ea?.signal_score === 'number' && ea.signal_score < 50) || score < 50 ? 'negative'
+          : 'neutral';
+
+        const matchLabel = matchType === 'positive' ? 'POSITIVE MATCH'
+          : matchType === 'negative' ? 'NEGATIVE MATCH'
+          : 'NEUTRAL MATCH';
+
+        const dimName = q.dimension_name || ea?.dimension_name || q.dimension_code || 'Dimension';
+
+        return {
+          evidence_object_id: q.evidence_id,
+          evidence_name: q.question_text || q.evidence_name || ea?.evidence_name || 'Opportunity Evidence Finding',
+          dimension_code: q.dimension_code,
+          dimension_name: dimName,
+          user_answer: userAnswer,
+          evidence_source: userRec?.evidence_source || ea?.evidence_source || 'Customer Stakeholder',
+          validation_strength: userRec?.evidence_strength || ea?.validation_strength || 'verified',
+          signal_score: score,
+          identification_assessment: ea?.identification_assessment || (isBlank
+            ? `No customer evidence collected for this question. Creates an information gap in ${dimName}.`
+            : `Customer evidence evaluated: "${userAnswer}". Tested against target criteria for ${dimName}.`),
+          tags: [
+            { label: dimName, type: 'dimension' },
+            { label: matchLabel, type: matchType }
+          ]
+        };
+      });
+    }
+
+    return evalResult;
   }
 
   // Retrieve Saved Assessment Results
@@ -618,19 +687,22 @@ export class OpportunityDataService {
     sessionId: string, 
     result: any
   ): Promise<boolean> {
-    if (!opportunityId) return false;
+    if (!opportunityId || !result) return false;
+
+    // Unpack actual AI evaluation payload if wrapped
+    const actualResult = result.result || result;
+
+    const status = actualResult.qualification_summary?.qualification_status || actualResult.qualification_status || 'QUALIFIED';
+    const score = Number(actualResult.qualification_summary?.overall_score ?? actualResult.overall_score ?? 0);
+    const confidence = Number(actualResult.qualification_summary?.confidence_score ?? actualResult.confidence_score ?? 0);
 
     // Cache locally immediately for instant feedback
     if (typeof window !== 'undefined') {
       localStorage.setItem(`oq_has_result_${opportunityId}`, 'true');
       try {
-        localStorage.setItem(`oq_result_${opportunityId}`, JSON.stringify(result));
+        localStorage.setItem(`oq_result_${opportunityId}`, JSON.stringify(actualResult));
       } catch (e) {}
     }
-
-    const status = result.qualification_summary?.qualification_status || 'QUALIFIED';
-    const score = Number(result.qualification_summary?.overall_score || 0);
-    const confidence = Number(result.qualification_summary?.confidence_score || 0);
 
     // 1. Update session in Supabase
     try {
@@ -657,17 +729,17 @@ export class OpportunityDataService {
           qualification_status: status,
           overall_score: score,
           confidence_score: confidence,
-          dimension_results: result.dimension_assessments || result.dimension_results || [],
-          qualification_explanation: result.qualification_summary?.summary || result.qualification_explanation || '',
-          risks: result.risk_analysis || result.risks || [],
-          contradictions: result.contradictions || [],
-          recommended_actions: result.recommendations || result.recommended_actions || [],
-          next_best_questions: result.next_best_questions || [],
+          dimension_results: actualResult.dimension_assessments || actualResult.dimension_results || [],
+          qualification_explanation: actualResult.qualification_summary?.summary || actualResult.qualification_explanation || '',
+          risks: actualResult.risk_analysis || actualResult.risks || [],
+          contradictions: actualResult.contradictions || [],
+          recommended_actions: actualResult.recommendations || actualResult.recommended_actions || [],
+          next_best_questions: actualResult.next_best_questions || [],
           final_decision: {
-            qualification_summary: result.qualification_summary,
-            evidence_assessments: result.evidence_assessments,
-            explainability: result.explainability,
-            opportunity_promotion_recommendation: result.opportunity_promotion_recommendation
+            qualification_summary: actualResult.qualification_summary,
+            evidence_assessments: actualResult.evidence_assessments,
+            explainability: actualResult.explainability,
+            opportunity_promotion_recommendation: actualResult.opportunity_promotion_recommendation
           },
           configuration_versions: {
             Opportunity_industry_configuration_JSON_version: "3.0",
@@ -689,6 +761,11 @@ export class OpportunityDataService {
     } catch (e) {
       console.warn('Results upsert exception:', e);
     }
+    
+    // Invalidate local cache to force fetch from DB if needed
+    if (typeof window !== 'undefined') {
+        localStorage.removeItem(`oq_result_${opportunityId}`);
+    }
 
     // 3. Save a History record to opportunity_qualification_history
     try {
@@ -699,11 +776,11 @@ export class OpportunityDataService {
         qualification_status: status,
         score: score,
         confidence: confidence,
-        evidence_changes: `${(result.evidence_assessments || []).length} evidence items evaluated`,
+        evidence_changes: `${(actualResult.evidence_assessments || []).length} evidence items evaluated`,
         reasoning_version: 'Gemini 3.1 Flash Lite - v3.0',
         rules_version: 'OQ Rules v3.0',
         user_name: 'Sales Representative',
-        raw_result: result
+        raw_result: actualResult
       });
     } catch (e) {}
 
@@ -769,10 +846,24 @@ export class OpportunityDataService {
   }
 
   /**
-   * Retrieve saved qualification result from Supabase or localStorage
+   * Retrieve saved qualification result from localStorage cache or Supabase
    */
   static async getSavedQualificationResult(opportunityId: string, sessionId?: string): Promise<any | null> {
     if (!opportunityId) return null;
+
+    // 1. Check local storage cache first for instant reactivity on evidence updates
+    if (typeof window !== 'undefined') {
+      try {
+        const cached = localStorage.getItem(`oq_result_${opportunityId}`);
+        if (cached) {
+          const parsed = JSON.parse(cached);
+          const unwrapped = parsed?.result || parsed;
+          if (unwrapped && Object.keys(unwrapped).length > 0) {
+            return unwrapped;
+          }
+        }
+      } catch (e) {}
+    }
 
     let targetSessionId = sessionId;
     if (!targetSessionId) {
@@ -817,21 +908,11 @@ export class OpportunityDataService {
       }
     }
 
-    // Fallback to localStorage
-    if (typeof window !== 'undefined') {
-      const cached = localStorage.getItem(`oq_result_${opportunityId}`);
-      if (cached) {
-        try {
-          return JSON.parse(cached);
-        } catch (e) {}
-      }
-    }
-
     return null;
   }
 
   /**
-   * Save entry to opportunity_qualification_history
+   * Save entry to opportunity_qualification_history (One record per day; overwrites on the same day)
    */
   static async saveQualificationHistory(historyItem: {
     opportunity_id: string;
@@ -847,35 +928,80 @@ export class OpportunityDataService {
     raw_result?: any;
   }): Promise<boolean> {
     try {
-      const { error } = await supabase
+      const todayStart = new Date();
+      todayStart.setUTCHours(0, 0, 0, 0);
+      const todayEnd = new Date();
+      todayEnd.setUTCHours(23, 59, 59, 999);
+
+      // Check if a record already exists for this opportunity today
+      const { data: existingToday } = await supabase
         .from('opportunity_qualification_history')
-        .insert([{
-          ...historyItem,
-          created_at: new Date().toISOString()
-        }]);
+        .select('id')
+        .eq('opportunity_id', historyItem.opportunity_id)
+        .gte('created_at', todayStart.toISOString())
+        .lte('created_at', todayEnd.toISOString())
+        .order('created_at', { ascending: false });
 
-      if (error) {
-        console.warn('opportunity_qualification_history insert note:', error.message);
+      const payload = {
+        ...historyItem,
+        created_at: new Date().toISOString()
+      };
+
+      if (existingToday && existingToday.length > 0) {
+        // Overwrite the existing record from today with latest data
+        const primaryId = existingToday[0].id;
+        const { error } = await supabase
+          .from('opportunity_qualification_history')
+          .update(payload)
+          .eq('id', primaryId);
+
+        if (error) {
+          console.warn('opportunity_qualification_history update note:', error.message);
+        }
+
+        // Clean up any extra redundant entries from today
+        if (existingToday.length > 1) {
+          const extraIds = existingToday.slice(1).map((r: any) => r.id);
+          await supabase
+            .from('opportunity_qualification_history')
+            .delete()
+            .in('id', extraIds);
+        }
+      } else {
+        const { error } = await supabase
+          .from('opportunity_qualification_history')
+          .insert([payload]);
+
+        if (error) {
+          console.warn('opportunity_qualification_history insert note:', error.message);
+        }
       }
-    } catch (e) {}
+    } catch (e) {
+      console.warn('saveQualificationHistory error:', e);
+    }
 
-    // Also cache history item locally
+    // Also update local cache: keep one entry per day, overwriting today's record
     if (typeof window !== 'undefined' && historyItem.opportunity_id) {
       const key = `oq_history_${historyItem.opportunity_id}`;
+      const todayLabel = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
       const existingStr = localStorage.getItem(key);
-      let list = [];
+      let list: any[] = [];
       try { list = existingStr ? JSON.parse(existingStr) : []; } catch (e) {}
-      list.unshift({
+      
+      const newEntry = {
         event: historyItem.event_name,
-        date: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+        date: todayLabel,
         status: historyItem.qualification_status,
         score: historyItem.score,
         confidence: `${historyItem.confidence}%`,
-        evidence_changes: historyItem.evidence_changes || 'None',
-        reasoning_version: historyItem.reasoning_version || 'v3.0',
-        rules_version: historyItem.rules_version || 'v3.0',
+        evidence_changes: historyItem.evidence_changes || 'Evaluation run',
+        reasoning_version: historyItem.reasoning_version || 'Gemini 3.1 Flash Lite - v3.0',
+        rules_version: historyItem.rules_version || 'OQ Rules v3.0',
         user: historyItem.user_name || 'Sales Representative'
-      });
+      };
+
+      // Filter out any existing item with today's date, then unshift the new latest entry
+      list = [newEntry, ...list.filter((item: any) => item.date !== todayLabel)];
       localStorage.setItem(key, JSON.stringify(list.slice(0, 15)));
     }
 
@@ -883,7 +1009,7 @@ export class OpportunityDataService {
   }
 
   /**
-   * Get qualification history for an opportunity
+   * Get qualification history for an opportunity (One entry per day)
    */
   static async getQualificationHistory(opportunityId: string): Promise<any[]> {
     if (!opportunityId) return [];
@@ -896,17 +1022,27 @@ export class OpportunityDataService {
         .order('created_at', { ascending: false });
 
       if (!error && data && data.length > 0) {
-        return data.map((d: any) => ({
-          event: d.event_name,
-          date: new Date(d.event_date || d.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
-          status: d.qualification_status,
-          score: Number(d.score || 0),
-          confidence: `${d.confidence}%`,
-          evidence_changes: d.evidence_changes || 'Evaluation run',
-          reasoning_version: d.reasoning_version || 'v3.0',
-          rules_version: d.rules_version || 'v3.0',
-          user: d.user_name || 'Sales Representative'
-        }));
+        // Group by calendar day and keep only the latest evaluation per day
+        const dayMap = new Map<string, any>();
+        for (const d of data) {
+          const dateObj = new Date(d.event_date || d.created_at);
+          const dateKey = dateObj.toISOString().split('T')[0];
+          if (!dayMap.has(dateKey)) {
+            dayMap.set(dateKey, {
+              event: d.event_name,
+              date: dateObj.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+              status: d.qualification_status,
+              score: Number(d.score || 0),
+              confidence: `${d.confidence}%`,
+              evidence_changes: d.evidence_changes || 'Evaluation run',
+              reasoning_version: d.reasoning_version || 'v3.0',
+              rules_version: d.rules_version || 'v3.0',
+              user: d.user_name || 'Sales Representative'
+            });
+          }
+        }
+
+        return Array.from(dayMap.values());
       }
     } catch (e) {
       console.warn('Error fetching opportunity_qualification_history:', e);

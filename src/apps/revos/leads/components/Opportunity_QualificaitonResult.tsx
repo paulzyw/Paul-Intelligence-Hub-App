@@ -144,6 +144,31 @@ export const OpportunityQualificaitonResult: React.FC<OpportunityQualificaitonRe
   const [isPromoting, setIsPromoting] = useState(false);
   const [historyRecords, setHistoryRecords] = useState<any[]>([]);
 
+  const [activeResult, setActiveResult] = useState<any>(() => result?.result || result);
+
+  useEffect(() => {
+    // When the result prop changes (after a new run), update activeResult immediately
+    if (result) {
+      const unwrapped = result.result || result;
+      console.log('DEBUG: Updating activeResult from new result prop:', unwrapped);
+      setActiveResult(unwrapped);
+      return;
+    }
+    
+    // Otherwise, fetch latest from DB
+    let isMounted = true;
+    if (opportunityId) {
+      OpportunityDataService.getSavedQualificationResult(opportunityId, sessionId).then(saved => {
+        if (isMounted && saved) {
+          const unwrapped = saved.result || saved;
+          console.log('DEBUG: Loaded activeResult from DB:', unwrapped);
+          setActiveResult(unwrapped);
+        }
+      });
+    }
+    return () => { isMounted = false; };
+  }, [result, opportunityId, sessionId]);
+
   // 10 Canonical Dimension Definitions
   const CANONICAL_DIMENSIONS = [
     { code: "OQ01", name: "Opportunity Definition & Business Context" },
@@ -160,16 +185,20 @@ export const OpportunityQualificaitonResult: React.FC<OpportunityQualificaitonRe
 
   // Helper to normalize input data into the full view schema
   const buildNormalizedData = (): OpportunityQualificationResultData => {
-    const rawSum = result?.qualification_summary || result?.final_decision?.qualification_summary || {};
-    const rawDims = result?.dimension_assessments || result?.dimension_results || [];
-    const rawEv = result?.evidence_assessments || result?.final_decision?.evidence_assessments || [];
-    const rawRisks = result?.risk_analysis || result?.risks || [];
-    const rawRecs = result?.recommendations || result?.recommended_actions || [];
+    const target = activeResult?.result || activeResult;
+    const rawSum = target?.qualification_summary || target?.final_decision?.qualification_summary || {};
+    const rawDims = target?.dimension_assessments || target?.dimension_results || [];
+    const rawEv = target?.evidence_assessments || target?.final_decision?.evidence_assessments || [];
+    const rawRisks = target?.risk_analysis || target?.risks || [];
+    const rawRecs = target?.recommendations || target?.recommended_actions || [];
 
-    const status = rawSum.qualification_status || result?.qualification_status || session?.qualification_status || 'QUALIFIED';
-    const score = Number(rawSum.overall_score ?? result?.overall_score ?? session?.overall_score ?? 82);
-    const confidence = Number(rawSum.confidence_score ?? result?.confidence_score ?? session?.confidence_score ?? 85);
-    const summary = rawSum.summary || result?.qualification_explanation || "High evidence maturity confirmed across technical and commercial dimensions.";
+    const status = rawSum.qualification_status || target?.qualification_status || session?.qualification_status || 'QUALIFIED';
+    
+    // Use backend results directly, only fallback if completely missing
+    let score = Number(rawSum.overall_score ?? target?.overall_score ?? session?.overall_score ?? 0);
+    let confidence = Number(rawSum.confidence_score ?? target?.confidence_score ?? session?.confidence_score ?? 0);
+
+    const summary = rawSum.summary || target?.qualification_explanation || "";
     const primaryReason = rawSum.primary_reason || summary;
 
     // Derive health indicator from score and rules engine
@@ -180,7 +209,7 @@ export const OpportunityQualificaitonResult: React.FC<OpportunityQualificaitonRe
       health = 'Moderate';
     } else if (score >= 40) {
       health = 'Weak';
-    } else {
+    } else if (score > 0) {
       health = 'Critical';
     }
 
@@ -192,15 +221,18 @@ export const OpportunityQualificaitonResult: React.FC<OpportunityQualificaitonRe
         (d.dimension_name && d.dimension_name.toLowerCase().includes(cd.name.toLowerCase().slice(0, 10)))
       );
 
-      const dScore = existing?.score ?? Math.min(100, Math.max(35, score + ((index % 3 === 0) ? -6 : (index % 2 === 0 ? 4 : 2))));
-      const dConf = existing?.confidence ?? Math.min(98, Math.max(50, confidence + ((index % 2 === 0) ? 3 : -4)));
+      // Backend result is source of truth, only fallback if null
+      const dScore = existing?.score ?? 0;
+      const dConf = existing?.confidence ?? 0;
       
       let dAssessment = existing?.assessment;
-      if (!dAssessment) {
+      if (!dAssessment && dScore > 0) {
         if (dScore >= 80) dAssessment = 'Strong';
         else if (dScore >= 65) dAssessment = 'Moderate';
         else if (dScore >= 45) dAssessment = 'Weak';
         else dAssessment = 'Critical';
+      } else if (!dAssessment) {
+        dAssessment = 'Unknown';
       }
 
       let dStrength = existing?.evidence_strength;
@@ -225,55 +257,44 @@ export const OpportunityQualificaitonResult: React.FC<OpportunityQualificaitonRe
       };
     });
 
-    // Build question-level signal audits
+    // Build question-level signal audits (Derived directly from qualification result with no mock data)
     let evidence_assessments: QuestionSignalAudit[] = [];
     if (rawEv && rawEv.length > 0) {
-      evidence_assessments = rawEv.map((ev: any) => ({
-        evidence_object_id: ev.evidence_object_id || ev.evidence_id || 'EV01',
-        evidence_name: ev.evidence_name || ev.question || 'Qualification Evidence Finding',
-        tags: ev.tags || [
-          { label: ev.dimension_name || 'General', type: 'dimension' },
-          { label: (ev.signal_score || 80) >= 70 ? 'POSITIVE MATCH' : 'NEUTRAL MATCH', type: (ev.signal_score || 80) >= 70 ? 'positive' : 'neutral' }
-        ],
-        identification_assessment: ev.identification_assessment || ev.ai_reasoning || ev.explanation || 'Semantic alignment validated against target indicators.',
-        signal_score: Number(ev.signal_score || 85),
-        dimension_code: ev.dimension_code,
-        user_answer: ev.user_answer,
-        evidence_source: ev.evidence_source || 'Customer Stakeholder',
-        validation_strength: ev.validation_strength || 'verified'
-      }));
+      evidence_assessments = rawEv.map((ev: any) => {
+        const dimCode = ev.dimension_code || (typeof ev.evidence_object_id === 'string' && ev.evidence_object_id.includes('_OQ') ? ev.evidence_object_id.split('_').find((part: string) => part.startsWith('OQ')) : 'OQ01') || 'OQ01';
+        const canonicalDim = CANONICAL_DIMENSIONS.find(cd => cd.code === dimCode);
+        const dimName = ev.dimension_name || canonicalDim?.name || dimCode;
+
+        const score = typeof ev.signal_score === 'number' ? ev.signal_score : 50;
+        const matchType = ev.matched_type === 'positive' || (typeof ev.signal_score === 'number' && ev.signal_score >= 75) || score >= 75 ? 'positive'
+          : ev.matched_type === 'negative' || (typeof ev.signal_score === 'number' && ev.signal_score < 50) || score < 50 ? 'negative'
+          : 'neutral';
+
+        const matchLabel = matchType === 'positive' ? 'POSITIVE MATCH' 
+          : matchType === 'negative' ? 'NEGATIVE MATCH' 
+          : 'NEUTRAL MATCH';
+
+        // Tag 1 is explicitly the dimension name tag; Tag 2 is how this evidence matched (e.g. POSITIVE MATCH)
+        const tags = [
+          { label: dimName, type: 'dimension' as const },
+          { label: matchLabel, type: matchType as 'positive' | 'negative' | 'neutral' }
+        ];
+
+        return {
+          evidence_object_id: ev.evidence_object_id || ev.evidence_id || 'EV01',
+          evidence_name: ev.evidence_name || ev.question_text || ev.question || 'Qualification Evidence Finding',
+          tags,
+          identification_assessment: ev.identification_assessment || ev.ai_reasoning || ev.explanation || 'Semantic alignment validated against target indicators.',
+          signal_score: score,
+          dimension_code: dimCode,
+          dimension_name: dimName,
+          user_answer: ev.user_answer,
+          evidence_source: ev.evidence_source || 'Customer Stakeholder',
+          validation_strength: ev.validation_strength || 'verified'
+        };
+      });
     } else {
-      // Generate standard audits covering the 10 dimensions from evidence knowledge base if empty
-      evidence_assessments = CANONICAL_DIMENSIONS.flatMap((cd, cIdx) => [
-        {
-          evidence_object_id: `${cd.code}_Q1`,
-          evidence_name: `${cd.name}: Core Discovery Validation`,
-          tags: [
-            { label: cd.name.split(' ')[0], type: 'dimension' as const },
-            { label: 'POSITIVE MATCH', type: 'positive' as const }
-          ],
-          identification_assessment: `Direct customer confirmation validates expected criteria for ${cd.name.toLowerCase()}.`,
-          signal_score: Math.min(95, Math.max(65, score + (cIdx % 2 === 0 ? 5 : -3))),
-          dimension_code: cd.code,
-          evidence_source: 'Customer Stakeholder',
-          validation_strength: 'customer_confirmed'
-        },
-        {
-          evidence_object_id: `${cd.code}_Q2`,
-          evidence_name: `${cd.name}: Execution Path Clarity`,
-          tags: [
-            { label: cd.name.split(' ')[0], type: 'dimension' as const },
-            { label: cIdx % 3 === 0 ? 'NEUTRAL MATCH' : 'POSITIVE MATCH', type: cIdx % 3 === 0 ? 'neutral' : 'positive' }
-          ],
-          identification_assessment: cIdx % 3 === 0 
-            ? `Evidence is present but lacks formal sign-off from legal/procurement stakeholders.`
-            : `Verified operational scope and clear delivery milestones documented with client.`,
-          signal_score: cIdx % 3 === 0 ? 62 : 86,
-          dimension_code: cd.code,
-          evidence_source: 'Documentation',
-          validation_strength: 'verified'
-        }
-      ]);
+      evidence_assessments = [];
     }
 
     // Build risk analysis
@@ -351,7 +372,7 @@ export const OpportunityQualificaitonResult: React.FC<OpportunityQualificaitonRe
 
   const safeData = buildNormalizedData();
 
-  // Load Promotion Status & History on mount
+  // Load Promotion Status & History on mount / result changes
   useEffect(() => {
     let isMounted = true;
     if (opportunityId) {
@@ -405,7 +426,7 @@ export const OpportunityQualificaitonResult: React.FC<OpportunityQualificaitonRe
       });
     }
     return () => { isMounted = false; };
-  }, [opportunityId]);
+  }, [opportunityId, activeResult]);
 
   // Handle Save to Supabase
   const handleSave = async () => {

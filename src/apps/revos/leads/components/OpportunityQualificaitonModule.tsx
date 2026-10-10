@@ -19,6 +19,7 @@ export const OpportunityQualificaitonModule: React.FC = () => {
   const [activeDetailView, setActiveDetailView] = useState<'handover' | 'qualification_form' | 'canvas'>('handover');
   const [defaultToFormMap, setDefaultToFormMap] = useState<Record<string, boolean>>({});
   const [hasResultMap, setHasResultMap] = useState<Record<string, boolean>>({});
+  const [activeOqResult, setActiveOqResult] = useState<any>(null);
   const [searchQuery, setSearchQuery] = useState('');
 
   useEffect(() => {
@@ -300,7 +301,10 @@ export const OpportunityQualificaitonModule: React.FC = () => {
               <OpportunityDynamicEvidenceForm
                 opportunity={selectedOpportunity}
                 onBack={() => setActiveDetailView('handover')}
-                onProceedToAssessment={() => setActiveDetailView('canvas')}
+                onProceedToAssessment={(evalResult?: any) => {
+                  if (evalResult) setActiveOqResult(evalResult);
+                  setActiveDetailView('canvas');
+                }}
                 onEvidenceSaved={() => {
                   if (selectedOpportunity?.id) {
                     setDefaultToFormMap(prev => ({ ...prev, [selectedOpportunity.id]: true }));
@@ -313,6 +317,7 @@ export const OpportunityQualificaitonModule: React.FC = () => {
                 opportunityId={selectedOpportunity.id}
                 opportunity={selectedOpportunity}
                 session={sessions[selectedOpportunity.id]}
+                result={activeOqResult}
                 onNavigateToEvidence={() => setActiveDetailView('qualification_form')}
                 onPromote={async () => {
                   await loadPipelineData();

@@ -1040,63 +1040,6 @@ Return a valid JSON object matching the requested schema.
       const { data: evidenceRecords, error: evErr } = await supabase.from('opportunity_qualification_evidence').select('*').eq('session_id', session_id);
       if (evErr) throw evErr;
 
-      // Extract and map all defined evidence questions across all 10 dimensions
-      const allDefinedEvidence: any[] = [];
-      if (Array.isArray(body.all_defined_questions) && body.all_defined_questions.length > 0) {
-        allDefinedEvidence.push(...body.all_defined_questions);
-      } else if (Array.isArray(opportunity_assessment_context?.all_defined_questions) && opportunity_assessment_context.all_defined_questions.length > 0) {
-        allDefinedEvidence.push(...opportunity_assessment_context.all_defined_questions);
-      } else {
-        const qualConfig = industry_config?.qualification_configuration 
-          || industry_config?.industry_context_reference?.qualification_configuration;
-        if (qualConfig) {
-          Object.entries(qualConfig).forEach(([dimCode, dimData]: [string, any]) => {
-            const questions = dimData.evidence_questions || [];
-            questions.forEach((q: any) => {
-              allDefinedEvidence.push({
-                evidence_id: q.question_id,
-                dimension_code: dimCode,
-                dimension_name: dimData.dimension_name || dimCode,
-                question_text: q.question_text,
-                expected_evidence: q.expected_evidence,
-                positive_signals: q.positive_signals || [],
-                negative_signals: q.negative_signals || [],
-                ai_reasoning_logic: q.ai_reasoning_logic
-              });
-            });
-          });
-        }
-      }
-
-      // Fallback: If no defined questions found in config, populate from evidenceRecords
-      if (allDefinedEvidence.length === 0 && evidenceRecords && evidenceRecords.length > 0) {
-        evidenceRecords.forEach((r: any) => {
-          allDefinedEvidence.push({
-            evidence_id: r.evidence_id,
-            dimension_code: r.dimension_code,
-            dimension_name: r.dimension_code,
-            question_text: r.question_text,
-            positive_signals: [],
-            negative_signals: []
-          });
-        });
-      }
-
-      // Map evidence records by evidence_id for rapid answer lookup
-      const evidenceRecordsMap = new Map<string, any>();
-      if (evidenceRecords && Array.isArray(evidenceRecords)) {
-        evidenceRecords.forEach((rec: any) => {
-          evidenceRecordsMap.set(rec.evidence_id, rec);
-        });
-      }
-      if (Array.isArray(opportunity_assessment_context?.evidence)) {
-        opportunity_assessment_context.evidence.forEach((rec: any) => {
-          if (!evidenceRecordsMap.has(rec.evidence_id)) {
-            evidenceRecordsMap.set(rec.evidence_id, rec);
-          }
-        });
-      }
-
       const startTime = Date.now();
 
       const systemInstruction = `You are the RevOS Opportunity Qualification Reasoning Engine (OQRE).
@@ -1130,7 +1073,7 @@ MANDATORY BEHAVIORAL DIRECTIVES:
    - OQ09: Opportunity Advancement Evidence
    - OQ10: Opportunity Qualification Risk Assessment (Synthesis & Deal Breakers)
 6. QUESTION-LEVEL SIGNAL AUDIT:
-   Evaluate EVERY SINGLE evidence question submitted. Compare the user's answer against expected positive and negative indicators, modulate score by Evidence Source and Validation Strength, and assign a signal score (0 to 100) and match type tag (positive, negative, neutral).
+   Evaluate every single evidence question submitted. Compare the user's answer against expected positive and negative indicators, modulate score by Evidence Source and Validation Strength, and assign a signal score (0 to 100) and match type tag (positive, negative, neutral).
 7. STATUS & PROMOTION LOGIC:
    - QUALIFIED: Overall score >= 80, OQ02 >= 70, OQ03 >= 70, no critical qualification risks.
    - CONDITIONALLY_QUALIFIED: Overall score 60-79, business problem confirmed, active engagement, addressable evidence gaps.
@@ -1149,28 +1092,15 @@ Description: ${opportunity.description || 'N/A'}
 === SQL INHERITED INTELLIGENCE (SQL-QIP) ===
 ${JSON.stringify(sql_inheritance_context || {})}
 
-=== DEFINED OPPORTUNITY EVIDENCE QUESTIONS & ACTUAL USER RESPONSES ===
-Analyze the actual user-entered answer for each and every evidence question below:
-
-${allDefinedEvidence.map(item => {
-  const rec = evidenceRecordsMap.get(item.evidence_id);
-  const answer = rec?.answer_value?.trim() || "";
-  const source = rec?.evidence_source || "Sales Rep Inferred";
-  const strength = rec?.evidence_strength || "unverified";
-  const isBlank = !answer || answer.toLowerCase() === "not specified / unknown" || answer.toLowerCase() === "[unanswered]";
-  const displayResponse = isBlank ? "[UNANSWERED / NO EVIDENCE COLLECTED]" : answer;
-
-  return `
-  - **Dimension**: ${item.dimension_code} - ${item.dimension_name}
-  - **Evidence ID**: ${item.evidence_id}
-  - **Question**: "${item.question_text}"
-  - **Expected Positive Signals**: ${JSON.stringify(item.positive_signals || [])}
-  - **Expected Negative Signals**: ${JSON.stringify(item.negative_signals || [])}
-  - **Actual User-Entered Answer**: "${displayResponse}"
-  - **Evidence Source**: "${source}"
-  - **Validation Strength**: "${strength}"
-  `;
-}).join('\n')}
+=== NEWLY COLLECTED OPPORTUNITY EVIDENCE ===
+${evidenceRecords.map(r => `
+- Dimension: ${r.dimension_code}
+- Evidence ID: ${r.evidence_id}
+- Question: "${r.question_text}"
+- Answer: "${r.answer_value || '[UNANSWERED]'}"
+- Evidence Source: "${r.evidence_source || 'Sales Rep Inferred'}"
+- Validation Strength: "${r.evidence_strength || 'unverified'}"
+`).join('\n')}
 
 === APPLICABLE KNOWLEDGE ASSETS ===
 - Industry Configuration: ${JSON.stringify(industry_config || {})}
@@ -1178,22 +1108,8 @@ ${allDefinedEvidence.map(item => {
 - Qualification Rules & Decision Thresholds: ${JSON.stringify(qualification_rules || {})}
 
 EVALUATION INSTRUCTIONS:
-1. QUESTION-LEVEL SIGNAL AUDITS (CRITICAL REQUIREMENT):
-   - You MUST include an assessment entry in "evidence_assessments" for EVERY SINGLE EVIDENCE QUESTION listed above (all ${allDefinedEvidence.length} questions). Do NOT omit, skip, or truncate any question.
-   - "evidence_object_id" MUST be the EXACT "Evidence ID" string provided in the question details above (e.g. "${allDefinedEvidence[0]?.evidence_id || 'RM01_IND01_OQ01_Q01'}").
-   - "evidence_name" MUST be the Question Prompt.
-   - "dimension_code" MUST be the question's dimension code (e.g. OQ01, OQ02, ...).
-   - "dimension_name" MUST be the question's dimension name.
-   - Objectively evaluate the user's actual answer against expected positive and negative indicators:
-     * When answer demonstrates positive customer confirmation, metrics, or alignment: award 75-100 score, matched_type: "positive".
-     * When answer shows exploratory or in-progress status: award 50-74 score, matched_type: "neutral".
-     * When answer confirms lack of progress, adverse finding, or is [UNANSWERED]: award 0-49 score, matched_type: "negative".
-   - Modulate confidence and score by Evidence Source and Validation Strength.
-   - Provide a precise, 2-3 sentence "identification_assessment" evaluating the user's specific answer and explaining the finding.
-   - Include "tags":
-     * Tag 1: { "label": item.dimension_name, "type": "dimension" }
-     * Tag 2: { "label": matched_type === 'positive' ? 'POSITIVE MATCH' : matched_type === 'negative' ? 'NEGATIVE MATCH' : 'NEUTRAL MATCH', "type": matched_type }
-2. Conduct complete strategic qualification reasoning across all 10 dimensions for "dimension_assessments".
+1. Conduct complete strategic qualification reasoning across all 10 dimensions.
+2. In each question audit, analyze the user answer against positive and negative indicators, factoring in Evidence Source and Validation Strength.
 3. Identify evidence gaps, contradictions with inherited SQL intelligence, and commercial risks.
 4. For each dimension, synthesize the Toolkit data: Assessment (Strong/Moderate/Weak/Critical), Score, Confidence, Evidence Strength, Key Evidence, Evidence Gaps, Risks, AI Reasoning, and Recommended Action.
 5. Determine overall score, confidence, qualification status, health indicator, and opportunity promotion recommendation.
@@ -1252,11 +1168,6 @@ EVALUATION INSTRUCTIONS:
                   properties: {
                     evidence_object_id: { type: Type.STRING },
                     evidence_name: { type: Type.STRING },
-                    dimension_code: { type: Type.STRING },
-                    dimension_name: { type: Type.STRING },
-                    identification_assessment: { type: Type.STRING },
-                    signal_score: { type: Type.NUMBER },
-                    matched_type: { type: Type.STRING },
                     tags: {
                       type: Type.ARRAY,
                       items: {
@@ -1267,9 +1178,12 @@ EVALUATION INSTRUCTIONS:
                         },
                         required: ["label", "type"]
                       }
-                    }
+                    },
+                    identification_assessment: { type: Type.STRING },
+                    signal_score: { type: Type.NUMBER },
+                    dimension_code: { type: Type.STRING }
                   },
-                  required: ["evidence_object_id", "evidence_name", "tags", "identification_assessment", "signal_score", "dimension_code"]
+                  required: ["evidence_object_id", "evidence_name", "tags", "identification_assessment", "signal_score"]
                 }
               },
               risk_analysis: {
@@ -1328,54 +1242,6 @@ EVALUATION INSTRUCTIONS:
 
       const result = JSON.parse(response.text || '{}');
       const executionTimeMs = Date.now() - startTime;
-
-      // =========================================================================
-      // DETERMINISTIC RULE GUARDRAIL ENGINE: 100% COVERAGE FOR ALL DEFINED EVIDENCE QUESTIONS
-      // =========================================================================
-      const eaMap = new Map<string, any>();
-      if (Array.isArray(result.evidence_assessments)) {
-        result.evidence_assessments.forEach((ea: any) => {
-          if (ea && (ea.evidence_object_id || ea.evidence_id)) {
-            eaMap.set(ea.evidence_object_id || ea.evidence_id, ea);
-          }
-        });
-      }
-
-      const verifiedEvidenceAssessments = allDefinedEvidence.map((evDef: any) => {
-        const ea = eaMap.get(evDef.evidence_id);
-        const userRec = evidenceRecordsMap.get(evDef.evidence_id);
-        const userAnswer = userRec?.answer_value || evDef.user_answer || '';
-        const isBlank = !userAnswer || userAnswer.trim() === '' || userAnswer.toLowerCase() === '[unanswered]';
-
-        let score = typeof ea?.signal_score === 'number' ? ea.signal_score : (isBlank ? 25 : 75);
-        let matchType = ea?.matched_type === 'positive' || (typeof ea?.signal_score === 'number' && ea.signal_score >= 75) || score >= 75 ? 'positive'
-          : ea?.matched_type === 'negative' || (typeof ea?.signal_score === 'number' && ea.signal_score < 50) || score < 50 ? 'negative'
-          : 'neutral';
-
-        const matchLabel = matchType === 'positive' ? 'POSITIVE MATCH' 
-          : matchType === 'negative' ? 'NEGATIVE MATCH' 
-          : 'NEUTRAL MATCH';
-
-        return {
-          evidence_object_id: evDef.evidence_id,
-          evidence_name: evDef.question_text || evDef.evidence_name || 'Opportunity Evidence Finding',
-          dimension_code: evDef.dimension_code,
-          dimension_name: evDef.dimension_name,
-          user_answer: userAnswer,
-          evidence_source: userRec?.evidence_source || 'Customer Stakeholder',
-          validation_strength: userRec?.evidence_strength || 'verified',
-          signal_score: score,
-          identification_assessment: ea?.identification_assessment || (isBlank 
-            ? `No customer evidence collected for this question. Creates an information gap in ${evDef.dimension_name}.`
-            : `Customer response recorded: "${userAnswer}". Evaluated against target criteria for ${evDef.dimension_name}.`),
-          tags: [
-            { label: evDef.dimension_name, type: 'dimension' },
-            { label: matchLabel, type: matchType }
-          ]
-        };
-      });
-
-      result.evidence_assessments = verifiedEvidenceAssessments;
 
       // Deterministic scoring calculation based on configuration-driven weights
       let finalOverallScore = 0;
@@ -1483,22 +1349,9 @@ EVALUATION INSTRUCTIONS:
         console.warn('opportunity_qualification_results upsert warning:', saveErr);
       }
 
-      // Record to opportunity_qualification_history (Daily overwrite logic: exactly one entry per day per opportunity)
+      // Record to opportunity_qualification_history
       try {
-        const todayStart = new Date();
-        todayStart.setUTCHours(0, 0, 0, 0);
-        const todayEnd = new Date();
-        todayEnd.setUTCHours(23, 59, 59, 999);
-
-        const { data: existingToday, error: findTodayErr } = await supabase
-          .from('opportunity_qualification_history')
-          .select('id')
-          .eq('opportunity_id', session.opportunity_id)
-          .gte('created_at', todayStart.toISOString())
-          .lte('created_at', todayEnd.toISOString())
-          .order('created_at', { ascending: false });
-
-        const historyPayload = {
+        await supabase.from('opportunity_qualification_history').insert([{
           opportunity_id: session.opportunity_id,
           session_id: session_id,
           event_name: 'Opportunity Assessment Run',
@@ -1511,27 +1364,7 @@ EVALUATION INSTRUCTIONS:
           user_name: 'Sales Representative',
           raw_result: result,
           created_at: new Date().toISOString()
-        };
-
-        if (!findTodayErr && existingToday && existingToday.length > 0) {
-          const primaryId = existingToday[0].id;
-          await supabase
-            .from('opportunity_qualification_history')
-            .update(historyPayload)
-            .eq('id', primaryId);
-
-          if (existingToday.length > 1) {
-            const extraIds = existingToday.slice(1).map((r: any) => r.id);
-            await supabase
-              .from('opportunity_qualification_history')
-              .delete()
-              .in('id', extraIds);
-          }
-        } else {
-          await supabase
-            .from('opportunity_qualification_history')
-            .insert([historyPayload]);
-        }
+        }]);
       } catch (hErr) {
         console.warn('History insertion note:', hErr);
       }

@@ -295,6 +295,14 @@ export const SQLtoOpportunity: React.FC<SQLtoOpportunityProps> = ({
                   evidenceKb={OQ_KB}
                   savedEvidence={savedEvidence}
                   onEvidenceSaved={handleEvidenceSaved}
+                  onProceedToAssessment={async (evalResult?: any) => {
+                    if (evalResult) {
+                      setQualificationResult(evalResult);
+                    } else {
+                      await initSession();
+                    }
+                    setView('result');
+                  }}
                 />
               </motion.div>
             ) : (
