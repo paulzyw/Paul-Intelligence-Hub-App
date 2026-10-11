@@ -315,6 +315,7 @@ export const SQLtoOpportunity: React.FC<SQLtoOpportunityProps> = ({
                 <OpportunityQualificaitonResult
                   opportunityId={opportunity.id}
                   opportunity={opportunity}
+                  leadId={opportunity.mql_reference_id || (opportunity as any).lead_id}
                   session={session!}
                   result={qualificationResult!}
                   onPromote={async () => {

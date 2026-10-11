@@ -758,7 +758,9 @@ export const OpportunityDynamicEvidenceForm: React.FC<OpportunityDynamicEvidence
                 key={question.question_id}
                 initial={{ opacity: 0, y: 8 }}
                 animate={{ opacity: 1, y: 0 }}
-                className={`bg-bg-primary border rounded-2xl p-5 transition-all duration-200 flex flex-col justify-between ${
+                className={`bg-bg-primary border rounded-2xl p-5 transition-all duration-200 flex flex-col justify-between relative ${
+                  isTooltipOpen ? 'z-30' : 'z-0'
+                } ${
                   isPopulated 
                     ? 'border-accent/50 shadow-md shadow-accent/5 bg-gradient-to-b from-bg-primary to-bg-surface/40' 
                     : 'border-border/60 hover:border-border shadow-xs'
@@ -813,7 +815,7 @@ export const OpportunityDynamicEvidenceForm: React.FC<OpportunityDynamicEvidence
                                 initial={{ opacity: 0, y: -4, scale: 0.98 }}
                                 animate={{ opacity: 1, y: 0, scale: 1 }}
                                 exit={{ opacity: 0, y: -4, scale: 0.98 }}
-                                className="absolute left-0 bottom-full mb-2 w-80 sm:w-96 p-4 bg-bg-surface/98 backdrop-blur-md border border-border rounded-xl shadow-2xl z-30 text-xs font-normal normal-case space-y-3 pointer-events-auto"
+                                className="absolute left-1/2 -translate-x-1/2 bottom-full mb-2.5 w-80 sm:w-96 max-w-[calc(100vw-2rem)] p-4 bg-bg-surface/98 backdrop-blur-md border border-border rounded-xl shadow-2xl z-50 text-xs font-normal normal-case space-y-3 pointer-events-auto"
                               >
                                 <div className="flex items-center justify-between border-b border-border/60 pb-2">
                                   <span className="font-mono text-[10px] uppercase font-black text-accent flex items-center gap-1.5">
@@ -883,6 +885,9 @@ export const OpportunityDynamicEvidenceForm: React.FC<OpportunityDynamicEvidence
                                     </div>
                                   </div>
                                 </div>
+
+                                {/* Arrow pointer indicator centered at bottom line */}
+                                <div className="absolute top-full left-1/2 -translate-x-1/2 -mt-1 w-2.5 h-2.5 rotate-45 bg-bg-surface border-r border-b border-border shadow-xs pointer-events-none" />
                               </motion.div>
                             )}
                           </AnimatePresence>

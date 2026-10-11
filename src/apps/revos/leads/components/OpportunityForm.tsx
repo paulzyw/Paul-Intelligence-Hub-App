@@ -164,6 +164,12 @@ export const OpportunityForm: React.FC<OpportunityFormProps> = ({
         onUpdate(payload);
       }
 
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('opportunity_form_updated', {
+          detail: { opportunityId: opportunity.id, formData: payload }
+        }));
+      }
+
       setTimeout(() => setSaveSuccess(null), 4000);
     } catch (err: any) {
       console.error('Failed to save opportunity form:', err);

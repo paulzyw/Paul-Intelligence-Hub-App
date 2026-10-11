@@ -3,6 +3,7 @@ import { MQLLead, MQLCampaign } from '../../types/mql';
 import { Search, Edit, LayoutGrid, ChevronRight, ChevronLeft, CheckCircle2, AlertTriangle, AlertCircle, Table } from 'lucide-react';
 import { MqlToSqlTable } from './MqlToSqlTable';
 import { PromotionDataService } from '../services/promotionDataService';
+import { OpportunityDataService } from '../services/opportunityDataService';
 
 interface LeadCanvasProps {
   leads: MQLLead[];
@@ -39,6 +40,9 @@ export const LeadCanvas: React.FC<LeadCanvasProps> = ({ leads, campaigns, onLead
   });
 
   const [promotedLeadIds, setPromotedLeadIds] = useState<string[]>([]);
+  const [sqlPromotedLeadIds, setSqlPromotedLeadIds] = useState<string[]>([]);
+  const [oppRevenueMap, setOppRevenueMap] = useState<Record<string, number>>({});
+  const [oppNameMap, setOppNameMap] = useState<Record<string, string>>({});
 
   useEffect(() => {
     PromotionDataService.getPromotedLeadIds().then(ids => {
@@ -46,6 +50,44 @@ export const LeadCanvas: React.FC<LeadCanvasProps> = ({ leads, campaigns, onLead
     }).catch(err => {
       console.error('Failed to load promoted leads from Supabase:', err);
     });
+
+    PromotionDataService.getSqlOpportunityPromotedLeadIds().then(ids => {
+      setSqlPromotedLeadIds(ids);
+    }).catch(err => {
+      console.error('Failed to load SQL to Opportunity promotions from Supabase:', err);
+    });
+
+    const loadOpportunityData = () => {
+      OpportunityDataService.getOpportunityEstimatedRevenuesMap().then(map => {
+        setOppRevenueMap(map);
+      }).catch(err => {
+        console.error('Failed to load opportunity estimated revenues from Supabase:', err);
+      });
+
+      OpportunityDataService.getOpportunityNamesMap().then(map => {
+        setOppNameMap(map);
+      }).catch(err => {
+        console.error('Failed to load opportunity names from Supabase:', err);
+      });
+    };
+
+    loadOpportunityData();
+
+    const handleFormUpdate = () => {
+      loadOpportunityData();
+    };
+
+    if (typeof window !== 'undefined') {
+      window.addEventListener('opportunity_form_updated', handleFormUpdate);
+      window.addEventListener('storage', handleFormUpdate);
+    }
+
+    return () => {
+      if (typeof window !== 'undefined') {
+        window.removeEventListener('opportunity_form_updated', handleFormUpdate);
+        window.removeEventListener('storage', handleFormUpdate);
+      }
+    };
   }, []);
 
   const allLeads = filteredLeads;
@@ -55,11 +97,13 @@ export const LeadCanvas: React.FC<LeadCanvasProps> = ({ leads, campaigns, onLead
     l.status === 'SQL'
   );
   const sqlLeads = filteredLeads.filter(l => l.status === 'SQL' || promotedLeadIds.includes(l.id));
-  // For Opportunity, we don't have a strict DB field, so let's mock it for the demo using a subset of SQL leads
-  // or we can just say if handover_status is 'Opportunity' (though it might just be 'Handover to Sales' right now)
-  // Let's assume Opportunity is a subset of SQL where some opportunity field is true. We'll simulate it by checking if annual_revenue > 0 or randomly.
-  // Wait, let's check if the DB has any 'opportunity' status. We will just use `status === 'Opportunity'` if it exists, otherwise mock it.
-  const opportunityLeads = filteredLeads.filter(l => (l as any).is_opportunity === true || (l.status as string) === 'Opportunity');
+  
+  // Render any opportunity associated with leads present in sql_opportunity_promotions
+  const opportunityLeads = filteredLeads.filter(l => 
+    sqlPromotedLeadIds.includes(l.id) ||
+    (l as any).is_opportunity === true || 
+    (l.status as string) === 'Opportunity'
+  );
 
   const getPaginatedItems = (items: any[], page: number) => {
     const totalPages = Math.ceil(items.length / CARDS_PER_PAGE) || 1;
@@ -83,16 +127,15 @@ export const LeadCanvas: React.FC<LeadCanvasProps> = ({ leads, campaigns, onLead
     onPageChange: (page: number) => void; 
   }) => {
     const totalPages = Math.ceil(totalItems / CARDS_PER_PAGE) || 1;
-    if (totalPages <= 1) return null;
-
-    const boundedPage = Math.min(currentPage, totalPages);
+    const boundedPage = Math.min(Math.max(1, currentPage), totalPages);
 
     return (
       <div className="flex items-center justify-between px-2 py-1.5 bg-bg-surface/50 border border-border/60 rounded-xl mt-2 select-none">
         <button
           onClick={() => onPageChange(Math.max(1, boundedPage - 1))}
-          disabled={boundedPage === 1}
+          disabled={boundedPage <= 1}
           className="p-1 rounded-lg hover:bg-bg-primary disabled:opacity-30 disabled:hover:bg-transparent text-text-secondary hover:text-text-primary transition-colors cursor-pointer disabled:cursor-not-allowed"
+          title="Previous Page"
         >
           <ChevronLeft className="w-3.5 h-3.5" />
         </button>
@@ -101,8 +144,9 @@ export const LeadCanvas: React.FC<LeadCanvasProps> = ({ leads, campaigns, onLead
         </span>
         <button
           onClick={() => onPageChange(Math.min(totalPages, boundedPage + 1))}
-          disabled={boundedPage === totalPages}
+          disabled={boundedPage >= totalPages}
           className="p-1 rounded-lg hover:bg-bg-primary disabled:opacity-30 disabled:hover:bg-transparent text-text-secondary hover:text-text-primary transition-colors cursor-pointer disabled:cursor-not-allowed"
+          title="Next Page"
         >
           <ChevronRight className="w-3.5 h-3.5" />
         </button>
@@ -118,6 +162,50 @@ export const LeadCanvas: React.FC<LeadCanvasProps> = ({ leads, campaigns, onLead
   const leadToMqlRatio = calcRatio(mqlLeads.length, allLeads.length);
   const mqlToSqlRatio = calcRatio(sqlLeads.length, mqlLeads.length);
   const sqlToOppRatio = calcRatio(opportunityLeads.length, sqlLeads.length);
+
+  // Helper to extract Estimated Revenue defined in Opportunity Form
+  const getOpportunityEstimatedRevenue = (lead: MQLLead): number => {
+    // 1. Check direct map loaded from Opportunity Form records (matched by lead.id or opportunity.id)
+    if (oppRevenueMap[lead.id] !== undefined && oppRevenueMap[lead.id] > 0) {
+      return oppRevenueMap[lead.id];
+    }
+    // 2. Check localStorage isolated card edits or form drafts
+    if (typeof window !== 'undefined') {
+      const oppCardEdits = localStorage.getItem(`opp_isolated_card_edits_${lead.id}`);
+      if (oppCardEdits) {
+        try {
+          const parsed = JSON.parse(oppCardEdits);
+          if (parsed.estimated_revenue) {
+            const num = parseFloat(String(parsed.estimated_revenue).replace(/[^0-9.]/g, ''));
+            if (!isNaN(num) && num > 0) return num;
+          }
+        } catch (e) {}
+      }
+
+      const sqlCardEdits = localStorage.getItem(`sql_isolated_card_edits_${lead.id}`);
+      if (sqlCardEdits) {
+        try {
+          const parsed = JSON.parse(sqlCardEdits);
+          if (parsed.estimated_revenue) {
+            const num = parseFloat(String(parsed.estimated_revenue).replace(/[^0-9.]/g, ''));
+            if (!isNaN(num) && num > 0) return num;
+          }
+        } catch (e) {}
+      }
+    }
+    // 3. Fallback to lead annual_revenue if numeric
+    const rawNum = parseFloat(String(lead.annual_revenue || '').replace(/[^0-9.]/g, ''));
+    return isNaN(rawNum) ? 0 : rawNum;
+  };
+
+  // Accumulated number by summing up the "Estimated Revenue" in the Opportunity Form of all opportunities listed in this Opportunity Column
+  const totalOppAmount = opportunityLeads.reduce((acc, curr) => {
+    return acc + getOpportunityEstimatedRevenue(curr);
+  }, 0);
+
+  const formattedOppAmount = totalOppAmount > 0 
+    ? `$${totalOppAmount.toLocaleString('en-US')}` 
+    : '$0';
 
   // Kanban Card Component
   const KanbanCard = ({ title, count, ratioText, ratioNum, amount }: { title: string, count: number, ratioText?: string, ratioNum?: number, amount?: string }) => (
@@ -185,6 +273,16 @@ export const LeadCanvas: React.FC<LeadCanvasProps> = ({ leads, campaigns, onLead
         }
       }
     }
+    if (type === 'opp') {
+      const stored = localStorage.getItem(`opp_isolated_card_edits_${lead.id}`);
+      if (stored) {
+        try {
+          return { ...lead, ...JSON.parse(stored) };
+        } catch (e) {
+          return lead;
+        }
+      }
+    }
     return lead;
   };
 
@@ -198,6 +296,7 @@ export const LeadCanvas: React.FC<LeadCanvasProps> = ({ leads, campaigns, onLead
     const isNurture = lead.status?.includes('Nurture');
     const isHandover = lead.handover_status === 'Handover to Sales';
     const isPromoted = promotedLeadIds.includes(lead.id) || lead.status === 'SQL';
+    const isPromotedToOpp = sqlPromotedLeadIds.includes(lead.id);
 
     let mqlTag = null;
     if (isPromoted && type === 'mql') {
@@ -222,16 +321,24 @@ export const LeadCanvas: React.FC<LeadCanvasProps> = ({ leads, campaigns, onLead
     }
 
     let sqlTag = null;
-    if (lead.status === 'SQL' || isPromoted) {
+    if (isPromotedToOpp) {
+      // If lead.id is in sql_opportunity_promotions, the SQL card displays the Opportunity tag (blue badge) replacing the SQL tag
+      sqlTag = (
+        <span className="px-1.5 py-0.5 rounded bg-[#00a3ff] text-white border border-[#00a3ff]/40 text-[8px] font-black uppercase tracking-wider shadow-sm shadow-[#00a3ff]/20">
+          Opportunity
+        </span>
+      );
+    } else if (lead.status === 'SQL' || isPromoted) {
       sqlTag = <span className="px-1.5 py-0.5 rounded bg-blue-500 text-white border border-blue-600 text-[8px] font-black uppercase tracking-wider shadow-sm">SQL</span>;
     } else if (isDisqual) {
       sqlTag = <span className="px-1.5 py-0.5 rounded bg-black text-white dark:bg-white dark:text-black border border-border text-[8px] font-black uppercase tracking-wider shadow-sm">Disqualified</span>;
     }
 
-    let oppTag = null;
-    if ((lead as any).is_opportunity || lead.status === 'Opportunity') {
-      oppTag = <span className="px-1.5 py-0.5 rounded bg-green-500 text-white border border-green-600 text-[8px] font-black uppercase tracking-wider shadow-sm">Opportunity</span>;
-    }
+    let oppTag = (
+      <span className="px-1.5 py-0.5 rounded bg-[#00a3ff] text-white border border-[#00a3ff]/40 text-[8px] font-black uppercase tracking-wider shadow-sm shadow-[#00a3ff]/20">
+        Opportunity
+      </span>
+    );
 
     return (
       <div className="flex flex-col items-end gap-1.5 mt-2">
@@ -262,13 +369,34 @@ export const LeadCanvas: React.FC<LeadCanvasProps> = ({ leads, campaigns, onLead
         )}
         {type === 'opp' && (
           <>
-            {mqlTag}
-            {sqlTag}
             {oppTag}
           </>
         )}
       </div>
     );
+  };
+
+  const getOpportunityName = (lead: MQLLead): string => {
+    // 1. Check isolated card edits for SQL card
+    if (typeof window !== 'undefined') {
+      const sqlCardEdits = localStorage.getItem(`sql_isolated_card_edits_${lead.id}`);
+      if (sqlCardEdits) {
+        try {
+          const parsed = JSON.parse(sqlCardEdits);
+          if (parsed.opportunity_name) return parsed.opportunity_name;
+        } catch (e) {}
+      }
+    }
+    // 2. Check oppNameMap (from opportunities, form records, and promotions)
+    if (oppNameMap[lead.id]) {
+      return oppNameMap[lead.id];
+    }
+    // 3. Check lead properties if present
+    if ((lead as any).opportunity_name) {
+      return (lead as any).opportunity_name;
+    }
+    // 4. Default to Company Name + "Opportunity"
+    return `${lead.company_name || 'Enterprise'} Opportunity`;
   };
 
   const LeadCard = ({ lead, type }: { lead: MQLLead, type: 'lead' | 'mql' | 'sql' | 'opp' }) => {
@@ -286,17 +414,32 @@ export const LeadCanvas: React.FC<LeadCanvasProps> = ({ leads, campaigns, onLead
         </div>
         
         <div className="mt-1">
-          <h4 className="text-sm font-bold text-text-primary font-sans leading-tight truncate">
-            {currentLead.first_name} {currentLead.last_name}
-          </h4>
+          {type === 'sql' ? (
+            <h4 className="text-sm font-bold text-text-primary font-sans leading-tight truncate" title={getOpportunityName(currentLead)}>
+              {getOpportunityName(currentLead)}
+            </h4>
+          ) : (
+            <h4 className="text-sm font-bold text-text-primary font-sans leading-tight truncate">
+              {currentLead.first_name} {currentLead.last_name}
+            </h4>
+          )}
           {(type === 'lead' || type === 'mql') && (
             <p className="text-xs font-semibold text-text-primary mt-0.5 truncate text-opacity-80">
               {getCampaignName(currentLead.campaign_id)}
             </p>
           )}
-          {(type === 'sql' || type === 'opp') && (
+          {type === 'sql' && (
             <p className="text-xs font-semibold text-text-primary mt-0.5">
-              {currentLead.annual_revenue || '$0'}
+              {getOpportunityEstimatedRevenue(currentLead) > 0
+                ? `$${getOpportunityEstimatedRevenue(currentLead).toLocaleString('en-US')}`
+                : (currentLead.annual_revenue || '$0')}
+            </p>
+          )}
+          {type === 'opp' && (
+            <p className="text-xs font-semibold text-text-primary mt-0.5">
+              {getOpportunityEstimatedRevenue(currentLead) > 0
+                ? `$${getOpportunityEstimatedRevenue(currentLead).toLocaleString('en-US')}`
+                : (currentLead.annual_revenue || '$0')}
             </p>
           )}
         </div>
@@ -449,7 +592,7 @@ export const LeadCanvas: React.FC<LeadCanvasProps> = ({ leads, campaigns, onLead
             <KanbanCard 
               title="Opportunity" 
               count={opportunityLeads.length} 
-              amount="$0" 
+              amount={formattedOppAmount} 
             />
             <div className="flex justify-end -mt-1 -mb-1 px-1">
               <div className="p-1 text-text-secondary/50" title="Table View (Opportunity)">

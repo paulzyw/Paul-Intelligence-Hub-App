@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   ShieldCheck, 
@@ -117,6 +118,7 @@ interface OpportunityQualificaitonResultProps {
   result?: any;
   opportunityId?: string;
   opportunity?: any;
+  leadId?: string;
   onPromote?: () => Promise<boolean> | boolean;
   promoting?: boolean;
   onNavigateToEvidence?: (dimensionId: string) => void;
@@ -128,12 +130,14 @@ export const OpportunityQualificaitonResult: React.FC<OpportunityQualificaitonRe
   result,
   opportunityId: propOppId,
   opportunity,
+  leadId: propLeadId,
   onPromote,
   promoting = false,
   onNavigateToEvidence
 }) => {
   const opportunityId = propOppId || opportunity?.id || session?.opportunity_id;
   const sessionId = session?.id || result?.session_id;
+  const leadId = propLeadId || opportunity?.mql_reference_id || opportunity?.lead_id;
 
   const [isAuditsExpanded, setIsAuditsExpanded] = useState(false);
   const [selectedToolkitDim, setSelectedToolkitDim] = useState<DimensionAssessmentItem | null>(null);
@@ -145,6 +149,26 @@ export const OpportunityQualificaitonResult: React.FC<OpportunityQualificaitonRe
   const [historyRecords, setHistoryRecords] = useState<any[]>([]);
 
   const [activeResult, setActiveResult] = useState<any>(() => result?.result || result);
+
+  // Prevent background window scrolling and support ESC key to close Audit Toolkit
+  useEffect(() => {
+    if (selectedToolkitDim) {
+      const originalOverflow = document.body.style.overflow;
+      document.body.style.overflow = 'hidden';
+
+      const handleKeyDown = (e: KeyboardEvent) => {
+        if (e.key === 'Escape') {
+          setSelectedToolkitDim(null);
+        }
+      };
+
+      window.addEventListener('keydown', handleKeyDown);
+      return () => {
+        document.body.style.overflow = originalOverflow;
+        window.removeEventListener('keydown', handleKeyDown);
+      };
+    }
+  }, [selectedToolkitDim]);
 
   useEffect(() => {
     // When the result prop changes (after a new run), update activeResult immediately
@@ -345,7 +369,7 @@ export const OpportunityQualificaitonResult: React.FC<OpportunityQualificaitonRe
       should_promote: isQual && score >= 60,
       decision: (isQual && score >= 60) ? 'YES' : 'NO',
       recommendation_rationale: (isQual && score >= 60)
-        ? 'All critical MEDDPICC and OQ dimensions demonstrate strong evidence alignment. The opportunity is cleared for active sales promotion, CRM pipeline logging, and executive resource allocation.'
+        ? 'All Opportunity Qualification dimensions demonstrate strong evidence alignment. The opportunity is cleared for active sales promotion, CRM pipeline logging, and executive resource allocation.'
         : 'Do not promote yet. Critical dimensions contain unvalidated evidence or low customer commitment. Conduct additional qualification discovery before advancing.'
     };
 
@@ -376,54 +400,67 @@ export const OpportunityQualificaitonResult: React.FC<OpportunityQualificaitonRe
   useEffect(() => {
     let isMounted = true;
     if (opportunityId) {
-      PromotionDataService.isOpportunityPromoted(opportunityId).then(promoted => {
-        if (isMounted) setIsSuccessfullyPromoted(promoted);
-      }).catch(() => {
-        if (isMounted) setIsSuccessfullyPromoted(false);
-      });
-
-      OpportunityDataService.getQualificationHistory(opportunityId).then(history => {
-        if (isMounted && history.length > 0) {
-          setHistoryRecords(history);
-        } else if (isMounted) {
-          // Provide standard initial entries
-          setHistoryRecords([
-            {
-              event: 'Current Opportunity Assessment',
-              date: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
-              status: safeData.qualification_summary.qualification_status,
-              score: safeData.qualification_summary.overall_score,
-              confidence: `${safeData.qualification_summary.confidence_score}%`,
-              evidence_changes: 'Complete 10-dimension evaluation',
-              reasoning_version: 'Gemini 3.1 Flash Lite - v3.0',
-              rules_version: 'OQ Rules v3.0',
-              user: 'Sales Representative'
-            },
-            {
-              event: 'Pre-Assessment Discovery Intake',
-              date: new Date(Date.now() - 5 * 86400000).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
-              status: 'In Progress',
-              score: Math.max(45, safeData.qualification_summary.overall_score - 14),
-              confidence: '74%',
-              evidence_changes: 'Initial intake answers submitted',
-              reasoning_version: 'v3.0',
-              rules_version: 'v3.0',
-              user: 'Sales Representative'
-            },
-            {
-              event: 'SQL Handover Inherited',
-              date: new Date(Date.now() - 14 * 86400000).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
-              status: 'SQL Qualified',
-              score: 86,
-              confidence: '84%',
-              evidence_changes: 'Passed from Marketing Handover',
-              reasoning_version: 'v2.5',
-              rules_version: 'SQL Rules v2.5',
-              user: 'Marketing SDR'
-            }
-          ]);
+      const loadPromoAndHistory = async () => {
+        let resolvedLeadId = leadId || opportunity?.lead_id || opportunity?.mql_reference_id;
+        if (!resolvedLeadId) {
+          resolvedLeadId = await PromotionDataService.resolveLeadIdForOpportunity(opportunityId);
         }
-      });
+
+        const isPromoted = await PromotionDataService.isSqlToOpportunityPromoted({
+          leadId: resolvedLeadId || undefined,
+          opportunityId: opportunityId || undefined
+        });
+
+        if (isMounted) setIsSuccessfullyPromoted(isPromoted);
+
+        try {
+          const history = await OpportunityDataService.getQualificationHistory(opportunityId);
+          if (isMounted && history.length > 0) {
+            setHistoryRecords(history);
+          } else if (isMounted) {
+            // Provide standard initial entries
+            setHistoryRecords([
+              {
+                event: 'Current Opportunity Assessment',
+                date: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+                status: safeData.qualification_summary.qualification_status,
+                score: safeData.qualification_summary.overall_score,
+                confidence: `${safeData.qualification_summary.confidence_score}%`,
+                evidence_changes: 'Complete 10-dimension evaluation',
+                reasoning_version: 'Gemini 3.1 Flash Lite - v3.0',
+                rules_version: 'OQ Rules v3.0',
+                user: 'Sales Representative'
+              },
+              {
+                event: 'Pre-Assessment Discovery Intake',
+                date: new Date(Date.now() - 5 * 86400000).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+                status: 'In Progress',
+                score: Math.max(45, safeData.qualification_summary.overall_score - 14),
+                confidence: '74%',
+                evidence_changes: 'Initial intake answers submitted',
+                reasoning_version: 'v3.0',
+                rules_version: 'v3.0',
+                user: 'Sales Representative'
+              },
+              {
+                event: 'SQL Handover Inherited',
+                date: new Date(Date.now() - 14 * 86400000).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+                status: 'SQL Qualified',
+                score: 86,
+                confidence: '84%',
+                evidence_changes: 'Passed from Marketing Handover',
+                reasoning_version: 'v2.5',
+                rules_version: 'SQL Rules v2.5',
+                user: 'Marketing SDR'
+              }
+            ]);
+          }
+        } catch (e) {
+          console.error("Failed to load history:", e);
+        }
+      };
+
+      loadPromoAndHistory();
     }
     return () => { isMounted = false; };
   }, [opportunityId, activeResult]);
@@ -448,10 +485,23 @@ export const OpportunityQualificaitonResult: React.FC<OpportunityQualificaitonRe
     if (!opportunityId || isSuccessfullyPromoted) return;
     setIsPromoting(true);
     try {
+      let resolvedLeadId = leadId || opportunity?.lead_id || opportunity?.mql_reference_id;
+      if (!resolvedLeadId) {
+        resolvedLeadId = await PromotionDataService.resolveLeadIdForOpportunity(opportunityId);
+      }
+
       if (onPromote) {
         await onPromote();
       }
-      await PromotionDataService.promoteToOpportunity(opportunityId, promotionDate, sessionId);
+
+      // 1. Insert record into sql_opportunity_promotions (lead_id, opportunity_id, status: 'Promoted')
+      // No changes are made to sql_leads
+      await PromotionDataService.recordSqlOpportunityPromotion(
+        resolvedLeadId || '',
+        opportunityId,
+        'Promoted via RevOS Opportunity Qualification Engine'
+      );
+
       setIsSuccessfullyPromoted(true);
     } catch (err) {
       console.error('Error promoting to opportunity:', err);
@@ -545,9 +595,21 @@ export const OpportunityQualificaitonResult: React.FC<OpportunityQualificaitonRe
     return <Award className="w-4 h-4 text-accent" />;
   };
 
-  const isEligibleForPromotion = Boolean(
-    safeData.opportunity_promotion_recommendation?.should_promote || 
-    (bannerNormStatus.includes('qualified') && !bannerNormStatus.includes('not') && !bannerNormStatus.includes('disqualified'))
+  const recDecision = String(
+    safeData.opportunity_promotion_recommendation?.decision || 
+    (safeData.opportunity_promotion_recommendation as any)?.recommendation ||
+    (safeData.opportunity_promotion_recommendation?.should_promote ? 'YES' : 'NO')
+  ).toUpperCase();
+
+  const isEligibleForPromotion = recDecision === 'YES' || (
+    recDecision !== 'NO' &&
+    safeData.opportunity_promotion_recommendation?.should_promote === true
+  ) || (
+    recDecision !== 'NO' &&
+    safeData.opportunity_promotion_recommendation?.should_promote !== false &&
+    bannerNormStatus.includes('qualified') && 
+    !bannerNormStatus.includes('not') && 
+    !bannerNormStatus.includes('disqualified')
   );
 
   return (
@@ -693,136 +755,149 @@ export const OpportunityQualificaitonResult: React.FC<OpportunityQualificaitonRe
         </div>
       </div>
 
-      {/* Toolkit Modal/Dialog for Single-Clicked Dimension Score Card */}
-      <AnimatePresence>
-        {selectedToolkitDim && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-200">
-            <motion.div 
-              initial={{ scale: 0.95, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.95, opacity: 0 }}
-              className="bg-bg-surface border border-border/80 rounded-2xl max-w-2xl w-full p-6 sm:p-7 shadow-2xl relative space-y-5 overflow-y-auto max-h-[90vh]"
+      {/* Toolkit Modal/Dialog for Single-Clicked Dimension Score Card (Centered in Viewport via Portal) */}
+      {typeof document !== 'undefined' && createPortal(
+        <AnimatePresence>
+          {selectedToolkitDim && (
+            <div 
+              className="fixed inset-0 z-[99999] flex items-center justify-center p-4 sm:p-6 bg-black/75 backdrop-blur-xs animate-in fade-in duration-200"
+              onClick={(e) => {
+                if (e.target === e.currentTarget) setSelectedToolkitDim(null);
+              }}
             >
-              {/* Header */}
-              <div className="flex items-start justify-between border-b border-border/60 pb-4">
-                <div className="space-y-1">
-                  <div className="flex items-center gap-2">
-                    <span className="text-[10px] font-mono font-black uppercase px-2 py-0.5 rounded bg-accent/20 text-accent border border-accent/30">
-                      {selectedToolkitDim.dimension_code}
-                    </span>
-                    <span className="text-xs font-mono text-text-secondary">Diagnostic Dimension Toolkit</span>
+              <motion.div 
+                initial={{ scale: 0.95, opacity: 0, y: 10 }}
+                animate={{ scale: 1, opacity: 1, y: 0 }}
+                exit={{ scale: 0.95, opacity: 0, y: 10 }}
+                transition={{ duration: 0.18, ease: "easeOut" }}
+                className="bg-bg-surface border border-border/80 rounded-2xl max-w-2xl w-full max-h-[85vh] p-6 sm:p-7 shadow-2xl relative flex flex-col my-auto"
+                onClick={(e) => e.stopPropagation()}
+              >
+                {/* Header */}
+                <div className="flex items-start justify-between border-b border-border/60 pb-4 shrink-0">
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2">
+                      <span className="text-[10px] font-mono font-black uppercase px-2 py-0.5 rounded bg-accent/20 text-accent border border-accent/30">
+                        {selectedToolkitDim.dimension_code}
+                      </span>
+                      <span className="text-xs font-mono text-text-secondary">Diagnostic Dimension Toolkit</span>
+                    </div>
+                    <h3 className="text-lg font-black text-text-primary uppercase tracking-tight">
+                      {selectedToolkitDim.dimension_name}
+                    </h3>
                   </div>
-                  <h3 className="text-lg font-black text-text-primary uppercase tracking-tight">
-                    {selectedToolkitDim.dimension_name}
-                  </h3>
-                </div>
-                {/* Close Button on the Toolkit */}
-                <button
-                  type="button"
-                  onClick={() => setSelectedToolkitDim(null)}
-                  className="p-1.5 rounded-lg border border-border text-text-secondary hover:text-text-primary hover:bg-bg-primary transition-all cursor-pointer"
-                  title="Close Toolkit"
-                >
-                  <X className="w-5 h-5" />
-                </button>
-              </div>
-
-              {/* Metrics Row */}
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                <div className="p-3 bg-bg-primary rounded-xl border border-border/40">
-                  <span className="text-[9px] font-mono uppercase text-text-secondary block">Assessment</span>
-                  <span className={`text-sm font-black uppercase mt-0.5 block ${
-                    selectedToolkitDim.assessment === 'Strong' ? 'text-emerald-500' :
-                    selectedToolkitDim.assessment === 'Moderate' ? 'text-amber-500' : 'text-red-500'
-                  }`}>
-                    {selectedToolkitDim.assessment}
-                  </span>
+                  {/* Close Button on the Toolkit */}
+                  <button
+                    type="button"
+                    onClick={() => setSelectedToolkitDim(null)}
+                    className="p-1.5 rounded-lg border border-border text-text-secondary hover:text-text-primary hover:bg-bg-primary transition-all cursor-pointer"
+                    title="Close Toolkit"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
                 </div>
 
-                <div className="p-3 bg-bg-primary rounded-xl border border-border/40">
-                  <span className="text-[9px] font-mono uppercase text-text-secondary block">Score</span>
-                  <span className="text-sm font-black font-mono text-text-primary mt-0.5 block">
-                    {selectedToolkitDim.score} <span className="text-[10px] text-text-secondary">/100</span>
-                  </span>
+                {/* Scrollable Content Container */}
+                <div className="flex-1 overflow-y-auto space-y-4 pr-1.5 custom-scrollbar-vertical mt-4">
+                  {/* Metrics Row */}
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                    <div className="p-3 bg-bg-primary rounded-xl border border-border/40">
+                      <span className="text-[9px] font-mono uppercase text-text-secondary block">Assessment</span>
+                      <span className={`text-sm font-black uppercase mt-0.5 block ${
+                        selectedToolkitDim.assessment === 'Strong' ? 'text-emerald-500' :
+                        selectedToolkitDim.assessment === 'Moderate' ? 'text-amber-500' : 'text-red-500'
+                      }`}>
+                        {selectedToolkitDim.assessment}
+                      </span>
+                    </div>
+
+                    <div className="p-3 bg-bg-primary rounded-xl border border-border/40">
+                      <span className="text-[9px] font-mono uppercase text-text-secondary block">Score</span>
+                      <span className="text-sm font-black font-mono text-text-primary mt-0.5 block">
+                        {selectedToolkitDim.score} <span className="text-[10px] text-text-secondary">/100</span>
+                      </span>
+                    </div>
+
+                    <div className="p-3 bg-bg-primary rounded-xl border border-border/40">
+                      <span className="text-[9px] font-mono uppercase text-text-secondary block">Confidence</span>
+                      <span className="text-sm font-black font-mono text-text-primary mt-0.5 block">
+                        {selectedToolkitDim.confidence}%
+                      </span>
+                    </div>
+
+                    <div className="p-3 bg-bg-primary rounded-xl border border-border/40">
+                      <span className="text-[9px] font-mono uppercase text-text-secondary block">Evidence Strength</span>
+                      <span className="text-xs font-bold text-accent mt-0.5 block truncate" title={selectedToolkitDim.evidence_strength}>
+                        {selectedToolkitDim.evidence_strength}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Data Items as requested: Key Evidence, Evidence Gaps, Risks, AI Reasoning, Recommended Action */}
+                  <div className="space-y-3.5 text-xs">
+                    <div className="p-3.5 rounded-xl bg-bg-primary/70 border border-border/40">
+                      <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-emerald-500 block mb-1">
+                        Key Evidence:
+                      </span>
+                      <p className="text-text-primary font-medium leading-relaxed">
+                        {selectedToolkitDim.key_evidence}
+                      </p>
+                    </div>
+
+                    <div className="p-3.5 rounded-xl bg-bg-primary/70 border border-border/40">
+                      <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-amber-500 block mb-1">
+                        Evidence Gaps (Missing):
+                      </span>
+                      <p className="text-text-secondary font-medium leading-relaxed">
+                        {selectedToolkitDim.evidence_gaps}
+                      </p>
+                    </div>
+
+                    <div className="p-3.5 rounded-xl bg-bg-primary/70 border border-border/40">
+                      <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-red-500 block mb-1">
+                        Risks:
+                      </span>
+                      <p className="text-text-secondary font-medium leading-relaxed">
+                        {selectedToolkitDim.risks}
+                      </p>
+                    </div>
+
+                    <div className="p-3.5 rounded-xl bg-bg-primary/70 border border-border/40">
+                      <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-accent block mb-1">
+                        AI Reasoning:
+                      </span>
+                      <p className="text-text-secondary font-medium leading-relaxed">
+                        {selectedToolkitDim.ai_reasoning}
+                      </p>
+                    </div>
+
+                    <div className="p-3.5 rounded-xl bg-accent/5 border border-accent/20">
+                      <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-accent block mb-1">
+                        Recommended Action:
+                      </span>
+                      <p className="text-text-primary font-semibold leading-relaxed">
+                        {selectedToolkitDim.recommended_action}
+                      </p>
+                    </div>
+                  </div>
                 </div>
 
-                <div className="p-3 bg-bg-primary rounded-xl border border-border/40">
-                  <span className="text-[9px] font-mono uppercase text-text-secondary block">Confidence</span>
-                  <span className="text-sm font-black font-mono text-text-primary mt-0.5 block">
-                    {selectedToolkitDim.confidence}%
-                  </span>
+                {/* Close Action in Footer */}
+                <div className="flex justify-end pt-4 mt-2 border-t border-border/40 shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => setSelectedToolkitDim(null)}
+                    className="px-5 py-2 bg-accent hover:bg-accent-hover text-black font-black uppercase text-xs rounded-xl transition-all cursor-pointer"
+                  >
+                    Close Toolkit
+                  </button>
                 </div>
-
-                <div className="p-3 bg-bg-primary rounded-xl border border-border/40">
-                  <span className="text-[9px] font-mono uppercase text-text-secondary block">Evidence Strength</span>
-                  <span className="text-xs font-bold text-accent mt-0.5 block truncate" title={selectedToolkitDim.evidence_strength}>
-                    {selectedToolkitDim.evidence_strength}
-                  </span>
-                </div>
-              </div>
-
-              {/* Data Items as requested: Key Evidence, Evidence Gaps, Risks, AI Reasoning, Recommended Action */}
-              <div className="space-y-3.5 text-xs">
-                <div className="p-3.5 rounded-xl bg-bg-primary/70 border border-border/40">
-                  <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-emerald-500 block mb-1">
-                    Key Evidence:
-                  </span>
-                  <p className="text-text-primary font-medium leading-relaxed">
-                    {selectedToolkitDim.key_evidence}
-                  </p>
-                </div>
-
-                <div className="p-3.5 rounded-xl bg-bg-primary/70 border border-border/40">
-                  <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-amber-500 block mb-1">
-                    Evidence Gaps (Missing):
-                  </span>
-                  <p className="text-text-secondary font-medium leading-relaxed">
-                    {selectedToolkitDim.evidence_gaps}
-                  </p>
-                </div>
-
-                <div className="p-3.5 rounded-xl bg-bg-primary/70 border border-border/40">
-                  <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-red-500 block mb-1">
-                    Risks:
-                  </span>
-                  <p className="text-text-secondary font-medium leading-relaxed">
-                    {selectedToolkitDim.risks}
-                  </p>
-                </div>
-
-                <div className="p-3.5 rounded-xl bg-bg-primary/70 border border-border/40">
-                  <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-accent block mb-1">
-                    AI Reasoning:
-                  </span>
-                  <p className="text-text-secondary font-medium leading-relaxed">
-                    {selectedToolkitDim.ai_reasoning}
-                  </p>
-                </div>
-
-                <div className="p-3.5 rounded-xl bg-accent/5 border border-accent/20">
-                  <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-accent block mb-1">
-                    Recommended Action:
-                  </span>
-                  <p className="text-text-primary font-semibold leading-relaxed">
-                    {selectedToolkitDim.recommended_action}
-                  </p>
-                </div>
-              </div>
-
-              {/* Close Action in Footer */}
-              <div className="flex justify-end pt-2 border-t border-border/40">
-                <button
-                  type="button"
-                  onClick={() => setSelectedToolkitDim(null)}
-                  className="px-5 py-2 bg-accent hover:bg-accent-hover text-black font-black uppercase text-xs rounded-xl transition-all cursor-pointer"
-                >
-                  Close Toolkit
-                </button>
-              </div>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
+              </motion.div>
+            </div>
+          )}
+        </AnimatePresence>,
+        document.body
+      )}
 
       {/* 3. Detailed Question-Level AI Signal Audits (Folded section by default) */}
       <div className="bg-bg-surface border border-border/40 rounded-2xl overflow-hidden shadow-sm">
@@ -1402,11 +1477,11 @@ export const OpportunityQualificaitonResult: React.FC<OpportunityQualificaitonRe
               />
             </div>
 
-            {/* Success message banner */}
+            {/* Success message banner - permanently displayed at the left side of this button */}
             {isSuccessfullyPromoted && (
               <div className="flex items-center gap-2 text-emerald-500 font-bold text-xs font-sans animate-fade-in bg-emerald-500/10 px-3 py-1.5 rounded-lg border border-emerald-500/30">
                 <CheckCircle className="w-4 h-4 fill-current text-emerald-500" />
-                <span>Successfully promoted this SQL to Opportunity.</span>
+                <span>Successfully promoted this opportunity to Opportunity.</span>
               </div>
             )}
           </div>
@@ -1416,14 +1491,14 @@ export const OpportunityQualificaitonResult: React.FC<OpportunityQualificaitonRe
             type="button"
             onClick={handlePromoteClick}
             disabled={!isEligibleForPromotion || isSuccessfullyPromoted || isPromoting}
-            className={`px-6 py-3 font-sans font-bold text-xs uppercase tracking-wider transition-all duration-150 flex items-center justify-center gap-2 rounded-xl shadow-lg shrink-0 ${
+            className={`group relative px-6 py-3 font-sans font-bold text-xs uppercase tracking-wider transition-all duration-150 flex items-center justify-center gap-2 rounded-xl shadow-lg shrink-0 ${
               isSuccessfullyPromoted
                 ? "bg-emerald-600 hover:bg-emerald-600 text-white border border-emerald-500 shadow-emerald-600/30 cursor-not-allowed"
                 : isEligibleForPromotion
                 ? "bg-accent hover:opacity-90 active:scale-[0.98] text-white shadow-accent/25 cursor-pointer"
                 : "bg-neutral-300 dark:bg-neutral-800 text-neutral-400 dark:text-neutral-500 cursor-not-allowed shadow-none border-none"
             }`}
-            title={isSuccessfullyPromoted ? "This opportunity is already promoted" : undefined}
+            title={isSuccessfullyPromoted ? "This opportunity is already promoted to Opportunity" : undefined}
           >
             {isPromoting ? (
               <>
@@ -1432,7 +1507,10 @@ export const OpportunityQualificaitonResult: React.FC<OpportunityQualificaitonRe
               </>
             ) : isSuccessfullyPromoted ? (
               <>
-                <Ban className="w-4 h-4 text-white" />
+                <span className="relative flex items-center justify-center">
+                  <CheckCircle className="w-4 h-4 text-white group-hover:hidden transition-opacity" />
+                  <Ban className="w-4 h-4 text-white hidden group-hover:block transition-opacity" />
+                </span>
                 <span>Promoted to Opportunity</span>
               </>
             ) : (

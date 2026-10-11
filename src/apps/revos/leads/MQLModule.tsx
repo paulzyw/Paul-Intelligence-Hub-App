@@ -243,6 +243,13 @@ export const MQLModule: React.FC = () => {
             initialLeadData = { ...lead, ...JSON.parse(isolated) };
           } catch (e) {}
         }
+      } else if (columnType === 'opp') {
+        const isolated = localStorage.getItem(`opp_isolated_card_edits_${lead.id}`);
+        if (isolated) {
+          try {
+            initialLeadData = { ...lead, ...JSON.parse(isolated) };
+          } catch (e) {}
+        }
       }
       
       setNewLead({
@@ -261,10 +268,8 @@ export const MQLModule: React.FC = () => {
       });
       
       // Isolate lead column clicks from mql, sql, and opp column clicks.
-      // Clicks on the 'sql' column cards go to the dedicated SQL to Opportunity qualification flow.
-      // Clicks on these cards go to the new MQL-to-SQL details and Opportunity Form page (sql_handover view) if qualified or already promoted.
-      // Clicks on the 'lead' column cards or any other source always go to the original lead creation / MQL qualification engine view (lead_create).
-      if (columnType === 'sql') {
+      // Clicks on the 'sql' and 'opp' column cards go to the dedicated SQL to Opportunity qualification flow.
+      if (columnType === 'sql' || columnType === 'opp') {
         try {
           let opp = await SQLDataService.getOpportunityByMqlId(lead.id);
           if (!opp) {
@@ -292,7 +297,7 @@ export const MQLModule: React.FC = () => {
         } catch (err) {
           console.error("Failed to load/create OQ opportunity:", err);
         }
-      } else if (columnType === 'mql' || columnType === 'opp') {
+      } else if (columnType === 'mql') {
         const isPromotedInDb = await PromotionDataService.isLeadPromoted(lead.id);
         const isPromoted = lead.status === 'SQL' || isPromotedInDb;
 
@@ -2026,13 +2031,13 @@ export const MQLModule: React.FC = () => {
         </div>
       </div>
 
-      {/* Horizontal rolling workflow timeline stepper (Campaign Canvas, Lead Canvas, Lead Dashboard, Opportunity Qualification) */}
+      {/* Horizontal rolling workflow timeline stepper (Campaign Canvas, Lead Canvas, Lead Dashboard) */}
       <div className="p-4 rounded-2xl bg-bg-surface/60 border border-border/80 shadow relative">
         <div className="flex items-center justify-between pointer-events-none mb-3 border-b border-border/40 pb-2">
           <span className="text-[10px] font-mono text-text-secondary uppercase">Unified qualification lifecycle sequence</span>
           <span className="text-xs font-bold text-accent">
             Active qualification step: {
-              activeTab === 'campaign' ? '1 / 4' : (activeTab === 'lead_canvas' || activeTab === 'lead') ? '2 / 4' : activeTab === 'dashboard' ? '3 / 4' : '4 / 4'
+              activeTab === 'campaign' ? '1 / 3' : (activeTab === 'lead_canvas' || activeTab === 'lead') ? '2 / 3' : '3 / 3'
             }
           </span>
         </div>
@@ -2073,18 +2078,6 @@ export const MQLModule: React.FC = () => {
           >
             <span className="font-mono">3.</span>
             <span>Lead Dashboard</span>
-          </button>
-
-          <button
-            onClick={() => handleTabChange('opportunity_qualification')}
-            className={`inline-flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl border text-[10px] sm:text-xs font-bold uppercase transition-all shrink-0 cursor-pointer ${
-              activeTab === 'opportunity_qualification'
-                ? 'bg-accent border-accent text-black font-black scale-105 shadow-md shadow-accent/15'
-                : 'bg-bg-primary/50 border-border/70 text-text-secondary hover:text-text-primary hover:border-text-secondary/40'
-            }`}
-          >
-            <span className="font-mono">4.</span>
-            <span>Opportunity Qualification</span>
           </button>
         </div>
       </div>

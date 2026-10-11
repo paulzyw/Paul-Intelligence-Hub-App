@@ -422,6 +422,202 @@ export class OpportunityDataService {
     return null;
   }
 
+  /**
+   * Get Estimated Revenue map for all opportunities/leads from Opportunity Form records
+   * Sums up or queries the canonical "Estimated Revenue" defined in the Opportunity Form.
+   */
+  static async getOpportunityEstimatedRevenuesMap(): Promise<Record<string, number>> {
+    const revenueMap: Record<string, number> = {};
+
+    const parseNum = (val: any): number => {
+      if (!val) return 0;
+      const clean = String(val).replace(/[^0-9.]/g, '');
+      const num = parseFloat(clean);
+      return isNaN(num) ? 0 : num;
+    };
+
+    try {
+      // 1. Fetch opportunities (reads description JSON with estimated_revenue)
+      const { data: opps } = await supabase
+        .from('opportunities')
+        .select('id, mql_reference_id, description');
+
+      (opps || []).forEach((opp: any) => {
+        let rev: string | null = null;
+        if (opp.description && opp.description.trim().startsWith('{')) {
+          try {
+            const desc = JSON.parse(opp.description);
+            if (desc.estimated_revenue) rev = desc.estimated_revenue;
+          } catch (e) {}
+        }
+        if (rev) {
+          const num = parseNum(rev);
+          revenueMap[opp.id] = num;
+          if (opp.mql_reference_id) {
+            revenueMap[opp.mql_reference_id] = num;
+          }
+        }
+      });
+    } catch (e) {
+      console.warn('Error fetching opportunities for revenue map:', e);
+    }
+
+    try {
+      // 2. Fetch opportunity_sql_handover_details
+      const { data: handovers } = await supabase
+        .from('opportunity_sql_handover_details')
+        .select('opportunity_id, editable_fields');
+
+      (handovers || []).forEach((h: any) => {
+        const rev = h.editable_fields?.estimated_revenue;
+        if (rev) {
+          const num = parseNum(rev);
+          revenueMap[h.opportunity_id] = num;
+        }
+      });
+    } catch (e) {
+      console.warn('Error fetching handover details for revenue map:', e);
+    }
+
+    try {
+      // 3. Fetch opportunity_form_records (highest priority canonical source)
+      const { data: formRecords } = await supabase
+        .from('opportunity_form_records')
+        .select('opportunity_id, estimated_revenue');
+
+      (formRecords || []).forEach((f: any) => {
+        if (f.estimated_revenue) {
+          const num = parseNum(f.estimated_revenue);
+          revenueMap[f.opportunity_id] = num;
+        }
+      });
+    } catch (e) {
+      console.warn('Error fetching form records for revenue map:', e);
+    }
+
+    try {
+      // 4. Also map by lead_id from sql_opportunity_promotions
+      const { data: promos } = await supabase
+        .from('sql_opportunity_promotions')
+        .select('lead_id, opportunity_id');
+
+      (promos || []).forEach((p: any) => {
+        if (p.opportunity_id && revenueMap[p.opportunity_id] && p.lead_id) {
+          revenueMap[p.lead_id] = revenueMap[p.opportunity_id];
+        }
+      });
+    } catch (e) {}
+
+    try {
+      // 5. Also map by lead_id from mql_sql_promotions
+      const { data: mqlPromos } = await supabase
+        .from('mql_sql_promotions')
+        .select('lead_id, opportunity_id');
+
+      (mqlPromos || []).forEach((p: any) => {
+        if (p.opportunity_id && revenueMap[p.opportunity_id] && p.lead_id) {
+          revenueMap[p.lead_id] = revenueMap[p.opportunity_id];
+        }
+      });
+    } catch (e) {}
+
+    return revenueMap;
+  }
+
+  /**
+   * Fetches opportunity names map indexed by both opportunity_id and lead_id.
+   */
+  static async getOpportunityNamesMap(): Promise<Record<string, string>> {
+    const nameMap: Record<string, string> = {};
+
+    try {
+      // 1. Fetch opportunities
+      const { data: opps } = await supabase
+        .from('opportunities')
+        .select('id, mql_reference_id, opportunity_name, description, company_name');
+
+      (opps || []).forEach((opp: any) => {
+        let name = opp.opportunity_name;
+        if (!name && opp.description && opp.description.trim().startsWith('{')) {
+          try {
+            const desc = JSON.parse(opp.description);
+            if (desc.opportunity_name) name = desc.opportunity_name;
+          } catch (e) {}
+        }
+        if (!name && opp.company_name) {
+          name = `${opp.company_name} Opportunity`;
+        }
+        if (name) {
+          nameMap[opp.id] = name;
+          if (opp.mql_reference_id) {
+            nameMap[opp.mql_reference_id] = name;
+          }
+        }
+      });
+    } catch (e) {
+      console.warn('Error fetching opportunities for name map:', e);
+    }
+
+    try {
+      // 2. Fetch opportunity_sql_handover_details
+      const { data: handovers } = await supabase
+        .from('opportunity_sql_handover_details')
+        .select('opportunity_id, editable_fields');
+
+      (handovers || []).forEach((h: any) => {
+        const name = h.editable_fields?.opportunity_name;
+        if (name) {
+          nameMap[h.opportunity_id] = name;
+        }
+      });
+    } catch (e) {
+      console.warn('Error fetching handover details for name map:', e);
+    }
+
+    try {
+      // 3. Fetch opportunity_form_records
+      const { data: formRecords } = await supabase
+        .from('opportunity_form_records')
+        .select('opportunity_id, opportunity_name');
+
+      (formRecords || []).forEach((f: any) => {
+        if (f.opportunity_name) {
+          nameMap[f.opportunity_id] = f.opportunity_name;
+        }
+      });
+    } catch (e) {
+      console.warn('Error fetching form records for name map:', e);
+    }
+
+    try {
+      // 4. Map lead_id via sql_opportunity_promotions
+      const { data: promos } = await supabase
+        .from('sql_opportunity_promotions')
+        .select('lead_id, opportunity_id');
+
+      (promos || []).forEach((p: any) => {
+        if (p.opportunity_id && nameMap[p.opportunity_id] && p.lead_id) {
+          nameMap[p.lead_id] = nameMap[p.opportunity_id];
+        }
+      });
+    } catch (e) {}
+
+    try {
+      // 5. Map lead_id via mql_sql_promotions
+      const { data: mqlPromos } = await supabase
+        .from('mql_sql_promotions')
+        .select('lead_id, opportunity_id');
+
+      (mqlPromos || []).forEach((p: any) => {
+        if (p.opportunity_id && nameMap[p.opportunity_id] && p.lead_id) {
+          nameMap[p.lead_id] = nameMap[p.opportunity_id];
+        }
+      });
+    } catch (e) {}
+
+    return nameMap;
+  }
+
   static async saveOpportunityFormData(opportunityId: string, formData: {
     company_name: string;
     opportunity_name: string;

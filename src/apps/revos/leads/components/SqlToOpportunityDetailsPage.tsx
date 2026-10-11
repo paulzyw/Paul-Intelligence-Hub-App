@@ -1104,6 +1104,7 @@ export const SqlToOpportunityDetailsPage: React.FC<SqlToOpportunityDetailsPagePr
                   key={qualificationRunKey}
                   result={liveQualificationResult}
                   opportunityId={opportunity.id}
+                  leadId={opportunity?.mql_reference_id || opportunity?.lead_id}
                   opportunity={{
                     ...opportunity,
                     company_name: companyName,

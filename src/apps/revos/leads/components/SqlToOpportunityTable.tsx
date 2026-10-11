@@ -1,7 +1,8 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { SQLOpportunity } from '../../types/sql';
 import { OpportunitySession } from '../../types/opportunity_qualification';
-import { Search, ChevronRight, BadgeCheck, AlertTriangle, AlertCircle, Play, Calendar, User, Clock, Layers } from 'lucide-react';
+import { Search, ChevronRight, BadgeCheck, AlertTriangle, AlertCircle, Play, Calendar, User, Clock, Layers, Table as TableIcon, LayoutGrid, CheckCircle2, XCircle } from 'lucide-react';
+import { PromotionDataService } from '../services/promotionDataService';
 
 interface SqlToOpportunityTableProps {
   opportunities: SQLOpportunity[];
@@ -18,6 +19,38 @@ export const SqlToOpportunityTable: React.FC<SqlToOpportunityTableProps> = ({
   searchQuery,
   onSearchChange
 }) => {
+  const [viewMode, setViewMode] = useState<'table' | 'grid'>('table');
+  const [promotedLeadIds, setPromotedLeadIds] = useState<string[]>([]);
+  const [promotedOppIds, setPromotedOppIds] = useState<string[]>([]);
+
+  // Query sql_opportunity_promotions from Supabase
+  useEffect(() => {
+    let isMounted = true;
+    const fetchPromotions = async () => {
+      try {
+        const [leadIds, oppIds] = await Promise.all([
+          PromotionDataService.getSqlOpportunityPromotedLeadIds(),
+          PromotionDataService.getSqlOpportunityPromotedOppIds()
+        ]);
+        if (isMounted) {
+          setPromotedLeadIds(leadIds);
+          setPromotedOppIds(oppIds);
+        }
+      } catch (err) {
+        console.error("Failed to query sql_opportunity_promotions:", err);
+      }
+    };
+    fetchPromotions();
+    return () => { isMounted = false; };
+  }, []);
+
+  const isOpportunityPromoted = (opp: SQLOpportunity) => {
+    if (promotedOppIds.includes(opp.id)) return true;
+    if (opp.mql_reference_id && promotedLeadIds.includes(opp.mql_reference_id)) return true;
+    if (sessions[opp.id]?.is_promoted) return true;
+    return false;
+  };
+
   // Parse description JSON/string
   const getOppDetails = (desc?: string) => {
     if (!desc) {
@@ -120,8 +153,8 @@ export const SqlToOpportunityTable: React.FC<SqlToOpportunityTableProps> = ({
 
   return (
     <div className="space-y-4">
-      {/* Search Header */}
-      <div className="flex justify-between items-center bg-white p-4 rounded-xl border border-zinc-200/60 shadow-sm">
+      {/* Search & View Mode Header */}
+      <div className="flex flex-col sm:flex-row justify-between items-stretch sm:items-center bg-white p-4 rounded-xl border border-zinc-200/60 shadow-sm gap-3">
         <div className="relative w-full max-w-md">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400" />
           <input
@@ -132,12 +165,44 @@ export const SqlToOpportunityTable: React.FC<SqlToOpportunityTableProps> = ({
             className="w-full pl-9 pr-4 py-2 bg-zinc-50 border border-zinc-200 hover:border-zinc-300 focus:border-zinc-500 rounded-xl text-xs focus:outline-none transition-all"
           />
         </div>
-        <div className="text-xs text-zinc-500 font-medium">
-          Found <span className="font-bold text-zinc-800">{filteredOpps.length}</span> opportunities in pipeline
+
+        <div className="flex items-center justify-between sm:justify-end gap-3">
+          <div className="text-xs text-zinc-500 font-medium">
+            Found <span className="font-bold text-zinc-800">{filteredOpps.length}</span> opportunities
+          </div>
+
+          {/* Toggle between Table and Grid */}
+          <div className="flex items-center bg-zinc-100 p-0.5 rounded-lg border border-zinc-200/60">
+            <button
+              type="button"
+              onClick={() => setViewMode('table')}
+              className={`p-1.5 rounded-md text-xs font-bold transition-all flex items-center gap-1.5 ${
+                viewMode === 'table'
+                  ? 'bg-white text-zinc-900 shadow-xs'
+                  : 'text-zinc-500 hover:text-zinc-800'
+              }`}
+              title="Opportunity Handover Table"
+            >
+              <TableIcon className="h-3.5 w-3.5" />
+              <span className="hidden sm:inline">Table</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setViewMode('grid')}
+              className={`p-1.5 rounded-md text-xs font-bold transition-all flex items-center gap-1.5 ${
+                viewMode === 'grid'
+                  ? 'bg-white text-zinc-900 shadow-xs'
+                  : 'text-zinc-500 hover:text-zinc-800'
+              }`}
+              title="Grid View"
+            >
+              <LayoutGrid className="h-3.5 w-3.5" />
+              <span className="hidden sm:inline">Cards</span>
+            </button>
+          </div>
         </div>
       </div>
 
-      {/* Grid List */}
       {filteredOpps.length === 0 ? (
         <div className="p-12 text-center bg-white border border-dashed border-zinc-200 rounded-2xl">
           <AlertCircle className="h-10 w-10 mx-auto mb-3 text-zinc-400 opacity-60" />
@@ -146,12 +211,97 @@ export const SqlToOpportunityTable: React.FC<SqlToOpportunityTableProps> = ({
             Try adjusting your search filters or check the Lead Canvas to qualify and promote more leads.
           </p>
         </div>
+      ) : viewMode === 'table' ? (
+        /* Opportunity Handover Table */
+        <div className="bg-white rounded-2xl border border-zinc-200/80 shadow-xs overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse">
+              <thead>
+                <tr className="bg-zinc-50/80 border-b border-zinc-200 text-[11px] font-bold text-zinc-500 uppercase tracking-wider select-none">
+                  <th className="py-3.5 px-4 font-black">Opportunity & Account</th>
+                  <th className="py-3.5 px-4 font-black">Motion & Industry</th>
+                  <th className="py-3.5 px-4 font-black">Owner</th>
+                  <th className="py-3.5 px-4 font-black">Est. Revenue</th>
+                  <th className="py-3.5 px-4 font-black text-center">Promoted</th>
+                  <th className="py-3.5 px-4 font-black text-right">OQ Status</th>
+                  <th className="py-3.5 px-4 text-center w-10"></th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-zinc-100 text-xs">
+                {filteredOpps.map(opp => {
+                  const details = getOppDetails(opp.description);
+                  const session = sessions[opp.id];
+                  const isPromoted = isOpportunityPromoted(opp);
+
+                  return (
+                    <tr
+                      key={opp.id}
+                      onClick={() => onSelect(opp)}
+                      className={`hover:bg-zinc-50/80 transition-colors cursor-pointer group ${
+                        isPromoted ? 'bg-emerald-50/20' : ''
+                      }`}
+                    >
+                      <td className="py-3.5 px-4">
+                        <div className="font-bold text-zinc-900 group-hover:text-zinc-600 transition-colors flex items-center gap-1.5">
+                          {opp.opportunity_name || `${opp.company_name} Opportunity`}
+                        </div>
+                        <div className="text-[11px] font-medium text-zinc-500 mt-0.5">
+                          {opp.company_name}
+                        </div>
+                      </td>
+
+                      <td className="py-3.5 px-4">
+                        <span className="inline-block text-[10px] font-bold uppercase text-zinc-600 bg-zinc-100 px-2 py-0.5 rounded border border-zinc-200">
+                          {opp.revenue_motion || 'Digital Solution Selling'}
+                        </span>
+                        <div className="text-[11px] text-zinc-400 mt-1 truncate max-w-[150px]">
+                          {opp.industry || 'Enterprise Software'}
+                        </div>
+                      </td>
+
+                      <td className="py-3.5 px-4 text-zinc-700 font-medium">
+                        {details.owner}
+                      </td>
+
+                      <td className="py-3.5 px-4 font-mono font-bold text-zinc-900">
+                        {details.estimated_revenue !== '—' ? details.estimated_revenue : '$150,000'}
+                      </td>
+
+                      {/* Promoted Column: Displays Yes if the lead is in sql_opportunity_promotions, and No otherwise */}
+                      <td className="py-3.5 px-4 text-center">
+                        {isPromoted ? (
+                          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 shadow-xs">
+                            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                            Yes
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold bg-zinc-100 text-zinc-500 border border-zinc-200">
+                            No
+                          </span>
+                        )}
+                      </td>
+
+                      <td className="py-3.5 px-4 text-right">
+                        {getStatusBadge(session?.qualification_status)}
+                      </td>
+
+                      <td className="py-3.5 px-4 text-center">
+                        <ChevronRight className="h-4 w-4 text-zinc-400 group-hover:text-zinc-700 group-hover:translate-x-0.5 transition-all inline-block" />
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
       ) : (
+        /* Grid List View */
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
           {filteredOpps.map(opp => {
             const details = getOppDetails(opp.description);
             const session = sessions[opp.id];
-            const isPromoted = session?.is_promoted;
+            const isPromoted = isOpportunityPromoted(opp);
 
             return (
               <div
@@ -181,7 +331,7 @@ export const SqlToOpportunityTable: React.FC<SqlToOpportunityTableProps> = ({
                     {details.description}
                   </p>
 
-                  <div className="flex flex-wrap gap-1.5 mt-4">
+                  <div className="flex flex-wrap gap-1.5 mt-4 items-center">
                     {details.owner !== 'Unassigned' && (
                       <div className="flex items-center gap-1 bg-zinc-50 px-2 py-0.5 rounded-md border border-zinc-150">
                         <User className="h-3 w-3 text-zinc-400" />
@@ -197,11 +347,13 @@ export const SqlToOpportunityTable: React.FC<SqlToOpportunityTableProps> = ({
                         </span>
                       </div>
                     )}
-                    {isPromoted && (
-                      <span className="inline-flex bg-emerald-100 text-emerald-800 text-[9px] font-black px-2 py-0.5 rounded-md border border-emerald-200">
-                        PROMOTED PIPELINE
-                      </span>
-                    )}
+                    <span className={`inline-flex items-center gap-1 text-[9px] font-black px-2 py-0.5 rounded-md border ${
+                      isPromoted
+                        ? 'bg-emerald-100 text-emerald-800 border-emerald-200'
+                        : 'bg-zinc-100 text-zinc-600 border-zinc-200'
+                    }`}>
+                      Promoted: {isPromoted ? 'Yes' : 'No'}
+                    </span>
                   </div>
                 </div>
 
@@ -225,3 +377,4 @@ export const SqlToOpportunityTable: React.FC<SqlToOpportunityTableProps> = ({
     </div>
   );
 };
+export default SqlToOpportunityTable;
