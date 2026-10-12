@@ -1,380 +1,834 @@
 import React, { useState, useEffect } from 'react';
 import { SQLOpportunity } from '../../types/sql';
 import { OpportunitySession } from '../../types/opportunity_qualification';
-import { Search, ChevronRight, BadgeCheck, AlertTriangle, AlertCircle, Play, Calendar, User, Clock, Layers, Table as TableIcon, LayoutGrid, CheckCircle2, XCircle } from 'lucide-react';
+import { MQLLead } from '../../types/mql';
 import { PromotionDataService } from '../services/promotionDataService';
+import { OpportunityDataService } from '../services/opportunityDataService';
+import { SQLDataService } from '../services/sqlDataService';
+import { Search, Download, Trash, Trash2, RefreshCw, ArrowLeft } from 'lucide-react';
 
-interface SqlToOpportunityTableProps {
-  opportunities: SQLOpportunity[];
-  sessions: Record<string, OpportunitySession>;
-  onSelect: (opp: SQLOpportunity) => void;
-  searchQuery: string;
-  onSearchChange: (query: string) => void;
+const MiniScorePieChart: React.FC<{ score: number; status?: string }> = ({ score, status }) => {
+  const roundedScore = Math.round(score);
+  const size = 26;
+  const strokeWidth = 2.5;
+  const radius = (size - strokeWidth) / 2;
+  const circumference = 2 * Math.PI * radius;
+  const offset = circumference - (Math.min(Math.max(roundedScore, 0), 100) / 100) * circumference;
+
+  let strokeClass = "stroke-emerald-500";
+  if (status) {
+    const s = status.toLowerCase();
+    if (s.includes('qualified') && !s.includes('conditionally') && !s.includes('conditional')) {
+      strokeClass = "stroke-emerald-500";
+    } else if (s.includes('disqualified')) {
+      strokeClass = "stroke-red-500";
+    } else if (s.includes('conditionally') || s.includes('conditional') || s.includes('gaps')) {
+      strokeClass = "stroke-amber-500";
+    } else {
+      strokeClass = "stroke-text-secondary/40";
+    }
+  } else {
+    if (roundedScore >= 70) {
+      strokeClass = "stroke-emerald-500";
+    } else if (roundedScore >= 40) {
+      strokeClass = "stroke-amber-500";
+    } else if (roundedScore > 0) {
+      strokeClass = "stroke-red-500";
+    } else {
+      strokeClass = "stroke-text-secondary/40";
+    }
+  }
+
+  return (
+    <div className="flex items-center gap-1.5 select-none" onClick={(e) => e.stopPropagation()}>
+      <div className="relative inline-flex items-center justify-center shrink-0" style={{ width: size, height: size }}>
+        <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} className="-rotate-90">
+          <circle
+            className="stroke-border dark:stroke-border/40"
+            cx={size / 2}
+            cy={size / 2}
+            r={radius}
+            fill="transparent"
+            strokeWidth={strokeWidth}
+          />
+          <circle
+            className={strokeClass}
+            cx={size / 2}
+            cy={size / 2}
+            r={radius}
+            fill="transparent"
+            strokeWidth={strokeWidth}
+            strokeDasharray={circumference}
+            strokeDashoffset={offset}
+            strokeLinecap="round"
+          />
+        </svg>
+        <span className="absolute text-[8.5px] font-black font-sans text-text-primary leading-none">
+          {roundedScore}
+        </span>
+      </div>
+    </div>
+  );
+};
+
+export interface SqlToOpportunityTableProps {
+  opportunities?: SQLOpportunity[];
+  sessions?: Record<string, OpportunitySession>;
+  leads?: MQLLead[];
+  sqlLeads?: MQLLead[];
+  onSelect?: (opp: SQLOpportunity) => void;
+  onBack?: () => void;
+  onLeadSelect?: (lead: MQLLead, columnType?: 'lead' | 'mql' | 'sql' | 'opp') => void;
+  searchQuery?: string;
+  onSearchChange?: (query: string) => void;
 }
 
 export const SqlToOpportunityTable: React.FC<SqlToOpportunityTableProps> = ({
-  opportunities,
-  sessions,
+  opportunities: propOpportunities,
+  sessions: propSessions,
+  leads: propLeads = [],
+  sqlLeads: propSqlLeads = [],
   onSelect,
-  searchQuery,
-  onSearchChange
+  onBack,
+  onLeadSelect,
+  searchQuery: externalSearchQuery,
+  onSearchChange: externalOnSearchChange
 }) => {
-  const [viewMode, setViewMode] = useState<'table' | 'grid'>('table');
-  const [promotedLeadIds, setPromotedLeadIds] = useState<string[]>([]);
-  const [promotedOppIds, setPromotedOppIds] = useState<string[]>([]);
+  const [internalOpportunities, setInternalOpportunities] = useState<SQLOpportunity[]>([]);
+  const [internalSessions, setInternalSessions] = useState<Record<string, OpportunitySession>>({});
+  const [loading, setLoading] = useState(true);
+  
+  // Search query state
+  const [internalSearchQuery, setInternalSearchQuery] = useState('');
+  const isSearchControlled = externalSearchQuery !== undefined;
+  const searchQuery = isSearchControlled ? externalSearchQuery : internalSearchQuery;
+  const setSearchQuery = (val: string) => {
+    if (externalOnSearchChange) {
+      externalOnSearchChange(val);
+    }
+    if (!isSearchControlled) {
+      setInternalSearchQuery(val);
+    }
+  };
 
-  // Query sql_opportunity_promotions from Supabase
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [showDeletedOnly, setShowDeletedOnly] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+
+  // Soft-deleted SQL opportunity IDs inside this table
+  const [deletedIds, setDeletedIds] = useState<string[]>(() => {
+    try {
+      const stored = localStorage.getItem('sql_opportunity_table_deleted_ids');
+      return stored ? JSON.parse(stored) : [];
+    } catch {
+      return [];
+    }
+  });
+
+  useEffect(() => {
+    localStorage.setItem('sql_opportunity_table_deleted_ids', JSON.stringify(deletedIds));
+  }, [deletedIds]);
+
+  const [promotedOppIds, setPromotedOppIds] = useState<string[]>([]);
+  const [promotedLeadIds, setPromotedLeadIds] = useState<string[]>([]);
+  const [formDataMap, setFormDataMap] = useState<Record<string, any>>({});
+  const [resultsMap, setResultsMap] = useState<Record<string, any>>({});
+  const [handoverDetailsMap, setHandoverDetailsMap] = useState<Record<string, any>>({});
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery, showDeletedOnly]);
+
+  // Load pipeline data, form records, handover details, and qualification results
   useEffect(() => {
     let isMounted = true;
-    const fetchPromotions = async () => {
+
+    const loadAllData = async () => {
+      setLoading(true);
       try {
-        const [leadIds, oppIds] = await Promise.all([
-          PromotionDataService.getSqlOpportunityPromotedLeadIds(),
-          PromotionDataService.getSqlOpportunityPromotedOppIds()
+        let oppList = propOpportunities;
+        if (!oppList || oppList.length === 0) {
+          oppList = await SQLDataService.getOpportunities();
+        }
+
+        if (propSqlLeads && propSqlLeads.length > 0) {
+          oppList = oppList.filter(opp => {
+            return propSqlLeads.some(l => 
+              l.id === opp.mql_reference_id ||
+              (l.company_name && opp.company_name && l.company_name.toLowerCase() === opp.company_name.toLowerCase())
+            );
+          });
+
+          propSqlLeads.forEach(l => {
+            const exists = oppList.some(opp => 
+              l.id === opp.mql_reference_id ||
+              (l.company_name && opp.company_name && l.company_name.toLowerCase() === opp.company_name.toLowerCase())
+            );
+            if (!exists) {
+              oppList.push({
+                id: `virtual_opp_${l.id}`,
+                company_name: l.company_name || 'Enterprise Client',
+                industry: l.lead_industry || 'Enterprise Software',
+                revenue_motion: 'Digital Solution Selling',
+                opportunity_name: `${l.company_name || 'Enterprise'} Opportunity`,
+                mql_reference_id: l.id,
+                created_at: l.lead_date || new Date().toISOString()
+              });
+            }
+          });
+        }
+
+        if (isMounted) {
+          setInternalOpportunities(oppList);
+        }
+
+        const [pOppIds, pLeadIds] = await Promise.all([
+          PromotionDataService.getSqlOpportunityPromotedOppIds(),
+          PromotionDataService.getSqlOpportunityPromotedLeadIds()
         ]);
         if (isMounted) {
-          setPromotedLeadIds(leadIds);
-          setPromotedOppIds(oppIds);
+          setPromotedOppIds(pOppIds);
+          setPromotedLeadIds(pLeadIds);
         }
-      } catch (err) {
-        console.error("Failed to query sql_opportunity_promotions:", err);
-      }
-    };
-    fetchPromotions();
-    return () => { isMounted = false; };
-  }, []);
 
-  const isOpportunityPromoted = (opp: SQLOpportunity) => {
-    if (promotedOppIds.includes(opp.id)) return true;
-    if (opp.mql_reference_id && promotedLeadIds.includes(opp.mql_reference_id)) return true;
-    if (sessions[opp.id]?.is_promoted) return true;
-    return false;
-  };
+        // Load sessions, form data, handover details, and qualification results
+        const formRecords: Record<string, any> = {};
+        const qResults: Record<string, any> = {};
+        const handovers: Record<string, any> = {};
+        const fetchedSessions: Record<string, OpportunitySession> = { ...(propSessions || {}) };
 
-  // Parse description JSON/string
-  const getOppDetails = (desc?: string) => {
-    if (!desc) {
-      return {
-        description: 'No business definition or opportunity background provided.',
-        owner: 'Unassigned',
-        opportunity_stage: 'Emerging Opportunity',
-        estimated_revenue: '—',
-        pipeline_stage: 'Qualification',
-        expected_close_date: '—'
-      };
-    }
-    if (desc.trim().startsWith('{') && desc.trim().endsWith('}')) {
-      try {
-        const parsed = JSON.parse(desc);
-        return {
-          description: parsed.description || 'No business definition or opportunity background provided.',
-          owner: parsed.opportunity_owner || 'Unassigned',
-          opportunity_stage: parsed.opportunity_stage || 'Emerging Opportunity',
-          estimated_revenue: parsed.estimated_revenue || '—',
-          pipeline_stage: parsed.pipeline_stage || 'Qualification',
-          expected_close_date: parsed.expected_close_date || '—'
-        };
+        await Promise.all(
+          oppList.map(async (opp) => {
+            const oppId = opp.id;
+            try {
+              if (!fetchedSessions[oppId]) {
+                const sess = await OpportunityDataService.getSessionByOpportunity(oppId);
+                if (sess) fetchedSessions[oppId] = sess;
+              }
+
+              // 1. Opportunity Form data (company_name, opportunity_name, owner, stage, revenue, etc.)
+              const fData = await OpportunityDataService.getOpportunityFormData(oppId);
+              if (fData) formRecords[oppId] = fData;
+
+              // 2. Handover details (for static context Cat A / Business Segment)
+              const hData = await OpportunityDataService.getSqlHandoverData(oppId);
+              if (hData) handovers[oppId] = hData;
+
+              // 3. Qualification result (score, status, readiness)
+              const qRes = await OpportunityDataService.getSavedQualificationResult(oppId, fetchedSessions[oppId]?.id);
+              if (qRes) qResults[oppId] = qRes;
+            } catch (err) {
+              console.warn(`Error loading details for opp ${oppId}:`, err);
+            }
+          })
+        );
+
+        if (isMounted) {
+          setInternalSessions(fetchedSessions);
+          setFormDataMap(formRecords);
+          setHandoverDetailsMap(handovers);
+          setResultsMap(qResults);
+        }
       } catch (e) {
-        // Fallback
+        console.error("Failed to load SQL Opportunity table data:", e);
+      } finally {
+        if (isMounted) {
+          setLoading(false);
+        }
+      }
+    };
+
+    loadAllData();
+    return () => { isMounted = false; };
+  }, [propOpportunities, propSessions]);
+
+  const activeOpportunities = propOpportunities && propOpportunities.length > 0 
+    ? propOpportunities 
+    : internalOpportunities;
+  const activeSessions = propSessions && Object.keys(propSessions).length > 0 
+    ? propSessions 
+    : internalSessions;
+
+  // Helper to parse description JSON
+  const parseOppDescription = (desc?: string) => {
+    if (desc && desc.trim().startsWith('{')) {
+      try {
+        return JSON.parse(desc);
+      } catch {
+        // fallback
       }
     }
-    return {
-      description: desc,
-      owner: 'Unassigned',
-      opportunity_stage: 'Emerging Opportunity',
-      estimated_revenue: '—',
-      pipeline_stage: 'Qualification',
-      expected_close_date: '—'
-    };
+    return {};
   };
 
-  const getStatusBadge = (status: string | undefined) => {
-    const defaultClasses = "bg-zinc-100 text-zinc-800 border-zinc-200/50";
-    const statusMap: Record<string, { label: string; cls: string; icon: React.ReactNode }> = {
-      NOT_STARTED: {
-        label: 'Ready for OQ',
-        cls: 'bg-blue-50 text-blue-700 border-blue-200/50',
-        icon: <Clock className="h-3 w-3 shrink-0" />
-      },
-      IN_PROGRESS: {
-        label: 'Assessing',
-        cls: 'bg-amber-50 text-amber-700 border-amber-200/50 animate-pulse',
-        icon: <Play className="h-3 w-3 shrink-0" />
-      },
-      QUALIFIED: {
-        label: 'OQ Qualified',
-        cls: 'bg-emerald-50 text-emerald-700 border-emerald-200/50',
-        icon: <BadgeCheck className="h-3.5 w-3.5 shrink-0" />
-      },
-      CONDITIONALLY_QUALIFIED: {
-        label: 'Conditionally Qual',
-        cls: 'bg-emerald-50/60 text-emerald-600 border-emerald-200/40',
-        icon: <BadgeCheck className="h-3.5 w-3.5 shrink-0" />
-      },
-      EVIDENCE_INSUFFICIENT: {
-        label: 'Gaps Active',
-        cls: 'bg-yellow-50 text-yellow-700 border-yellow-200/50',
-        icon: <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
-      },
-      DISQUALIFIED: {
-        label: 'Disqualified',
-        cls: 'bg-red-50 text-red-700 border-red-200/50',
-        icon: <AlertCircle className="h-3.5 w-3.5 shrink-0" />
-      },
-      ON_HOLD: {
-        label: 'On Hold',
-        cls: 'bg-zinc-100 text-zinc-700 border-zinc-200/50',
-        icon: <Clock className="h-3 w-3 shrink-0" />
+  // Helper to extract Business Segment from handover context (CAT A)
+  const extractBusinessSegment = (opp: SQLOpportunity, handover: any): string => {
+    if (handover) {
+      if (handover.sql_qip_package?.company_context?.business_segment) {
+        return handover.sql_qip_package.company_context.business_segment;
       }
-    };
+      if (handover.company_context?.business_segment) {
+        return handover.company_context.business_segment;
+      }
+      if (handover.editable_fields?.business_segment) {
+        return handover.editable_fields.business_segment;
+      }
+    }
 
-    const config = statusMap[status || ''] || {
-      label: status || 'Ready for OQ',
-      cls: defaultClasses,
-      icon: <Clock className="h-3 w-3 shrink-0" />
-    };
+    // Try finding matching lead from propLeads
+    if (opp.mql_reference_id) {
+      const matchLead = propLeads.find(l => l.id === opp.mql_reference_id);
+      if (matchLead) {
+        if (matchLead.lead_industry) return matchLead.lead_industry;
+        const extraJson = typeof window !== 'undefined' ? localStorage.getItem(`mql_lead_extra_${matchLead.id}`) : null;
+        if (extraJson) {
+          try {
+            const extra = JSON.parse(extraJson);
+            if (extra.lead_industry) return extra.lead_industry;
+          } catch {}
+        }
+      }
+    }
 
+    return opp.industry || "Enterprise Cloud Software";
+  };
+
+  // Build resolved rows
+  const resolvedRows = activeOpportunities.map((opp) => {
+    const oppId = opp.id;
+    const formRecord = formDataMap[oppId];
+    const handover = handoverDetailsMap[oppId];
+    const qResult = resultsMap[oppId];
+    const session = activeSessions[oppId];
+    const parsedDesc = parseOppDescription(opp.description);
+
+    // 1. Company Name
+    const companyName = formRecord?.company_name || opp.company_name || '—';
+
+    // 2. Business Segment (from MQL handover detail - static context CAT A)
+    const businessSegment = extractBusinessSegment(opp, handover);
+
+    // 3. Opportunity Name
+    const opportunityName = formRecord?.opportunity_name || opp.opportunity_name || `${companyName} Opportunity`;
+
+    // 4. Opportunity Owner
+    const opportunityOwner = formRecord?.opportunity_owner || parsedDesc.opportunity_owner || 'Senior Enterprise AE';
+
+    // 5. Opportunity Stage
+    const opportunityStage = formRecord?.opportunity_stage || parsedDesc.opportunity_stage || 'Validated Opportunity';
+
+    // 6. Pipeline Stage
+    const pipelineStage = formRecord?.pipeline_stage || parsedDesc.pipeline_stage || 'Qualification';
+
+    // 7. Estimated Revenue
+    const rawRevenue = formRecord?.estimated_revenue || parsedDesc.estimated_revenue || (opp as any).deal_size;
+    let estimatedRevenue = '—';
+    if (rawRevenue !== undefined && rawRevenue !== null && rawRevenue !== '') {
+      if (typeof rawRevenue === 'number') {
+        estimatedRevenue = `$${rawRevenue.toLocaleString('en-US')}`;
+      } else {
+        const str = String(rawRevenue).trim();
+        if (str.startsWith('$')) {
+          estimatedRevenue = str;
+        } else {
+          const num = parseFloat(str.replace(/[^0-9.]/g, ''));
+          estimatedRevenue = !isNaN(num) ? `$${num.toLocaleString('en-US')}` : str;
+        }
+      }
+    }
+
+    // 8. Expected Close Date
+    const expectedCloseDate = formRecord?.expected_close_date || parsedDesc.expected_close_date || '—';
+
+    // 9. Opportunity Score
+    const scoreVal = qResult?.qualification_summary?.overall_score ?? (session ? 75 : 0);
+    const opportunityScore = Math.round(Number(scoreVal) || 0);
+
+    // 10. Opportunity Status
+    const opportunityStatus = qResult?.qualification_summary?.qualification_status 
+      || session?.qualification_status 
+      || 'Needs More Evidence';
+
+    // 11. Promote to Opportunity
+    const isPromoted = promotedOppIds.includes(oppId) || 
+      (opp.mql_reference_id ? promotedLeadIds.includes(opp.mql_reference_id) : false) || 
+      Boolean(session?.is_promoted);
+
+    // Find backing lead if any
+    const backingLead = propLeads.find(l => l.id === opp.mql_reference_id);
+
+    return {
+      oppId,
+      oppRaw: opp,
+      backingLead,
+      companyName,
+      businessSegment,
+      opportunityName,
+      opportunityOwner,
+      opportunityStage,
+      pipelineStage,
+      estimatedRevenue,
+      expectedCloseDate,
+      opportunityScore,
+      opportunityStatus,
+      isPromoted
+    };
+  });
+
+  // Filter based on Trash and Search
+  const visibleRows = resolvedRows.filter(row => {
+    const isDeleted = deletedIds.includes(row.oppId);
+    if (showDeletedOnly) {
+      if (!isDeleted) return false;
+    } else {
+      if (isDeleted) return false;
+    }
+
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase().trim();
+      const promotedText = row.isPromoted ? "yes promoted" : "no not promoted";
+      return (
+        row.companyName.toLowerCase().includes(q) ||
+        row.opportunityName.toLowerCase().includes(q) ||
+        row.opportunityOwner.toLowerCase().includes(q) ||
+        row.businessSegment.toLowerCase().includes(q) ||
+        row.opportunityStage.toLowerCase().includes(q) ||
+        row.pipelineStage.toLowerCase().includes(q) ||
+        row.opportunityStatus.toLowerCase().includes(q) ||
+        promotedText.includes(q)
+      );
+    }
+    return true;
+  });
+
+  const itemsPerPage = 10;
+  const totalPages = Math.max(1, Math.ceil(visibleRows.length / itemsPerPage));
+  const paginatedRows = visibleRows.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+
+  const handleSelectAll = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.checked) {
+      setSelectedIds(paginatedRows.map(r => r.oppId));
+    } else {
+      setSelectedIds([]);
+    }
+  };
+
+  const handleSelectRow = (oppId: string, checked: boolean) => {
+    if (checked) {
+      setSelectedIds(prev => [...prev, oppId]);
+    } else {
+      setSelectedIds(prev => prev.filter(id => id !== oppId));
+    }
+  };
+
+  const handleDeleteSelected = () => {
+    setDeletedIds(prev => [...prev, ...selectedIds]);
+    setSelectedIds([]);
+  };
+
+  const handleRestoreSelected = () => {
+    setDeletedIds(prev => prev.filter(id => !selectedIds.includes(id)));
+    setSelectedIds([]);
+  };
+
+  const handlePermanentDeleteSelected = async () => {
+    for (const oppId of selectedIds) {
+      await PromotionDataService.unpromoteSqlOpportunity(oppId);
+    }
+    setPromotedOppIds(prev => prev.filter(id => !selectedIds.includes(id)));
+    setDeletedIds(prev => prev.filter(id => !selectedIds.includes(id)));
+    setSelectedIds([]);
+  };
+
+  const handleExportCSV = () => {
+    const headers = [
+      "SN",
+      "Company Name",
+      "Business Segment",
+      "Opportunity Name",
+      "Opportunity Owner",
+      "Opportunity Stage",
+      "Pipeline Stage",
+      "Estimated Revenue",
+      "Expected Close Date",
+      "Opportunity Score",
+      "Opportunity Status",
+      "Promote to Opportunity"
+    ];
+
+    const csvRows = [headers.join(",")];
+
+    visibleRows.forEach((row, idx) => {
+      const line = [
+        idx + 1,
+        `"${row.companyName.replace(/"/g, '""')}"`,
+        `"${row.businessSegment.replace(/"/g, '""')}"`,
+        `"${row.opportunityName.replace(/"/g, '""')}"`,
+        `"${row.opportunityOwner.replace(/"/g, '""')}"`,
+        `"${row.opportunityStage.replace(/"/g, '""')}"`,
+        `"${row.pipelineStage.replace(/"/g, '""')}"`,
+        `"${row.estimatedRevenue.replace(/"/g, '""')}"`,
+        `"${row.expectedCloseDate.replace(/"/g, '""')}"`,
+        row.opportunityScore,
+        `"${row.opportunityStatus}"`,
+        row.isPromoted ? "YES" : "NO"
+      ];
+      csvRows.push(line.join(","));
+    });
+
+    const blob = new Blob([csvRows.join("\n")], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.setAttribute("href", url);
+    link.setAttribute("download", `sql_opportunity_roster_${new Date().toISOString().split('T')[0]}.csv`);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const getOpportunityStatusBadge = (status: string) => {
+    const s = (status || '').toLowerCase();
+    if (s.includes('qualified') && !s.includes('conditional') && !s.includes('conditionally')) {
+      return (
+        <span className="px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 text-[9px] font-mono font-bold uppercase tracking-wider">
+          Qualified
+        </span>
+      );
+    }
+    if (s.includes('disqualified')) {
+      return (
+        <span className="px-2 py-0.5 rounded-full bg-red-500/10 text-red-500 border border-red-500/20 text-[9px] font-mono font-bold uppercase tracking-wider">
+          Disqualified
+        </span>
+      );
+    }
+    if (s.includes('conditional')) {
+      return (
+        <span className="px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-500 border border-amber-500/20 text-[9px] font-mono font-bold uppercase tracking-wider">
+          Conditional
+        </span>
+      );
+    }
     return (
-      <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-bold rounded-lg border ${config.cls}`}>
-        {config.icon}
-        {config.label}
+      <span className="px-2 py-0.5 rounded-full bg-bg-primary text-text-secondary border border-border text-[9px] font-mono font-bold uppercase tracking-wider">
+        Needs Evidence
       </span>
     );
   };
 
-  const filteredOpps = opportunities.filter(opp => {
-    const q = searchQuery.toLowerCase();
-    return (
-      (opp.opportunity_name || '').toLowerCase().includes(q) ||
-      (opp.company_name || '').toLowerCase().includes(q) ||
-      (opp.industry || '').toLowerCase().includes(q)
-    );
-  });
+  const handleRowClick = (row: typeof resolvedRows[0]) => {
+    if (onSelect) {
+      onSelect(row.oppRaw);
+    } else if (onLeadSelect && row.backingLead) {
+      onLeadSelect(row.backingLead, 'sql');
+    }
+  };
 
   return (
-    <div className="space-y-4">
-      {/* Search & View Mode Header */}
-      <div className="flex flex-col sm:flex-row justify-between items-stretch sm:items-center bg-white p-4 rounded-xl border border-zinc-200/60 shadow-sm gap-3">
-        <div className="relative w-full max-w-md">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400" />
-          <input
-            type="text"
-            placeholder="Search enterprise SQL opportunities..."
-            value={searchQuery}
-            onChange={e => onSearchChange(e.target.value)}
-            className="w-full pl-9 pr-4 py-2 bg-zinc-50 border border-zinc-200 hover:border-zinc-300 focus:border-zinc-500 rounded-xl text-xs focus:outline-none transition-all"
-          />
-        </div>
-
-        <div className="flex items-center justify-between sm:justify-end gap-3">
-          <div className="text-xs text-zinc-500 font-medium">
-            Found <span className="font-bold text-zinc-800">{filteredOpps.length}</span> opportunities
-          </div>
-
-          {/* Toggle between Table and Grid */}
-          <div className="flex items-center bg-zinc-100 p-0.5 rounded-lg border border-zinc-200/60">
-            <button
-              type="button"
-              onClick={() => setViewMode('table')}
-              className={`p-1.5 rounded-md text-xs font-bold transition-all flex items-center gap-1.5 ${
-                viewMode === 'table'
-                  ? 'bg-white text-zinc-900 shadow-xs'
-                  : 'text-zinc-500 hover:text-zinc-800'
-              }`}
-              title="Opportunity Handover Table"
+    <div className="space-y-6 animate-in fade-in-50 duration-300">
+      {/* Header Toolbar */}
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+        <div className="flex items-center gap-3">
+          {onBack && (
+            <button 
+              onClick={onBack}
+              className="p-2 rounded-xl border border-border bg-bg-surface hover:bg-bg-primary/50 text-text-secondary hover:text-text-primary transition-all cursor-pointer"
+              title="Back to Kanban"
             >
-              <TableIcon className="h-3.5 w-3.5" />
-              <span className="hidden sm:inline">Table</span>
+              <ArrowLeft className="w-4 h-4" />
             </button>
-            <button
-              type="button"
-              onClick={() => setViewMode('grid')}
-              className={`p-1.5 rounded-md text-xs font-bold transition-all flex items-center gap-1.5 ${
-                viewMode === 'grid'
-                  ? 'bg-white text-zinc-900 shadow-xs'
-                  : 'text-zinc-500 hover:text-zinc-800'
-              }`}
-              title="Grid View"
-            >
-              <LayoutGrid className="h-3.5 w-3.5" />
-              <span className="hidden sm:inline">Cards</span>
-            </button>
+          )}
+          <div>
+            <h2 className="text-xl font-bold text-text-primary font-sans">SQL Opportunity Qualification Roster</h2>
+            <p className="text-xs text-text-secondary mt-0.5">Enterprise opportunities converted from Sales Qualified Leads (SQL)</p>
           </div>
         </div>
       </div>
 
-      {filteredOpps.length === 0 ? (
-        <div className="p-12 text-center bg-white border border-dashed border-zinc-200 rounded-2xl">
-          <AlertCircle className="h-10 w-10 mx-auto mb-3 text-zinc-400 opacity-60" />
-          <h3 className="text-sm font-bold text-zinc-800">No Enterprise SQL Opportunities Found</h3>
-          <p className="text-xs text-zinc-500 mt-1 max-w-sm mx-auto">
-            Try adjusting your search filters or check the Lead Canvas to qualify and promote more leads.
-          </p>
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-bg-surface/30 p-4 rounded-2xl border border-border">
+        <div className="flex items-center gap-4 w-full sm:w-auto text-xs font-mono font-bold text-text-secondary">
+          {showDeletedOnly ? (
+            <span className="flex items-center gap-1.5 text-red-500 bg-red-500/10 px-2.5 py-1 rounded-lg border border-red-500/20 whitespace-nowrap">
+              <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" />
+              Viewing Trash
+            </span>
+          ) : (
+            <span className="text-text-secondary whitespace-nowrap">
+              {selectedIds.length > 0 ? (
+                <span className="text-accent">{selectedIds.length} item(s) selected</span>
+              ) : (
+                <span>{visibleRows.length} active SQL opportunity(ies)</span>
+              )}
+            </span>
+          )}
+
+          {/* Search Bar */}
+          <div className="relative w-full sm:w-64">
+            <input
+              type="text"
+              placeholder="Search SQL opportunities..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full bg-bg-surface border border-border text-text-primary placeholder:text-text-secondary/45 font-sans text-xs font-normal rounded-xl pl-8 pr-8 py-1.5 focus:outline-none focus:border-accent shadow-sm"
+            />
+            <svg
+              className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-text-secondary/60"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              viewBox="0 0 24 24"
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
+            {searchQuery && (
+              <button
+                onClick={() => setSearchQuery('')}
+                className="absolute right-2.5 top-2 hover:text-text-primary text-text-secondary transition-colors cursor-pointer"
+                title="Clear search"
+              >
+                <svg className="h-3 w-3" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            )}
+          </div>
         </div>
-      ) : viewMode === 'table' ? (
-        /* Opportunity Handover Table */
-        <div className="bg-white rounded-2xl border border-zinc-200/80 shadow-xs overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse">
-              <thead>
-                <tr className="bg-zinc-50/80 border-b border-zinc-200 text-[11px] font-bold text-zinc-500 uppercase tracking-wider select-none">
-                  <th className="py-3.5 px-4 font-black">Opportunity & Account</th>
-                  <th className="py-3.5 px-4 font-black">Motion & Industry</th>
-                  <th className="py-3.5 px-4 font-black">Owner</th>
-                  <th className="py-3.5 px-4 font-black">Est. Revenue</th>
-                  <th className="py-3.5 px-4 font-black text-center">Promoted</th>
-                  <th className="py-3.5 px-4 font-black text-right">OQ Status</th>
-                  <th className="py-3.5 px-4 text-center w-10"></th>
+
+        <div className="flex items-center gap-2 self-end sm:self-auto">
+          {showDeletedOnly ? (
+            <>
+              <button
+                onClick={handleRestoreSelected}
+                disabled={selectedIds.length === 0}
+                className="px-3 py-1.5 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-500 border border-emerald-500/30 disabled:opacity-50 font-black text-[10px] rounded-xl uppercase tracking-wider transition-all cursor-pointer flex items-center gap-1.5"
+              >
+                <RefreshCw className="h-3.5 w-3.5" />
+                Restore
+              </button>
+              <button
+                onClick={handlePermanentDeleteSelected}
+                disabled={selectedIds.length === 0}
+                className="px-3 py-1.5 bg-red-500/10 hover:bg-red-500/20 text-red-500 border border-red-500/30 disabled:opacity-50 font-black text-[10px] rounded-xl uppercase tracking-wider transition-all cursor-pointer flex items-center gap-1.5"
+                title="Permanently remove selected opportunities from pipeline"
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+                Purge
+              </button>
+              <button
+                onClick={() => setShowDeletedOnly(false)}
+                className="px-3 py-1.5 bg-bg-surface border border-border text-text-primary hover:bg-bg-primary/50 font-black text-[10px] rounded-xl uppercase tracking-wider transition-all cursor-pointer"
+              >
+                Back to Active
+              </button>
+            </>
+          ) : (
+            <>
+              <button
+                onClick={handleDeleteSelected}
+                disabled={selectedIds.length === 0}
+                className="px-3 py-1.5 bg-red-500/10 hover:bg-red-500/20 text-red-500 border border-red-500/30 disabled:opacity-50 font-black text-[10px] rounded-xl uppercase tracking-wider transition-all cursor-pointer flex items-center gap-1.5"
+                title="Soft-delete selected items"
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+                Delete
+              </button>
+              <button
+                onClick={handleExportCSV}
+                className="px-3 py-1.5 bg-bg-surface border border-border text-text-primary hover:bg-bg-primary/50 font-black text-[10px] rounded-xl uppercase tracking-wider transition-all cursor-pointer flex items-center gap-1.5"
+                title="Export list to CSV"
+              >
+                <Download className="h-3.5 w-3.5" />
+                Export CSV
+              </button>
+              <button
+                onClick={() => {
+                  setShowDeletedOnly(true);
+                  setSelectedIds([]);
+                }}
+                className={`px-3 py-1.5 border font-black text-[10px] rounded-xl uppercase tracking-wider transition-all cursor-pointer flex items-center gap-1.5 ${
+                  deletedIds.length > 0
+                    ? 'bg-red-500/10 text-red-500 border-red-500/20 hover:bg-red-500/20'
+                    : 'bg-bg-surface text-text-secondary border-border hover:bg-bg-primary/50'
+                }`}
+                title="View soft-deleted items"
+              >
+                <Trash className="h-3.5 w-3.5" />
+                Trash ({deletedIds.length})
+              </button>
+            </>
+          )}
+        </div>
+      </div>
+
+      <div className="bg-bg-surface border border-border rounded-2xl overflow-hidden shadow-sm">
+        <div className="overflow-x-auto custom-scrollbar-horizontal pb-2">
+          <table className="w-full text-left text-xs min-w-[1720px]">
+            <thead className="bg-bg-primary/50 border-b border-border text-text-secondary font-mono uppercase tracking-wider">
+              <tr>
+                <th className="p-4 w-10 text-center">
+                  <input
+                    type="checkbox"
+                    checked={paginatedRows.length > 0 && paginatedRows.every(r => selectedIds.includes(r.oppId))}
+                    onChange={handleSelectAll}
+                    className="rounded border-border bg-bg-surface focus:ring-0 text-accent cursor-pointer"
+                  />
+                </th>
+                <th className="p-4 w-12 min-w-[48px] text-center font-bold">SN</th>
+                <th className="p-4 font-bold">Company Name</th>
+                <th className="p-4 font-bold">Business Segment</th>
+                <th className="p-4 font-bold min-w-[360px] w-[360px]">Opportunity Name</th>
+                <th className="p-4 font-bold">Opportunity Owner</th>
+                <th className="p-4 font-bold">Opportunity Stage</th>
+                <th className="p-4 font-bold">Pipeline Stage</th>
+                <th className="p-4 font-bold w-[150px] min-w-[150px]">Estimated Revenue</th>
+                <th className="p-4 font-bold">Expected Close Date</th>
+                <th className="p-4 font-bold text-center">Opportunity Score</th>
+                <th className="p-4 font-bold w-[180px] min-w-[180px]">Opportunity Status</th>
+                <th className="p-4 font-bold text-center">Promote to Opportunity</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-border">
+              {loading ? (
+                <tr>
+                  <td colSpan={13} className="p-8 text-center text-text-secondary">
+                    <div className="flex items-center justify-center gap-2">
+                      <div className="w-4 h-4 border-2 border-accent border-t-transparent rounded-full animate-spin" />
+                      <span>Loading SQL Opportunity Data...</span>
+                    </div>
+                  </td>
                 </tr>
-              </thead>
-              <tbody className="divide-y divide-zinc-100 text-xs">
-                {filteredOpps.map(opp => {
-                  const details = getOppDetails(opp.description);
-                  const session = sessions[opp.id];
-                  const isPromoted = isOpportunityPromoted(opp);
-
+              ) : visibleRows.length === 0 ? (
+                <tr>
+                  <td colSpan={13} className="p-8 text-center text-text-secondary">
+                    No SQL opportunities match your selection.
+                  </td>
+                </tr>
+              ) : (
+                paginatedRows.map((row, idx) => {
+                  const serialNumber = (currentPage - 1) * itemsPerPage + idx + 1;
                   return (
-                    <tr
-                      key={opp.id}
-                      onClick={() => onSelect(opp)}
-                      className={`hover:bg-zinc-50/80 transition-colors cursor-pointer group ${
-                        isPromoted ? 'bg-emerald-50/20' : ''
-                      }`}
+                    <tr 
+                      key={row.oppId}
+                      className="hover:bg-bg-primary/30 transition-colors"
                     >
-                      <td className="py-3.5 px-4">
-                        <div className="font-bold text-zinc-900 group-hover:text-zinc-600 transition-colors flex items-center gap-1.5">
-                          {opp.opportunity_name || `${opp.company_name} Opportunity`}
-                        </div>
-                        <div className="text-[11px] font-medium text-zinc-500 mt-0.5">
-                          {opp.company_name}
-                        </div>
+                      <td className="p-4 text-center">
+                        <input
+                          type="checkbox"
+                          checked={selectedIds.includes(row.oppId)}
+                          onChange={(e) => handleSelectRow(row.oppId, e.target.checked)}
+                          className="rounded border-border bg-bg-surface focus:ring-0 text-accent cursor-pointer"
+                        />
                       </td>
-
-                      <td className="py-3.5 px-4">
-                        <span className="inline-block text-[10px] font-bold uppercase text-zinc-600 bg-zinc-100 px-2 py-0.5 rounded border border-zinc-200">
-                          {opp.revenue_motion || 'Digital Solution Selling'}
+                      <td className="p-4 w-12 min-w-[48px] text-center font-mono font-medium text-text-secondary">
+                        {serialNumber}
+                      </td>
+                      <td className="p-4 font-bold text-text-primary">{row.companyName}</td>
+                      <td className="p-4 text-text-secondary font-medium">{row.businessSegment}</td>
+                      <td className="p-4 font-bold min-w-[360px] w-[360px]">
+                        <button
+                          onClick={() => handleRowClick(row)}
+                          className="text-left text-accent hover:underline hover:text-accent/80 font-bold transition-all cursor-pointer focus:outline-none"
+                        >
+                          {row.opportunityName}
+                        </button>
+                      </td>
+                      <td className="p-4 text-text-secondary">{row.opportunityOwner}</td>
+                      <td className="p-4">
+                        <span className="px-2 py-0.5 bg-bg-primary rounded border border-border text-[10px] text-text-secondary">
+                          {row.opportunityStage}
                         </span>
-                        <div className="text-[11px] text-zinc-400 mt-1 truncate max-w-[150px]">
-                          {opp.industry || 'Enterprise Software'}
+                      </td>
+                      <td className="p-4 text-text-secondary font-medium">{row.pipelineStage}</td>
+                      <td className="p-4 font-mono font-bold text-text-primary w-[150px] min-w-[150px]">{row.estimatedRevenue}</td>
+                      <td className="p-4 text-text-secondary font-medium">{row.expectedCloseDate}</td>
+                      <td className="p-4 text-center">
+                        <div className="inline-flex justify-center w-full">
+                          <MiniScorePieChart score={row.opportunityScore} status={row.opportunityStatus} />
                         </div>
                       </td>
-
-                      <td className="py-3.5 px-4 text-zinc-700 font-medium">
-                        {details.owner}
-                      </td>
-
-                      <td className="py-3.5 px-4 font-mono font-bold text-zinc-900">
-                        {details.estimated_revenue !== '—' ? details.estimated_revenue : '$150,000'}
-                      </td>
-
-                      {/* Promoted Column: Displays Yes if the lead is in sql_opportunity_promotions, and No otherwise */}
-                      <td className="py-3.5 px-4 text-center">
-                        {isPromoted ? (
-                          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 shadow-xs">
-                            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-                            Yes
+                      <td className="p-4 w-[180px] min-w-[180px]">{getOpportunityStatusBadge(row.opportunityStatus)}</td>
+                      <td className="p-4 text-center">
+                        {row.isPromoted ? (
+                          <span className="inline-flex px-1.5 py-0.5 bg-emerald-500/15 text-emerald-500 border border-emerald-500/25 text-[8px] font-black uppercase tracking-wider rounded">
+                            YES
                           </span>
                         ) : (
-                          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold bg-zinc-100 text-zinc-500 border border-zinc-200">
-                            No
+                          <span className="inline-flex px-1.5 py-0.5 bg-red-500/15 text-red-500 border border-red-500/25 text-[8px] font-black uppercase tracking-wider rounded">
+                            NO
                           </span>
                         )}
                       </td>
-
-                      <td className="py-3.5 px-4 text-right">
-                        {getStatusBadge(session?.qualification_status)}
-                      </td>
-
-                      <td className="py-3.5 px-4 text-center">
-                        <ChevronRight className="h-4 w-4 text-zinc-400 group-hover:text-zinc-700 group-hover:translate-x-0.5 transition-all inline-block" />
-                      </td>
                     </tr>
                   );
-                })}
-              </tbody>
-            </table>
-          </div>
+                })
+              )}
+            </tbody>
+          </table>
         </div>
-      ) : (
-        /* Grid List View */
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-          {filteredOpps.map(opp => {
-            const details = getOppDetails(opp.description);
-            const session = sessions[opp.id];
-            const isPromoted = isOpportunityPromoted(opp);
 
-            return (
-              <div
-                key={opp.id}
-                onClick={() => onSelect(opp)}
-                className={`p-5 rounded-2xl border bg-white shadow-xs hover:shadow-md transition-all group cursor-pointer relative flex flex-col justify-between ${
-                  isPromoted 
-                    ? 'border-emerald-300 bg-emerald-50/10' 
-                    : 'border-zinc-200/80 hover:border-zinc-400/80'
-                }`}
+        {/* Pagination Footer */}
+        {!loading && visibleRows.length > 0 && (
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-4 px-6 py-4 border-t border-border bg-bg-surface text-xs text-text-secondary select-none">
+            <div className="font-medium">
+              Showing <span className="font-semibold text-text-primary">{Math.min(visibleRows.length, (currentPage - 1) * itemsPerPage + 1)}</span> to{' '}
+              <span className="font-semibold text-text-primary">{Math.min(visibleRows.length, currentPage * itemsPerPage)}</span> of{' '}
+              <span className="font-semibold text-text-primary">{visibleRows.length}</span> results
+            </div>
+            <div className="flex items-center gap-1.5">
+              <button
+                onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                disabled={currentPage === 1}
+                className="inline-flex items-center justify-center gap-1 px-3 py-1.5 rounded-lg border border-border bg-bg-surface text-text-primary font-medium hover:bg-bg-primary/50 disabled:opacity-50 disabled:pointer-events-none transition-colors cursor-pointer"
               >
-                <div>
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="space-y-1">
-                      <span className="text-[10px] font-bold uppercase text-zinc-500 bg-zinc-100 px-2 py-0.5 rounded-md border border-zinc-200">
-                        {opp.revenue_motion || 'Digital Solution Selling'}
-                      </span>
-                      <h3 className="text-sm font-black text-zinc-800 mt-2 line-clamp-1 group-hover:text-zinc-600 transition-colors">
-                        {opp.opportunity_name}
-                      </h3>
-                      <p className="text-xs font-bold text-zinc-500">{opp.company_name}</p>
-                    </div>
-                    <ChevronRight className="h-4 w-4 text-zinc-400 group-hover:text-zinc-700 group-hover:translate-x-0.5 transition-all mt-1" />
-                  </div>
+                Previous
+              </button>
+              
+              {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => {
+                const isFirst = page === 1;
+                const isLast = page === totalPages;
+                const isWithinRange = Math.abs(page - currentPage) <= 1;
 
-                  <p className="text-xs text-zinc-500 line-clamp-2 leading-relaxed mt-3">
-                    {details.description}
-                  </p>
+                if (isFirst || isLast || isWithinRange) {
+                  return (
+                    <button
+                      key={page}
+                      onClick={() => setCurrentPage(page)}
+                      className={`inline-flex items-center justify-center w-[26px] h-[26px] rounded-full text-[13px] font-normal transition-colors cursor-pointer ${
+                        currentPage === page
+                          ? 'bg-accent text-white font-medium'
+                          : 'border border-border hover:bg-bg-primary/50 text-text-primary'
+                      }`}
+                    >
+                      {page}
+                    </button>
+                  );
+                }
 
-                  <div className="flex flex-wrap gap-1.5 mt-4 items-center">
-                    {details.owner !== 'Unassigned' && (
-                      <div className="flex items-center gap-1 bg-zinc-50 px-2 py-0.5 rounded-md border border-zinc-150">
-                        <User className="h-3 w-3 text-zinc-400" />
-                        <span className="text-[9px] font-bold text-zinc-600">
-                          Owner: <span className="font-semibold text-zinc-500">{details.owner}</span>
-                        </span>
-                      </div>
-                    )}
-                    {details.estimated_revenue && details.estimated_revenue !== '—' && (
-                      <div className="flex items-center gap-1 bg-zinc-50 px-2 py-0.5 rounded-md border border-zinc-150">
-                        <span className="text-[9px] font-bold text-zinc-700">
-                          Est: <span className="text-zinc-900 font-extrabold">{details.estimated_revenue}</span>
-                        </span>
-                      </div>
-                    )}
-                    <span className={`inline-flex items-center gap-1 text-[9px] font-black px-2 py-0.5 rounded-md border ${
-                      isPromoted
-                        ? 'bg-emerald-100 text-emerald-800 border-emerald-200'
-                        : 'bg-zinc-100 text-zinc-600 border-zinc-200'
-                    }`}>
-                      Promoted: {isPromoted ? 'Yes' : 'No'}
-                    </span>
-                  </div>
-                </div>
+                // Render ellipsis
+                if (
+                  (page === 2 && currentPage > 3) ||
+                  (page === totalPages - 1 && currentPage < totalPages - 2)
+                ) {
+                  return <span key={page} className="px-1 text-text-secondary select-none">...</span>;
+                }
 
-                <div className="border-t border-zinc-100 pt-3.5 mt-4.5 flex items-center justify-between">
-                  <div className="flex items-center gap-1 text-zinc-400">
-                    <Calendar className="h-3.5 w-3.5" />
-                    <span className="text-[10px] font-mono">
-                      {opp.created_at ? new Date(opp.created_at).toLocaleDateString() : 'N/A'}
-                    </span>
-                  </div>
+                return null;
+              })}
 
-                  <div className="text-right">
-                    {getStatusBadge(session?.qualification_status)}
-                  </div>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      )}
+              <button
+                onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                disabled={currentPage === totalPages}
+                className="inline-flex items-center justify-center gap-1 px-3 py-1.5 rounded-lg border border-border bg-bg-surface text-text-primary font-medium hover:bg-bg-primary/50 disabled:opacity-50 disabled:pointer-events-none transition-colors cursor-pointer"
+              >
+                Next
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 };
+
 export default SqlToOpportunityTable;

@@ -97,6 +97,29 @@ export class PromotionDataService {
     }
   }
 
+  static async unpromoteSqlOpportunity(opportunityId: string): Promise<boolean> {
+    if (!opportunityId) return false;
+    try {
+      const { error } = await supabase
+        .from('sql_opportunity_promotions')
+        .delete()
+        .eq('opportunity_id', opportunityId);
+
+      if (error) {
+        console.error('Error unpromoting SQL opportunity in Supabase:', error);
+        return false;
+      }
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem(`sql_opp_promoted_opp_${opportunityId}`);
+        localStorage.removeItem(`oq_promoted_${opportunityId}`);
+      }
+      return true;
+    } catch (err) {
+      console.error('Failed to unpromote SQL opportunity in Supabase:', err);
+      return false;
+    }
+  }
+
   // ==============================================================================
   // Dedicated SQL to Opportunity Promotion Methods (sql_opportunity_promotions table)
   // ==============================================================================

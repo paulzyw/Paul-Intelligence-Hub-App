@@ -17,12 +17,12 @@ const MiniScorePieChart: React.FC<{ score: number; status?: string }> = ({ score
   let strokeClass = "stroke-emerald-500";
   if (status) {
     const s = status.toLowerCase();
-    if (s.includes('qualified') || s === 'completed' || s === 'success') {
-      strokeClass = "stroke-emerald-500";
-    } else if (s.includes('disqualified')) {
+    if (s.includes('disqualified')) {
       strokeClass = "stroke-red-500";
-    } else if (s.includes('conditionally') || s.includes('nurture')) {
+    } else if (s.includes('conditionally') || s.includes('conditional') || s.includes('nurture')) {
       strokeClass = "stroke-accent";
+    } else if (s.includes('qualified') || s === 'completed' || s === 'success') {
+      strokeClass = "stroke-emerald-500";
     } else {
       strokeClass = "stroke-text-secondary/40";
     }
@@ -105,6 +105,7 @@ export const MqlToSqlTable: React.FC<MqlToSqlTableProps> = ({ leads, campaigns, 
   }, [deletedMqlIds]);
 
   const [promotedLeadIds, setPromotedLeadIds] = useState<string[]>([]);
+  const [resultsMap, setResultsMap] = useState<Record<string, any>>({});
 
   useEffect(() => {
     const fetchData = async () => {
@@ -116,6 +117,19 @@ export const MqlToSqlTable: React.FC<MqlToSqlTableProps> = ({ leads, campaigns, 
         ]);
         setOpportunities(opps);
         setPromotedLeadIds(pIds);
+
+        const qResultsMap: Record<string, any> = {};
+        await Promise.all(
+          opps.map(async (opp) => {
+            try {
+              const res = await SQLDataService.getSavedQualificationResult(opp.id);
+              if (res) {
+                qResultsMap[opp.id] = res;
+              }
+            } catch (e) {}
+          })
+        );
+        setResultsMap(qResultsMap);
 
         const { data: assessList, error } = await supabase
           .from('sql_assessments')
@@ -133,11 +147,7 @@ export const MqlToSqlTable: React.FC<MqlToSqlTableProps> = ({ leads, campaigns, 
   }, []);
 
   // Filter only the leads belonging to MQL Column
-  const mqlLeadsRaw = leads.filter(l => 
-    (l.status && (l.status.includes('Qualified') || l.status === 'Highly Qualified MQL')) ||
-    promotedLeadIds.includes(l.id) ||
-    l.status === 'SQL'
-  );
+  const mqlLeadsRaw = leads.filter(l => l.handover_status === 'Handover to Sales');
 
   // Parse JSON fields from opportunity description
   const parseOppDetails = (desc?: string) => {
@@ -176,10 +186,14 @@ export const MqlToSqlTable: React.FC<MqlToSqlTableProps> = ({ leads, campaigns, 
   // Build rows mapping leads with resolved SQL values
   const resolvedRows = mqlLeadsRaw.map(lead => {
     const opportunity = opportunities.find(o => o.mql_reference_id === lead.id);
+    const qResult = opportunity ? resultsMap[opportunity.id] : null;
     const assessment = opportunity ? assessments.find(a => a.opportunity_id === opportunity.id) : null;
     const oppDetails = parseOppDetails(opportunity?.description);
 
     const isPromoted = lead.status === 'SQL' || promotedLeadIds.includes(lead.id);
+
+    const scoreVal = qResult?.qualification_summary?.overall_score ?? assessment?.overall_score ?? 0;
+    const statusVal = qResult?.qualification_summary?.qualification_status || assessment?.qualification_status || 'Needs More Evidence';
 
     return {
       leadId: lead.id,
@@ -192,8 +206,8 @@ export const MqlToSqlTable: React.FC<MqlToSqlTableProps> = ({ leads, campaigns, 
       pipelineStage: oppDetails.pipeline_stage,
       estimatedRevenue: oppDetails.estimated_revenue,
       expectedCloseDate: oppDetails.expected_close_date,
-      sqlScore: assessment?.overall_score ?? 0,
-      sqlStatus: assessment?.qualification_status || 'Needs More Evidence',
+      sqlScore: Math.round(Number(scoreVal) || 0),
+      sqlStatus: statusVal,
       isPromoted: isPromoted
     };
   });
@@ -310,14 +324,7 @@ export const MqlToSqlTable: React.FC<MqlToSqlTableProps> = ({ leads, campaigns, 
 
   // Badge stylings
   const getSqlStatusBadge = (status: string) => {
-    const s = status.toLowerCase();
-    if (s.includes('qualified') && !s.includes('conditional')) {
-      return (
-        <span className="px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 text-[9px] font-mono font-bold uppercase tracking-wider">
-          Qualified
-        </span>
-      );
-    }
+    const s = (status || '').toLowerCase();
     if (s.includes('disqualified')) {
       return (
         <span className="px-2 py-0.5 rounded-full bg-red-500/10 text-red-500 border border-red-500/20 text-[9px] font-mono font-bold uppercase tracking-wider">
@@ -329,6 +336,13 @@ export const MqlToSqlTable: React.FC<MqlToSqlTableProps> = ({ leads, campaigns, 
       return (
         <span className="px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-500 border border-amber-500/20 text-[9px] font-mono font-bold uppercase tracking-wider">
           Conditional
+        </span>
+      );
+    }
+    if (s.includes('qualified')) {
+      return (
+        <span className="px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 text-[9px] font-mono font-bold uppercase tracking-wider">
+          Qualified
         </span>
       );
     }

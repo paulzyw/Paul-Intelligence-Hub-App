@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { MQLConfigService } from '../services/mqlConfigLoader';
 import { MQLLead, MQLCampaign, MQLEvidenceAssessment } from '../../types/mql';
-import { Save, Bot, AlertTriangle, CheckCircle, Info, Sparkles, AlertCircle, HelpCircle } from 'lucide-react';
+import { Save, Bot, AlertTriangle, CheckCircle, Info, Sparkles, AlertCircle, HelpCircle, RefreshCw } from 'lucide-react';
 
 interface MQL_LeadQualificationFormProps {
   campaign: MQLCampaign;
@@ -195,6 +195,17 @@ export const MQL_LeadQualificationForm: React.FC<MQL_LeadQualificationFormProps>
   const [formData, setFormData] = useState<Record<string, Partial<MQLEvidenceAssessment>>>({});
   const [validationMessages, setValidationMessages] = useState<Array<{ type: 'error' | 'warning' | 'success'; text: string }>>([]);
   const [activeTab, setActiveTab] = useState<'fit' | 'intent' | 'engagement' | 'timing'>('fit');
+  const [isSaving, setIsSaving] = useState(false);
+
+  const handleSave = async () => {
+    if (!onSave) return;
+    setIsSaving(true);
+    try {
+      await onSave();
+    } finally {
+      setIsSaving(false);
+    }
+  };
 
   useEffect(() => {
     try {
@@ -524,13 +535,22 @@ export const MQL_LeadQualificationForm: React.FC<MQL_LeadQualificationFormProps>
           {onSave && (
             <button
               type="button"
-              onClick={onSave}
-              disabled={loading}
-              className="px-5 py-2.5 bg-accent hover:bg-accent/90 text-white rounded-xl transition-all shadow-sm flex items-center justify-center gap-2 text-xs font-bold tracking-tight cursor-pointer select-none font-sans"
+              onClick={handleSave}
+              disabled={loading || isSaving}
+              className="px-5 py-2.5 bg-accent hover:bg-accent/90 text-white rounded-xl transition-all shadow-sm flex items-center justify-center gap-2 text-xs font-bold tracking-tight cursor-pointer select-none font-sans disabled:opacity-70 disabled:cursor-not-allowed"
               title="Save Evidence Draft"
             >
-              <Save className="w-4 h-4 shrink-0" />
-              Save Draft
+              {isSaving ? (
+                <>
+                  <RefreshCw className="w-4 h-4 shrink-0 animate-spin" />
+                  <span>Saving...</span>
+                </>
+              ) : (
+                <>
+                  <Save className="w-4 h-4 shrink-0" />
+                  <span>Save Draft</span>
+                </>
+              )}
             </button>
           )}
 

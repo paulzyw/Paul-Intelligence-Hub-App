@@ -921,6 +921,7 @@ export class OpportunityDataService {
     try {
       if (sessionId) {
         const payload = {
+          opportunity_id: opportunityId,
           session_id: sessionId,
           qualification_status: status,
           overall_score: score,
@@ -1047,20 +1048,41 @@ export class OpportunityDataService {
   static async getSavedQualificationResult(opportunityId: string, sessionId?: string): Promise<any | null> {
     if (!opportunityId) return null;
 
-    // 1. Check local storage cache first for instant reactivity on evidence updates
-    if (typeof window !== 'undefined') {
-      try {
-        const cached = localStorage.getItem(`oq_result_${opportunityId}`);
-        if (cached) {
-          const parsed = JSON.parse(cached);
-          const unwrapped = parsed?.result || parsed;
-          if (unwrapped && Object.keys(unwrapped).length > 0) {
-            return unwrapped;
-          }
-        }
-      } catch (e) {}
-    }
+    // 1. Query by opportunity_id in Supabase table directly (Primary)
+    try {
+      const { data, error } = await supabase
+        .from('opportunity_qualification_results')
+        .select('*')
+        .eq('opportunity_id', opportunityId)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
 
+      if (!error && data) {
+        const reconstituted = {
+          qualification_summary: {
+            qualification_status: data.qualification_status,
+            overall_score: Number(data.overall_score || 0),
+            confidence_score: Number(data.confidence_score || 0),
+            summary: data.qualification_explanation || data.final_decision?.qualification_summary?.summary || '',
+            primary_reason: data.qualification_explanation || data.final_decision?.qualification_summary?.primary_reason || '',
+            health_indicator: data.final_decision?.qualification_summary?.health_indicator,
+            opportunity_readiness: data.final_decision?.qualification_summary?.opportunity_readiness
+          },
+          dimension_assessments: data.dimension_results || [],
+          evidence_assessments: data.final_decision?.evidence_assessments || [],
+          risk_analysis: data.risks || [],
+          recommendations: data.recommended_actions || [],
+          explainability: data.final_decision?.explainability || {
+            decision_summary: data.qualification_explanation || ''
+          },
+          opportunity_promotion_recommendation: data.final_decision?.opportunity_promotion_recommendation
+        };
+        return reconstituted;
+      }
+    } catch (err) {}
+
+    // 2. Fallback: query by session_id
     let targetSessionId = sessionId;
     if (!targetSessionId) {
       const session = await this.getSessionByOpportunity(opportunityId);
@@ -1076,7 +1098,6 @@ export class OpportunityDataService {
           .maybeSingle();
 
         if (!error && data) {
-          // Reconstitute into full result structure
           const reconstituted = {
             qualification_summary: {
               qualification_status: data.qualification_status,
@@ -1096,12 +1117,9 @@ export class OpportunityDataService {
             },
             opportunity_promotion_recommendation: data.final_decision?.opportunity_promotion_recommendation
           };
-
           return reconstituted;
         }
-      } catch (err) {
-        console.warn('Error fetching saved qualification result:', err);
-      }
+      } catch (err) {}
     }
 
     return null;

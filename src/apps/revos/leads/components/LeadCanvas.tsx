@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { MQLLead, MQLCampaign } from '../../types/mql';
 import { Search, Edit, LayoutGrid, ChevronRight, ChevronLeft, CheckCircle2, AlertTriangle, AlertCircle, Table } from 'lucide-react';
 import { MqlToSqlTable } from './MqlToSqlTable';
+import { SqlToOpportunityTable } from './SqlToOpportunityTable';
 import { PromotionDataService } from '../services/promotionDataService';
 import { OpportunityDataService } from '../services/opportunityDataService';
 
@@ -13,7 +14,7 @@ interface LeadCanvasProps {
 }
 
 export const LeadCanvas: React.FC<LeadCanvasProps> = ({ leads, campaigns, onLeadSelect, onViewTable }) => {
-  const [canvasView, setCanvasView] = useState<'kanban' | 'mql_table'>('kanban');
+  const [canvasView, setCanvasView] = useState<'kanban' | 'mql_table' | 'sql_table'>('kanban');
   const [searchQuery, setSearchQuery] = useState('');
 
   // Pagination states
@@ -91,11 +92,7 @@ export const LeadCanvas: React.FC<LeadCanvasProps> = ({ leads, campaigns, onLead
   }, []);
 
   const allLeads = filteredLeads;
-  const mqlLeads = filteredLeads.filter(l => 
-    (l.status && (l.status.includes('Qualified') || l.status === 'Highly Qualified MQL')) ||
-    promotedLeadIds.includes(l.id) ||
-    l.status === 'SQL'
-  );
+  const mqlLeads = filteredLeads.filter(l => l.handover_status === 'Handover to Sales');
   const sqlLeads = filteredLeads.filter(l => l.status === 'SQL' || promotedLeadIds.includes(l.id));
   
   // Render any opportunity associated with leads present in sql_opportunity_promotions
@@ -474,6 +471,17 @@ export const LeadCanvas: React.FC<LeadCanvasProps> = ({ leads, campaigns, onLead
     );
   }
 
+  if (canvasView === 'sql_table') {
+    return (
+      <SqlToOpportunityTable 
+        leads={leads}
+        sqlLeads={sqlLeads}
+        onBack={() => setCanvasView('kanban')}
+        onLeadSelect={onLeadSelect}
+      />
+    );
+  }
+
   return (
     <div className="h-full flex flex-col space-y-6">
       <div className="flex items-center justify-between">
@@ -566,9 +574,13 @@ export const LeadCanvas: React.FC<LeadCanvasProps> = ({ leads, campaigns, onLead
               ratioNum={sqlToOppRatio} 
             />
             <div className="flex justify-end -mt-1 -mb-1 px-1">
-              <div className="p-1 text-text-secondary/50" title="Table View (SQL)">
+              <button 
+                onClick={() => setCanvasView('sql_table')}
+                className="p-1 hover:bg-black/5 dark:hover:bg-white/5 rounded transition-colors text-text-secondary hover:text-text-primary cursor-pointer animate-pulse" 
+                title="SQL Table View"
+              >
                 <Table className="w-4 h-4" />
-              </div>
+              </button>
             </div>
             <div className="flex-1 overflow-y-auto custom-scrollbar-vertical flex flex-col gap-3 pb-2">
               {paginatedSqlLeads.map(lead => (
