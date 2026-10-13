@@ -964,6 +964,15 @@ export class OpportunityDataService {
         localStorage.removeItem(`oq_result_${opportunityId}`);
     }
 
+    // Resolve dynamic Opportunity Owner from Opportunity Form
+    let dynamicOwner = 'Sales Representative';
+    try {
+      const formData = await this.getOpportunityFormData(opportunityId);
+      if (formData?.opportunity_owner?.trim()) {
+        dynamicOwner = formData.opportunity_owner.trim();
+      }
+    } catch (e) {}
+
     // 3. Save a History record to opportunity_qualification_history
     try {
       await this.saveQualificationHistory({
@@ -976,7 +985,7 @@ export class OpportunityDataService {
         evidence_changes: `${(actualResult.evidence_assessments || []).length} evidence items evaluated`,
         reasoning_version: 'Gemini 3.1 Flash Lite - v3.0',
         rules_version: 'OQ Rules v3.0',
-        user_name: 'Sales Representative',
+        user_name: dynamicOwner,
         raw_result: actualResult
       });
     } catch (e) {}
@@ -1229,6 +1238,15 @@ export class OpportunityDataService {
     if (!opportunityId) return [];
 
     try {
+      // Dynamically fetch Opportunity Owner from Opportunity Form
+      let dynamicOwner = 'Sales Representative';
+      try {
+        const formData = await this.getOpportunityFormData(opportunityId);
+        if (formData?.opportunity_owner?.trim()) {
+          dynamicOwner = formData.opportunity_owner.trim();
+        }
+      } catch (e) {}
+
       const { data, error } = await supabase
         .from('opportunity_qualification_history')
         .select('*')
@@ -1244,14 +1262,14 @@ export class OpportunityDataService {
           if (!dayMap.has(dateKey)) {
             dayMap.set(dateKey, {
               event: d.event_name,
-              date: dateObj.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+              date: dateObj.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
               status: d.qualification_status,
               score: Number(d.score || 0),
               confidence: `${d.confidence}%`,
               evidence_changes: d.evidence_changes || 'Evaluation run',
               reasoning_version: d.reasoning_version || 'v3.0',
               rules_version: d.rules_version || 'v3.0',
-              user: d.user_name || 'Sales Representative'
+              user: (d.user_name && d.user_name !== 'Sales Representative') ? d.user_name : dynamicOwner
             });
           }
         }

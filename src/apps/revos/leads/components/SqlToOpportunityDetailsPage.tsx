@@ -146,8 +146,8 @@ export const SqlToOpportunityDetailsPage: React.FC<SqlToOpportunityDetailsPagePr
       qualification_score: qSummary.overall_score ?? (opportunity ? 84 : null),
       confidence_score: qSummary.confidence_score ?? 88,
       qualified_date: qSummary.evaluated_at || opportunity.updated_at || opportunity.created_at || new Date().toISOString(),
-      qualified_by: "RevOS AI Sales Qualification Engine",
-      reasoning_version: qSummary.version || "SQL-QIP v2.4 (MEDDPICC Core)",
+      qualified_by: "RevOS Lead Qualification Engine",
+      reasoning_version: qSummary.version || "SQL-QIP v1.0",
       narrative_summary: qSummary.summary || explainability.summary || "Validated sales qualification intelligence inherited from the SQL Qualification phase. Customer pain points and initial ROI indicators align with enterprise target motion."
     },
 

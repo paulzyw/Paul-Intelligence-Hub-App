@@ -19,7 +19,7 @@ const MiniScorePieChart: React.FC<{ score: number; status?: string }> = ({ score
     const s = status.toLowerCase();
     if (s.includes('disqualified')) {
       strokeClass = "stroke-red-500";
-    } else if (s.includes('conditionally') || s.includes('conditional') || s.includes('nurture')) {
+    } else if (s.includes('conditionally') || s.includes('conditional') || s.includes('nurture') || s.includes('borderline')) {
       strokeClass = "stroke-accent";
     } else if (s.includes('qualified') || s === 'completed' || s === 'success') {
       strokeClass = "stroke-emerald-500";
@@ -111,12 +111,19 @@ export const MqlToSqlTable: React.FC<MqlToSqlTableProps> = ({ leads, campaigns, 
     const fetchData = async () => {
       setLoading(true);
       try {
-        const [opps, pIds] = await Promise.all([
+        const [opps, pIds, assessListRes] = await Promise.all([
           SQLDataService.getOpportunities(),
-          PromotionDataService.getPromotedLeadIds()
+          PromotionDataService.getPromotedLeadIds(),
+          supabase
+            .from('sql_assessments')
+            .select('*')
+            .order('created_at', { ascending: false })
         ]);
         setOpportunities(opps);
         setPromotedLeadIds(pIds);
+        if (assessListRes.data) {
+          setAssessments(assessListRes.data as SQLAssessment[]);
+        }
 
         const qResultsMap: Record<string, any> = {};
         await Promise.all(
@@ -130,13 +137,6 @@ export const MqlToSqlTable: React.FC<MqlToSqlTableProps> = ({ leads, campaigns, 
           })
         );
         setResultsMap(qResultsMap);
-
-        const { data: assessList, error } = await supabase
-          .from('sql_assessments')
-          .select('*');
-        if (!error && assessList) {
-          setAssessments(assessList as SQLAssessment[]);
-        }
       } catch (e) {
         console.error("Failed to load SQL table context data:", e);
       } finally {
@@ -144,6 +144,15 @@ export const MqlToSqlTable: React.FC<MqlToSqlTableProps> = ({ leads, campaigns, 
       }
     };
     fetchData();
+
+    // Event listener for instant reactivity when an SQL qualification is executed or saved
+    const handleUpdate = () => {
+      fetchData();
+    };
+    window.addEventListener('sql_qualification_updated', handleUpdate);
+    return () => {
+      window.removeEventListener('sql_qualification_updated', handleUpdate);
+    };
   }, []);
 
   // Filter only the leads belonging to MQL Column
@@ -185,15 +194,37 @@ export const MqlToSqlTable: React.FC<MqlToSqlTableProps> = ({ leads, campaigns, 
 
   // Build rows mapping leads with resolved SQL values
   const resolvedRows = mqlLeadsRaw.map(lead => {
-    const opportunity = opportunities.find(o => o.mql_reference_id === lead.id);
+    // 1. Match opportunity by mql_reference_id or company name
+    const opportunity = opportunities.find(o => 
+      o.mql_reference_id === lead.id ||
+      (lead.company_name && o.company_name && lead.company_name.toLowerCase().trim() === o.company_name.toLowerCase().trim())
+    );
     const qResult = opportunity ? resultsMap[opportunity.id] : null;
-    const assessment = opportunity ? assessments.find(a => a.opportunity_id === opportunity.id) : null;
+
+    // 2. Select SQL assessment: prioritize completed assessment with valid score, or latest with score
+    const oppAssessments = opportunity ? assessments.filter(a => a.opportunity_id === opportunity.id) : [];
+    const assessment = oppAssessments.find(a => (a.assessment_status === 'completed' || a.overall_score !== null) && a.overall_score !== null && a.overall_score !== undefined)
+      || oppAssessments.find(a => a.overall_score !== null && a.overall_score !== undefined)
+      || oppAssessments[0]
+      || null;
+
     const oppDetails = parseOppDetails(opportunity?.description);
 
     const isPromoted = lead.status === 'SQL' || promotedLeadIds.includes(lead.id);
 
-    const scoreVal = qResult?.qualification_summary?.overall_score ?? assessment?.overall_score ?? 0;
-    const statusVal = qResult?.qualification_summary?.qualification_status || assessment?.qualification_status || 'Needs More Evidence';
+    // 3. Resolve SQL Score and SQL Status strictly from SQL Qualification domain
+    const rawScore = assessment?.overall_score ?? qResult?.qualification_summary?.overall_score;
+    const scoreVal = (rawScore !== undefined && rawScore !== null && !isNaN(Number(rawScore))) ? Number(rawScore) : 0;
+
+    const rawStatus = assessment?.qualification_status || qResult?.qualification_summary?.qualification_status;
+    const formatStatus = (s?: string) => {
+      if (!s) return 'Needs More Evidence';
+      if (s === 'SQL_Qualified') return 'SQL Qualified';
+      if (s === 'Borderline_SQL') return 'Borderline SQL';
+      if (s === 'Needs_Nurturing') return 'Needs Nurturing';
+      return s.replace(/_/g, ' ');
+    };
+    const statusVal = formatStatus(rawStatus);
 
     return {
       leadId: lead.id,

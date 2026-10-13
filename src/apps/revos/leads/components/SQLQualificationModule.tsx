@@ -233,6 +233,10 @@ export const SQLQualificationModule: React.FC = () => {
       // Update opportunity status locally
       loadOpportunities();
 
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('sql_qualification_updated', { detail: { opportunityId: selectedOpportunity.id } }));
+      }
+
       setView('result');
     } catch (e) {
       console.error("Evaluation failed:", e);

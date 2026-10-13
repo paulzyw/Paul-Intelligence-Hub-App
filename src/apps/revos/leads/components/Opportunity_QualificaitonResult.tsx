@@ -418,38 +418,46 @@ export const OpportunityQualificaitonResult: React.FC<OpportunityQualificaitonRe
           if (isMounted && history.length > 0) {
             setHistoryRecords(history);
           } else if (isMounted) {
+            let dynamicOwner = 'Sales Representative';
+            try {
+              const formData = await OpportunityDataService.getOpportunityFormData(opportunityId);
+              if (formData?.opportunity_owner?.trim()) {
+                dynamicOwner = formData.opportunity_owner.trim();
+              }
+            } catch (e) {}
+
             // Provide standard initial entries
             setHistoryRecords([
               {
                 event: 'Current Opportunity Assessment',
-                date: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+                date: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
                 status: safeData.qualification_summary.qualification_status,
                 score: safeData.qualification_summary.overall_score,
                 confidence: `${safeData.qualification_summary.confidence_score}%`,
                 evidence_changes: 'Complete 10-dimension evaluation',
-                reasoning_version: 'Gemini 3.1 Flash Lite - v3.0',
+                reasoning_version: 'Gemini',
                 rules_version: 'OQ Rules v3.0',
-                user: 'Sales Representative'
+                user: dynamicOwner
               },
               {
                 event: 'Pre-Assessment Discovery Intake',
-                date: new Date(Date.now() - 5 * 86400000).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+                date: new Date(Date.now() - 5 * 86400000).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
                 status: 'In Progress',
                 score: Math.max(45, safeData.qualification_summary.overall_score - 14),
                 confidence: '74%',
                 evidence_changes: 'Initial intake answers submitted',
-                reasoning_version: 'v3.0',
+                reasoning_version: 'Gemini',
                 rules_version: 'v3.0',
-                user: 'Sales Representative'
+                user: dynamicOwner
               },
               {
                 event: 'SQL Handover Inherited',
-                date: new Date(Date.now() - 14 * 86400000).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+                date: new Date(Date.now() - 14 * 86400000).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
                 status: 'SQL Qualified',
                 score: 86,
                 confidence: '84%',
                 evidence_changes: 'Passed from Marketing Handover',
-                reasoning_version: 'v2.5',
+                reasoning_version: 'Gemini',
                 rules_version: 'SQL Rules v2.5',
                 user: 'Marketing SDR'
               }
@@ -1380,8 +1388,8 @@ export const OpportunityQualificaitonResult: React.FC<OpportunityQualificaitonRe
                 <th className="py-2.5 px-3">Score</th>
                 <th className="py-2.5 px-3">Confidence</th>
                 <th className="py-2.5 px-3">Evidence Changes</th>
-                <th className="py-2.5 px-3">Reasoning Version</th>
-                <th className="py-2.5 px-3">Rules Version</th>
+                {/*<th className="py-2.5 px-3">Reasoning Version</th>*/}
+                {/*<th className="py-2.5 px-3">Rules Version</th>*/}
                 <th className="py-2.5 px-3">User</th>
               </tr>
             </thead>
@@ -1402,8 +1410,8 @@ export const OpportunityQualificaitonResult: React.FC<OpportunityQualificaitonRe
                   <td className="py-3 px-3 font-mono font-bold text-text-primary">{hist.score}</td>
                   <td className="py-3 px-3 font-mono text-text-secondary">{hist.confidence}</td>
                   <td className="py-3 px-3 text-text-secondary max-w-xs truncate">{hist.evidence_changes}</td>
-                  <td className="py-3 px-3 font-mono text-[10px] text-text-secondary">{hist.reasoning_version}</td>
-                  <td className="py-3 px-3 font-mono text-[10px] text-text-secondary">{hist.rules_version}</td>
+                  {/*<td className="py-3 px-3 font-mono text-[10px] text-text-secondary">{hist.reasoning_version}</td>*/}
+                  {/*<td className="py-3 px-3 font-mono text-[10px] text-text-secondary">{hist.rules_version}</td>*/}
                   <td className="py-3 px-3 text-text-secondary">{hist.user}</td>
                 </tr>
               ))}

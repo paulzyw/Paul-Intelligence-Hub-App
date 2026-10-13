@@ -84,7 +84,8 @@ export class SQLDataService {
       assessment_status: 'completed',
       qualification_status: result.qualification_summary?.qualification_status,
       overall_score: result.qualification_summary?.overall_score,
-      confidence_score: result.qualification_summary?.confidence_score
+      confidence_score: result.qualification_summary?.confidence_score,
+      completed_at: new Date().toISOString()
     }).eq('id', assessmentId);
 
     // Save full JSON in reasoning sessions
@@ -100,6 +101,11 @@ export class SQLDataService {
       console.error('Error saving full qualification result:', error);
       throw error;
     }
+
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('sql_qualification_updated', { detail: { opportunityId } }));
+    }
+
     return true;
   }
 
@@ -123,13 +129,15 @@ export class SQLDataService {
       .from('sql_assessments')
       .select('*')
       .eq('opportunity_id', opportunityId)
-      .order('created_at', { ascending: false })
-      .limit(1);
+      .order('created_at', { ascending: false });
     if (error) {
       console.error(error);
       return null;
     }
-    return (data && data.length > 0) ? (data[0] as SQLAssessment) : null;
+    if (!data || data.length === 0) return null;
+    // Prefer completed assessment with valid overall_score
+    const completed = data.find(a => (a.assessment_status === 'completed' || a.overall_score !== null) && a.overall_score !== undefined);
+    return (completed || data[0]) as SQLAssessment;
   }
 
   static async createAssessment(opportunityId: string) {

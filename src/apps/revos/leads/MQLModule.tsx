@@ -79,6 +79,7 @@ export const MQLModule: React.FC = () => {
   const [oqOpportunity, setOqOpportunity] = useState<any | null>(null);
   const [campaignFilterId, setCampaignFilterId] = useState<string>('all');
   const [targetCampaignId, setTargetCampaignId] = useState<string>('');
+  const [dashboardCampaignFilter, setDashboardCampaignFilter] = useState<string>('all');
   
   // Views: campaign_config (Campaign Details), lead_list, lead_create, lead_assess, sql_handover, sql_to_opportunity, sql_to_opportunity_details
   const [view, setView] = useState<'campaign_config' | 'lead_list' | 'lead_create' | 'lead_assess' | 'lead_canvas' | 'sql_handover' | 'sql_to_opportunity' | 'sql_to_opportunity_details'>('campaign_config');
@@ -600,28 +601,28 @@ export const MQLModule: React.FC = () => {
     }
 
     if (activeTab === 'dashboard') {
-      if (!selectedCampaign) {
-        return (
-          <div className="p-8 text-center border border-dashed border-border rounded-2xl bg-bg-surface/30">
-            <FolderOpen className="h-10 w-10 mx-auto mb-3 opacity-30 text-text-secondary" />
-            <h3 className="text-xs font-black uppercase text-text-primary tracking-wider">No Active Campaign Selected</h3>
-            <p className="text-[11px] text-text-secondary mt-1.5 max-w-sm mx-auto">
-              Please select an existing campaign from the Campaign Register sidebar, or create a new blueprint to view campaign analytics.
-            </p>
-          </div>
-        );
-      }
-      
-      const dashboardLeads = leads.filter(l => l.campaign_id === selectedCampaign.id && !deletedLeadIds.includes(l.id));
+      const activeDashboardCampaign = dashboardCampaignFilter === 'all'
+        ? null
+        : campaigns.find(c => c.id === dashboardCampaignFilter) || null;
+
+      const dashboardLeads = dashboardCampaignFilter === 'all'
+        ? leads.filter(l => !deletedLeadIds.includes(l.id))
+        : leads.filter(l => l.campaign_id === dashboardCampaignFilter && !deletedLeadIds.includes(l.id));
+
       const dashboardQualResults = campaignQualResults.filter(r => {
         const lead = leads.find(l => l.id === r.lead_id);
-        return lead && lead.campaign_id === selectedCampaign.id && !deletedLeadIds.includes(lead.id);
+        if (!lead || deletedLeadIds.includes(lead.id)) return false;
+        if (dashboardCampaignFilter === 'all') return true;
+        return lead.campaign_id === dashboardCampaignFilter;
       });
 
       return (
         <div className="space-y-6 animate-in fade-in-30 duration-200">
           <LeadDashboard 
-            campaign={selectedCampaign}
+            campaigns={campaigns}
+            selectedCampaignId={dashboardCampaignFilter}
+            onCampaignChange={(newCampaignId) => setDashboardCampaignFilter(newCampaignId)}
+            campaign={activeDashboardCampaign}
             leads={dashboardLeads}
             qualResults={dashboardQualResults}
           />

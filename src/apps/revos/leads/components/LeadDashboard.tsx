@@ -25,16 +25,28 @@ import {
   CheckCircle2, 
   AlertTriangle, 
   HelpCircle,
-  Lightbulb
+  Lightbulb,
+  Filter
 } from 'lucide-react';
 
 interface LeadDashboardProps {
-  campaign: MQLCampaign;
+  campaigns?: MQLCampaign[];
+  selectedCampaignId?: string;
+  onCampaignChange?: (campaignId: string) => void;
+  campaign?: MQLCampaign | null;
   leads: MQLLead[];
   qualResults: MQLQualificationResult[];
 }
 
-export const LeadDashboard: React.FC<LeadDashboardProps> = ({ campaign, leads, qualResults }) => {
+export const LeadDashboard: React.FC<LeadDashboardProps> = ({ 
+  campaigns = [],
+  selectedCampaignId = 'all',
+  onCampaignChange,
+  campaign, 
+  leads, 
+  qualResults 
+}) => {
+  const isAllCampaigns = !campaign || selectedCampaignId === 'all';
   // 1. Calculations & Metrics Aggregations
   const totalLeads = leads.length;
   const evaluatedLeads = qualResults.length;
@@ -51,6 +63,8 @@ export const LeadDashboard: React.FC<LeadDashboardProps> = ({ campaign, leads, q
   const nurtureCount = statusCounts['Marketing Nurture'] || 0;
   const disqualifiedCount = statusCounts['Disqualified'] || 0;
   const newOrAssessingCount = totalLeads - (highlyQualifiedCount + qualifiedCount + nurtureCount + disqualifiedCount);
+
+  const evaluationRate = totalLeads > 0 ? Math.round((evaluatedLeads / totalLeads) * 100) : 0;
 
   // Core metrics averages
   const avgScore = evaluatedLeads > 0 
@@ -131,7 +145,9 @@ export const LeadDashboard: React.FC<LeadDashboardProps> = ({ campaign, leads, q
     if (evaluatedLeads === 0) {
       return {
         title: "Initiate Qualifications",
-        description: "Zero leads have been analyzed in this campaign yet. Populate the Leads Register and run the AI Qualification Engine on individuals to unlock deep dimension diagnostics.",
+        description: isAllCampaigns
+          ? "Zero leads have been analyzed across your campaigns yet. Populate the Leads Register and run the AI Qualification Engine on individuals to unlock deep dimension diagnostics."
+          : "Zero leads have been analyzed in this campaign yet. Populate the Leads Register and run the AI Qualification Engine on individuals to unlock deep dimension diagnostics.",
         action: "Go to Lead List & Add Profiles"
       };
     }
@@ -184,32 +200,97 @@ export const LeadDashboard: React.FC<LeadDashboardProps> = ({ campaign, leads, q
 
   return (
     <div className="space-y-6">
-      {/* Campaign Details Header block */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 p-5 rounded-2xl bg-bg-surface/50 border border-border shadow-sm">
-        <div>
-          <span className="text-[9px] font-mono font-black text-text-secondary uppercase tracking-widest">Active Campaign Diagnostics</span>
-          <h2 className="text-lg font-black text-text-primary uppercase tracking-wide mt-0.5">{campaign.name} Summary</h2>
+      {/* Campaign Details Header block with Master Filter */}
+      <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 p-5 rounded-2xl bg-bg-surface/50 border border-border shadow-sm">
+        <div className="flex-1 min-w-0">
+          <span className="text-[9px] font-mono font-black text-text-secondary uppercase tracking-widest">
+            {isAllCampaigns ? "Account-Wide Pipeline Diagnostics" : "Active Campaign Diagnostics"}
+          </span>
+          <h2 className="text-lg font-black text-text-primary uppercase tracking-wide mt-0.5 truncate">
+            {isAllCampaigns ? "All Campaigns Summary" : `${campaign?.name} Summary`}
+          </h2>
           <p className="text-xs text-text-secondary mt-1 max-w-xl leading-relaxed">
-            {campaign.objective || "Aggregated metrics and qualitative distribution across all active prospects under this campaign blueprint."}
+            {isAllCampaigns 
+              ? "Aggregated metrics, qualification diagnostics, and leaderboard across all campaigns enrolled under your account."
+              : (campaign?.objective || "Aggregated metrics and qualitative distribution across all active prospects under this campaign blueprint.")
+            }
           </p>
         </div>
-        <div className="flex flex-wrap items-center gap-1.5 shrink-0">
-          <span className="px-2.5 py-1 bg-accent/10 border border-accent/20 text-accent font-mono font-bold text-[9px] rounded-lg uppercase tracking-wider">
-            {campaign.industry}
-          </span>
-          <span className="px-2.5 py-1 bg-bg-primary border border-border text-text-secondary font-mono font-bold text-[9px] rounded-lg uppercase tracking-wider">
-            {campaign.revenue_motion?.replace(/_/g, ' ')}
-          </span>
+
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full lg:w-auto shrink-0">
+          {/* Master Campaign Filter Dropdown */}
+          {onCampaignChange && campaigns && campaigns.length > 0 && (
+            <div className="flex items-center gap-2 bg-bg-surface border border-border rounded-xl px-3 py-2 shadow-sm">
+              <Filter className="w-3.5 h-3.5 text-accent shrink-0" />
+              <span className="text-[10px] font-mono font-bold text-text-secondary uppercase whitespace-nowrap">Campaign:</span>
+              <select
+                value={selectedCampaignId || 'all'}
+                onChange={(e) => onCampaignChange(e.target.value)}
+                className="bg-transparent text-text-primary font-sans text-xs font-bold focus:outline-none cursor-pointer pr-1 w-full sm:w-auto min-w-[170px]"
+              >
+                <option value="all" className="bg-bg-surface text-text-primary font-medium">All Campaigns (Account-Wide)</option>
+                {campaigns.map(c => (
+                  <option key={c.id} value={c.id} className="bg-bg-surface text-text-primary font-medium">{c.name}</option>
+                ))}
+              </select>
+            </div>
+          )}
+
+          <div className="flex flex-wrap items-center gap-1.5 shrink-0">
+            {isAllCampaigns ? (
+              <>
+                <span className="px-2.5 py-1 bg-accent/10 border border-accent/20 text-accent font-mono font-bold text-[9px] rounded-lg uppercase tracking-wider">
+                  {campaigns?.length || 0} Campaigns
+                </span>
+                <span className="px-2.5 py-1 bg-bg-primary border border-border text-text-secondary font-mono font-bold text-[9px] rounded-lg uppercase tracking-wider">
+                  {totalLeads} Total Leads
+                </span>
+              </>
+            ) : (
+              <>
+                <span className="px-2.5 py-1 bg-accent/10 border border-accent/20 text-accent font-mono font-bold text-[9px] rounded-lg uppercase tracking-wider">
+                  {campaign?.industry || 'General'}
+                </span>
+                <span className="px-2.5 py-1 bg-bg-primary border border-border text-text-secondary font-mono font-bold text-[9px] rounded-lg uppercase tracking-wider">
+                  {campaign?.revenue_motion?.replace(/_/g, ' ') || 'General Motion'}
+                </span>
+              </>
+            )}
+          </div>
         </div>
       </div>
 
       {/* KPI Stats Panel Grid */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {[
-          { label: "Total Lead Roster", val: totalLeads, desc: "Total profiles enrolled", icon: Users, color: "text-blue-500" },
-          { label: "Qualified Prospects", val: highlyQualifiedCount + qualifiedCount, desc: `Of ${evaluatedLeads} evaluated leads`, icon: Award, color: "text-emerald-500" },
-          { label: "Avg MQL Score", val: avgScore > 0 ? `${avgScore}%` : "—", desc: "Across assessed dimensions", icon: TrendingUp, color: "text-accent" },
-          { label: "AI Cognitive Confidence", val: avgConfidence > 0 ? `${avgConfidence}%` : "—", desc: "Machine assurance level", icon: Cpu, color: "text-purple-500" }
+          { 
+            label: "Total Leads", 
+            val: totalLeads, 
+            desc: isAllCampaigns ? "All enrolled account profiles" : "Total profiles in campaign", 
+            icon: Users, 
+            color: "text-blue-500" 
+          },
+          { 
+            label: "Evaluation Rate", 
+            val: `${evaluationRate}%`, 
+            desc: `${evaluatedLeads} of ${totalLeads} evaluated (${highlyQualifiedCount + qualifiedCount} qualified)`, 
+            icon: CheckCircle2, 
+            color: "text-emerald-500" 
+          },
+          { 
+            label: "Avg Score", 
+            val: avgScore > 0 ? `${avgScore}%` : "—", 
+            desc: "Across assessed dimensions", 
+            icon: TrendingUp, 
+            color: "text-accent" 
+          },
+          { 
+            label: "Avg Confidence", 
+            val: avgConfidence > 0 ? `${avgConfidence}%` : "—", 
+            desc: "Machine assurance level", 
+            icon: Cpu, 
+            color: "text-purple-500" 
+          }
         ].map((stat, idx) => (
           <div key={idx} className="p-4 rounded-2xl border border-border bg-bg-surface flex flex-col justify-between shadow-sm relative overflow-hidden group">
             <div className="flex items-center justify-between mb-2">
@@ -355,9 +436,13 @@ export const LeadDashboard: React.FC<LeadDashboardProps> = ({ campaign, leads, q
           <div className="border-b border-border pb-3 mb-4">
             <h3 className="text-xs font-black text-text-primary uppercase tracking-wider flex items-center gap-1.5">
               <Award className="h-3.5 w-3.5 text-accent" />
-              Top Campaign Prospects (Leaderboard)
+              {isAllCampaigns ? "Top Account Prospects (Leaderboard)" : "Top Campaign Prospects (Leaderboard)"}
             </h3>
-            <p className="text-[10px] text-text-secondary mt-0.5">Top-ranked lead profiles compiled by qualification scores</p>
+            <p className="text-[10px] text-text-secondary mt-0.5">
+              {isAllCampaigns 
+                ? "Top-ranked prospects across all campaigns compiled by qualification scores" 
+                : "Top-ranked lead profiles compiled by qualification scores"}
+            </p>
           </div>
 
           <div className="space-y-2.5 overflow-y-auto max-h-[220px]">
@@ -365,6 +450,8 @@ export const LeadDashboard: React.FC<LeadDashboardProps> = ({ campaign, leads, q
               const statusColor = item.lead.status?.toLowerCase().includes('highly')
                 ? 'text-green-500 bg-green-500/10'
                 : 'text-emerald-500 bg-emerald-500/10';
+
+              const leadCamp = isAllCampaigns && campaigns ? campaigns.find(c => c.id === item.lead.campaign_id) : null;
 
               return (
                 <div key={item.lead.id} className="p-3 rounded-xl border border-border bg-bg-primary/40 hover:bg-bg-primary/80 transition-all flex items-center justify-between gap-3 text-xs">
@@ -374,7 +461,12 @@ export const LeadDashboard: React.FC<LeadDashboardProps> = ({ campaign, leads, q
                     </span>
                     <div className="truncate">
                       <div className="font-bold text-text-primary truncate">{item.lead.first_name} {item.lead.last_name}</div>
-                      <div className="text-[10px] text-text-secondary truncate">{item.lead.company_name} • {item.lead.job_title}</div>
+                      <div className="text-[10px] text-text-secondary truncate">
+                        {item.lead.company_name} • {item.lead.job_title}
+                        {leadCamp && (
+                          <span className="ml-1.5 text-accent font-semibold font-mono text-[9px]">[{leadCamp.name}]</span>
+                        )}
+                      </div>
                     </div>
                   </div>
 
