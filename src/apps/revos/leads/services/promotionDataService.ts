@@ -31,6 +31,26 @@ export class PromotionDataService {
   }
 
   /**
+   * Get all MQL to SQL promotion records with timestamps from Supabase.
+   */
+  static async getMqlSqlPromotions(): Promise<any[]> {
+    try {
+      const { data, error } = await supabase
+        .from('mql_sql_promotions')
+        .select('*');
+
+      if (error) {
+        console.warn('mql_sql_promotions table fetch:', error.message);
+        return [];
+      }
+      return data || [];
+    } catch (err) {
+      console.error('Failed to fetch mql_sql_promotions from Supabase:', err);
+      return [];
+    }
+  }
+
+  /**
    * Check if a specific lead ID is promoted in Supabase.
    */
   static async isLeadPromoted(leadId: string): Promise<boolean> {
@@ -152,6 +172,26 @@ export class PromotionDataService {
       return leadIds;
     } catch (err) {
       console.error('Failed to fetch promoted lead IDs from sql_opportunity_promotions:', err);
+      return [];
+    }
+  }
+
+  /**
+   * Get all SQL to Opportunity promotion records with timestamps from Supabase.
+   */
+  static async getSqlOpportunityPromotions(): Promise<any[]> {
+    try {
+      const { data, error } = await supabase
+        .from('sql_opportunity_promotions')
+        .select('*');
+
+      if (error) {
+        console.warn('sql_opportunity_promotions table fetch:', error.message);
+        return [];
+      }
+      return data || [];
+    } catch (err) {
+      console.error('Failed to fetch sql_opportunity_promotions from Supabase:', err);
       return [];
     }
   }

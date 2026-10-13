@@ -605,9 +605,31 @@ export const MQLModule: React.FC = () => {
         ? null
         : campaigns.find(c => c.id === dashboardCampaignFilter) || null;
 
-      const dashboardLeads = dashboardCampaignFilter === 'all'
+      const dashboardRawLeads = dashboardCampaignFilter === 'all'
         ? leads.filter(l => !deletedLeadIds.includes(l.id))
         : leads.filter(l => l.campaign_id === dashboardCampaignFilter && !deletedLeadIds.includes(l.id));
+
+      const dashboardLeads = dashboardRawLeads.map(lead => {
+        const leadQualResult = campaignQualResults.find(r => r.lead_id === lead.id);
+        let ticketFromDb: any = null;
+        if (leadQualResult?.recommendations && typeof leadQualResult.recommendations === 'object' && !Array.isArray(leadQualResult.recommendations)) {
+          const recObj = leadQualResult.recommendations as any;
+          if (recObj.handover_ticket) {
+            ticketFromDb = recObj.handover_ticket;
+          }
+        }
+        const stored = typeof window !== 'undefined' ? localStorage.getItem(`mql_handover_${lead.id}`) : null;
+        let parsedStored: any = null;
+        if (stored) {
+          try { parsedStored = JSON.parse(stored); } catch {}
+        }
+        const hasHandover = !!(ticketFromDb || parsedStored);
+        
+        return {
+          ...lead,
+          handover_status: hasHandover ? 'Handover to Sales' : lead.handover_status
+        };
+      });
 
       const dashboardQualResults = campaignQualResults.filter(r => {
         const lead = leads.find(l => l.id === r.lead_id);
