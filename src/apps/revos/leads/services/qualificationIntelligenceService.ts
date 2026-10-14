@@ -76,6 +76,8 @@ export interface SavedQualificationInsightsRecord {
   analysis_metrics: any;
   insights_data: QualificationExecutiveInsights;
   generated_at: string;
+  persisted_to_db?: boolean;
+  db_error?: string;
 }
 
 export class QualificationIntelligenceService {
@@ -385,7 +387,7 @@ export class QualificationIntelligenceService {
         .maybeSingle();
 
       if (!error && data && data.insights_data) {
-        return {
+        const record: SavedQualificationInsightsRecord = {
           id: data.id,
           scope_campaign_id: data.scope_campaign_id,
           scope_campaign_name: data.scope_campaign_name,
@@ -395,8 +397,21 @@ export class QualificationIntelligenceService {
           assessed_leads_count: data.assessed_leads_count,
           analysis_metrics: data.analysis_metrics,
           insights_data: data.insights_data,
-          generated_at: data.generated_at || data.created_at
+          generated_at: data.generated_at || data.created_at,
+          persisted_to_db: true
         };
+
+        // Sync local cache
+        if (typeof window !== 'undefined') {
+          localStorage.setItem(
+            `qualification_executive_insights_${campaignId}`,
+            JSON.stringify(record)
+          );
+        }
+
+        return record;
+      } else if (error) {
+        console.warn('Dedicated qualification_executive_insights query notice:', error.message);
       }
     } catch (e) {
       console.warn('Dedicated qualification_executive_insights table query warning:', e);
@@ -415,6 +430,60 @@ export class QualificationIntelligenceService {
     }
 
     return null;
+  }
+
+  /**
+   * Manually saves or re-syncs qualification insights into the dedicated Supabase table.
+   */
+  static async saveInsights(
+    record: SavedQualificationInsightsRecord
+  ): Promise<{ success: boolean; id?: string; error?: string }> {
+    try {
+      const payload = {
+        scope_campaign_id: record.scope_campaign_id || 'all',
+        scope_campaign_name: record.scope_campaign_name || 'All Campaigns (Account-Wide)',
+        scope_industry: record.scope_industry || null,
+        scope_revenue_motion: record.scope_revenue_motion || null,
+        total_leads_scoped: record.total_leads_scoped || 0,
+        assessed_leads_count: record.assessed_leads_count || 0,
+        analysis_metrics: record.analysis_metrics || {},
+        insights_data: record.insights_data,
+        generated_at: record.generated_at || new Date().toISOString()
+      };
+
+      const { data, error } = await supabase
+        .from('qualification_executive_insights')
+        .insert(payload)
+        .select()
+        .maybeSingle();
+
+      if (error) {
+        console.error('Supabase qualification_executive_insights save error:', error);
+        return { success: false, error: error.message };
+      }
+
+      if (data) {
+        // Also update local cache with the new database ID and status
+        const updatedRecord: SavedQualificationInsightsRecord = {
+          ...record,
+          id: data.id,
+          persisted_to_db: true,
+          db_error: undefined
+        };
+        if (typeof window !== 'undefined') {
+          localStorage.setItem(
+            `qualification_executive_insights_${record.scope_campaign_id}`,
+            JSON.stringify(updatedRecord)
+          );
+        }
+        return { success: true, id: data.id };
+      }
+
+      return { success: true };
+    } catch (e: any) {
+      console.error('saveInsights exception:', e);
+      return { success: false, error: e?.message || 'Database connection error' };
+    }
   }
 
   /**
@@ -469,36 +538,23 @@ export class QualificationIntelligenceService {
       assessed_leads_count: metrics.total_assessed,
       analysis_metrics: metrics,
       insights_data: insights,
-      generated_at: timestamp
+      generated_at: timestamp,
+      persisted_to_db: false
     };
 
     // 2. Persist to Supabase table directly if not already saved by Edge Function
     if (!savedRecord) {
-      try {
-        const { data, error: insertError } = await supabase
-          .from('qualification_executive_insights')
-          .insert({
-            scope_campaign_id: scope.campaign_id,
-            scope_campaign_name: scope.campaign_name,
-            scope_industry: scope.industry || null,
-            scope_revenue_motion: scope.revenue_motion || null,
-            total_leads_scoped: metrics.total_leads,
-            assessed_leads_count: metrics.total_assessed,
-            analysis_metrics: metrics,
-            insights_data: insights,
-            generated_at: timestamp
-          })
-          .select()
-          .maybeSingle();
-
-        if (!insertError && data) {
-          resultRecord.id = data.id;
-        }
-      } catch (tableErr) {
-        console.warn('Table qualification_executive_insights insert warning:', tableErr);
+      const saveRes = await this.saveInsights(resultRecord);
+      if (saveRes.success && saveRes.id) {
+        resultRecord.id = saveRes.id;
+        resultRecord.persisted_to_db = true;
+      } else if (!saveRes.success) {
+        resultRecord.persisted_to_db = false;
+        resultRecord.db_error = saveRes.error;
       }
     } else {
       resultRecord.id = savedRecord.id;
+      resultRecord.persisted_to_db = true;
     }
 
     // 3. Persist to localStorage for instantaneous fast-load cache

@@ -16,7 +16,9 @@ import {
   Filter,
   BarChart3,
   Lightbulb,
-  ExternalLink
+  ExternalLink,
+  Save,
+  Database
 } from 'lucide-react';
 import { MQLLead, MQLQualificationResult, MQLCampaign } from '../../types/mql';
 import { 
@@ -50,6 +52,9 @@ export const QualificationIntelligenceSection: React.FC<QualificationIntelligenc
   dashboardMetrics
 }) => {
   const [loading, setLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [saveSuccess, setSaveSuccess] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [savedRecord, setSavedRecord] = useState<SavedQualificationInsightsRecord | null>(null);
   const [initialLoaded, setInitialLoaded] = useState(false);
@@ -71,6 +76,7 @@ export const QualificationIntelligenceSection: React.FC<QualificationIntelligenc
     const loadSaved = async () => {
       try {
         setError(null);
+        setSaveError(null);
         const record = await QualificationIntelligenceService.getSavedInsights(currentScope.campaign_id);
         if (isMounted) {
           setSavedRecord(record);
@@ -91,10 +97,41 @@ export const QualificationIntelligenceSection: React.FC<QualificationIntelligenc
     };
   }, [currentScope.campaign_id]);
 
+  // Handle Manual Save to Database
+  const handleSaveToDatabase = async () => {
+    if (!savedRecord) return;
+    setSaving(true);
+    setSaveError(null);
+    setSaveSuccess(false);
+
+    try {
+      const res = await QualificationIntelligenceService.saveInsights(savedRecord);
+      if (res.success) {
+        setSaveSuccess(true);
+        setSavedRecord(prev => prev ? {
+          ...prev,
+          id: res.id || prev.id,
+          persisted_to_db: true,
+          db_error: undefined
+        } : null);
+        setTimeout(() => setSaveSuccess(false), 3500);
+      } else {
+        setSaveError(res.error || 'Failed to save into Supabase database. Please ensure table RLS policy is enabled.');
+      }
+    } catch (err: any) {
+      console.error('Error saving insights to database:', err);
+      setSaveError(err?.message || 'Failed to save insights to database.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
   // Handle Generate Insights Click
   const handleGenerate = async () => {
     setLoading(true);
     setError(null);
+    setSaveError(null);
+    setSaveSuccess(false);
 
     try {
       // 1. Fetch additional context data (SQL assessments & Opportunity sessions)
@@ -130,6 +167,9 @@ export const QualificationIntelligenceSection: React.FC<QualificationIntelligenc
       );
 
       setSavedRecord(newRecord);
+      if (!newRecord.persisted_to_db && newRecord.db_error) {
+        setSaveError(newRecord.db_error);
+      }
     } catch (err: any) {
       console.error('Error generating qualification executive insights:', err);
       setError(err?.message || 'Failed to generate qualification executive insights. Please try again.');
@@ -184,12 +224,54 @@ export const QualificationIntelligenceSection: React.FC<QualificationIntelligenc
           </div>
 
           {/* Action button & Last generated badge */}
-          <div className="flex flex-wrap items-center gap-3">
+          <div className="flex flex-wrap items-center gap-2.5">
             {savedRecord && (
-              <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-bg-primary/60 border border-border/80 text-[11px] font-mono text-text-secondary">
-                <Calendar className="h-3.5 w-3.5 text-text-secondary/70" />
-                <span>Generated: <strong className="text-text-primary">{formatTimestamp(savedRecord.generated_at)}</strong></span>
-              </div>
+              <>
+                <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-bg-primary/60 border border-border/80 text-[11px] font-mono text-text-secondary">
+                  <Calendar className="h-3.5 w-3.5 text-text-secondary/70" />
+                  <span>Generated: <strong className="text-text-primary">{formatTimestamp(savedRecord.generated_at)}</strong></span>
+                </div>
+
+                <div className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-[11px] font-mono border ${
+                  savedRecord.persisted_to_db 
+                    ? 'bg-emerald-500/10 border-emerald-500/25 text-emerald-600 dark:text-emerald-400' 
+                    : 'bg-amber-500/10 border-amber-500/25 text-amber-600 dark:text-amber-400'
+                }`}>
+                  <Database className="h-3.5 w-3.5" />
+                  <span>{savedRecord.persisted_to_db ? 'Supabase Synced' : 'Local Cache'}</span>
+                </div>
+
+                {/* Dedicated Manual Save Button */}
+                <button
+                  onClick={handleSaveToDatabase}
+                  disabled={saving || loading}
+                  className={`px-3.5 py-2.5 rounded-xl font-bold text-xs tracking-tight transition-all duration-200 flex items-center gap-1.5 shadow-sm select-none font-sans ${
+                    saveSuccess
+                      ? 'bg-emerald-500/15 border border-emerald-500/30 text-emerald-600 dark:text-emerald-400'
+                      : saving
+                      ? 'bg-bg-primary/80 border border-border text-text-secondary cursor-wait'
+                      : 'bg-bg-primary hover:bg-bg-surface border border-border text-text-primary hover:border-accent/40 active:scale-[0.98] cursor-pointer'
+                  }`}
+                  title="Manually save generated intelligence to dedicated Supabase database table"
+                >
+                  {saving ? (
+                    <>
+                      <RefreshCw className="h-3.5 w-3.5 animate-spin text-accent" />
+                      <span>Saving to DB...</span>
+                    </>
+                  ) : saveSuccess ? (
+                    <>
+                      <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />
+                      <span>Saved to Supabase</span>
+                    </>
+                  ) : (
+                    <>
+                      <Save className="h-3.5 w-3.5 text-accent" />
+                      <span>Save to Database</span>
+                    </>
+                  )}
+                </button>
+              </>
             )}
 
             <button
@@ -239,6 +321,25 @@ export const QualificationIntelligenceSection: React.FC<QualificationIntelligenc
           </span>
         </div>
       </div>
+
+      {/* Save Error / RLS Notice Banner */}
+      {saveError && (
+        <div className="bg-amber-500/10 border-b border-amber-500/25 px-5 py-3 flex items-start sm:items-center justify-between gap-3 text-amber-800 dark:text-amber-200 text-xs">
+          <div className="flex items-center gap-2 font-sans">
+            <AlertTriangle className="h-4 w-4 shrink-0 text-amber-500" />
+            <span>
+              <strong>Supabase Storage Notice:</strong> {saveError} (Run the updated <code>20261014_qualification_executive_insights.sql</code> script in Supabase SQL Editor to grant table permissions).
+            </span>
+          </div>
+          <button
+            onClick={handleSaveToDatabase}
+            disabled={saving}
+            className="px-3 py-1 rounded-lg bg-amber-500 text-white font-bold text-[11px] hover:bg-amber-600 transition-colors shrink-0 cursor-pointer"
+          >
+            Retry Save
+          </button>
+        </div>
+      )}
 
       {/* Scope Mismatch Notification Banner */}
       {isScopeMismatched && (

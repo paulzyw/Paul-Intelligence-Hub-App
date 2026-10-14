@@ -20,10 +20,36 @@ CREATE TABLE IF NOT EXISTS public.qualification_executive_insights (
 -- Index for fast retrieval by scope and recency
 CREATE INDEX IF NOT EXISTS idx_qual_insights_scope ON public.qualification_executive_insights (scope_campaign_id, generated_at DESC);
 
+-- Explicit Data API Grants (Post-May 2026 Supabase Standard)
+-- Both anon and authenticated need INSERT/UPDATE/SELECT so client operations and edge function can persist
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.qualification_executive_insights TO anon;
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.qualification_executive_insights TO authenticated;
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.qualification_executive_insights TO service_role;
+
 -- Enable Row Level Security
 ALTER TABLE public.qualification_executive_insights ENABLE ROW LEVEL SECURITY;
 
--- Explicit Data API Grants (Post-May 2026 Supabase Standard)
-GRANT SELECT ON public.qualification_executive_insights TO anon;
-GRANT SELECT, INSERT, UPDATE, DELETE ON public.qualification_executive_insights TO authenticated;
-GRANT SELECT, INSERT, UPDATE, DELETE ON public.qualification_executive_insights TO service_role;
+-- Idempotent RLS Policies for anon, authenticated, and service_role
+DROP POLICY IF EXISTS "Allow anon read on qualification_executive_insights" ON public.qualification_executive_insights;
+CREATE POLICY "Allow anon read on qualification_executive_insights" 
+  ON public.qualification_executive_insights FOR SELECT TO anon USING (true);
+
+DROP POLICY IF EXISTS "Allow anon insert on qualification_executive_insights" ON public.qualification_executive_insights;
+CREATE POLICY "Allow anon insert on qualification_executive_insights" 
+  ON public.qualification_executive_insights FOR INSERT TO anon WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Allow anon update on qualification_executive_insights" ON public.qualification_executive_insights;
+CREATE POLICY "Allow anon update on qualification_executive_insights" 
+  ON public.qualification_executive_insights FOR UPDATE TO anon USING (true) WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Allow anon delete on qualification_executive_insights" ON public.qualification_executive_insights;
+CREATE POLICY "Allow anon delete on qualification_executive_insights" 
+  ON public.qualification_executive_insights FOR DELETE TO anon USING (true);
+
+DROP POLICY IF EXISTS "Allow authenticated full access to qualification_executive_insights" ON public.qualification_executive_insights;
+CREATE POLICY "Allow authenticated full access to qualification_executive_insights" 
+  ON public.qualification_executive_insights FOR ALL TO authenticated USING (true) WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Allow service_role full access to qualification_executive_insights" ON public.qualification_executive_insights;
+CREATE POLICY "Allow service_role full access to qualification_executive_insights" 
+  ON public.qualification_executive_insights FOR ALL TO service_role USING (true) WITH CHECK (true);
