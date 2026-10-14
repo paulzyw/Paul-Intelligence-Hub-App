@@ -40,18 +40,24 @@ export const LeadDashboard: React.FC<LeadDashboardProps> = ({
   const [mqlPromotions, setMqlPromotions] = useState<any[]>([]);
   const [oppPromotions, setOppPromotions] = useState<any[]>([]);
   const [oppRevenueMap, setOppRevenueMap] = useState<Record<string, number>>({});
+  const [promotedLeadIds, setPromotedLeadIds] = useState<string[]>([]);
+  const [sqlPromotedLeadIds, setSqlPromotedLeadIds] = useState<string[]>([]);
 
   useEffect(() => {
     const loadPromotions = async () => {
       try {
-        const [mqlPromos, oppPromos, revMap] = await Promise.all([
-          PromotionDataService.getMqlSqlPromotions(),
-          PromotionDataService.getSqlOpportunityPromotions(),
-          OpportunityDataService.getOpportunityEstimatedRevenuesMap().catch(() => ({}))
+        const [mqlPromos, oppPromos, revMap, promoIds, sqlPromoIds] = await Promise.all([
+          PromotionDataService.getMqlSqlPromotions().catch(() => []),
+          PromotionDataService.getSqlOpportunityPromotions().catch(() => []),
+          OpportunityDataService.getOpportunityEstimatedRevenuesMap().catch(() => ({})),
+          PromotionDataService.getPromotedLeadIds().catch(() => []),
+          PromotionDataService.getSqlOpportunityPromotedLeadIds().catch(() => [])
         ]);
-        setMqlPromotions(mqlPromos);
-        setOppPromotions(oppPromos);
+        setMqlPromotions(mqlPromos || []);
+        setOppPromotions(oppPromos || []);
         if (revMap) setOppRevenueMap(revMap);
+        if (promoIds) setPromotedLeadIds(promoIds);
+        if (sqlPromoIds) setSqlPromotedLeadIds(sqlPromoIds);
       } catch (err) {
         console.error('Failed to load promotions in LeadDashboard:', err);
       }
@@ -166,7 +172,11 @@ export const LeadDashboard: React.FC<LeadDashboardProps> = ({
   mqlPromotions.forEach(p => {
     if (p.lead_id) sqlPromoMap.set(p.lead_id, p);
   });
-  const sqlLeadsList = leads.filter(l => l.status === 'SQL' || sqlPromoMap.has(l.id));
+  const sqlLeadsList = leads.filter(l => 
+    l.status === 'SQL' || 
+    promotedLeadIds.includes(l.id) || 
+    sqlPromoMap.has(l.id)
+  );
   const qualifiedSqlsCount = sqlLeadsList.length;
 
   const sql7dCount = sqlLeadsList.filter(l => {
@@ -187,6 +197,7 @@ export const LeadDashboard: React.FC<LeadDashboardProps> = ({
     if (p.lead_id) oppPromoMap.set(p.lead_id, p);
   });
   const oppLeadsList = leads.filter(l => 
+    sqlPromotedLeadIds.includes(l.id) ||
     oppPromoMap.has(l.id) || 
     (l as any).is_opportunity === true || 
     (l.status as string) === 'Opportunity' ||
@@ -251,21 +262,45 @@ export const LeadDashboard: React.FC<LeadDashboardProps> = ({
     return isNaN(rawNum) ? 0 : rawNum;
   };
 
-  // Total estimated revenue for opportunities listed in SQL column
+  // Value formatting: converted to kilo (k) when > 1,000,000, and million (M) when > 10,000,000
+  const formatConvertedRevenue = (val: number): string => {
+    if (!val || val === 0) return '$0';
+    if (val >= 10000000) {
+      const millions = val / 1000000;
+      const formatted = millions % 1 === 0 
+        ? millions.toLocaleString('en-US') 
+        : parseFloat(millions.toFixed(2)).toLocaleString('en-US');
+      return `$${formatted}M`;
+    }
+    if (val >= 1000000) {
+      const kilos = val / 1000;
+      const formatted = kilos % 1 === 0 
+        ? kilos.toLocaleString('en-US') 
+        : parseFloat(kilos.toFixed(1)).toLocaleString('en-US');
+      return `$${formatted}k`;
+    }
+    return `$${val.toLocaleString('en-US')}`;
+  };
+
+  // Total estimated revenue and average for opportunities listed in SQL column
   const sqlTotalRevenue = sqlLeadsList.reduce((acc, curr) => {
     return acc + getOpportunityEstimatedRevenue(curr);
   }, 0);
-  const formattedSqlRevenue = sqlTotalRevenue > 0
-    ? `$${sqlTotalRevenue.toLocaleString('en-US')}`
-    : '$0';
+  const formattedSqlRevenue = formatConvertedRevenue(sqlTotalRevenue);
+  const avgSqlValue = sqlLeadsList.length > 0 
+    ? Math.round(sqlTotalRevenue / sqlLeadsList.length) 
+    : 0;
+  const formattedAvgSqlValue = `$${avgSqlValue.toLocaleString('en-US')}`;
 
-  // Total estimated revenue for opportunities listed in Opportunity column
+  // Total estimated revenue and average for opportunities listed in Opportunity column
   const oppTotalRevenue = oppLeadsList.reduce((acc, curr) => {
     return acc + getOpportunityEstimatedRevenue(curr);
   }, 0);
-  const formattedOppRevenue = oppTotalRevenue > 0
-    ? `$${oppTotalRevenue.toLocaleString('en-US')}`
-    : '$0';
+  const formattedOppRevenue = formatConvertedRevenue(oppTotalRevenue);
+  const avgOppValue = oppLeadsList.length > 0 
+    ? Math.round(oppTotalRevenue / oppLeadsList.length) 
+    : 0;
+  const formattedAvgOppValue = `$${avgOppValue.toLocaleString('en-US')}`;
 
   // Status breakdown from lead records
   const statusCounts = leads.reduce((acc, lead) => {
@@ -563,19 +598,45 @@ export const LeadDashboard: React.FC<LeadDashboardProps> = ({
           {(() => {
             // Normalized height scale calculations based on actual lead counts
             // Funnel height bounds in SVG coordinate space (viewBox 0 0 1100 403)
-            const minH = 16; // baseline minimum to keep 0 or low count visible without distorting proportions
             const maxH = 376; // full height for 100% Leads
-
             const hLead = maxH;
+
+            // Safe proportional curved scaling so low counts (e.g. 1, 2) remain visually distinct without clamping to the exact same flat height
+            const getCurvedHeight = (count: number, maxCount: number, parentHeight: number, minFloor: number) => {
+              if (count <= 0) return minFloor;
+              if (maxCount <= 0) return minFloor;
+              if (count >= maxCount) return parentHeight;
+              const ratio = count / maxCount;
+              // Power curve keeps single-digit stages distinct, readable, and well-proportioned
+              const curvedRatio = Math.pow(ratio, 0.62);
+              return Math.max(minFloor, Math.round(curvedRatio * parentHeight));
+            };
+
             const hMql = totalLeads > 0 
-              ? Math.max(minH, Math.min(maxH, (qualifiedMqlsCount / totalLeads) * maxH))
-              : minH;
-            const hSql = totalLeads > 0 
-              ? Math.max(minH, Math.min(hMql, (qualifiedSqlsCount / totalLeads) * maxH))
-              : minH;
-            const hOpp = totalLeads > 0 
-              ? Math.max(minH, Math.min(hSql, (qualifiedOppsCount / totalLeads) * maxH))
-              : minH;
+              ? getCurvedHeight(qualifiedMqlsCount, totalLeads, hLead, 48)
+              : 48;
+
+            const hSql = qualifiedMqlsCount > 0
+              ? getCurvedHeight(qualifiedSqlsCount, qualifiedMqlsCount, hMql, 36)
+              : (totalLeads > 0 ? getCurvedHeight(qualifiedSqlsCount, totalLeads, hLead, 36) : 36);
+
+            // Opportunity right side height:
+            // When qualifiedSqlsCount > 0, the right side height strictly reflects qualifiedOppsCount relative to qualifiedSqlsCount.
+            // For example, if SQL is 2 and Opportunity is 1, the right side is directly half (or proportional to) the left side height!
+            let hOpp: number;
+            if (qualifiedOppsCount <= 0) {
+              hOpp = 16;
+            } else if (qualifiedSqlsCount > 0) {
+              if (qualifiedOppsCount >= qualifiedSqlsCount) {
+                hOpp = hSql;
+              } else {
+                // Strictly proportional to qualifiedOppsCount / qualifiedSqlsCount
+                const oppToSqlRatio = qualifiedOppsCount / qualifiedSqlsCount;
+                hOpp = Math.max(16, Math.min(hSql - 14, Math.round(hSql * oppToSqlRatio)));
+              }
+            } else {
+              hOpp = totalLeads > 0 ? getCurvedHeight(qualifiedOppsCount, totalLeads, hLead, 18) : 18;
+            }
 
             // Centering along Y in the coordinate space
             const cy = 203;
@@ -592,7 +653,7 @@ export const LeadDashboard: React.FC<LeadDashboardProps> = ({
             const yOppBot = cy + hOpp / 2;
 
             // X-coordinates across 5 segments - circle diameter equals right side height of Opportunity
-            const circleRadius = Math.max(16, Math.round(hOpp / 2));
+            const circleRadius = Math.max(12, Math.round(hOpp / 2));
             const rightEdge = 1086;
             const cxCircle = rightEdge - circleRadius;
             const connectorGap = 24;
@@ -803,6 +864,65 @@ export const LeadDashboard: React.FC<LeadDashboardProps> = ({
               </div>
             );
           })()}
+        </div>
+
+        {/* Opp Value Intelligence Section (Positioned on the right side of Qualification Funnel, matching section height) */}
+        <div className="col-span-12 lg:col-span-3 rounded-2xl border border-border bg-bg-surface shadow-sm p-4 flex flex-col justify-between overflow-hidden">
+          <div className="border-b border-border/80 pb-2 mb-2">
+            <h3 className="text-xs font-black text-text-primary uppercase tracking-wider flex items-center gap-1.5">
+              <TrendingUp className="h-3.5 w-3.5 text-accent" />
+              Opp Value Intelligence
+            </h3>
+            <p className="text-[10px] text-text-secondary mt-0.5">Pipeline valuation & deal density analytics</p>
+          </div>
+
+          <div className="flex-1 flex flex-col gap-3 justify-between">
+            {/* Upper Half Area: Total SQL Value */}
+            <div className="flex-1 rounded-xl bg-bg-primary/50 border border-border/80 p-3.5 flex flex-col justify-between group hover:border-accent/80 transition-all shadow-inner">
+              <div>
+                <div className="flex items-center justify-between mb-1.5">
+                  <span className="text-[10px] font-mono font-bold text-text-secondary uppercase tracking-wider">
+                    Total SQL Value
+                  </span>
+                  <span className="px-1.5 py-0.5 rounded text-[9px] font-mono font-bold bg-[#83CCEB]/20 text-[#155e75] dark:text-[#83CCEB]">
+                    {qualifiedSqlsCount} SQL{qualifiedSqlsCount === 1 ? '' : 's'}
+                  </span>
+                </div>
+                {/* Hero value */}
+                <div className="text-2xl sm:text-3xl font-black text-text-primary tracking-tight font-sans">
+                  {formattedSqlRevenue}
+                </div>
+              </div>
+              {/* Illustrative information below */}
+              <div className="pt-2 mt-2 border-t border-border/50 flex items-center justify-between text-[11px] font-mono">
+                <span className="text-text-secondary">SQL Size:</span>
+                <span className="font-bold text-text-primary">{formattedAvgSqlValue}</span>
+              </div>
+            </div>
+
+            {/* Down Half Area: Total Opportunity Value */}
+            <div className="flex-1 rounded-xl bg-bg-primary/50 border border-border/80 p-3.5 flex flex-col justify-between group hover:border-accent/80 transition-all shadow-inner">
+              <div>
+                <div className="flex items-center justify-between mb-1.5">
+                  <span className="text-[10px] font-mono font-bold text-text-secondary uppercase tracking-wider">
+                    Total Opp. Value
+                  </span>
+                  <span className="px-1.5 py-0.5 rounded text-[9px] font-mono font-bold bg-[#DAE9F8]/60 text-[#1e3a8a] dark:text-[#BFDBFE]">
+                    {qualifiedOppsCount} Opp{qualifiedOppsCount === 1 ? '' : 's'}
+                  </span>
+                </div>
+                {/* Hero value */}
+                <div className="text-2xl sm:text-3xl font-black text-text-primary tracking-tight font-sans">
+                  {formattedOppRevenue}
+                </div>
+              </div>
+              {/* Illustrative information below */}
+              <div className="pt-2 mt-2 border-t border-border/50 flex items-center justify-between text-[11px] font-mono">
+                <span className="text-text-secondary">Opp. Size:</span>
+                <span className="font-bold text-text-primary">{formattedAvgOppValue}</span>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
 

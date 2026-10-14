@@ -159,6 +159,7 @@ export const LeadCanvas: React.FC<LeadCanvasProps> = ({ leads, campaigns, onLead
   const leadToMqlRatio = calcRatio(mqlLeads.length, allLeads.length);
   const mqlToSqlRatio = calcRatio(sqlLeads.length, mqlLeads.length);
   const sqlToOppRatio = calcRatio(opportunityLeads.length, sqlLeads.length);
+  const leadToOppRatio = calcRatio(opportunityLeads.length, allLeads.length);
 
   // Helper to extract Estimated Revenue defined in Opportunity Form
   const getOpportunityEstimatedRevenue = (lead: MQLLead): number => {
@@ -224,7 +225,7 @@ export const LeadCanvas: React.FC<LeadCanvasProps> = ({ leads, campaigns, onLead
         )}
         {amount !== undefined && (
           <div className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-lg bg-green-500/10 border border-green-500/25 text-green-500 font-mono font-black text-[10px] mt-1 shadow-sm">
-            {amount}
+            Opp: {amount}
           </div>
         )}
       </div>
@@ -604,7 +605,9 @@ export const LeadCanvas: React.FC<LeadCanvasProps> = ({ leads, campaigns, onLead
             <KanbanCard 
               title="Opportunity" 
               count={opportunityLeads.length} 
-              amount={formattedOppAmount} 
+              ratioText={`Lead -> Opp ${leadToOppRatio}%`}
+              amount={formattedOppAmount}
+              ratioNum={leadToOppRatio}
             />
             <div className="flex justify-end -mt-1 -mb-1 px-1">
               <div className="p-1 text-text-secondary/50" title="Table View (Opportunity)">
