@@ -1788,6 +1788,209 @@ Return a valid JSON object matching the requested schema.
       });
     }
 
+    // ---------------------------------------------------------
+    // QUALIFICATION INTELLIGENCE EXECUTIVE INSIGHTS ACTION
+    // ---------------------------------------------------------
+    if (action === 'generate-qualification-intelligence') {
+      const { 
+        analysis_scope, 
+        analysis_metrics, 
+        qualification_results, 
+        supporting_evidence, 
+        data_coverage 
+      } = body;
+
+      const systemInstruction = `You are the RevOS Qualification Intelligence Analyst, an elite AI reasoning engine operating on behalf of Chief Revenue Officers (CROs) and VP of Revenue Operations. Your purpose is to synthesize qualification outcomes across all three qualification modules—MQL Qualification, SQL Qualification, and Opportunity Qualification—into rigorous, evidence-grounded, C-level executive insights.
+
+You do not override qualification decisions or invent hypothetical records. You evaluate verified qualification outcomes, explain structural conversion barriers, evaluate pipeline health, and deliver high-impact commercial recommendations.
+
+REASONING RULES & STRUCTURAL MANDATES:
+
+1. STRATEGIC SYNTHESIS (executive_summary):
+- Provide a high-impact, professional C-level executive briefing summarizing holistic qualification health across the active scope.
+- You MUST reference the authoritative funnel conversion rates provided in "analysis_metrics.funnel_conversion_rates":
+  * Lead-to-MQL Conversion Rate (lead_to_mql_conversion_rate_pct%)
+  * MQL-to-SQL Conversion Rate (mql_to_sql_conversion_rate_pct%)
+  * SQL-to-Opportunity Conversion Rate (sql_to_opp_conversion_rate_pct%)
+  * Overall Lead-to-Opportunity Yield (lead_to_opp_conversion_rate_pct%)
+  * Lead Evaluation Rate (lead_evaluation_rate_pct%)
+- NEVER calculate ad-hoc, conflicting qualification percentages (e.g. dividing qualified leads by only assessed leads). Always use the authoritative conversion rates defined in the provided metrics.
+
+2. KEY QUALIFICATION FINDINGS (key_findings):
+- You MUST return EXACTLY THREE findings, one dedicated to each qualification module in the following sequence:
+  * Finding 1: MQL Qualification Module (module: "MQL Qualification")
+    Focus: ICP firmographic/technographic fit, intent signals, engagement depth, timing/urgency friction, Lead-to-MQL Conversion Rate, and qualification status distribution (Highly Qualified, Qualified, Marketing Nurture, Disqualified).
+  * Finding 2: SQL Qualification Module (module: "SQL Qualification")
+    Focus: Sales handover acceptance, MEDDPICC discovery completion (Economic Buyer, Metrics, Decision Criteria), MQL-to-SQL Conversion Rate, and AE pipeline admission rigor.
+  * Finding 3: Opportunity Qualification Module (module: "Opportunity Qualification")
+    Focus: Deal stage progression, economic commitment, SQL-to-Opportunity Conversion Rate, pipeline revenue yield, and win-probability drivers.
+- For each finding: Provide title, empirical observation citing authoritative numbers, strategic business implication, 2+ supporting metrics, evidence references, finding_type ("observed_pattern" or "hypothesis"), and confidence ("high", "medium", or "low").
+
+3. IDENTIFIED QUALIFICATION RISKS (qualification_risks):
+- You MUST provide risks covering ALL THREE qualification modules (at least one dedicated risk for each):
+  * MQL Qualification Module Risk (e.g., unassessed lead backlog, timing/urgency decay, ICP misalignment, nurture bottlenecks).
+  * SQL Qualification Module Risk (e.g., incomplete MEDDPICC discovery, unconfirmed Economic Buyer, handover friction, stage stalling).
+  * Opportunity Qualification Module Risk (e.g., conditional qualification dependencies, procurement friction, deal slippage, revenue at risk).
+- For each risk: Provide module ("MQL Qualification", "SQL Qualification", "Opportunity Qualification"), target_area, title, description, confidence, and evidence_references.
+
+4. RECOMMENDED EXECUTIVE ACTIONS (recommended_actions):
+- You MUST provide actionable strategic recommendations covering ALL THREE qualification modules (at least one high-impact action for each):
+  * MQL Qualification Action (target_area: "MQL Qualification")
+  * SQL Qualification Action (target_area: "SQL Qualification")
+  * Opportunity Qualification Action (target_area: "Opportunity Qualification")
+- For each action: Provide priority ("high" or "medium"), action (concise, direct directive), rationale (strategic ROI and business justification), target_area, and evidence_references.
+
+5. METHODOLOGICAL RIGOR & EVIDENCE DISCIPLINE:
+- Analyze strictly within the supplied filter scope and authoritative metrics.
+- Unassessed leads must NEVER be inferred as failed or disqualified. State unassessed counts objectively as pending evaluation.
+- Use professional enterprise RevOps terminology (e.g., qualification yield, sales velocity, MEDDPICC discovery completeness, ICP coherence, pipeline slippage).`;
+
+      const prompt = `
+=== ANALYSIS SCOPE ===
+${JSON.stringify(analysis_scope || {}, null, 2)}
+
+=== BACKEND-CALCULATED AUTHORITATIVE METRICS ===
+${JSON.stringify(analysis_metrics || {}, null, 2)}
+
+=== EXISTING QUALIFICATION RESULTS (MQL, SQL, OPPORTUNITY) ===
+${JSON.stringify(qualification_results || [], null, 2)}
+
+=== SUPPORTING EVIDENCE & IDENTIFIERS ===
+${JSON.stringify(supporting_evidence || [], null, 2)}
+
+=== DATA COVERAGE & ANALYSIS LIMITATIONS ===
+${JSON.stringify(data_coverage || {}, null, 2)}
+
+TASK:
+Produce an evidence-based executive synthesis adhering strictly to the JSON schema and reasoning rules provided. Ensure exactly 3 key findings covering MQL, SQL, and Opportunity Qualification modules, and risks/actions covering all 3 modules using the authoritative funnel conversion rates.
+`;
+
+      const response = await ai.models.generateContent({
+        model: 'gemini-3.1-flash-lite',
+        contents: prompt,
+        config: {
+          temperature: 0.1,
+          systemInstruction,
+          responseMimeType: "application/json",
+          responseSchema: {
+            type: Type.OBJECT,
+            properties: {
+              executive_summary: { type: Type.STRING },
+              key_findings: {
+                type: Type.ARRAY,
+                items: {
+                  type: Type.OBJECT,
+                  properties: {
+                    module: { type: Type.STRING },
+                    title: { type: Type.STRING },
+                    observation: { type: Type.STRING },
+                    business_implication: { type: Type.STRING },
+                    supporting_metrics: {
+                      type: Type.ARRAY,
+                      items: {
+                        type: Type.OBJECT,
+                        properties: {
+                          metric_name: { type: Type.STRING },
+                          value: { type: Type.STRING },
+                          evidence_reference: { type: Type.STRING }
+                        },
+                        required: ["metric_name", "value"]
+                      }
+                    },
+                    evidence_references: { type: Type.ARRAY, items: { type: Type.STRING } },
+                    finding_type: { type: Type.STRING, enum: ["observed_pattern", "hypothesis"] },
+                    confidence: { type: Type.STRING, enum: ["high", "medium", "low"] }
+                  },
+                  required: ["module", "title", "observation", "business_implication", "supporting_metrics", "evidence_references", "finding_type", "confidence"]
+                }
+              },
+              qualification_risks: {
+                type: Type.ARRAY,
+                items: {
+                  type: Type.OBJECT,
+                  properties: {
+                    module: { type: Type.STRING },
+                    target_area: { type: Type.STRING },
+                    title: { type: Type.STRING },
+                    description: { type: Type.STRING },
+                    evidence_references: { type: Type.ARRAY, items: { type: Type.STRING } },
+                    confidence: { type: Type.STRING, enum: ["high", "medium", "low"] }
+                  },
+                  required: ["module", "title", "description", "evidence_references", "confidence"]
+                }
+              },
+              recommended_actions: {
+                type: Type.ARRAY,
+                items: {
+                  type: Type.OBJECT,
+                  properties: {
+                    priority: { type: Type.STRING, enum: ["high", "medium", "low"] },
+                    action: { type: Type.STRING },
+                    rationale: { type: Type.STRING },
+                    target_area: { type: Type.STRING },
+                    evidence_references: { type: Type.ARRAY, items: { type: Type.STRING } }
+                  },
+                  required: ["priority", "action", "rationale", "target_area", "evidence_references"]
+                }
+              },
+              limitations: {
+                type: Type.ARRAY,
+                items: { type: Type.STRING }
+              }
+            },
+            required: ["executive_summary", "key_findings", "qualification_risks", "recommended_actions", "limitations"]
+          }
+        }
+      });
+
+      const parsedInsights = JSON.parse(response.text || '{}');
+
+      // Attempt to persist into dedicated database table if Supabase credentials available
+      let savedRecord = null;
+      try {
+        const supabaseUrl = getEnv('SUPABASE_URL');
+        const supabaseKey = getEnv('SUPABASE_SERVICE_ROLE_KEY') || getEnv('SUPABASE_ANON_KEY');
+        if (supabaseUrl && supabaseKey) {
+          const supabase = createClient(supabaseUrl, supabaseKey);
+          const scopeCampaignId = analysis_scope?.campaign_id || 'all';
+          const scopeCampaignName = analysis_scope?.campaign_name || 'All Campaigns';
+          
+          const { data, error: dbErr } = await supabase
+            .from('qualification_executive_insights')
+            .insert({
+              scope_campaign_id: scopeCampaignId,
+              scope_campaign_name: scopeCampaignName,
+              scope_industry: analysis_scope?.industry || null,
+              scope_revenue_motion: analysis_scope?.revenue_motion || null,
+              total_leads_scoped: analysis_metrics?.total_leads || 0,
+              assessed_leads_count: analysis_metrics?.total_assessed || 0,
+              analysis_metrics: analysis_metrics || {},
+              insights_data: parsedInsights,
+              generated_at: new Date().toISOString()
+            })
+            .select()
+            .maybeSingle();
+
+          if (!dbErr && data) {
+            savedRecord = data;
+          } else if (dbErr) {
+            console.warn("Table qualification_executive_insights insertion warning:", dbErr.message);
+          }
+        }
+      } catch (dbEx) {
+        console.warn("Could not save to qualification_executive_insights:", dbEx);
+      }
+
+      return new Response(JSON.stringify({ 
+        status: 'success', 
+        insights: parsedInsights,
+        record: savedRecord,
+        generated_at: new Date().toISOString()
+      }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
+
     const { leadId, combinedConfig, ruleSet } = body;
     if (!leadId) {
       throw new Error('leadId is required');

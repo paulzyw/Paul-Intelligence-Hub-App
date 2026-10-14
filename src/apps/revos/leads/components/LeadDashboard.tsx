@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { MQLCampaign, MQLLead, MQLQualificationResult } from '../../types/mql';
 import { PromotionDataService } from '../services/promotionDataService';
 import { OpportunityDataService } from '../services/opportunityDataService';
+import { QualificationIntelligenceSection } from './QualificationIntelligenceSection';
 import { 
   TrendingUp, 
   Users, 
@@ -925,6 +926,31 @@ export const LeadDashboard: React.FC<LeadDashboardProps> = ({
           </div>
         </div>
       </div>
+
+      {/* Qualification Intelligence — Executive Insights Section (Positioned just below Qualification Funnel and Opp Value Intelligence) */}
+      <QualificationIntelligenceSection
+        campaigns={campaigns}
+        selectedCampaignId={selectedCampaignId}
+        campaign={campaign}
+        leads={leads}
+        qualResults={qualResults}
+        mqlPromotions={mqlPromotions}
+        oppPromotions={oppPromotions}
+        dashboardMetrics={{
+          leadToMqlRate,
+          mqlToSqlRate,
+          sqlToOppRate,
+          leadToOppRate,
+          evaluationRate,
+          totalLeads,
+          qualifiedMqlsCount,
+          qualifiedSqlsCount,
+          qualifiedOppsCount,
+          evaluatedLeadsCount: evaluatedLeads,
+          sqlTotalRevenue,
+          oppTotalRevenue
+        }}
+      />
 
       {/* Cognitive Intelligence Recommendation & Leaderboard Columns */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">

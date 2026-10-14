@@ -1292,4 +1292,21 @@ export class OpportunityDataService {
 
     return [];
   }
+
+  static async getAllSessions(): Promise<OpportunitySession[]> {
+    try {
+      const { data, error } = await supabase
+        .from('opportunity_qualification_sessions')
+        .select('*')
+        .order('created_at', { ascending: false });
+      if (error) {
+        console.warn('Error fetching all opportunity qualification sessions:', error);
+        return [];
+      }
+      return (data || []) as OpportunitySession[];
+    } catch (e) {
+      console.warn('getAllSessions error:', e);
+      return [];
+    }
+  }
 }
