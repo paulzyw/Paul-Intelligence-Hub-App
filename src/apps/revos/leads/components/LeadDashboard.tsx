@@ -1,7 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { MQLCampaign, MQLLead, MQLQualificationResult } from '../../types/mql';
+import { SQLOpportunity, SQLAssessment } from '../../types/sql';
 import { PromotionDataService } from '../services/promotionDataService';
 import { OpportunityDataService } from '../services/opportunityDataService';
+import { SQLDataService } from '../services/sqlDataService';
+import { supabase } from '@/src/lib/supabase';
 import { QualificationIntelligenceSection } from './QualificationIntelligenceSection';
 import { 
   TrendingUp, 
@@ -43,22 +46,115 @@ export const LeadDashboard: React.FC<LeadDashboardProps> = ({
   const [oppRevenueMap, setOppRevenueMap] = useState<Record<string, number>>({});
   const [promotedLeadIds, setPromotedLeadIds] = useState<string[]>([]);
   const [sqlPromotedLeadIds, setSqlPromotedLeadIds] = useState<string[]>([]);
+  const [opportunities, setOpportunities] = useState<SQLOpportunity[]>([]);
+  const [sqlAssessments, setSqlAssessments] = useState<SQLAssessment[]>([]);
+  const [sqlResultsMap, setSqlResultsMap] = useState<Record<string, any>>({});
+  const [oppFormDataMap, setOppFormDataMap] = useState<Record<string, any>>({});
+  const [oppSessionsMap, setOppSessionsMap] = useState<Record<string, any>>({});
+  const [oppResultsMap, setOppResultsMap] = useState<Record<string, any>>({});
 
   useEffect(() => {
     const loadPromotions = async () => {
       try {
-        const [mqlPromos, oppPromos, revMap, promoIds, sqlPromoIds] = await Promise.all([
+        const [
+          mqlPromos, 
+          oppPromos, 
+          revMap, 
+          promoIds, 
+          sqlPromoIds,
+          opps,
+          assessListRes
+        ] = await Promise.all([
           PromotionDataService.getMqlSqlPromotions().catch(() => []),
           PromotionDataService.getSqlOpportunityPromotions().catch(() => []),
           OpportunityDataService.getOpportunityEstimatedRevenuesMap().catch(() => ({})),
           PromotionDataService.getPromotedLeadIds().catch(() => []),
-          PromotionDataService.getSqlOpportunityPromotedLeadIds().catch(() => [])
+          PromotionDataService.getSqlOpportunityPromotedLeadIds().catch(() => []),
+          SQLDataService.getOpportunities().catch(() => []),
+          (async () => {
+            try {
+              const res = await supabase.from('sql_assessments').select('*').order('created_at', { ascending: false });
+              return res?.data || [];
+            } catch {
+              return [];
+            }
+          })()
         ]);
         setMqlPromotions(mqlPromos || []);
         setOppPromotions(oppPromos || []);
         if (revMap) setOppRevenueMap(revMap);
         if (promoIds) setPromotedLeadIds(promoIds);
         if (sqlPromoIds) setSqlPromotedLeadIds(sqlPromoIds);
+        if (opps) setOpportunities(opps);
+        if (assessListRes) setSqlAssessments(assessListRes as SQLAssessment[]);
+
+        // Load SQL saved results and SQL Opportunity Qualification Roster data (matching SqlToOpportunityTable)
+        const allOppList: SQLOpportunity[] = [...(opps || [])];
+        leads.forEach(l => {
+          if (
+            l.status === 'SQL' || 
+            promoIds?.includes(l.id) || 
+            sqlPromoIds?.includes(l.id) || 
+            (l as any).is_opportunity === true || 
+            l.status === 'Opportunity'
+          ) {
+            const exists = allOppList.some(o => 
+              o.mql_reference_id === l.id || 
+              (o.company_name && l.company_name && o.company_name.toLowerCase().trim() === l.company_name.toLowerCase().trim())
+            );
+            if (!exists) {
+              allOppList.push({
+                id: `virtual_opp_${l.id}`,
+                company_name: l.company_name || 'Enterprise Client',
+                industry: l.lead_industry || 'Enterprise Software',
+                revenue_motion: 'Digital Solution Selling',
+                opportunity_name: `${l.company_name || 'Enterprise'} Opportunity`,
+                mql_reference_id: l.id,
+                created_at: l.lead_date || new Date().toISOString()
+              });
+            }
+          }
+        });
+
+        if (allOppList.length > 0) {
+          const sqlResMap: Record<string, any> = {};
+          const fRecords: Record<string, any> = {};
+          const sessMap: Record<string, any> = {};
+          const oqResMap: Record<string, any> = {};
+
+          await Promise.all(
+            allOppList.map(async (opp: SQLOpportunity) => {
+              const oppId = opp.id;
+              try {
+                const [sqlRes, fData, sess, oppRes] = await Promise.all([
+                  SQLDataService.getSavedQualificationResult(oppId).catch(() => null),
+                  OpportunityDataService.getOpportunityFormData(oppId).catch(() => null),
+                  OpportunityDataService.getSessionByOpportunity(oppId).catch(() => null),
+                  OpportunityDataService.getSavedQualificationResult(oppId).catch(() => null)
+                ]);
+                if (sqlRes) sqlResMap[oppId] = sqlRes;
+                if (fData) fRecords[oppId] = fData;
+                if (sess) sessMap[oppId] = sess;
+
+                let resolvedOppRes = oppRes;
+                if (!resolvedOppRes && typeof window !== 'undefined') {
+                  const cached = localStorage.getItem(`oq_result_${oppId}`);
+                  if (cached) {
+                    try {
+                      const parsed = JSON.parse(cached);
+                      resolvedOppRes = parsed.qualification_summary ? parsed : { qualification_summary: parsed };
+                    } catch {}
+                  }
+                }
+                if (resolvedOppRes) oqResMap[oppId] = resolvedOppRes;
+              } catch (e) {}
+            })
+          );
+          setSqlResultsMap(sqlResMap);
+          setOppFormDataMap(fRecords);
+          setOppSessionsMap(sessMap);
+          setOppResultsMap(oqResMap);
+        }
       } catch (err) {
         console.error('Failed to load promotions in LeadDashboard:', err);
       }
@@ -74,6 +170,7 @@ export const LeadDashboard: React.FC<LeadDashboardProps> = ({
       window.addEventListener('lead_promoted_to_sql', handleUpdate);
       window.addEventListener('sql_qualification_updated', handleUpdate);
       window.addEventListener('opportunity_form_updated', handleUpdate);
+      window.addEventListener('opportunity_qualification_updated', handleUpdate);
       window.addEventListener('storage', handleUpdate);
     }
 
@@ -82,10 +179,11 @@ export const LeadDashboard: React.FC<LeadDashboardProps> = ({
         window.removeEventListener('lead_promoted_to_sql', handleUpdate);
         window.removeEventListener('sql_qualification_updated', handleUpdate);
         window.removeEventListener('opportunity_form_updated', handleUpdate);
+        window.removeEventListener('opportunity_qualification_updated', handleUpdate);
         window.removeEventListener('storage', handleUpdate);
       }
     };
-  }, []);
+  }, [leads]);
 
   // 1. Calculations & Metrics Aggregations
   const totalLeads = leads.length;
@@ -396,18 +494,128 @@ export const LeadDashboard: React.FC<LeadDashboardProps> = ({
 
   const cognitiveInsight = getDynamicInsight();
 
-  // 4. Lead Leaderboard ranking
-  const rankedLeads = [...leads]
-    .map(lead => {
-      const result = qualResults.find(r => r.lead_id === lead.id);
-      return {
-        lead,
-        score: result ? result.qualification_score : 0,
-        result
-      };
-    })
-    .sort((a, b) => b.score - a.score)
-    .slice(0, 5);
+  // Helper to parse description JSON (matching SqlToOpportunityTable)
+  const parseOppDescription = (desc?: string) => {
+    if (desc && desc.trim().startsWith('{')) {
+      try {
+        return JSON.parse(desc);
+      } catch {}
+    }
+    return {};
+  };
+
+  // Helper to determine if status is "Qualified" (matching SqlToOpportunityTable)
+  const isOpportunityQualified = (status: string) => {
+    const s = (status || '').toLowerCase().trim();
+    return (
+      s.includes('qualified') &&
+      !s.includes('conditional') &&
+      !s.includes('conditionally') &&
+      !s.includes('disqualified')
+    );
+  };
+
+  // 4. SQL Leaderboard ranking (Top Opportunitis from SQL Opportunity Qualification Roster - SqlToOpp table)
+  // Only select opportunities with "Qualified" in Opportunity Status, selecting Top 5 based on Opportunity Score
+  const oppList: SQLOpportunity[] = [...opportunities];
+
+  // If filtered to a specific campaign, filter opportunities matching the scoped leads
+  const scopedOpps = isAllCampaigns 
+    ? oppList 
+    : oppList.filter(opp => leads.some(l => 
+        l.id === opp.mql_reference_id ||
+        (l.company_name && opp.company_name && l.company_name.toLowerCase().trim() === opp.company_name.toLowerCase().trim())
+      ));
+
+  // Also include any SQL leads from the current scope that don't yet have an entry in scopedOpps (matching SqlToOpportunityTable)
+  sqlLeadsList.forEach(l => {
+    const exists = scopedOpps.some(opp => 
+      opp.mql_reference_id === l.id || 
+      (opp.company_name && l.company_name && opp.company_name.toLowerCase().trim() === l.company_name.toLowerCase().trim())
+    );
+    if (!exists) {
+      scopedOpps.push({
+        id: `virtual_opp_${l.id}`,
+        company_name: l.company_name || 'Enterprise Client',
+        industry: l.lead_industry || 'Enterprise Software',
+        revenue_motion: 'Digital Solution Selling',
+        opportunity_name: `${l.company_name || 'Enterprise'} Opportunity`,
+        mql_reference_id: l.id,
+        created_at: l.lead_date || new Date().toISOString()
+      });
+    }
+  });
+
+  const topSqls = scopedOpps.map(opp => {
+    const oppId = opp.id;
+    const formRecord = oppFormDataMap[oppId];
+    const qResult = oppResultsMap[oppId];
+    const session = oppSessionsMap[oppId];
+    const parsedDesc = parseOppDescription(opp.description);
+
+    // Find backing lead
+    const backingLead = leads.find(l => 
+      l.id === opp.mql_reference_id ||
+      (l.company_name && opp.company_name && l.company_name.toLowerCase().trim() === opp.company_name.toLowerCase().trim())
+    );
+
+    // 1. Company Name (from SqlToOpportunityTable)
+    const companyName = formRecord?.company_name || opp.company_name || backingLead?.company_name || '—';
+
+    // 2. Opportunity Name (replaces Contact - from SqlToOpportunityTable)
+    const opportunityName = formRecord?.opportunity_name || opp.opportunity_name || parsedDesc.opportunity_name || `${companyName} Opportunity`;
+
+    // 3. Estimated Revenue (replaces Contact Title - from SqlToOpportunityTable)
+    const rawRevenue = formRecord?.estimated_revenue || parsedDesc.estimated_revenue || (opp as any).deal_size;
+    let estimatedRevenue = '—';
+    let numRevenue = 0;
+    if (rawRevenue !== undefined && rawRevenue !== null && rawRevenue !== '') {
+      if (typeof rawRevenue === 'number') {
+        numRevenue = rawRevenue;
+        estimatedRevenue = `$${rawRevenue.toLocaleString('en-US')}`;
+      } else {
+        const str = String(rawRevenue).trim();
+        const n = parseFloat(str.replace(/[^0-9.]/g, ''));
+        if (!isNaN(n)) numRevenue = n;
+        if (str.startsWith('$')) {
+          estimatedRevenue = str;
+        } else {
+          estimatedRevenue = !isNaN(n) ? `$${n.toLocaleString('en-US')}` : str;
+        }
+      }
+    } else if (backingLead) {
+      numRevenue = getOpportunityEstimatedRevenue(backingLead);
+      estimatedRevenue = numRevenue > 0 ? `$${numRevenue.toLocaleString('en-US')}` : '—';
+    }
+
+    // 4. Opportunity Score (from SqlToOpportunityTable: qResult?.qualification_summary?.overall_score ?? (session?.overall_score ?? (session ? 75 : 0)))
+    const scoreVal = qResult?.qualification_summary?.overall_score ?? (session?.overall_score ?? (session ? 75 : 0));
+    const opportunityScore = Math.round(Number(scoreVal) || 0);
+
+    // 5. Opportunity Status (from SqlToOpportunityTable: qResult?.qualification_summary?.qualification_status || session?.qualification_status || 'Needs More Evidence')
+    const opportunityStatus = qResult?.qualification_summary?.qualification_status 
+      || session?.qualification_status 
+      || 'Needs More Evidence';
+
+    return {
+      oppId,
+      opportunityName,
+      companyName,
+      numRevenue,
+      estimatedRevenue,
+      opportunityScore,
+      opportunityStatus,
+      backingLead
+    };
+  })
+  // ONLY select opportunities with "Qualified" in Opportunity Status
+  .filter(item => isOpportunityQualified(item.opportunityStatus))
+  // Select Top 5 based on Opportunity Score
+  .sort((a, b) => {
+    if (b.opportunityScore !== a.opportunityScore) return b.opportunityScore - a.opportunityScore;
+    return b.numRevenue - a.numRevenue;
+  })
+  .slice(0, 5);
 
   return (
     <div className="space-y-6">
@@ -724,6 +932,38 @@ export const LeadDashboard: React.FC<LeadDashboardProps> = ({
                       className="transition-all duration-500 hover:scale-105"
                     />
 
+                    {/* Stage 5: Circle Stroke (Diameter exactly equal to height of right side of Opportunity area) */}
+                    <circle
+                      cx={cxCircle}
+                      cy={cy}
+                      r={circleRadius}
+                      fill="none"
+                      stroke="var(--accent)"
+                      strokeWidth={6}//{circleRadius * 2 * 0.08}
+                      filter="url(#circleGlow)"
+                      className="transition-all duration-500 hover:scale-105"
+                    />
+
+                    {/* Stage 6: top-stroke */}
+                    <path
+                      d={`M ${x0} ${yLeadTop} L ${x1} ${yLeadTop} L ${x2} ${yMqlTop} L ${x3} ${ySqlTop} L ${x4} ${yOppTop} `}
+                      fill="none"
+                      stroke="var(--text-primary)"
+                      strokeWidth={5}
+                      filter="url(#funnelShadow)"
+                      className="transition-all duration-500 hover:opacity-95"
+                    />
+
+                    {/* Stage 7: bot-stroke */}
+                    <path
+                      d={`M ${x0} ${yLeadBot} L ${x1} ${yLeadBot} L ${x2} ${yMqlBot} L ${x3} ${ySqlBot} L ${x4} ${yOppBot}`}
+                      fill="none"
+                      stroke="var(--text-primary)"
+                      strokeWidth={5}
+                      filter="url(#funnelShadow)"
+                      className="transition-all duration-500 hover:opacity-95"
+                    />
+                    
                     {/* Dashed connecting bridge from Opportunity right side to circle */}
                     <line
                       x1={x4}
@@ -977,38 +1217,36 @@ export const LeadDashboard: React.FC<LeadDashboardProps> = ({
           </div>
         </div>
 
-        {/* Right Col: Top Qualified Leads Leaderboard */}
+        {/* Right Col: Top Opportunitis */}
         <div className="lg:col-span-7 p-5 rounded-2xl border border-border bg-bg-surface flex flex-col shadow-sm">
           <div className="border-b border-border pb-3 mb-4">
             <h3 className="text-xs font-black text-text-primary uppercase tracking-wider flex items-center gap-1.5">
               <Award className="h-3.5 w-3.5 text-accent" />
-              {isAllCampaigns ? "Top Account Prospects (Leaderboard)" : "Top Campaign Prospects (Leaderboard)"}
+              Top Opportunitiess
             </h3>
             <p className="text-[10px] text-text-secondary mt-0.5">
               {isAllCampaigns 
-                ? "Top-ranked prospects across all campaigns compiled by qualification scores" 
-                : "Top-ranked lead profiles compiled by qualification scores"}
+                ? "Top-ranked qualified opportunities across all campaigns from SQL Opportunity Qualification Roster" 
+                : "Top-ranked qualified opportunities from SQL Opportunity Qualification Roster"}
             </p>
           </div>
 
-          <div className="space-y-2.5 overflow-y-auto max-h-[220px]">
-            {rankedLeads.filter(item => item.score > 0).map((item, idx) => {
-              const statusColor = item.lead.status?.toLowerCase().includes('highly')
-                ? 'text-green-500 bg-green-500/10'
-                : 'text-emerald-500 bg-emerald-500/10';
-
-              const leadCamp = isAllCampaigns && campaigns ? campaigns.find(c => c.id === item.lead.campaign_id) : null;
+          <div className="space-y-2.5 overflow-y-auto max-h-[220px] pr-1.5 custom-scrollbar-vertical [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-border/60 dark:[&::-webkit-scrollbar-thumb]:bg-border/80 [&::-webkit-scrollbar-thumb]:rounded-full hover:[&::-webkit-scrollbar-thumb]:bg-accent">
+            {topSqls.map((item, idx) => {
+              const leadCamp = isAllCampaigns && campaigns && item.backingLead 
+                ? campaigns.find(c => c.id === item.backingLead?.campaign_id) 
+                : null;
 
               return (
-                <div key={item.lead.id} className="p-3 rounded-xl border border-border bg-bg-primary/40 hover:bg-bg-primary/80 transition-all flex items-center justify-between gap-3 text-xs">
+                <div key={item.oppId} className="p-3 rounded-xl border border-border bg-bg-primary/40 hover:bg-bg-primary/80 transition-all flex items-center justify-between gap-3 text-xs">
                   <div className="flex items-center gap-3 truncate">
-                    <span className="flex items-center justify-center w-5 h-5 rounded-lg bg-accent/10 border border-accent/20 text-accent font-mono text-[9px] font-black">
+                    <span className="flex items-center justify-center w-5 h-5 rounded-lg bg-accent/10 border border-accent/20 text-accent font-mono text-[9px] font-black shrink-0">
                       #{idx + 1}
                     </span>
                     <div className="truncate">
-                      <div className="font-bold text-text-primary truncate">{item.lead.first_name} {item.lead.last_name}</div>
+                      <div className="font-bold text-text-primary truncate">{item.opportunityName}</div>
                       <div className="text-[10px] text-text-secondary truncate">
-                        {item.lead.company_name} • {item.lead.job_title}
+                        {item.companyName} • Estimated Revenue: <strong className="text-text-primary font-mono">{item.estimatedRevenue}</strong>
                         {leadCamp && (
                           <span className="ml-1.5 text-accent font-semibold font-mono text-[9px]">[{leadCamp.name}]</span>
                         )}
@@ -1017,11 +1255,11 @@ export const LeadDashboard: React.FC<LeadDashboardProps> = ({
                   </div>
 
                   <div className="flex items-center gap-3 shrink-0">
-                    <span className={`px-2 py-0.5 rounded-lg text-[9px] font-mono font-bold uppercase tracking-wider ${statusColor}`}>
-                      {item.lead.status}
+                    <span className="px-2 py-0.5 rounded-lg text-[9px] font-mono font-bold uppercase tracking-wider text-emerald-500 bg-emerald-500/10 border border-emerald-500/20">
+                      QUALIFIED
                     </span>
                     <div className="text-right font-mono">
-                      <span className="text-xs font-black text-accent">{item.score}</span>
+                      <span className="text-xs font-black text-accent">{item.opportunityScore}</span>
                       <span className="text-[9px] text-text-secondary">/100</span>
                     </div>
                   </div>
@@ -1029,9 +1267,9 @@ export const LeadDashboard: React.FC<LeadDashboardProps> = ({
               );
             })}
 
-            {rankedLeads.filter(item => item.score > 0).length === 0 && (
+            {topSqls.length === 0 && (
               <div className="text-center py-10 text-[10px] font-mono text-text-secondary italic">
-                No profiles qualified yet. Trigger evaluation inside the Lead List.
+                No qualified opportunities found in the SQL Opportunity Qualification Roster.
               </div>
             )}
           </div>

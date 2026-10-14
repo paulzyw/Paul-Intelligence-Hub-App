@@ -990,6 +990,10 @@ export class OpportunityDataService {
       });
     } catch (e) {}
 
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('opportunity_qualification_updated', { detail: { opportunityId } }));
+    }
+
     return true;
   }
 

@@ -387,6 +387,25 @@
   background-color: var(--amber);
 }
 
+.custom-scrollbar-vertical {
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-color) transparent;
+}
+.custom-scrollbar-vertical::-webkit-scrollbar {
+  width: 6px;
+}
+.custom-scrollbar-vertical::-webkit-scrollbar-track {
+  background: transparent;
+  border-radius: 9999px;
+}
+.custom-scrollbar-vertical::-webkit-scrollbar-thumb {
+  background-color: var(--border-color);
+  border-radius: 9999px;
+}
+.custom-scrollbar-vertical::-webkit-scrollbar-thumb:hover {
+  background-color: var(--accent);
+}
+
 @media screen {
   .a4-page-canvas {
     width: 210mm;

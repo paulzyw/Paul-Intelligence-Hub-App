@@ -205,7 +205,7 @@ export const QualificationIntelligenceSection: React.FC<QualificationIntelligenc
     <div className="rounded-2xl border border-border bg-bg-surface shadow-sm overflow-hidden transition-all duration-300">
       {/* Header bar */}
       <div className="p-5 border-b border-border bg-gradient-to-r from-bg-surface via-bg-surface to-accent/[0.03]">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
           <div className="space-y-1">
             <div className="flex items-center gap-2">
               <span className="p-1.5 rounded-lg bg-accent/10 border border-accent/25 text-accent shadow-sm">
@@ -214,25 +214,22 @@ export const QualificationIntelligenceSection: React.FC<QualificationIntelligenc
               <h3 className="text-sm font-black text-text-primary uppercase tracking-wider font-sans flex items-center gap-2">
                 Qualification Intelligence — Executive Insights
               </h3>
-              <span className="px-2 py-0.5 rounded-full text-[9px] font-mono font-black uppercase bg-accent/15 text-accent border border-accent/20">
-                AI CRO Synthesis
-              </span>
             </div>
-            <p className="text-xs text-text-secondary leading-relaxed max-w-3xl">
+            <p className="text-xs text-text-secondary leading-relaxed max-w-2xl">
               Cross-module strategic intelligence analyzing MQL, SQL, and Opportunity qualification outcomes, progression yield, and dimensional risk patterns.
             </p>
           </div>
 
-          {/* Action button & Last generated badge */}
-          <div className="flex flex-wrap items-center gap-2.5">
+          {/* Status badges & Action buttons pinned to the most right side */}
+          <div className="flex flex-col sm:items-end justify-center gap-2 lg:ml-auto shrink-0">
             {savedRecord && (
-              <>
-                <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-bg-primary/60 border border-border/80 text-[11px] font-mono text-text-secondary">
+              <div className="flex flex-wrap items-center justify-end gap-2">
+                <div className="flex items-center gap-1.5 px-3 py-1 rounded-xl bg-bg-primary/60 border border-border/80 text-[11px] font-mono text-text-secondary">
                   <Calendar className="h-3.5 w-3.5 text-text-secondary/70" />
                   <span>Generated: <strong className="text-text-primary">{formatTimestamp(savedRecord.generated_at)}</strong></span>
                 </div>
 
-                <div className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-[11px] font-mono border ${
+                <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-[11px] font-mono border ${
                   savedRecord.persisted_to_db 
                     ? 'bg-emerald-500/10 border-emerald-500/25 text-emerald-600 dark:text-emerald-400' 
                     : 'bg-amber-500/10 border-amber-500/25 text-amber-600 dark:text-amber-400'
@@ -240,12 +237,15 @@ export const QualificationIntelligenceSection: React.FC<QualificationIntelligenc
                   <Database className="h-3.5 w-3.5" />
                   <span>{savedRecord.persisted_to_db ? 'Supabase Synced' : 'Local Cache'}</span>
                 </div>
+              </div>
+            )}
 
-                {/* Dedicated Manual Save Button */}
+            <div className="flex flex-wrap items-center justify-end gap-2.5">
+              {savedRecord && (
                 <button
                   onClick={handleSaveToDatabase}
                   disabled={saving || loading}
-                  className={`px-3.5 py-2.5 rounded-xl font-bold text-xs tracking-tight transition-all duration-200 flex items-center gap-1.5 shadow-sm select-none font-sans ${
+                  className={`px-3.5 py-2 rounded-xl font-bold text-xs tracking-tight transition-all duration-200 flex items-center gap-1.5 shadow-sm select-none font-sans ${
                     saveSuccess
                       ? 'bg-emerald-500/15 border border-emerald-500/30 text-emerald-600 dark:text-emerald-400'
                       : saving
@@ -271,30 +271,30 @@ export const QualificationIntelligenceSection: React.FC<QualificationIntelligenc
                     </>
                   )}
                 </button>
-              </>
-            )}
-
-            <button
-              onClick={handleGenerate}
-              disabled={loading}
-              className={`px-4 py-2.5 rounded-xl font-bold text-xs tracking-tight transition-all duration-200 flex items-center gap-2 shadow-sm cursor-pointer select-none font-sans ${
-                loading
-                  ? 'bg-accent/40 text-white cursor-wait'
-                  : 'bg-accent hover:bg-accent/90 active:scale-[0.98] text-white hover:shadow-md hover:shadow-accent/20'
-              }`}
-            >
-              {loading ? (
-                <>
-                  <RefreshCw className="h-3.5 w-3.5 animate-spin" />
-                  <span>Synthesizing Insights...</span>
-                </>
-              ) : (
-                <>
-                  <Sparkles className="h-3.5 w-3.5" />
-                  <span>{savedRecord ? 'Regenerate Insights' : 'Generate Insights'}</span>
-                </>
               )}
-            </button>
+
+              <button
+                onClick={handleGenerate}
+                disabled={loading}
+                className={`px-4 py-2 rounded-xl font-bold text-xs tracking-tight transition-all duration-200 flex items-center gap-2 shadow-sm cursor-pointer select-none font-sans ${
+                  loading
+                    ? 'bg-accent/40 text-white cursor-wait'
+                    : 'bg-accent hover:bg-accent/90 active:scale-[0.98] text-white hover:shadow-md hover:shadow-accent/20'
+                }`}
+              >
+                {loading ? (
+                  <>
+                    <RefreshCw className="h-3.5 w-3.5 animate-spin" />
+                    <span>Synthesizing Insights...</span>
+                  </>
+                ) : (
+                  <>
+                    <Sparkles className="h-3.5 w-3.5" />
+                    <span>{savedRecord ? 'Regenerate Insights' : 'Generate Insights'}</span>
+                  </>
+                )}
+              </button>
+            </div>
           </div>
         </div>
 
