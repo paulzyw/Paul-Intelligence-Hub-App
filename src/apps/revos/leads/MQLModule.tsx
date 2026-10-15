@@ -647,6 +647,7 @@ export const MQLModule: React.FC = () => {
             campaign={activeDashboardCampaign}
             leads={dashboardLeads}
             qualResults={dashboardQualResults}
+            onNavigateToLead={(lead, colType) => handleEditLeadClick(lead, colType)}
           />
         </div>
       );

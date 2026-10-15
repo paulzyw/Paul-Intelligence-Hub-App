@@ -6,6 +6,7 @@ import { OpportunityDataService } from '../services/opportunityDataService';
 import { SQLDataService } from '../services/sqlDataService';
 import { supabase } from '@/src/lib/supabase';
 import { QualificationIntelligenceSection } from './QualificationIntelligenceSection';
+import { QualificationDimensionIntelligence } from './QualificationDimensionIntelligence';
 import { 
   TrendingUp, 
   Users, 
@@ -29,6 +30,7 @@ interface LeadDashboardProps {
   campaign?: MQLCampaign | null;
   leads: MQLLead[];
   qualResults: MQLQualificationResult[];
+  onNavigateToLead?: (lead: MQLLead, columnType?: 'lead' | 'mql' | 'sql' | 'opp') => void;
 }
 
 export const LeadDashboard: React.FC<LeadDashboardProps> = ({ 
@@ -37,7 +39,8 @@ export const LeadDashboard: React.FC<LeadDashboardProps> = ({
   onCampaignChange,
   campaign, 
   leads, 
-  qualResults 
+  qualResults,
+  onNavigateToLead
 }) => {
   const isAllCampaigns = !campaign || selectedCampaignId === 'all';
 
@@ -515,9 +518,19 @@ export const LeadDashboard: React.FC<LeadDashboardProps> = ({
     );
   };
 
-  // 4. SQL Leaderboard ranking (Top Opportunitis from SQL Opportunity Qualification Roster - SqlToOpp table)
+  // 4. SQL Leaderboard ranking (Top SQLs from SQL Opportunity Qualification Roster - SqlToOpp table)
   // Only select opportunities with "Qualified" in Opportunity Status, selecting Top 5 based on Opportunity Score
-  const oppList: SQLOpportunity[] = [...opportunities];
+  const deletedOppIds: string[] = (() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const stored = localStorage.getItem('sql_opportunity_table_deleted_ids');
+        return stored ? JSON.parse(stored) : [];
+      } catch {}
+    }
+    return [];
+  })();
+
+  const oppList: SQLOpportunity[] = [...opportunities].filter(o => !deletedOppIds.includes(o.id));
 
   // If filtered to a specific campaign, filter opportunities matching the scoped leads
   const scopedOpps = isAllCampaigns 
@@ -533,9 +546,10 @@ export const LeadDashboard: React.FC<LeadDashboardProps> = ({
       opp.mql_reference_id === l.id || 
       (opp.company_name && l.company_name && opp.company_name.toLowerCase().trim() === l.company_name.toLowerCase().trim())
     );
-    if (!exists) {
+    const virtualId = `virtual_opp_${l.id}`;
+    if (!exists && !deletedOppIds.includes(virtualId)) {
       scopedOpps.push({
-        id: `virtual_opp_${l.id}`,
+        id: virtualId,
         company_name: l.company_name || 'Enterprise Client',
         industry: l.lead_industry || 'Enterprise Software',
         revenue_motion: 'Digital Solution Selling',
@@ -1192,6 +1206,26 @@ export const LeadDashboard: React.FC<LeadDashboardProps> = ({
         }}
       />
 
+      {/* Qualification Dimension Intelligence Section (Interactive heatmaps for MQL, SQL, and Opportunity Qualification) */}
+      <QualificationDimensionIntelligence
+        campaigns={campaigns}
+        selectedCampaignId={selectedCampaignId}
+        campaign={campaign}
+        leads={leads}
+        qualResults={qualResults}
+        mqlPromotions={mqlPromotions}
+        oppPromotions={oppPromotions}
+        opportunities={opportunities}
+        sqlAssessments={sqlAssessments}
+        sqlResultsMap={sqlResultsMap}
+        oppFormDataMap={oppFormDataMap}
+        oppSessionsMap={oppSessionsMap}
+        oppResultsMap={oppResultsMap}
+        promotedLeadIds={promotedLeadIds}
+        sqlPromotedLeadIds={sqlPromotedLeadIds}
+        onNavigateToLead={onNavigateToLead}
+      />
+
       {/* Cognitive Intelligence Recommendation & Leaderboard Columns */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         {/* Left Col: AI Cognitive Insight */}
@@ -1217,12 +1251,12 @@ export const LeadDashboard: React.FC<LeadDashboardProps> = ({
           </div>
         </div>
 
-        {/* Right Col: Top Opportunitis */}
+        {/* Right Col: Top SQLs */}
         <div className="lg:col-span-7 p-5 rounded-2xl border border-border bg-bg-surface flex flex-col shadow-sm">
           <div className="border-b border-border pb-3 mb-4">
             <h3 className="text-xs font-black text-text-primary uppercase tracking-wider flex items-center gap-1.5">
               <Award className="h-3.5 w-3.5 text-accent" />
-              Top Opportunitiess
+              Top SQLs
             </h3>
             <p className="text-[10px] text-text-secondary mt-0.5">
               {isAllCampaigns 
@@ -1231,7 +1265,7 @@ export const LeadDashboard: React.FC<LeadDashboardProps> = ({
             </p>
           </div>
 
-          <div className="space-y-2.5 overflow-y-auto max-h-[220px] pr-1.5 custom-scrollbar-vertical [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-border/60 dark:[&::-webkit-scrollbar-thumb]:bg-border/80 [&::-webkit-scrollbar-thumb]:rounded-full hover:[&::-webkit-scrollbar-thumb]:bg-accent">
+          <div className="space-y-2.5 overflow-y-auto max-h-[220px] pr-2 custom-scrollbar-vertical">
             {topSqls.map((item, idx) => {
               const leadCamp = isAllCampaigns && campaigns && item.backingLead 
                 ? campaigns.find(c => c.id === item.backingLead?.campaign_id) 

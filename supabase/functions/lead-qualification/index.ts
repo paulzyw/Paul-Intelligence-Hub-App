@@ -1808,6 +1808,8 @@ REASONING RULES & STRUCTURAL MANDATES:
 
 1. STRATEGIC SYNTHESIS (executive_summary):
 - Provide a high-impact, professional C-level executive briefing summarizing holistic qualification health across the active scope.
+- Provide a C-level executive briefing summarizing the recurring characteristics associated with qualification status (Qualified, Conditional-Qualified, Neutral, Disqualified).
+- Identify common missing information, unmet criteria, business risks, and reasons that prevent leads from achieving stronger qualification outcomes.
 - You MUST reference the authoritative funnel conversion rates provided in "analysis_metrics.funnel_conversion_rates":
   * Lead-to-MQL Conversion Rate (lead_to_mql_conversion_rate_pct%)
   * MQL-to-SQL Conversion Rate (mql_to_sql_conversion_rate_pct%)
@@ -1819,11 +1821,11 @@ REASONING RULES & STRUCTURAL MANDATES:
 2. KEY QUALIFICATION FINDINGS (key_findings):
 - You MUST return EXACTLY THREE findings, one dedicated to each qualification module in the following sequence:
   * Finding 1: MQL Qualification Module (module: "MQL Qualification")
-    Focus: ICP firmographic/technographic fit, intent signals, engagement depth, timing/urgency friction, Lead-to-MQL Conversion Rate, and qualification status distribution (Highly Qualified, Qualified, Marketing Nurture, Disqualified).
+    Focus: ICP firmographic/technographic fit, intent signals, engagement depth, timing/urgency friction, Lead-to-MQL Conversion Rate, and identify recurring characteristics associated with qualification status (Highly Qualified, Qualified, Neutral, Marketing Nurture, Disqualified), and Identify common missing information, unmet criteria, business risks, and reasons that prevent leads from achieving stronger qualification outcomes.
   * Finding 2: SQL Qualification Module (module: "SQL Qualification")
-    Focus: Sales handover acceptance, MEDDPICC discovery completion (Economic Buyer, Metrics, Decision Criteria), MQL-to-SQL Conversion Rate, and AE pipeline admission rigor.
+    Focus: Sales handover acceptance, MEDDPICC discovery completion (Economic Buyer, Metrics, Decision Criteria), MQL-to-SQL Conversion Rate, AE pipeline admission rigor, and identify recurring characteristics associated with qualification status (Qualified, Conditional-Qualified, Neutral, Disqualified), and Identify common missing information, unmet criteria, business risks, and reasons that prevent leads from achieving stronger qualification outcomes.
   * Finding 3: Opportunity Qualification Module (module: "Opportunity Qualification")
-    Focus: Deal stage progression, economic commitment, SQL-to-Opportunity Conversion Rate, pipeline revenue yield, and win-probability drivers.
+    Focus: Deal stage progression, economic commitment, SQL-to-Opportunity Conversion Rate, pipeline revenue yield, win-probability drivers, and identify recurring characteristics associated with qualification status (Qualified, Conditional-Qualified, Neutral, Disqualified), and Identify common missing information, unmet criteria, business risks, and reasons that prevent leads from achieving stronger qualification outcomes.
 - For each finding: Provide title, empirical observation citing authoritative numbers, strategic business implication, 2+ supporting metrics, evidence references, finding_type ("observed_pattern" or "hypothesis"), and confidence ("high", "medium", or "low").
 
 3. IDENTIFIED QUALIFICATION RISKS (qualification_risks):
@@ -1834,7 +1836,7 @@ REASONING RULES & STRUCTURAL MANDATES:
 - For each risk: Provide module ("MQL Qualification", "SQL Qualification", "Opportunity Qualification"), target_area, title, description, confidence, and evidence_references.
 
 4. RECOMMENDED EXECUTIVE ACTIONS (recommended_actions):
-- You MUST provide actionable strategic recommendations covering ALL THREE qualification modules (at least one high-impact action for each):
+- You MUST provide actionable strategic recommendations on mitigating risks and making stronger qualification outcomes covering ALL THREE qualification modules (at least one high-impact action for each):
   * MQL Qualification Action (target_area: "MQL Qualification")
   * SQL Qualification Action (target_area: "SQL Qualification")
   * Opportunity Qualification Action (target_area: "Opportunity Qualification")

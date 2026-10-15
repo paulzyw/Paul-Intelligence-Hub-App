@@ -389,7 +389,11 @@
 
 .custom-scrollbar-vertical {
   scrollbar-width: thin;
-  scrollbar-color: var(--border-color) transparent;
+  scrollbar-color: rgba(148, 163, 184, 0.7) transparent;
+}
+html.dark .custom-scrollbar-vertical,
+.dark .custom-scrollbar-vertical {
+  scrollbar-color: rgba(100, 116, 139, 0.5) transparent;
 }
 .custom-scrollbar-vertical::-webkit-scrollbar {
   width: 6px;
@@ -399,10 +403,20 @@
   border-radius: 9999px;
 }
 .custom-scrollbar-vertical::-webkit-scrollbar-thumb {
-  background-color: var(--border-color);
+  background-color: rgba(148, 163, 184, 0.65);
   border-radius: 9999px;
+  border: 1px solid transparent;
 }
 .custom-scrollbar-vertical::-webkit-scrollbar-thumb:hover {
+  background-color: var(--accent);
+}
+html.dark .custom-scrollbar-vertical::-webkit-scrollbar-thumb,
+.dark .custom-scrollbar-vertical::-webkit-scrollbar-thumb {
+  background-color: rgba(100, 116, 139, 0.5);
+  border-radius: 9999px;
+}
+html.dark .custom-scrollbar-vertical::-webkit-scrollbar-thumb:hover,
+.dark .custom-scrollbar-vertical::-webkit-scrollbar-thumb:hover {
   background-color: var(--accent);
 }
 
