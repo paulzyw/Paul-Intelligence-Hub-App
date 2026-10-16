@@ -3,12 +3,12 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { ThemeProvider } from './context/ThemeContext';
 import { AuthProvider } from './context/AuthContext';
 import { Layout } from './components/Layout';
 import { Home } from './pages/Home';
-import { Theme } from './pages/Theme';
+import { Founder } from './pages/Founder';
 import { About } from './pages/About';
 import { Insights } from './pages/Insights';
 import { Contact } from './pages/Contact';
@@ -32,7 +32,8 @@ export default function App() {
           <Routes>
           <Route path="/" element={<Layout />}>
             <Route index element={<Home />} />
-            <Route path="theme" element={<Theme />} />
+            <Route path="founder" element={<Founder />} />
+            <Route path="theme" element={<Navigate to="/" replace />} />
             <Route path="about" element={<About />} />
             <Route path="auth" element={<Auth />} />
             <Route path="solutions" element={<Solutions />} />

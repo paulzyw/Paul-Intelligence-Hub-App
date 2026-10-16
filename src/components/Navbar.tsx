@@ -104,7 +104,7 @@ import apprevosLogoLight from '../../my_asset/apprevos_logo_light.svg';
 
   const links = [
     { name: 'Home', path: '/' },
-    { name: 'Theme', path: '/theme' },
+    { name: 'Founder', path: '/founder' },
     { name: 'About', path: '/about' },
     { name: 'Insights', path: '/insights' },
     { name: 'Impact', path: '/impact' },
