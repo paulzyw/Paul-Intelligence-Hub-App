@@ -20,7 +20,8 @@ import {
   Award,
   ArrowRight,
   AlertCircle,
-  Ban
+  Ban,
+  Calendar
 } from 'lucide-react';
 import { PromotionDataService } from '../services/promotionDataService';
 
@@ -87,6 +88,7 @@ export const SQLQualificationResult: React.FC<SQLQualificationResultProps> = ({
   const [isSaving, setIsSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [isSuccessfullyPromoted, setIsSuccessfullyPromoted] = useState(false);
+  const [promotionDate, setPromotionDate] = useState<string>(() => new Date().toISOString().split('T')[0]);
 
   // Safe data wrapper to avoid undefined errors
   const safeData = {
@@ -985,12 +987,12 @@ export const SQLQualificationResult: React.FC<SQLQualificationResultProps> = ({
           if (onPromote) {
             const success = await onPromote();
             if (success) {
-              if (leadId) await PromotionDataService.promoteLead(leadId, opportunityId);
+              if (leadId) await PromotionDataService.promoteLead(leadId, opportunityId, promotionDate);
               setIsSuccessfullyPromoted(true);
             }
           } else if (leadId) {
             try {
-              await PromotionDataService.promoteLead(leadId, opportunityId);
+              await PromotionDataService.promoteLead(leadId, opportunityId, promotionDate);
             } catch (e) {
               console.error(e);
             }
@@ -1001,19 +1003,35 @@ export const SQLQualificationResult: React.FC<SQLQualificationResultProps> = ({
         };
 
         return (
-          <div className="mt-8 flex items-center justify-between gap-4">
-            <div>
+          <div className="mt-8 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4">
+            <div className="flex flex-wrap items-center gap-4">
+              <div className="flex items-center gap-2">
+                <Calendar className="w-4 h-4 text-accent" />
+                <label htmlFor="sql-promotion-date" className="text-xs font-bold text-text-secondary uppercase font-mono">
+                  Promotion Date:
+                </label>
+                <input 
+                  id="sql-promotion-date"
+                  type="date"
+                  value={promotionDate}
+                  onChange={(e) => setPromotionDate(e.target.value)}
+                  disabled={!isRecommendYes || isSuccessfullyPromoted}
+                  className="px-3 py-1.5 rounded-lg border border-border bg-bg-surface text-text-primary text-xs font-mono disabled:opacity-50 disabled:cursor-not-allowed focus:outline-hidden focus:border-accent"
+                />
+              </div>
+
               {isSuccessfullyPromoted && (
-                <div className="flex items-center gap-2 text-emerald-500 dark:text-emerald-400 font-bold text-xs font-sans animate-fade-in">
+                <div className="flex items-center gap-2 text-emerald-500 font-bold text-xs font-sans animate-fade-in bg-emerald-500/10 px-3 py-1.5 rounded-lg border border-emerald-500/30">
                   <CheckCircle className="w-4 h-4 fill-current text-emerald-500" />
                   <span>Successfully promoted this opportunity to SQL.</span>
                 </div>
               )}
             </div>
+
             <button 
               onClick={handlePromoteClick}
               disabled={!isRecommendYes || isSuccessfullyPromoted}
-              className={`px-6 py-3 font-sans font-bold text-xs uppercase tracking-wider transition-all duration-150 flex items-center gap-2 rounded-xl shadow-lg group relative ${
+              className={`px-6 py-3 font-sans font-bold text-xs uppercase tracking-wider transition-all duration-150 flex items-center justify-center gap-2 rounded-xl shadow-lg group relative shrink-0 ${
                 isSuccessfullyPromoted
                   ? "bg-emerald-600 hover:bg-emerald-600 text-white border border-emerald-500 shadow-emerald-600/30 cursor-not-allowed"
                   : isRecommendYes

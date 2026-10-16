@@ -5,6 +5,7 @@ import { SQLDataService } from '../services/sqlDataService';
 import { PromotionDataService } from '../services/promotionDataService';
 import { SQLOpportunity } from '../../types/sql';
 import { MQLDataService } from '../services/mqlDataService';
+import { supabase } from '@/src/lib/supabase';
 import { 
   ArrowLeft, BadgeCheck, ShieldAlert, FileText, User, 
   Layers, BarChart3, ChevronRight, Activity, Zap, 
@@ -30,12 +31,15 @@ export const MQLToSQLDetailsPage: React.FC<MQLToSQLDetailsPageProps> = ({
   onBack,
   onPromoteSuccess
 }) => {
+  const rawConf = qualResult?.confidence_score ?? 90;
+  const normalizedConfidence = rawConf <= 1 ? Math.round(rawConf * 100) : Math.round(rawConf);
+
   // MQL to SQL Data Inheritance Framework Package Construction
   const inheritanceContext = {
     mql_summary: {
       qualification_status: qualResult?.qualification_status || "Qualified MQL",
       qualification_score: qualResult?.qualification_score || 85,
-      confidence_score: qualResult?.confidence_score || 90,
+      confidence_score: normalizedConfidence,
       evaluated_at: qualResult?.evaluated_at || lead.updated_at || new Date().toISOString(),
       handover_summary: qualResult?.reasoning?.summary || "Highly qualified marketing lead displaying consistent high-intent signals and perfect demographic ICP alignment."
     },
@@ -115,6 +119,49 @@ export const MQLToSQLDetailsPage: React.FC<MQLToSQLDetailsPageProps> = ({
   const [promoting, setPromoting] = useState(false);
   const [promotionSuccess, setPromotionSuccess] = useState(false);
   const [existingOpp, setExistingOpp] = useState<SQLOpportunity | null>(null);
+  const [dbHandoverDate, setDbHandoverDate] = useState<string | null>(() => {
+    const propRecs = qualResult?.recommendations as any;
+    if (propRecs?.handover_ticket?.handover_date) {
+      return propRecs.handover_ticket.handover_date;
+    }
+    if (typeof window !== 'undefined') {
+      const stored = localStorage.getItem(`mql_handover_${lead.id}`);
+      if (stored) {
+        try {
+          const parsed = JSON.parse(stored);
+          if (parsed?.handover_date) {
+            return parsed.handover_date;
+          }
+        } catch {}
+      }
+    }
+    return null;
+  });
+
+  useEffect(() => {
+    const loadHandoverDate = async () => {
+      if (dbHandoverDate) return;
+      try {
+        const { data, error } = await supabase
+          .from('mql_qualification_results')
+          .select('recommendations')
+          .eq('lead_id', lead.id)
+          .maybeSingle();
+
+        if (!error && data) {
+          const recs = data.recommendations as any;
+          if (recs?.handover_ticket?.handover_date) {
+            setDbHandoverDate(recs.handover_ticket.handover_date);
+          }
+        }
+      } catch (err) {
+        console.warn("Failed to load handover date from DB:", err);
+      }
+    };
+    if (lead?.id && !dbHandoverDate) {
+      loadHandoverDate();
+    }
+  }, [lead?.id, dbHandoverDate]);
 
   const [formCompanyName, setFormCompanyName] = useState(inheritanceContext.company_context.company_name);
   const [formOpportunityName, setFormOpportunityName] = useState(`${inheritanceContext.company_context.company_name} - ${inheritanceContext.customer_intent_intelligence.business_topic}`);
@@ -667,12 +714,12 @@ export const MQLToSQLDetailsPage: React.FC<MQLToSQLDetailsPageProps> = ({
             <div className="p-3 bg-bg-primary/30 border border-border/60 rounded-xl space-y-1.5 text-xs">
               <div className="flex justify-between items-center text-text-secondary">
                 <span>Phase</span>
-                <span className="font-bold text-text-primary">MQL → SQL Handover</span>
+                <span className="font-bold text-text-primary">Lead → MQL Handover</span>
               </div>
               <div className="flex justify-between items-center text-text-secondary">
                 <span>Evaluated</span>
                 <span className="font-bold text-text-primary font-mono text-[11px]">
-                  {new Date(inheritanceContext.mql_summary.evaluated_at).toLocaleDateString()}
+                  {new Date(dbHandoverDate || inheritanceContext.mql_summary.evaluated_at).toLocaleDateString()}
                 </span>
               </div>
               <div className="flex justify-between items-center text-text-secondary">
