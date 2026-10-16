@@ -308,7 +308,7 @@ export const getSemanticStyle = (semantic: OutcomeSemantic) => {
   switch (semantic) {
     case 'Qualified':
       return {
-        bg: 'bg-emerald-500/10 dark:bg-emerald-500/15',
+        bg: 'bg-emerald-500/20 dark:bg-emerald-500/15',
         border: 'border-emerald-500/30 dark:border-emerald-500/40',
         text: 'text-emerald-700 dark:text-emerald-300',
         badgeBg: 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/30',
@@ -318,7 +318,7 @@ export const getSemanticStyle = (semantic: OutcomeSemantic) => {
       };
     case 'Conditional':
       return {
-        bg: 'bg-amber-500/10 dark:bg-amber-500/15',
+        bg: 'bg-amber-500/20 dark:bg-amber-500/15',
         border: 'border-amber-500/30 dark:border-amber-500/40',
         text: 'text-amber-700 dark:text-amber-300',
         badgeBg: 'bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-500/30',
@@ -328,7 +328,7 @@ export const getSemanticStyle = (semantic: OutcomeSemantic) => {
       };
     case 'Neutral':
       return {
-        bg: 'bg-sky-500/10 dark:bg-sky-500/15',
+        bg: 'bg-sky-500/20 dark:bg-sky-500/15',
         border: 'border-sky-500/30 dark:border-sky-500/40',
         text: 'text-sky-700 dark:text-sky-300',
         badgeBg: 'bg-sky-500/15 text-sky-700 dark:text-sky-300 border-sky-500/30',
@@ -338,7 +338,7 @@ export const getSemanticStyle = (semantic: OutcomeSemantic) => {
       };
     case 'Disqualified':
       return {
-        bg: 'bg-red-500/10 dark:bg-red-500/15',
+        bg: 'bg-red-500/20 dark:bg-red-500/15',
         border: 'border-red-500/30 dark:border-red-500/40',
         text: 'text-red-700 dark:text-red-300',
         badgeBg: 'bg-red-500/15 text-red-700 dark:text-red-300 border-red-500/30',
@@ -1264,13 +1264,23 @@ export const QualificationDimensionIntelligence: React.FC<QualificationDimension
 
   // Handle click on row to navigate to lead or opportunity
   const handleRowClick = (row: HeatmapRowData) => {
-    if (row.leadId) {
-      const matchedLead = leads.find(l => l.id === row.leadId);
-      if (matchedLead && onNavigateToLead) {
-        const colType = activeView === 'mql' ? 'mql' : activeView === 'sql' ? 'sql' : 'opp';
-        onNavigateToLead(matchedLead, colType);
-        return;
-      }
+    const raw = row.rawRecord as any;
+    const candidateLead = raw?.lead || raw?.backingLead || (row.leadId ? leads.find(l => l.id === row.leadId) : null) || (raw?.id ? raw : null);
+
+    const matchedLead = leads.find(l => 
+      (candidateLead?.id && l.id === candidateLead.id) ||
+      (row.leadId && l.id === row.leadId) ||
+      (row.companyName && l.company_name && l.company_name.toLowerCase().trim() === row.companyName.toLowerCase().trim())
+    ) || candidateLead;
+
+    if (matchedLead && onNavigateToLead) {
+      // Respectively match table behaviors:
+      // 1. MQL Qualification -> Lead Table behavior ('lead' -> lead_create)
+      // 2. SQL Qualification -> MQL to SQL Table behavior ('mql' -> sql_handover)
+      // 3. Opportunity Qualification -> SQL to Opportunity Table behavior ('sql' -> sql_to_opportunity_details)
+      const colType: 'lead' | 'mql' | 'sql' = activeView === 'mql' ? 'lead' : activeView === 'sql' ? 'mql' : 'sql';
+      onNavigateToLead(matchedLead, colType);
+      return;
     }
     // Fallback: open drawer on primary dimension
     handleCellClick(row, currentDimensions[0]);

@@ -87,6 +87,7 @@ export const MQLModule: React.FC = () => {
 
   // High-level horizontal navigation: 'campaign' | 'lead_canvas' | 'lead' | 'dashboard' | 'sql_qualification' | 'opportunity_qualification'
   const [activeTab, setActiveTab] = useState<'campaign' | 'lead_canvas' | 'lead' | 'dashboard' | 'sql_qualification' | 'opportunity_qualification'>('campaign');
+  const [returnTab, setReturnTab] = useState<'dashboard' | 'lead_canvas' | null>(null);
 
   // Campaign qualification results for the Lead Dashboard
   const [campaignQualResults, setCampaignQualResults] = useState<MQLQualificationResult[]>([]);
@@ -183,6 +184,7 @@ export const MQLModule: React.FC = () => {
   };
 
   const handleTabChange = (tab: 'campaign' | 'lead_canvas' | 'lead' | 'dashboard' | 'sql_qualification' | 'opportunity_qualification') => {
+    setReturnTab(null);
     setActiveTab(tab);
     if (tab === 'campaign') {
       setView('campaign_config');
@@ -647,7 +649,11 @@ export const MQLModule: React.FC = () => {
             campaign={activeDashboardCampaign}
             leads={dashboardLeads}
             qualResults={dashboardQualResults}
-            onNavigateToLead={(lead, colType) => handleEditLeadClick(lead, colType)}
+            onNavigateToLead={(lead, colType) => {
+              setReturnTab('dashboard');
+              setActiveTab('lead_canvas');
+              handleEditLeadClick(lead, colType);
+            }}
           />
         </div>
       );
@@ -1520,7 +1526,15 @@ export const MQLModule: React.FC = () => {
                 )}
                 <button 
                   type="button"
-                  onClick={() => { setSelectedLead(null); setView(activeTab === 'lead_canvas' ? 'lead_canvas' : 'lead_list'); }} 
+                  onClick={() => { 
+                    setSelectedLead(null); 
+                    if (returnTab === 'dashboard') {
+                      setReturnTab(null);
+                      setActiveTab('dashboard');
+                    } else {
+                      setView(activeTab === 'lead_canvas' ? 'lead_canvas' : 'lead_list'); 
+                    }
+                  }} 
                   className="text-xs sm:text-sm font-mono text-text-secondary hover:text-accent transition-colors flex items-center gap-1 cursor-pointer select-none font-bold"
                 >
                   Close
@@ -1975,7 +1989,12 @@ export const MQLModule: React.FC = () => {
           onBack={() => {
             setSelectedLead(null);
             setOqOpportunity(null);
-            setView('lead_canvas');
+            if (returnTab === 'dashboard') {
+              setReturnTab(null);
+              setActiveTab('dashboard');
+            } else {
+              setView('lead_canvas');
+            }
           }}
           onProceedToOQ={() => {
             setView('sql_to_opportunity');
@@ -1991,7 +2010,12 @@ export const MQLModule: React.FC = () => {
           onBack={() => {
             setSelectedLead(null);
             setOqOpportunity(null);
-            setView('lead_canvas');
+            if (returnTab === 'dashboard') {
+              setReturnTab(null);
+              setActiveTab('dashboard');
+            } else {
+              setView('lead_canvas');
+            }
           }}
           onPromotedStatusChanged={async () => {
             try {
@@ -2013,7 +2037,12 @@ export const MQLModule: React.FC = () => {
           qualResult={qualResult}
           onBack={() => {
             setSelectedLead(null);
-            setView('lead_canvas');
+            if (returnTab === 'dashboard') {
+              setReturnTab(null);
+              setActiveTab('dashboard');
+            } else {
+              setView('lead_canvas');
+            }
           }}
           onPromoteSuccess={async () => {
             try {
@@ -2023,9 +2052,14 @@ export const MQLModule: React.FC = () => {
               console.error(err);
             }
             setSelectedLead(null);
-            setView('lead_canvas');
-            // Navigate the user to the Lead Canvas tab so they see their new opportunity instantly!
-            handleTabChange('lead_canvas');
+            if (returnTab === 'dashboard') {
+              setReturnTab(null);
+              setActiveTab('dashboard');
+            } else {
+              setView('lead_canvas');
+              // Navigate the user to the Lead Canvas tab so they see their new opportunity instantly!
+              handleTabChange('lead_canvas');
+            }
           }}
         />
       );
