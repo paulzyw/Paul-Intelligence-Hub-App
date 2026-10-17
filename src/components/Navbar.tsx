@@ -1,5 +1,5 @@
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { Menu, X, LogOut, User, Settings, Shield, Key, Eye, EyeOff, AlertCircle, CheckCircle2, Loader2 } from 'lucide-react';
+import { Menu, X, LogOut, User, Settings, Shield, Key, Eye, EyeOff, AlertCircle, CheckCircle2, Loader2, ChevronDown } from 'lucide-react';
 import { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '../lib/utils';
@@ -7,18 +7,22 @@ import { ThemeToggle } from './ThemeToggle';
 import { useTheme } from '../context/ThemeContext';
 import { useAuth } from '../hooks/useAuth';
 import { supabase } from '../lib/supabase';
+import { AboutDropdown } from './AboutDropdown';
 
 import apprevosLogoDark from '../../my_asset/apprevos_logo_dark.svg';
 import apprevosLogoLight from '../../my_asset/apprevos_logo_light.svg';
 
-  export function Navbar() {
+export function Navbar() {
   const location = useLocation();
   const navigate = useNavigate();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
+  const [isAboutDropdownOpen, setIsAboutDropdownOpen] = useState(false);
   const userMenuRef = useRef<HTMLDivElement>(null);
   const mobileUserMenuRef = useRef<HTMLDivElement>(null);
   const mobileUserButtonRef = useRef<HTMLButtonElement>(null);
+  const aboutDropdownContainerRef = useRef<HTMLDivElement>(null);
+  const aboutButtonRef = useRef<HTMLButtonElement>(null);
   const { theme } = useTheme();
   const { user, profile } = useAuth();
 
@@ -31,10 +35,21 @@ import apprevosLogoLight from '../../my_asset/apprevos_logo_light.svg';
       if (clickedOutsideDesktop && clickedOutsideMobileDropdown && clickedOutsideMobileButton) {
         setIsUserMenuOpen(false);
       }
+
+      const clickedOutsideAboutDropdown = !aboutDropdownContainerRef.current || !aboutDropdownContainerRef.current.contains(event.target as Node);
+      const clickedOutsideAboutButton = !aboutButtonRef.current || !aboutButtonRef.current.contains(event.target as Node);
+      if (clickedOutsideAboutDropdown && clickedOutsideAboutButton) {
+        setIsAboutDropdownOpen(false);
+      }
     }
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
+
+  useEffect(() => {
+    setIsAboutDropdownOpen(false);
+    setIsMobileMenuOpen(false);
+  }, [location.pathname]);
 
   const handleLogout = async () => {
     try {
@@ -102,16 +117,9 @@ import apprevosLogoLight from '../../my_asset/apprevos_logo_light.svg';
     }
   };
 
-  const links = [
-    { name: 'Home', path: '/' },
-    { name: 'Founder', path: '/founder' },
-    { name: 'About', path: '/about' },
-    { name: 'Insights', path: '/insights' },
-    { name: 'Impact', path: '/impact' },
-    { name: 'Research', path: '/research' },
-    { name: 'Solutions', path: '/solutions' },
-    { name: 'Contact', path: '/contact' },
-  ];
+  const isAboutActive = ['/about', '/founder', '/impact', '/insights', '/research', '/contact'].some(
+    p => location.pathname === p || location.pathname.startsWith(p + '/')
+  );
 
   const isActive = (path: string) => {
     if (path === '/' && location.pathname !== '/') return false;
@@ -134,18 +142,43 @@ import apprevosLogoLight from '../../my_asset/apprevos_logo_light.svg';
           
           <div className="hidden md:flex items-center gap-8">
             <div className="flex items-center space-x-8">
-              {links.map((link) => (
-                <Link
-                  key={link.name}
-                  to={link.path}
-                  className={cn(
-                    "text-sm font-medium transition-colors hover:text-accent",
-                    isActive(link.path) ? "text-accent" : "text-text-secondary"
-                  )}
-                >
-                  {link.name}
-                </Link>
-              ))}
+              <Link
+                to="/"
+                className={cn(
+                  "text-sm font-medium transition-colors hover:text-accent",
+                  isActive('/') ? "text-accent font-semibold" : "text-text-secondary"
+                )}
+              >
+                Home
+              </Link>
+
+              {/* ABOUT DROPDOWN BUTTON */}
+              <button
+                ref={aboutButtonRef}
+                type="button"
+                onClick={() => setIsAboutDropdownOpen(prev => !prev)}
+                className={cn(
+                  "text-sm font-medium transition-colors hover:text-accent flex items-center gap-1.5 focus:outline-none cursor-pointer",
+                  (isAboutDropdownOpen || isAboutActive) ? "text-accent font-semibold" : "text-text-secondary"
+                )}
+                aria-expanded={isAboutDropdownOpen}
+              >
+                <span>About</span>
+                <ChevronDown className={cn(
+                  "w-3.5 h-3.5 transition-transform duration-200",
+                  isAboutDropdownOpen ? "rotate-180 text-accent" : "text-text-secondary"
+                )} />
+              </button>
+
+              <Link
+                to="/solutions"
+                className={cn(
+                  "text-sm font-medium transition-colors hover:text-accent",
+                  isActive('/solutions') ? "text-accent font-semibold" : "text-text-secondary"
+                )}
+              >
+                Solutions
+              </Link>
             </div>
             
             <div className="flex items-center gap-4">
@@ -263,25 +296,63 @@ import apprevosLogoLight from '../../my_asset/apprevos_logo_light.svg';
         </div>
       </div>
 
+      {/* ABOUT DROPDOWN COMPONENT */}
+      <div ref={aboutDropdownContainerRef}>
+        <AboutDropdown 
+          isOpen={isAboutDropdownOpen} 
+          onClose={() => setIsAboutDropdownOpen(false)} 
+        />
+      </div>
+
       {/* Mobile menu */}
       {isMobileMenuOpen && (
         <div className="md:hidden border-t border-border bg-bg-surface">
           <div className="space-y-1 px-2 pb-3 pt-2 sm:px-3">
-            {links.map((link) => (
-              <Link
-                key={link.name}
-                to={link.path}
-                onClick={() => setIsMobileMenuOpen(false)}
+            <Link
+              to="/"
+              onClick={() => setIsMobileMenuOpen(false)}
+              className={cn(
+                "block rounded-md px-3 py-2 text-base font-medium",
+                isActive('/')
+                  ? "bg-bg-primary text-accent font-semibold"
+                  : "text-text-secondary hover:bg-bg-primary hover:text-accent"
+              )}
+            >
+              Home
+            </Link>
+
+            {/* Mobile About Button */}
+            <div className="pt-0.5">
+              <button
+                type="button"
+                onClick={() => {
+                  setIsMobileMenuOpen(false);
+                  setIsAboutDropdownOpen(true);
+                }}
                 className={cn(
-                  "block rounded-md px-3 py-2 text-base font-medium",
-                  isActive(link.path)
-                    ? "bg-bg-primary text-accent"
+                  "w-full flex items-center justify-between rounded-md px-3 py-2 text-base font-medium transition-colors cursor-pointer",
+                  (isAboutDropdownOpen || isAboutActive)
+                    ? "text-accent font-semibold"
                     : "text-text-secondary hover:bg-bg-primary hover:text-accent"
                 )}
               >
-                {link.name}
-              </Link>
-            ))}
+                <span>About</span>
+                <ChevronDown className={cn("w-4 h-4 transition-transform duration-200", isAboutDropdownOpen ? "rotate-180 text-accent" : "")} />
+              </button>
+            </div>
+
+            <Link
+              to="/solutions"
+              onClick={() => setIsMobileMenuOpen(false)}
+              className={cn(
+                "block rounded-md px-3 py-2 text-base font-medium",
+                isActive('/solutions')
+                  ? "bg-bg-primary text-accent font-semibold"
+                  : "text-text-secondary hover:bg-bg-primary hover:text-accent"
+              )}
+            >
+              Solutions
+            </Link>
             {user ? (
               <button
                 onClick={handleLogout}
