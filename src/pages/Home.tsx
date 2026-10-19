@@ -30,7 +30,7 @@ const AUDIENCE_DATA: Record<AudienceKey, AudienceContent> = {
   individual: {
     label: "Individual sales professional",
     cardTitle: "Individual Sales Professional",
-    image: "https://yfonihlpdvelssfmzokp.supabase.co/storage/v1/object/public/page_image/individual_sales.jpg",
+    image: "https://yfonihlpdvelssfmzokp.supabase.co/storage/v1/object/public/page_image/Individual_sales.webp",
     imageAlt: "Individual sales professional holding a tablet",
     experiencing: [
       "Leads look promising but lack verified buying potential.",
@@ -48,7 +48,7 @@ const AUDIENCE_DATA: Record<AudienceKey, AudienceContent> = {
   enterprise: {
     label: "Enterprise team",
     cardTitle: "Enterprise Team",
-    image: "https://yfonihlpdvelssfmzokp.supabase.co/storage/v1/object/public/page_image/enterprise_sales.jpg",
+    image: "https://yfonihlpdvelssfmzokp.supabase.co/storage/v1/object/public/page_image/enterprise_team.webp",
     imageAlt: "Enterprise team shaking hands on a deal",
     experiencing: [
       "Marketing and sales disagree about which leads deserve attention.",
@@ -166,7 +166,7 @@ export function Home() {
               transition={{ duration: 0.35, delay: 0.16, ease: "easeOut" }}
               className="text-sm sm:text-base md:text-lg text-text-hero-secondary max-w-5xl mx-auto leading-relaxed md:leading-normal font-normal sm:font-medium mb-8 sm:mb-10 md:mb-12 px-1 sm:px-0"
             >
-              Revenue growth becomes difficult when go-to-market priorities, lead qualification, and sales pipeline decisions are disconnected. RevOS brings structured revenue methodologies and AI-powered reasoning grounded in customer evidence, qualification criteria, business context, and identifiable information gaps, together to help you assess what matters, identify what is missing, and decide what to do next.
+              Revenue growth becomes difficult when go-to-market priorities, lead qualification, and sales pipeline decisions are disconnected. RevOS brings structured revenue methodologies and AI-powered reasoning together to help you assess what matters, identify what is missing, and decide what to do next.
             </motion.p>
 
             <motion.div 
