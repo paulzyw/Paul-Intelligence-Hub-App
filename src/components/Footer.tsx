@@ -25,7 +25,7 @@ export function Footer() {
               Apprevos Technology
             </h2>
             <p className="text-sm text-text-hero-secondary max-w-xs">
-              Accelerate Revenue Growth with an AI-Native Revenue Operating System
+              Turn Revenue Challenges Into Clearer Paths to Growth
             </p>
             <p className="text-xs text-text-hero-secondary mt-4">
               © {new Date().getFullYear()} Apprevos Technology. All rights reserved.
