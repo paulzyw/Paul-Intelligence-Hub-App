@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Link } from 'react-router-dom';
 import { 
@@ -10,12 +10,13 @@ import {
   Clock, 
   LineChart,
   User,
-  Users
+  Users,
+  Briefcase
 } from 'lucide-react';
 import { ScrollytellingContainer } from '../components/theme-story';
 import GradientWaves from '../components/GradientWaves';
 
-type AudienceKey = 'individual' | 'enterprise';
+type AudienceKey = 'individual' | 'enterprise' | 'executive';
 
 interface AudienceContent {
   label: string;
@@ -28,10 +29,10 @@ interface AudienceContent {
 
 const AUDIENCE_DATA: Record<AudienceKey, AudienceContent> = {
   individual: {
-    label: "Individual sales professional",
-    cardTitle: "Individual Sales Professional",
+    label: "Sales Professional",
+    cardTitle: "Sales Professional",
     image: "https://yfonihlpdvelssfmzokp.supabase.co/storage/v1/object/public/page_image/Individual_sales.webp",
-    imageAlt: "Individual sales professional holding a tablet",
+    imageAlt: "Sales professional",
     experiencing: [
       "Leads look promising but lack verified buying potential.",
       "Discovery does not fully establish the customer's problem, impact, or decision criteria.",
@@ -46,10 +47,10 @@ const AUDIENCE_DATA: Record<AudienceKey, AudienceContent> = {
     ]
   },
   enterprise: {
-    label: "Enterprise team",
+    label: "Enterprise Team",
     cardTitle: "Enterprise Team",
-    image: "https://yfonihlpdvelssfmzokp.supabase.co/storage/v1/object/public/page_image/enterprise_team.webp",
-    imageAlt: "Enterprise team shaking hands on a deal",
+    image: "https://yfonihlpdvelssfmzokp.supabase.co/storage/v1/object/public/page_image/enterprise_team_02.webp",
+    imageAlt: "Enterprise team reviewing sales strategy and performance",
     experiencing: [
       "Marketing and sales disagree about which leads deserve attention.",
       "Qualification quality varies between sellers and teams.",
@@ -61,6 +62,25 @@ const AUDIENCE_DATA: Record<AudienceKey, AudienceContent> = {
       "Teams use different definitions of a qualified lead or healthy opportunity.",
       "Evidence gaps and deal risks are not visible in a consistent assessment process.",
       "Presales and management resources are not consistently tied to opportunity potential."
+    ]
+  },
+  executive: {
+    label: "Enterprise Executive",
+    cardTitle: "Enterprise Executive",
+    image: "https://yfonihlpdvelssfmzokp.supabase.co/storage/v1/object/public/page_image/enterprise_executive.webp",
+    imageAlt: "Enterprise executive seated at desk with laptop and strategy documents",
+    experiencing: [
+      "Revenue targets are difficult to achieve consistently.",
+      "Forecasts change unexpectedly, marketing and sales are not always aligned.",
+      "Rising commercial investment does not always translate into proportional growth.",
+      "Performance show only what is happening, not identifying the underlying causes and deciding where to intervene."
+    ],
+    rootCauses: [
+      "Revenue strategies are not consistently translated into operational priorities and actions.",
+      "Forecasts and opportunity assessments rely on insufficiently validated evidence.",
+      "Marketing and sales lack shared qualification standards.",
+      "Commercial resources are not systematically prioritized.",
+      "Performance data and insights not consistently reveal root causes and corrective action."
     ]
   }
 };
@@ -113,6 +133,14 @@ const IMPACT_CARDS = [
 export function Home() {
   const [activeAudience, setActiveAudience] = useState<AudienceKey>('individual');
 
+  useEffect(() => {
+    // Preload both audience images for instantaneous blurred background transition
+    Object.values(AUDIENCE_DATA).forEach((item) => {
+      const img = new Image();
+      img.src = item.image;
+    });
+  }, []);
+
   return (
     <div className="flex flex-col w-full">
       {/* NEW HERO SECTION DUPLICATING SOLUTIONS HERO CONTENT (WITHOUT THREADS OR GEAR TRAIN) */}
@@ -152,7 +180,7 @@ export function Home() {
               initial={{ opacity: 0, y: 8 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.35, delay: 0.08, ease: "easeOut" }}
-              className="text-[1.65rem] xs:text-3xl sm:text-4xl md:text-6xl lg:text-7xl font-extrabold tracking-tight text-text-hero-primary mb-6 sm:mb-8 md:mb-10 max-w-5xl mx-auto leading-[1.18] sm:leading-[1.15] md:leading-[1.1]"
+              className="text-4xl md:text-7xl font-extrabold tracking-tight text-text-hero-primary mb-6 sm:mb-8 md:mb-10 max-w-5xl mx-auto leading-[1.18] sm:leading-[1.15] md:leading-[1.1]"
             >
               RevOS Turns Revenue Challenges Into <br className="hidden md:block" /> 
               <span className="text-transparent bg-clip-text bg-gradient-to-r from-text-hero-primary via-accent to-text-primary bg-[length:200%_auto] animate-gradient">
@@ -279,13 +307,44 @@ export function Home() {
       {/* CRITICAL PROBLEMS AND ROOT CAUSES SECTION */}
       <section 
         id="critical-problems" 
-        className="w-full bg-bg-primary py-20 lg:py-28 px-4 sm:px-6 lg:px-8 border-b border-border/60 transition-colors duration-400"
+        className="relative w-full bg-bg-primary py-20 lg:py-28 px-4 sm:px-6 lg:px-8 border-b border-border/60 transition-colors duration-400 overflow-hidden"
       >
-        <div className="max-w-7xl mx-auto">
+        {/* Dynamic blurred ambient background mixing the card picture subtly into the section ground */}
+        <div className="absolute inset-0 pointer-events-none overflow-hidden select-none" aria-hidden="true">
+          <AnimatePresence mode="sync">
+            <motion.div
+              key={activeAudience}
+              initial={{ opacity: 0, scale: 1.08 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.96 }}
+              transition={{ duration: 0.7, ease: "easeInOut" }}
+              className="absolute inset-0"
+            >
+              <img 
+                src={AUDIENCE_DATA[activeAudience].image} 
+                alt=""
+                className="w-full h-full object-cover object-center scale-125 filter blur-[45px] sm:blur-[65px] md:blur-[80px] saturate-150 contrast-110 opacity-60 sm:opacity-70 dark:opacity-55"
+              />
+            </motion.div>
+          </AnimatePresence>
+
+          {/* Soft top and bottom boundary blend to seamlessly transition with adjacent sections */}
+          <div className="absolute inset-0 bg-gradient-to-b from-bg-primary via-transparent to-bg-primary opacity-80" />
+
+          {/* Gentle vignette to keep edges elegant while leaving atmospheric center vibrant */}
+          <div 
+            className="absolute inset-0"
+            style={{
+              background: 'radial-gradient(ellipse at 50% 50%, transparent 45%, var(--bg-primary) 95%)'
+            }}
+          />
+        </div>
+
+        <div className="relative z-10 max-w-7xl mx-auto">
           {/* Section Header */}
           <div className="text-center max-w-3xl mx-auto mb-12 sm:mb-16 space-y-3.5">
             <span className="text-xs sm:text-sm font-bold tracking-[0.16em] uppercase text-accent">
-              LOOK BENEATH THE SYMPTOMS
+              LOOK BENEATH THE PROBLEMS
             </span>
             <h2 className="text-2xl sm:text-3xl md:text-4xl font-extrabold text-text-primary tracking-tight leading-tight">
               The Visible Problem Is Not Always the Root Cause.
@@ -302,7 +361,7 @@ export function Home() {
               aria-label="Select audience perspective"
               className="inline-flex p-1 sm:p-1.5 bg-bg-surface border border-border/80 rounded-xl shadow-xs max-w-full overflow-x-auto"
             >
-              {(['individual', 'enterprise'] as const).map((key) => {
+              {(['individual', 'enterprise', 'executive'] as const).map((key) => {
                 const isSelected = activeAudience === key;
                 return (
                   <button
@@ -319,8 +378,10 @@ export function Home() {
                   >
                     {key === 'individual' ? (
                       <User className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-                    ) : (
+                    ) : key === 'enterprise' ? (
                       <Users className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                    ) : (
+                      <Briefcase className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                     )}
                     {AUDIENCE_DATA[key].label}
                   </button>
@@ -354,38 +415,40 @@ export function Home() {
                   {/* Right: Content */}
                   <div className="flex-1 flex flex-col justify-between w-full min-w-0">
                     {/* Card Title */}
-                    <h3 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-accent tracking-tight mb-8 sm:mb-10">
-                      {AUDIENCE_DATA[activeAudience].cardTitle}
-                    </h3>
+                    <div>
+                      <h3 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-accent tracking-tight">
+                        {AUDIENCE_DATA[activeAudience].cardTitle}
+                      </h3>
+                      {/* Top Divider line below Card Title */}
+                      <div className="border-t border-border/50 mt-5 mb-6 sm:mt-6 sm:mb-7 w-full" />
+                    </div>
 
-                    {/* 01 / Symptoms */}
-                    <div className="grid grid-cols-1 md:grid-cols-[160px_1fr] lg:grid-cols-[200px_1fr] gap-3 sm:gap-6 items-start">
-                      <div className="shrink-0">
+                    {/* 01 / Problems */}
+                    <div className="flex flex-col">
+                      <div>
                         <h4 className="text-lg sm:text-xl font-bold text-accent tracking-tight">
-                          01 / Symptoms
+                          01 / Problems
                         </h4>
                         <p className="text-xs sm:text-sm text-text-secondary mt-1 leading-snug">
                           What you may be experiencing
                         </p>
                       </div>
-                      <div className="w-full">
-                        <ul className="space-y-2.5 sm:space-y-3">
-                          {AUDIENCE_DATA[activeAudience].experiencing.map((item, idx) => (
-                            <li key={idx} className="flex items-start gap-2.5 sm:gap-3 text-text-primary text-sm sm:text-[15px] leading-relaxed">
-                              <span className="text-text-primary font-bold select-none leading-relaxed shrink-0">•</span>
-                              <span>{item}</span>
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
+                      <ul className="mt-2 sm:mt-3 pl-3 sm:pl-4 space-y-[1px] sm:space-y-[1px]">
+                        {AUDIENCE_DATA[activeAudience].experiencing.map((item, idx) => (
+                          <li key={idx} className="flex items-start gap-3 sm:gap-3.5 text-text-primary text-sm sm:text-[15px] leading-relaxed">
+                            <span className="text-text-primary font-bold select-none leading-relaxed shrink-0">•</span>
+                            <span>{item}</span>
+                          </li>
+                        ))}
+                      </ul>
                     </div>
 
-                    {/* Divider line */}
-                    <div className="border-t border-border/50 my-6 sm:my-8 w-full" />
+                    {/* Middle Divider line */}
+                    <div className="border-t border-border/50 my-6 sm:my-7 w-full" />
 
                     {/* 02 / Root Causes */}
-                    <div className="grid grid-cols-1 md:grid-cols-[160px_1fr] lg:grid-cols-[200px_1fr] gap-3 sm:gap-6 items-start">
-                      <div className="shrink-0">
+                    <div className="flex flex-col">
+                      <div>
                         <h4 className="text-lg sm:text-xl font-bold text-accent tracking-tight">
                           02 / Root Causes
                         </h4>
@@ -393,16 +456,14 @@ export function Home() {
                           Possible underlying causes
                         </p>
                       </div>
-                      <div className="w-full">
-                        <ul className="space-y-2.5 sm:space-y-3">
-                          {AUDIENCE_DATA[activeAudience].rootCauses.map((item, idx) => (
-                            <li key={idx} className="flex items-start gap-2.5 sm:gap-3 text-text-primary text-sm sm:text-[15px] leading-relaxed">
-                              <span className="text-text-primary font-bold select-none leading-relaxed shrink-0">•</span>
-                              <span>{item}</span>
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
+                      <ul className="mt-2 sm:mt-3 pl-3 sm:pl-4 space-y-[1px] sm:space-y-[1px]">
+                        {AUDIENCE_DATA[activeAudience].rootCauses.map((item, idx) => (
+                          <li key={idx} className="flex items-start gap-3 sm:gap-3.5 text-text-primary text-sm sm:text-[15px] leading-relaxed">
+                            <span className="text-text-primary font-bold select-none leading-relaxed shrink-0">•</span>
+                            <span>{item}</span>
+                          </li>
+                        ))}
+                      </ul>
                     </div>
                   </div>
                 </div>
