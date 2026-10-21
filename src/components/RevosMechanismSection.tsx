@@ -212,7 +212,7 @@ export function RevosMechanismSection() {
         <div className="mb-20 lg:mb-28">
           <div className="flex flex-col md:flex-row gap-6 lg:gap-8 items-start relative">
             {/* Connecting line on desktop */}
-            <div className="hidden md:block absolute top-1/2 left-[15%] right-[15%] -translate-y-8 h-[2px] bg-gradient-to-r from-accent/20 via-accent/40 to-accent/20 z-0 pointer-events-none" />
+            <div className="hidden md:block absolute top-1/3 left-[15%] right-[15%] -translate-y-8 h-[2px] bg-gradient-to-r from-accent/20 via-accent/40 to-accent/20 z-0 pointer-events-none" />
 
             {PILLARS_DATA.map((pillar) => {
               const isOpened = activePillar === pillar.id;
@@ -460,7 +460,7 @@ export function RevosMechanismSection() {
             </div>
 
             {/* RIGHT COLUMN: Sticky Visual Explanation Panel */}
-            <div className="lg:col-span-6 lg:sticky lg:top-[230px] w-full">
+            <div className="lg:col-span-6 lg:sticky lg:top-[calc(100vh/5)] w-full"> {/*sticky at 1/5 to the top of visible viewport*/}
               <div 
                 ref={panelRef}
                 className="bg-bg-primary rounded-2xl border border-border/80 p-6 sm:p-8 shadow-sm min-h-[460px] flex flex-col justify-between"
