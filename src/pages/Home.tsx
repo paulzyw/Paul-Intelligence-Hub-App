@@ -16,6 +16,7 @@ import {
 import { ScrollytellingContainer } from '../components/theme-story';
 import GradientWaves from '../components/GradientWaves';
 import { RevosMechanismSection } from '../components/RevosMechanismSection';
+import { RevosPlatformSection } from '../components/RevosPlatformSection';
 
 type AudienceKey = 'individual' | 'enterprise' | 'executive';
 
@@ -476,6 +477,9 @@ export function Home() {
 
       {/* REVOS MECHANISM SECTION */}
       <RevosMechanismSection />
+
+      {/* REVOS PLATFORM SECTION */}
+      <RevosPlatformSection />
 
       {/* SCROLLYTELLING COMPONENT */}
       <ScrollytellingContainer />

@@ -24,6 +24,12 @@
   --color-steel: #2D3748;
   --color-ivory: #F4F4F9;
   --color-gauge-arc: var(--gauge-arc);
+  --color-gtm: var(--gtm);
+  --color-lead: var(--lead);
+  --color-pipeline: var(--pipeline);
+  --color-gtm-light: var(--gtm-light);
+  --color-lead-light: var(--lead-light);
+  --color-pipeline-light: var(--pipeline-light);
   
   /* Impact Dashboard Static Palette */
   --color-profit-gold: #ED8936;
@@ -58,6 +64,12 @@
     --paragraph-spacing: 0.8rem;
     --article-line-height: 1.25;
     --gauge-arc: #A0AEC0;
+    --gtm: #C5D704;
+    --lead: #0A9FDE;
+    --pipeline: #042B57;
+    --gtm-light: #EEF1B2;
+    --lead-light: #B2E1F5;
+    --pipeline-light: #B2BECB;
   }
 
   .dark {
@@ -77,6 +89,12 @@
     --paragraph-spacing: 0.8rem;
     --article-line-height: 1.25;
     --gauge-arc: #444649;
+    --gtm: #C5D704;
+    --lead: #0A9FDE;
+    --pipeline: #042B57;
+    --gtm-light: #EEF1B2;
+    --lead-light: #B2E1F5;
+    --pipeline-light: #B2BECB;
   }
 
   html, body {
