@@ -84,7 +84,7 @@ export function RevosPlatformSection() {
       {/* Subtle radial vignette to maintain high text contrast & focal depth */}
       <div 
         aria-hidden="true" 
-        className="absolute inset-0 pointer-events-none bg-[radial-gradient(ellipse_at_center,rgba(5,28,44,0.35)_0%,rgba(5,28,44,0.85)_80%,rgba(5,28,44,0.98)_100%)]" 
+        className="absolute inset-0 pointer-events-none bg-[radial-gradient(ellipse_at_center,rgba(5,28,44,0.35)_0%,rgba(5,28,44,0.85)_80%,rgba(5,28,44,0.98)_100%)] dark:bg-[radial-gradient(ellipse_at_center,rgba(18,20,22,0.35)_0%,rgba(18,20,22,0.85)_80%,rgba(18,20,22,0.98)_100%)] transition-colors duration-400" 
       />
 
       <div className="relative z-10 max-w-6xl mx-auto">

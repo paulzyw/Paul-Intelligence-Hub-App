@@ -9,12 +9,7 @@ import {
   HelpCircle, 
   AlertTriangle, 
   ShieldCheck, 
-  Target, 
-  ListOrdered,
-  Sparkles,
-  FileText,
-  Activity,
-  ArrowUpRight
+  Sparkles
 } from 'lucide-react';
 
 interface PillarItem {
@@ -101,22 +96,38 @@ const PILLARS_DATA: PillarItem[] = [
   }
 ];
 
-export function RevosMechanismSection() {
-  const [activePillar, setActivePillar] = useState<number>(1);
+function InteractiveWalkthrough() {
   const [activeStep, setActiveStep] = useState<number>(1);
+  const [prefersReducedMotion, setPrefersReducedMotion] = useState(false);
   const stepRefs = [useRef<HTMLDivElement>(null), useRef<HTMLDivElement>(null), useRef<HTMLDivElement>(null)];
   const panelRef = useRef<HTMLDivElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
   const isUserInteractingRef = useRef<boolean>(false);
+  const isIntersectingRef = useRef<boolean>(false);
+  const scrollTimeoutRef = useRef<number | null>(null);
+
+  // Check prefers-reduced-motion
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const mediaQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
+    setPrefersReducedMotion(mediaQuery.matches);
+    const handler = (e: MediaQueryListEvent) => setPrefersReducedMotion(e.matches);
+    mediaQuery.addEventListener('change', handler);
+    return () => mediaQuery.removeEventListener('change', handler);
+  }, []);
 
   // Sync active step when user scrolls:
-  // When card top edge reaches the right column panel's top edge, display that stage
+  // Guarded by IntersectionObserver so no scroll events or layout measurements run when offscreen
   useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+
     let rafId: number | null = null;
 
     const updateActiveStep = () => {
-      if (isUserInteractingRef.current) return;
+      if (isUserInteractingRef.current || !isIntersectingRef.current) return;
+      if (window.innerWidth < 1024) return;
 
-      const panel = panelRef.current;
       const card1 = stepRefs[0].current;
       const card2 = stepRefs[1].current;
       const card3 = stepRefs[2].current;
@@ -127,10 +138,6 @@ export function RevosMechanismSection() {
       const card2Rect = card2.getBoundingClientRect();
 
       let nextStep = 1;
-
-      // Trigger points:
-      // When scrolling, the upper 1/3 of Card 01 disappears at top edge of screen -> Stage 02
-      // When scrolling, the upper 1/3 of Card 02 disappears at top edge of screen -> Stage 03
       const card1Threshold = -(card1Rect.height / 8);
       const card2Threshold = -(card2Rect.height / 8);
 
@@ -146,6 +153,7 @@ export function RevosMechanismSection() {
     };
 
     const handleScroll = () => {
+      if (!isIntersectingRef.current || isUserInteractingRef.current) return;
       if (rafId !== null) return;
       rafId = requestAnimationFrame(() => {
         rafId = null;
@@ -153,16 +161,31 @@ export function RevosMechanismSection() {
       });
     };
 
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const entry = entries[0];
+        isIntersectingRef.current = entry.isIntersecting;
+        if (entry.isIntersecting) {
+          updateActiveStep();
+        }
+      },
+      { rootMargin: '100px 0px 100px 0px', threshold: 0 }
+    );
+
+    observer.observe(container);
+
     window.addEventListener('scroll', handleScroll, { passive: true });
     window.addEventListener('resize', handleScroll, { passive: true });
-    // Initial evaluation
-    updateActiveStep();
 
     return () => {
+      observer.disconnect();
       window.removeEventListener('scroll', handleScroll);
       window.removeEventListener('resize', handleScroll);
       if (rafId !== null) {
         cancelAnimationFrame(rafId);
+      }
+      if (scrollTimeoutRef.current !== null) {
+        window.clearTimeout(scrollTimeoutRef.current);
       }
     };
   }, []);
@@ -177,14 +200,442 @@ export function RevosMechanismSection() {
       const cardRect = targetCard.getBoundingClientRect();
       const panelRect = panel.getBoundingClientRect();
       const offset = cardRect.top - panelRect.top;
-      window.scrollBy({ top: offset, behavior: 'smooth' });
+      window.scrollBy({
+        top: offset,
+        behavior: prefersReducedMotion ? 'auto' : 'smooth'
+      });
     }
 
-    // Allow scroll sync after smooth scroll completes
-    setTimeout(() => {
+    if (scrollTimeoutRef.current !== null) {
+      window.clearTimeout(scrollTimeoutRef.current);
+    }
+    scrollTimeoutRef.current = window.setTimeout(() => {
       isUserInteractingRef.current = false;
+      scrollTimeoutRef.current = null;
     }, 700);
   };
+
+  const panelAnimation = prefersReducedMotion
+    ? {
+        initial: { opacity: 0 },
+        animate: { opacity: 1 },
+        exit: { opacity: 0 },
+        transition: { duration: 0.1 }
+      }
+    : {
+        initial: { opacity: 0, y: 8 },
+        animate: { opacity: 1, y: 0 },
+        exit: { opacity: 0, y: -8 },
+        transition: { duration: 0.25, ease: "easeOut" as const }
+      };
+
+  return (
+    <div ref={containerRef} className="pt-8 border-t border-border/60">
+      <div className="text-center max-w-2xl mx-auto mb-12 sm:mb-16 space-y-2">
+        <span className="text-xs font-bold tracking-[0.16em] uppercase text-accent font-mono">
+          INTERACTIVE WALKTHROUGH
+        </span>
+        <h3 className="text-2xl sm:text-3xl font-extrabold text-text-primary tracking-tight">
+          How RevOS Turns a Revenue Challenge Into Action
+        </h3>
+        <p className="text-sm text-text-secondary">
+          Explore each stage of the assessment workflow below.
+        </p>
+      </div>
+
+      {/* Responsive Layout: Desktop 2-column with sticky visual panel, Mobile interactive steps */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-start relative">
+        
+        {/* LEFT COLUMN: Narrative Steps */}
+        <div className="lg:col-span-6 space-y-6 sm:space-y-8 lg:pb-72">
+          
+          {/* STEP 1 */}
+          <div 
+            ref={stepRefs[0]}
+            onClick={() => handleStepClick(1)}
+            className={`rounded-2xl border p-6 sm:p-8 transition-[opacity,border-color,background-color] duration-200 cursor-pointer ${
+              activeStep === 1
+                ? 'opacity-100 visible bg-bg-primary border-accent/80 shadow-xs ring-1 ring-accent/30'
+                : 'opacity-0 invisible pointer-events-none hidden lg:block'
+            }`}
+          >
+            <div className="flex items-center justify-between mb-3">
+              <span className={`text-xs font-mono font-bold tracking-wider uppercase px-2.5 py-1 rounded-md ${
+                activeStep === 1 ? 'bg-accent/15 text-accent' : 'bg-bg-surface text-text-secondary'
+              }`}>
+                01 — Structure the Problem
+              </span>
+              <div className={`w-3 h-3 rounded-full transition-colors ${
+                activeStep === 1 ? 'bg-accent' : 'bg-border'
+              }`} />
+            </div>
+            
+            <h4 className="text-xl sm:text-2xl font-bold text-text-primary tracking-tight mb-2.5">
+              Start With the Business Problem.
+            </h4>
+            
+            <p className="text-sm text-text-secondary leading-relaxed mb-4">
+              Define the revenue challenge, clarify the desired outcome, and organize the questions and criteria that matter. RevOS provides a structured starting point for understanding what needs to be assessed.
+            </p>
+
+            <div className="border-t border-border/50 pt-3.5">
+              <ul className="space-y-1.5">
+                <li className="flex items-center gap-2 text-xs sm:text-sm text-text-primary">
+                  <CheckCircle2 className="w-3.5 h-3.5 text-accent shrink-0" />
+                  <span>Clarify the business challenge.</span>
+                </li>
+                <li className="flex items-center gap-2 text-xs sm:text-sm text-text-primary">
+                  <CheckCircle2 className="w-3.5 h-3.5 text-accent shrink-0" />
+                  <span>Define the intended outcome.</span>
+                </li>
+                <li className="flex items-center gap-2 text-xs sm:text-sm text-text-primary">
+                  <CheckCircle2 className="w-3.5 h-3.5 text-accent shrink-0" />
+                  <span>Establish relevant evaluation criteria.</span>
+                </li>
+              </ul>
+            </div>
+          </div>
+
+          {/* STEP 2 */}
+          <div 
+            ref={stepRefs[1]}
+            onClick={() => handleStepClick(2)}
+            className={`rounded-2xl border p-6 sm:p-8 transition-[opacity,border-color,background-color] duration-200 cursor-pointer ${
+              activeStep === 2
+                ? 'opacity-100 visible bg-bg-primary border-accent/80 shadow-xs ring-1 ring-accent/30'
+                : 'opacity-0 invisible pointer-events-none hidden lg:block'
+            }`}
+          >
+            <div className="flex items-center justify-between mb-3">
+              <span className={`text-xs font-mono font-bold tracking-wider uppercase px-2.5 py-1 rounded-md ${
+                activeStep === 2 ? 'bg-accent/15 text-accent' : 'bg-bg-surface text-text-secondary'
+              }`}>
+                02 — Examine the Evidence
+              </span>
+              <div className={`w-3 h-3 rounded-full transition-colors ${
+                activeStep === 2 ? 'bg-accent' : 'bg-border'
+              }`} />
+            </div>
+            
+            <h4 className="text-xl sm:text-2xl font-bold text-text-primary tracking-tight mb-2.5">
+              Understand What the Evidence Actually Tells You.
+            </h4>
+            
+            <p className="text-sm text-text-secondary leading-relaxed mb-4">
+              Examine the available information, connect it to the assessment criteria, and distinguish supported findings from assumptions and unanswered questions. This helps users understand both what is known and what still needs validation.
+            </p>
+
+            <div className="border-t border-border/50 pt-3.5">
+              <ul className="space-y-1.5">
+                <li className="flex items-center gap-2 text-xs sm:text-sm text-text-primary">
+                  <CheckCircle2 className="w-3.5 h-3.5 text-accent shrink-0" />
+                  <span>Review relevant available evidence.</span>
+                </li>
+                <li className="flex items-center gap-2 text-xs sm:text-sm text-text-primary">
+                  <CheckCircle2 className="w-3.5 h-3.5 text-accent shrink-0" />
+                  <span>Identify assumptions and uncertainties.</span>
+                </li>
+                <li className="flex items-center gap-2 text-xs sm:text-sm text-text-primary">
+                  <CheckCircle2 className="w-3.5 h-3.5 text-accent shrink-0" />
+                  <span>Surface gaps that may affect the assessment.</span>
+                </li>
+              </ul>
+            </div>
+          </div>
+
+          {/* STEP 3 */}
+          <div 
+            ref={stepRefs[2]}
+            onClick={() => handleStepClick(3)}
+            className={`rounded-2xl border p-6 sm:p-8 transition-[opacity,border-color,background-color] duration-200 cursor-pointer ${
+              activeStep === 3
+                ? 'opacity-100 visible bg-bg-primary border-accent/80 shadow-xs ring-1 ring-accent/30'
+                : 'opacity-0 invisible pointer-events-none hidden lg:block'
+            }`}
+          >
+            <div className="flex items-center justify-between mb-3">
+              <span className={`text-xs font-mono font-bold tracking-wider uppercase px-2.5 py-1 rounded-md ${
+                activeStep === 3 ? 'bg-accent/15 text-accent' : 'bg-bg-surface text-text-secondary'
+              }`}>
+                03 — Turn Insight Into Action
+              </span>
+              <div className={`w-3 h-3 rounded-full transition-colors ${
+                activeStep === 3 ? 'bg-accent' : 'bg-border'
+              }`} />
+            </div>
+            
+            <h4 className="text-xl sm:text-2xl font-bold text-text-primary tracking-tight mb-2.5">
+              Decide What Deserves Attention Next.
+            </h4>
+            
+            <p className="text-sm text-text-secondary leading-relaxed mb-4">
+              Translate the assessment into prioritized gaps, risks, recommendations, and next steps. RevOS helps users move from understanding a revenue challenge toward practical actions that can be evaluated, validated, and executed.
+            </p>
+
+            <div className="border-t border-border/50 pt-3.5">
+              <ul className="space-y-1.5">
+                <li className="flex items-center gap-2 text-xs sm:text-sm text-text-primary">
+                  <CheckCircle2 className="w-3.5 h-3.5 text-accent shrink-0" />
+                  <span>Prioritize the issues that matter most.</span>
+                </li>
+                <li className="flex items-center gap-2 text-xs sm:text-sm text-text-primary">
+                  <CheckCircle2 className="w-3.5 h-3.5 text-accent shrink-0" />
+                  <span>Identify actions and follow-up questions.</span>
+                </li>
+                <li className="flex items-center gap-2 text-xs sm:text-sm text-text-primary">
+                  <CheckCircle2 className="w-3.5 h-3.5 text-accent shrink-0" />
+                  <span>Establish the next steps for human review.</span>
+                </li>
+              </ul>
+            </div>
+          </div>
+        </div>
+
+        {/* RIGHT COLUMN: Sticky Visual Explanation Panel */}
+        <div className="lg:col-span-6 lg:sticky lg:top-[calc(100vh/5)] w-full">
+          <div 
+            ref={panelRef}
+            className="bg-bg-primary rounded-2xl border border-border/80 p-6 sm:p-8 shadow-xs min-h-[460px] flex flex-col justify-between"
+          >
+            
+            {/* Panel Top Header Bar */}
+            <div className="flex items-center justify-between border-b border-border/60 pb-4 mb-6">
+              <div className="flex items-center gap-2.5">
+                <div className="w-2.5 h-2.5 rounded-full bg-accent animate-pulse motion-reduce:animate-none" />
+                <span className="text-xs font-mono font-bold uppercase tracking-wider text-text-primary">
+                  {activeStep === 1 && "Stage 01 — Structured Problem Formulation"}
+                  {activeStep === 2 && "Stage 02 — Evidence-Informed Assessment"}
+                  {activeStep === 3 && "Stage 03 — Action Plan & Priority Guidance"}
+                </span>
+              </div>
+              <div className="flex items-center gap-1.5 text-xs text-text-secondary font-mono">
+                <span className="text-accent font-bold">0{activeStep}</span>
+                <span>/</span>
+                <span>03</span>
+              </div>
+            </div>
+
+            {/* Animated Panel Body */}
+            <div className="flex-1">
+              <AnimatePresence mode="wait">
+                {/* VISUAL PANEL 1: STRUCTURED PROBLEM */}
+                {activeStep === 1 && (
+                  <motion.div
+                    key="step-1-panel"
+                    {...panelAnimation}
+                    className="space-y-4"
+                  >
+                    {/* Field 1: Business Challenge */}
+                    <div className="bg-bg-surface rounded-xl border border-border/70 p-4">
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="text-[11px] font-mono uppercase tracking-wider font-bold text-accent">
+                          BUSINESS CHALLENGE
+                        </span>
+                        <span className="text-[10px] text-text-secondary font-mono">Input definition</span>
+                      </div>
+                      <div className="text-sm font-semibold text-text-primary">
+                        What needs to improve?
+                      </div>
+                      <p className="text-xs text-text-secondary mt-1">
+                        Core revenue execution breakdown, affected deal segments, and pipeline bottlenecks.
+                      </p>
+                    </div>
+
+                    {/* Field 2: Desired Outcome */}
+                    <div className="bg-bg-surface rounded-xl border border-border/70 p-4">
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="text-[11px] font-mono uppercase tracking-wider font-bold text-accent">
+                          DESIRED OUTCOME
+                        </span>
+                        <span className="text-[10px] text-text-secondary font-mono">Target state</span>
+                      </div>
+                      <div className="text-sm font-semibold text-text-primary">
+                        What does success look like?
+                      </div>
+                      <p className="text-xs text-text-secondary mt-1">
+                        Target win-rate recovery, margin preservation thresholds, and cycle-time velocity goals.
+                      </p>
+                    </div>
+
+                    {/* Field 3: Assessment Criteria */}
+                    <div className="bg-bg-surface rounded-xl border border-border/70 p-4">
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="text-[11px] font-mono uppercase tracking-wider font-bold text-accent">
+                          ASSESSMENT CRITERIA
+                        </span>
+                        <span className="text-[10px] text-text-secondary font-mono">Evaluation framework</span>
+                      </div>
+                      <div className="text-sm font-semibold text-text-primary">
+                        What do we need to understand?
+                      </div>
+                      <div className="flex flex-wrap gap-1.5 mt-2.5">
+                        <span className="px-2 py-0.5 rounded-md bg-bg-primary text-[11px] text-text-secondary border border-border/60">
+                          Economic buyer criteria
+                        </span>
+                        <span className="px-2 py-0.5 rounded-md bg-bg-primary text-[11px] text-text-secondary border border-border/60">
+                          Verified business pain
+                        </span>
+                        <span className="px-2 py-0.5 rounded-md bg-bg-primary text-[11px] text-text-secondary border border-border/60">
+                          Decision timeline
+                        </span>
+                        <span className="px-2 py-0.5 rounded-md bg-bg-primary text-[11px] text-text-secondary border border-border/60">
+                          Competitive exposure
+                        </span>
+                      </div>
+                    </div>
+                  </motion.div>
+                )}
+
+                {/* VISUAL PANEL 2: EVIDENCE ASSESSMENT */}
+                {activeStep === 2 && (
+                  <motion.div
+                    key="step-2-panel"
+                    {...panelAnimation}
+                    className="space-y-4"
+                  >
+                    {/* Group 1: Supported by evidence */}
+                    <div className="bg-bg-surface rounded-xl border border-emerald-500/30 p-4 relative overflow-hidden">
+                      <div className="flex items-center justify-between mb-1.5">
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-md bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 text-[11px] font-mono font-bold uppercase tracking-wider">
+                          <ShieldCheck className="w-3.5 h-3.5" />
+                          SUPPORTED BY EVIDENCE
+                        </span>
+                        <span className="text-[10px] text-emerald-600/80 dark:text-emerald-400/80 font-mono font-semibold">Validated</span>
+                      </div>
+                      <div className="text-sm font-medium text-text-primary mt-1">
+                        Information that supports an assessment.
+                      </div>
+                      <p className="text-xs text-text-secondary mt-1">
+                        Verified customer budget sign-off and mutual technical evaluation criteria confirmed in meeting transcripts.
+                      </p>
+                    </div>
+
+                    {/* Group 2: Assumption to validate */}
+                    <div className="bg-bg-surface rounded-xl border border-amber-500/30 p-4 relative overflow-hidden">
+                      <div className="flex items-center justify-between mb-1.5">
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-md bg-amber-500/10 text-amber-600 dark:text-amber-400 text-[11px] font-mono font-bold uppercase tracking-wider">
+                          <AlertTriangle className="w-3.5 h-3.5" />
+                          ASSUMPTION TO VALIDATE
+                        </span>
+                        <span className="text-[10px] text-amber-600/80 dark:text-amber-400/80 font-mono font-semibold">Requires test</span>
+                      </div>
+                      <div className="text-sm font-medium text-text-primary mt-1">
+                        A plausible interpretation that needs confirmation.
+                      </div>
+                      <p className="text-xs text-text-secondary mt-1">
+                        Belief that the internal champion has unilateral signing authority without procurement board escalation.
+                      </p>
+                    </div>
+
+                    {/* Group 3: Information needed */}
+                    <div className="bg-bg-surface rounded-xl border border-sky-500/30 p-4 relative overflow-hidden">
+                      <div className="flex items-center justify-between mb-1.5">
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-md bg-sky-500/10 text-sky-600 dark:text-sky-400 text-[11px] font-mono font-bold uppercase tracking-wider">
+                          <HelpCircle className="w-3.5 h-3.5" />
+                          INFORMATION NEEDED
+                        </span>
+                        <span className="text-[10px] text-sky-600/80 dark:text-sky-400/80 font-mono font-semibold">Missing gap</span>
+                      </div>
+                      <div className="text-sm font-medium text-text-primary mt-1">
+                        A missing detail or unanswered question.
+                      </div>
+                      <p className="text-xs text-text-secondary mt-1">
+                        Customer's formal legal review checklist and security questionnaire completion timeline.
+                      </p>
+                    </div>
+                  </motion.div>
+                )}
+
+                {/* VISUAL PANEL 3: ACTION PLAN */}
+                {activeStep === 3 && (
+                  <motion.div
+                    key="step-3-panel"
+                    {...panelAnimation}
+                    className="space-y-4"
+                  >
+                    {/* Field 1: Priority */}
+                    <div className="bg-bg-surface rounded-xl border border-border/70 p-4">
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="text-[11px] font-mono uppercase tracking-wider font-bold text-accent">
+                          PRIORITY
+                        </span>
+                        <span className="px-2 py-0.5 rounded-md bg-accent/15 text-accent text-[10px] font-bold font-mono">
+                          High Focus
+                        </span>
+                      </div>
+                      <div className="text-sm font-semibold text-text-primary">
+                        What deserves attention first?
+                      </div>
+                      <p className="text-xs text-text-secondary mt-1">
+                        Address the unverified executive sponsor and resolve concession trade-offs before contract renegotiation.
+                      </p>
+                    </div>
+
+                    {/* Field 2: Recommended Action */}
+                    <div className="bg-bg-surface rounded-xl border border-border/70 p-4">
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="text-[11px] font-mono uppercase tracking-wider font-bold text-accent">
+                          RECOMMENDED ACTION
+                        </span>
+                        <span className="text-[10px] text-text-secondary font-mono">Targeted intervention</span>
+                      </div>
+                      <div className="text-sm font-semibold text-text-primary">
+                        What should be investigated or addressed?
+                      </div>
+                      <p className="text-xs text-text-secondary mt-1">
+                        Schedule mutual alignment workshop with the VP of Engineering to validate critical technical decision criteria.
+                      </p>
+                    </div>
+
+                    {/* Field 3: Next Step */}
+                    <div className="bg-bg-surface rounded-xl border border-border/70 p-4">
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="text-[11px] font-mono uppercase tracking-wider font-bold text-accent">
+                          NEXT STEP
+                        </span>
+                        <span className="text-[10px] text-text-secondary font-mono">Execution assignment</span>
+                      </div>
+                      <div className="text-sm font-semibold text-text-primary">
+                        Who needs to do what next?
+                      </div>
+                      <div className="mt-2 flex items-center justify-between text-xs p-2 rounded-lg bg-bg-primary border border-border/60">
+                        <span className="font-medium text-text-primary">Enterprise Deal Team & Presales Lead</span>
+                        <span className="font-mono text-[11px] text-accent">Assign & Follow Up</span>
+                      </div>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
+
+            {/* Panel Footer Navigation Bar */}
+            <div className="border-t border-border/60 pt-4 mt-6 flex items-center justify-between">
+              <div className="flex gap-2">
+                {[1, 2, 3].map((num) => (
+                  <button
+                    key={num}
+                    type="button"
+                    onClick={() => handleStepClick(num)}
+                    className={`h-2 rounded-full transition-all duration-300 cursor-pointer ${
+                      activeStep === num ? 'w-8 bg-accent' : 'w-2 bg-border hover:bg-border/80'
+                    }`}
+                    aria-label={`Switch to step ${num}`}
+                  />
+                ))}
+              </div>
+              <span className="text-[11px] text-text-secondary font-mono">
+                Click steps or scroll to explore
+              </span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export function RevosMechanismSection() {
+  const [activePillar, setActivePillar] = useState<number>(1);
 
   return (
     <section 
@@ -298,416 +749,7 @@ export function RevosMechanismSection() {
         </div>
 
         {/* 3. SCROLL-DRIVEN / INTERACTIVE EXPLANATORY SEQUENCE */}
-        <div className="pt-8 border-t border-border/60">
-          <div className="text-center max-w-2xl mx-auto mb-12 sm:mb-16 space-y-2">
-            <span className="text-xs font-bold tracking-[0.16em] uppercase text-accent font-mono">
-              INTERACTIVE WALKTHROUGH
-            </span>
-            <h3 className="text-2xl sm:text-3xl font-extrabold text-text-primary tracking-tight">
-              How RevOS Turns a Revenue Challenge Into Action
-            </h3>
-            <p className="text-sm text-text-secondary">
-              Explore each stage of the assessment workflow below.
-            </p>
-          </div>
-
-          {/* Responsive Layout: Desktop 2-column with sticky visual panel, Mobile interactive steps */}
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-start relative">
-            
-            {/* LEFT COLUMN: Narrative Steps */}
-            <div className="lg:col-span-6 space-y-6 sm:space-y-8 lg:pb-72">
-              
-              {/* STEP 1 */}
-              <div 
-                ref={stepRefs[0]}
-                onClick={() => handleStepClick(1)}
-                className={`rounded-2xl border p-6 sm:p-8 transition-all duration-200 cursor-pointer ${
-                  activeStep === 1
-                    ? 'opacity-100 visible bg-bg-primary border-accent/80 shadow-sm ring-1 ring-accent/30'
-                    : 'opacity-0 invisible pointer-events-none'
-                }`}
-              >
-                <div className="flex items-center justify-between mb-3">
-                  <span className={`text-xs font-mono font-bold tracking-wider uppercase px-2.5 py-1 rounded-md ${
-                    activeStep === 1 ? 'bg-accent/15 text-accent' : 'bg-bg-surface text-text-secondary'
-                  }`}>
-                    01 — Structure the Problem
-                  </span>
-                  <div className={`w-3 h-3 rounded-full transition-colors ${
-                    activeStep === 1 ? 'bg-accent' : 'bg-border'
-                  }`} />
-                </div>
-                
-                <h4 className="text-xl sm:text-2xl font-bold text-text-primary tracking-tight mb-2.5">
-                  Start With the Business Problem.
-                </h4>
-                
-                <p className="text-sm text-text-secondary leading-relaxed mb-4">
-                  Define the revenue challenge, clarify the desired outcome, and organize the questions and criteria that matter. RevOS provides a structured starting point for understanding what needs to be assessed.
-                </p>
-
-                <div className="border-t border-border/50 pt-3.5">
-                  <ul className="space-y-1.5">
-                    <li className="flex items-center gap-2 text-xs sm:text-sm text-text-primary">
-                      <CheckCircle2 className="w-3.5 h-3.5 text-accent shrink-0" />
-                      <span>Clarify the business challenge.</span>
-                    </li>
-                    <li className="flex items-center gap-2 text-xs sm:text-sm text-text-primary">
-                      <CheckCircle2 className="w-3.5 h-3.5 text-accent shrink-0" />
-                      <span>Define the intended outcome.</span>
-                    </li>
-                    <li className="flex items-center gap-2 text-xs sm:text-sm text-text-primary">
-                      <CheckCircle2 className="w-3.5 h-3.5 text-accent shrink-0" />
-                      <span>Establish relevant evaluation criteria.</span>
-                    </li>
-                  </ul>
-                </div>
-              </div>
-
-              {/* STEP 2 */}
-              <div 
-                ref={stepRefs[1]}
-                onClick={() => handleStepClick(2)}
-                className={`rounded-2xl border p-6 sm:p-8 transition-all duration-200 cursor-pointer ${
-                  activeStep === 2
-                    ? 'opacity-100 visible bg-bg-primary border-accent/80 shadow-sm ring-1 ring-accent/30'
-                    : 'opacity-0 invisible pointer-events-none'
-                }`}
-              >
-                <div className="flex items-center justify-between mb-3">
-                  <span className={`text-xs font-mono font-bold tracking-wider uppercase px-2.5 py-1 rounded-md ${
-                    activeStep === 2 ? 'bg-accent/15 text-accent' : 'bg-bg-surface text-text-secondary'
-                  }`}>
-                    02 — Examine the Evidence
-                  </span>
-                  <div className={`w-3 h-3 rounded-full transition-colors ${
-                    activeStep === 2 ? 'bg-accent' : 'bg-border'
-                  }`} />
-                </div>
-                
-                <h4 className="text-xl sm:text-2xl font-bold text-text-primary tracking-tight mb-2.5">
-                  Understand What the Evidence Actually Tells You.
-                </h4>
-                
-                <p className="text-sm text-text-secondary leading-relaxed mb-4">
-                  Examine the available information, connect it to the assessment criteria, and distinguish supported findings from assumptions and unanswered questions. This helps users understand both what is known and what still needs validation.
-                </p>
-
-                <div className="border-t border-border/50 pt-3.5">
-                  <ul className="space-y-1.5">
-                    <li className="flex items-center gap-2 text-xs sm:text-sm text-text-primary">
-                      <CheckCircle2 className="w-3.5 h-3.5 text-accent shrink-0" />
-                      <span>Review relevant available evidence.</span>
-                    </li>
-                    <li className="flex items-center gap-2 text-xs sm:text-sm text-text-primary">
-                      <CheckCircle2 className="w-3.5 h-3.5 text-accent shrink-0" />
-                      <span>Identify assumptions and uncertainties.</span>
-                    </li>
-                    <li className="flex items-center gap-2 text-xs sm:text-sm text-text-primary">
-                      <CheckCircle2 className="w-3.5 h-3.5 text-accent shrink-0" />
-                      <span>Surface gaps that may affect the assessment.</span>
-                    </li>
-                  </ul>
-                </div>
-              </div>
-
-              {/* STEP 3 */}
-              <div 
-                ref={stepRefs[2]}
-                onClick={() => handleStepClick(3)}
-                className={`rounded-2xl border p-6 sm:p-8 transition-all duration-200 cursor-pointer ${
-                  activeStep === 3
-                    ? 'opacity-100 visible bg-bg-primary border-accent/80 shadow-sm ring-1 ring-accent/30'
-                    : 'opacity-0 invisible pointer-events-none'
-                }`}
-              >
-                <div className="flex items-center justify-between mb-3">
-                  <span className={`text-xs font-mono font-bold tracking-wider uppercase px-2.5 py-1 rounded-md ${
-                    activeStep === 3 ? 'bg-accent/15 text-accent' : 'bg-bg-surface text-text-secondary'
-                  }`}>
-                    03 — Turn Insight Into Action
-                  </span>
-                  <div className={`w-3 h-3 rounded-full transition-colors ${
-                    activeStep === 3 ? 'bg-accent' : 'bg-border'
-                  }`} />
-                </div>
-                
-                <h4 className="text-xl sm:text-2xl font-bold text-text-primary tracking-tight mb-2.5">
-                  Decide What Deserves Attention Next.
-                </h4>
-                
-                <p className="text-sm text-text-secondary leading-relaxed mb-4">
-                  Translate the assessment into prioritized gaps, risks, recommendations, and next steps. RevOS helps users move from understanding a revenue challenge toward practical actions that can be evaluated, validated, and executed.
-                </p>
-
-                <div className="border-t border-border/50 pt-3.5">
-                  <ul className="space-y-1.5">
-                    <li className="flex items-center gap-2 text-xs sm:text-sm text-text-primary">
-                      <CheckCircle2 className="w-3.5 h-3.5 text-accent shrink-0" />
-                      <span>Prioritize the issues that matter most.</span>
-                    </li>
-                    <li className="flex items-center gap-2 text-xs sm:text-sm text-text-primary">
-                      <CheckCircle2 className="w-3.5 h-3.5 text-accent shrink-0" />
-                      <span>Identify actions and follow-up questions.</span>
-                    </li>
-                    <li className="flex items-center gap-2 text-xs sm:text-sm text-text-primary">
-                      <CheckCircle2 className="w-3.5 h-3.5 text-accent shrink-0" />
-                      <span>Establish the next steps for human review.</span>
-                    </li>
-                  </ul>
-                </div>
-              </div>
-            </div>
-
-            {/* RIGHT COLUMN: Sticky Visual Explanation Panel */}
-            <div className="lg:col-span-6 lg:sticky lg:top-[calc(100vh/5)] w-full"> {/*sticky at 1/5 to the top of visible viewport*/}
-              <div 
-                ref={panelRef}
-                className="bg-bg-primary rounded-2xl border border-border/80 p-6 sm:p-8 shadow-sm min-h-[460px] flex flex-col justify-between"
-              >
-                
-                {/* Panel Top Header Bar */}
-                <div className="flex items-center justify-between border-b border-border/60 pb-4 mb-6">
-                  <div className="flex items-center gap-2.5">
-                    <div className="w-2.5 h-2.5 rounded-full bg-accent animate-pulse" />
-                    <span className="text-xs font-mono font-bold uppercase tracking-wider text-text-primary">
-                      {activeStep === 1 && "Stage 01 — Structured Problem Formulation"}
-                      {activeStep === 2 && "Stage 02 — Evidence-Informed Assessment"}
-                      {activeStep === 3 && "Stage 03 — Action Plan & Priority Guidance"}
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-1.5 text-xs text-text-secondary font-mono">
-                    <span className="text-accent font-bold">0{activeStep}</span>
-                    <span>/</span>
-                    <span>03</span>
-                  </div>
-                </div>
-
-                {/* Animated Panel Body */}
-                <div className="flex-1">
-                  <AnimatePresence mode="wait">
-                    {/* VISUAL PANEL 1: STRUCTURED PROBLEM */}
-                    {activeStep === 1 && (
-                      <motion.div
-                        key="step-1-panel"
-                        initial={{ opacity: 0, y: 8 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0, y: -8 }}
-                        transition={{ duration: 0.25, ease: "easeOut" }}
-                        className="space-y-4"
-                      >
-                        {/* Field 1: Business Challenge */}
-                        <div className="bg-bg-surface rounded-xl border border-border/70 p-4">
-                          <div className="flex items-center justify-between mb-1">
-                            <span className="text-[11px] font-mono uppercase tracking-wider font-bold text-accent">
-                              BUSINESS CHALLENGE
-                            </span>
-                            <span className="text-[10px] text-text-secondary font-mono">Input definition</span>
-                          </div>
-                          <div className="text-sm font-semibold text-text-primary">
-                            What needs to improve?
-                          </div>
-                          <p className="text-xs text-text-secondary mt-1">
-                            Core revenue execution breakdown, affected deal segments, and pipeline bottlenecks.
-                          </p>
-                        </div>
-
-                        {/* Field 2: Desired Outcome */}
-                        <div className="bg-bg-surface rounded-xl border border-border/70 p-4">
-                          <div className="flex items-center justify-between mb-1">
-                            <span className="text-[11px] font-mono uppercase tracking-wider font-bold text-accent">
-                              DESIRED OUTCOME
-                            </span>
-                            <span className="text-[10px] text-text-secondary font-mono">Target state</span>
-                          </div>
-                          <div className="text-sm font-semibold text-text-primary">
-                            What does success look like?
-                          </div>
-                          <p className="text-xs text-text-secondary mt-1">
-                            Target win-rate recovery, margin preservation thresholds, and cycle-time velocity goals.
-                          </p>
-                        </div>
-
-                        {/* Field 3: Assessment Criteria */}
-                        <div className="bg-bg-surface rounded-xl border border-border/70 p-4">
-                          <div className="flex items-center justify-between mb-1">
-                            <span className="text-[11px] font-mono uppercase tracking-wider font-bold text-accent">
-                              ASSESSMENT CRITERIA
-                            </span>
-                            <span className="text-[10px] text-text-secondary font-mono">Evaluation framework</span>
-                          </div>
-                          <div className="text-sm font-semibold text-text-primary">
-                            What do we need to understand?
-                          </div>
-                          <div className="flex flex-wrap gap-1.5 mt-2.5">
-                            <span className="px-2 py-0.5 rounded-md bg-bg-primary text-[11px] text-text-secondary border border-border/60">
-                              Economic buyer criteria
-                            </span>
-                            <span className="px-2 py-0.5 rounded-md bg-bg-primary text-[11px] text-text-secondary border border-border/60">
-                              Verified business pain
-                            </span>
-                            <span className="px-2 py-0.5 rounded-md bg-bg-primary text-[11px] text-text-secondary border border-border/60">
-                              Decision timeline
-                            </span>
-                            <span className="px-2 py-0.5 rounded-md bg-bg-primary text-[11px] text-text-secondary border border-border/60">
-                              Competitive exposure
-                            </span>
-                          </div>
-                        </div>
-                      </motion.div>
-                    )}
-
-                    {/* VISUAL PANEL 2: EVIDENCE ASSESSMENT */}
-                    {activeStep === 2 && (
-                      <motion.div
-                        key="step-2-panel"
-                        initial={{ opacity: 0, y: 8 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0, y: -8 }}
-                        transition={{ duration: 0.25, ease: "easeOut" }}
-                        className="space-y-4"
-                      >
-                        {/* Group 1: Supported by evidence */}
-                        <div className="bg-bg-surface rounded-xl border border-emerald-500/30 p-4 relative overflow-hidden">
-                          <div className="flex items-center justify-between mb-1.5">
-                            <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-md bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 text-[11px] font-mono font-bold uppercase tracking-wider">
-                              <ShieldCheck className="w-3.5 h-3.5" />
-                              SUPPORTED BY EVIDENCE
-                            </span>
-                            <span className="text-[10px] text-emerald-600/80 dark:text-emerald-400/80 font-mono font-semibold">Validated</span>
-                          </div>
-                          <div className="text-sm font-medium text-text-primary mt-1">
-                            Information that supports an assessment.
-                          </div>
-                          <p className="text-xs text-text-secondary mt-1">
-                            Verified customer budget sign-off and mutual technical evaluation criteria confirmed in meeting transcripts.
-                          </p>
-                        </div>
-
-                        {/* Group 2: Assumption to validate */}
-                        <div className="bg-bg-surface rounded-xl border border-amber-500/30 p-4 relative overflow-hidden">
-                          <div className="flex items-center justify-between mb-1.5">
-                            <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-md bg-amber-500/10 text-amber-600 dark:text-amber-400 text-[11px] font-mono font-bold uppercase tracking-wider">
-                              <AlertTriangle className="w-3.5 h-3.5" />
-                              ASSUMPTION TO VALIDATE
-                            </span>
-                            <span className="text-[10px] text-amber-600/80 dark:text-amber-400/80 font-mono font-semibold">Requires test</span>
-                          </div>
-                          <div className="text-sm font-medium text-text-primary mt-1">
-                            A plausible interpretation that needs confirmation.
-                          </div>
-                          <p className="text-xs text-text-secondary mt-1">
-                            Belief that the internal champion has unilateral signing authority without procurement board escalation.
-                          </p>
-                        </div>
-
-                        {/* Group 3: Information needed */}
-                        <div className="bg-bg-surface rounded-xl border border-sky-500/30 p-4 relative overflow-hidden">
-                          <div className="flex items-center justify-between mb-1.5">
-                            <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-md bg-sky-500/10 text-sky-600 dark:text-sky-400 text-[11px] font-mono font-bold uppercase tracking-wider">
-                              <HelpCircle className="w-3.5 h-3.5" />
-                              INFORMATION NEEDED
-                            </span>
-                            <span className="text-[10px] text-sky-600/80 dark:text-sky-400/80 font-mono font-semibold">Missing gap</span>
-                          </div>
-                          <div className="text-sm font-medium text-text-primary mt-1">
-                            A missing detail or unanswered question.
-                          </div>
-                          <p className="text-xs text-text-secondary mt-1">
-                            Customer's formal legal review checklist and security questionnaire completion timeline.
-                          </p>
-                        </div>
-                      </motion.div>
-                    )}
-
-                    {/* VISUAL PANEL 3: ACTION PLAN */}
-                    {activeStep === 3 && (
-                      <motion.div
-                        key="step-3-panel"
-                        initial={{ opacity: 0, y: 8 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0, y: -8 }}
-                        transition={{ duration: 0.25, ease: "easeOut" }}
-                        className="space-y-4"
-                      >
-                        {/* Field 1: Priority */}
-                        <div className="bg-bg-surface rounded-xl border border-border/70 p-4">
-                          <div className="flex items-center justify-between mb-1">
-                            <span className="text-[11px] font-mono uppercase tracking-wider font-bold text-accent">
-                              PRIORITY
-                            </span>
-                            <span className="px-2 py-0.5 rounded-md bg-accent/15 text-accent text-[10px] font-bold font-mono">
-                              High Focus
-                            </span>
-                          </div>
-                          <div className="text-sm font-semibold text-text-primary">
-                            What deserves attention first?
-                          </div>
-                          <p className="text-xs text-text-secondary mt-1">
-                            Address the unverified executive sponsor and resolve concession trade-offs before contract renegotiation.
-                          </p>
-                        </div>
-
-                        {/* Field 2: Recommended Action */}
-                        <div className="bg-bg-surface rounded-xl border border-border/70 p-4">
-                          <div className="flex items-center justify-between mb-1">
-                            <span className="text-[11px] font-mono uppercase tracking-wider font-bold text-accent">
-                              RECOMMENDED ACTION
-                            </span>
-                            <span className="text-[10px] text-text-secondary font-mono">Targeted intervention</span>
-                          </div>
-                          <div className="text-sm font-semibold text-text-primary">
-                            What should be investigated or addressed?
-                          </div>
-                          <p className="text-xs text-text-secondary mt-1">
-                            Schedule mutual alignment workshop with the VP of Engineering to validate critical technical decision criteria.
-                          </p>
-                        </div>
-
-                        {/* Field 3: Next Step */}
-                        <div className="bg-bg-surface rounded-xl border border-border/70 p-4">
-                          <div className="flex items-center justify-between mb-1">
-                            <span className="text-[11px] font-mono uppercase tracking-wider font-bold text-accent">
-                              NEXT STEP
-                            </span>
-                            <span className="text-[10px] text-text-secondary font-mono">Execution assignment</span>
-                          </div>
-                          <div className="text-sm font-semibold text-text-primary">
-                            Who needs to do what next?
-                          </div>
-                          <div className="mt-2 flex items-center justify-between text-xs p-2 rounded-lg bg-bg-primary border border-border/60">
-                            <span className="font-medium text-text-primary">Enterprise Deal Team & Presales Lead</span>
-                            <span className="font-mono text-[11px] text-accent">Assign & Follow Up</span>
-                          </div>
-                        </div>
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
-                </div>
-
-                {/* Panel Footer Navigation Bar */}
-                <div className="border-t border-border/60 pt-4 mt-6 flex items-center justify-between">
-                  <div className="flex gap-2">
-                    {[1, 2, 3].map((num) => (
-                      <button
-                        key={num}
-                        type="button"
-                        onClick={() => handleStepClick(num)}
-                        className={`h-2 rounded-full transition-all duration-300 cursor-pointer ${
-                          activeStep === num ? 'w-8 bg-accent' : 'w-2 bg-border hover:bg-border/80'
-                        }`}
-                        aria-label={`Switch to step ${num}`}
-                      />
-                    ))}
-                  </div>
-                  <span className="text-[11px] text-text-secondary font-mono">
-                    Click steps or scroll to explore
-                  </span>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
+        <InteractiveWalkthrough />
 
         {/* 4. CLOSING STATEMENT */}
         <div className="mt-20 lg:mt-28 pt-12 border-t border-border/60 text-center max-w-3xl mx-auto">

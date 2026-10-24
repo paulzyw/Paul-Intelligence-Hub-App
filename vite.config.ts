@@ -8,6 +8,8 @@ export default defineConfig(({ mode }) => {
   
   return {
     publicDir: 'public', 
+
+    base: "/",
     
     plugins: [react(), tailwindcss()],
     
@@ -25,6 +27,7 @@ export default defineConfig(({ mode }) => {
       outDir: 'dist',
       assetsDir: 'assets',
       copyPublicDir: true,
+      emptyOutDir: true,
     },
 
     server: {

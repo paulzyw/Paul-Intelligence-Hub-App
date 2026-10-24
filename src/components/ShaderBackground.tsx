@@ -4,6 +4,7 @@
 // <div className="relative"><ShaderBackground className="absolute inset-0" />…
 
 import { useEffect, useRef } from "react";
+import { useTheme } from "../context/ThemeContext";
 
 const VERT = `attribute vec2 a_position;
 void main() {
@@ -73,7 +74,7 @@ void main() {
   float w3 = clamp(0.5 + 0.5 * cos(length(uv - vec2(0.5)) * 3.2 + n4 * 1.2), 0.0, 1.0);
 
   // Four custom colors defined in index.css:
-  // u_colors[0] = bg-hero-primary (#051c2c)
+  // u_colors[0] = --bg-primary (dynamically responsive to light/dark mode)
   // u_colors[1] = pipeline (#042b57)
   // u_colors[2] = lead (#0a9fde)
   // u_colors[3] = gtm (#c5d704)
@@ -85,26 +86,24 @@ void main() {
   gl_FragColor = vec4(col, 1.0);
 }`;
 
-// Colors configured from src/index.css:
-// 1. bg-hero-primary: #051c2c => [5/255, 28/255, 44/255]
-// 2. pipeline:        #042B57 => [4/255, 43/255, 87/255]
-// 3. lead:            #0A9FDE => [10/255, 159/255, 222/255]
-// 4. gtm:             #C5D704 => [197/255, 215/255, 4/255]
-const UNIFORMS = {
-  speed: 1.0,
-  intensity: 1.0,
-  colorCount: 4,
-  colors: [
-    [5 / 255, 28 / 255, 44 / 255],     // bg-hero-primary
-    [4 / 255, 43 / 255, 87 / 255],     // pipeline
-    [10 / 255, 159 / 255, 222 / 255],  // lead
-    [197 / 255, 215 / 255, 4 / 255],   // gtm
-    [5 / 255, 28 / 255, 44 / 255],
-    [4 / 255, 43 / 255, 87 / 255],
-    [10 / 255, 159 / 255, 222 / 255],
-    [197 / 255, 215 / 255, 4 / 255],
-  ],
-};
+// Parses CSS hex (#051c2c, #121416) or rgb(...) strings into normalized float [R, G, B]
+function parseCssColor(cssColor: string, fallback: [number, number, number]): [number, number, number] {
+  if (!cssColor) return fallback;
+  const trimmed = cssColor.trim();
+  if (trimmed.startsWith('#')) {
+    const hex = trimmed.slice(1);
+    const fullHex = hex.length === 3 ? hex.split('').map((c) => c + c).join('') : hex;
+    const num = parseInt(fullHex, 16);
+    if (!isNaN(num)) {
+      return [(num >> 16) / 255, ((num >> 8) & 255) / 255, (num & 255) / 255];
+    }
+  }
+  const match = trimmed.match(/\d+(\.\d+)?/g);
+  if (match && match.length >= 3) {
+    return [parseFloat(match[0]) / 255, parseFloat(match[1]) / 255, parseFloat(match[2]) / 255];
+  }
+  return fallback;
+}
 
 export interface ShaderBackgroundProps {
   className?: string;
@@ -118,6 +117,7 @@ export function ShaderBackground({
   intensity = 1.0,
 }: ShaderBackgroundProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const { theme } = useTheme();
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -187,19 +187,39 @@ export function ShaderBackground({
     const uSpeedLoc = gl.getUniformLocation(program, "u_speed");
     const uIntensityLoc = gl.getUniformLocation(program, "u_intensity");
 
+    // Dynamically retrieve the current CSS variable --bg-primary from index.css
+    const rootStyle = getComputedStyle(document.documentElement);
+    const bgHeroCss = rootStyle.getPropertyValue('--bg-primary') || (theme === 'dark' ? '#121416' : '#f0f2f5');
+    const bgHeroColor = parseCssColor(
+      bgHeroCss, 
+      theme === 'dark' ? [18 / 255, 20 / 255, 22 / 255] : [240 / 255, 242 / 255, 245 / 255]
+    );
+
+    // Dynamic 4-color palette for the shader
+    const activeColors: [number, number, number][] = [
+      bgHeroColor,                       // Slot 0: --bg-primary (responsive to theme)
+      [4 / 255, 43 / 255, 87 / 255],     // Slot 1: --pipeline (#042B57)
+      [10 / 255, 159 / 255, 222 / 255],  // Slot 2: --lead (#0A9FDE)
+      [197 / 255, 215 / 255, 4 / 255],   // Slot 3: --gtm (#C5D704)
+      bgHeroColor,
+      [4 / 255, 43 / 255, 87 / 255],
+      [10 / 255, 159 / 255, 222 / 255],
+      [197 / 255, 215 / 255, 4 / 255],
+    ];
+
     // Flatten color array
     const flatColors = new Float32Array(24);
     for (let i = 0; i < 8; i++) {
-      const c = UNIFORMS.colors[i];
+      const c = activeColors[i];
       flatColors[i * 3 + 0] = c[0];
       flatColors[i * 3 + 1] = c[1];
       flatColors[i * 3 + 2] = c[2];
     }
 
-    gl.uniform1i(uColorCountLoc, UNIFORMS.colorCount);
+    gl.uniform1i(uColorCountLoc, 4);
     gl.uniform3fv(uColorsLoc, flatColors);
-    gl.uniform1f(uSpeedLoc, UNIFORMS.speed * speed);
-    gl.uniform1f(uIntensityLoc, UNIFORMS.intensity * intensity);
+    gl.uniform1f(uSpeedLoc, speed);
+    gl.uniform1f(uIntensityLoc, intensity);
 
     let animationFrameId: number;
     const startTime = performance.now();
@@ -255,7 +275,7 @@ export function ShaderBackground({
       if (fragShader) gl.deleteShader(fragShader);
       if (program) gl.deleteProgram(program);
     };
-  }, [speed, intensity]);
+  }, [speed, intensity, theme]);
 
   return (
     <canvas
