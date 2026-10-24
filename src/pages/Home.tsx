@@ -13,7 +13,7 @@ import {
   Users,
   Briefcase
 } from 'lucide-react';
-import { ScrollytellingContainer } from '../components/theme-story';
+import RevosInAction from '../components/revosInAction';
 import GradientWaves from '../components/GradientWaves';
 import { RevosMechanismSection } from '../components/RevosMechanismSection';
 import { RevosPlatformSection } from '../components/RevosPlatformSection';
@@ -481,8 +481,8 @@ export function Home() {
       {/* REVOS PLATFORM SECTION */}
       <RevosPlatformSection />
 
-      {/* SCROLLYTELLING COMPONENT */}
-      <ScrollytellingContainer />
+      {/* SEE REVOS IN ACTION SECTION */}
+      <RevosInAction />
     </div>
   );
 }
