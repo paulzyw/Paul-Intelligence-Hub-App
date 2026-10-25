@@ -221,10 +221,15 @@ export function ShaderBackground({
     gl.uniform1f(uSpeedLoc, speed);
     gl.uniform1f(uIntensityLoc, intensity);
 
-    let animationFrameId: number;
+    let animationFrameId: number | null = null;
+    let isVisible = false;
+    let isPageVisible = !document.hidden;
+    let isContextLost = false;
     const startTime = performance.now();
+    const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
     const resize = () => {
+      if (isContextLost) return;
       const dpr = Math.min(window.devicePixelRatio || 1, 1.5);
       const width = canvas.clientWidth;
       const height = canvas.clientHeight;
@@ -240,36 +245,96 @@ export function ShaderBackground({
       }
     };
 
-    const render = (now: number) => {
-      if (document.hidden) {
-        animationFrameId = requestAnimationFrame(render);
-        return;
-      }
-
-      resize();
-
+    const drawFrame = (now: number) => {
+      if (isContextLost) return;
       if (uResLoc) {
         gl.uniform2f(uResLoc, canvas.width, canvas.height);
       }
       if (uTimeLoc) {
         gl.uniform1f(uTimeLoc, (now - startTime) * 0.001);
       }
-
       gl.drawArrays(gl.TRIANGLES, 0, 6);
-      animationFrameId = requestAnimationFrame(render);
     };
 
-    resize();
-    animationFrameId = requestAnimationFrame(render);
+    const render = (now: number) => {
+      animationFrameId = null;
+      if (!isVisible || !isPageVisible || isContextLost) return;
 
+      drawFrame(now);
+
+      if (!prefersReducedMotion) {
+        animationFrameId = requestAnimationFrame(render);
+      }
+    };
+
+    const tryStart = () => {
+      if (animationFrameId !== null || !isVisible || !isPageVisible || isContextLost) return;
+      if (prefersReducedMotion) {
+        drawFrame(performance.now());
+      } else {
+        animationFrameId = requestAnimationFrame(render);
+      }
+    };
+
+    const tryStop = () => {
+      if (animationFrameId !== null) {
+        cancelAnimationFrame(animationFrameId);
+        animationFrameId = null;
+      }
+    };
+
+    // Initial resize calculation
+    resize();
+
+    // 1. ResizeObserver: Handles layout changes without per-frame clientWidth reflows
     const resizeObserver = new ResizeObserver(() => {
       resize();
+      if (!animationFrameId && isVisible) {
+        drawFrame(performance.now());
+      }
     });
     resizeObserver.observe(canvas);
 
+    // 2. IntersectionObserver: Pauses WebGL rendering completely when scrolled offscreen
+    const intersectionObserver = new IntersectionObserver(
+      (entries) => {
+        const [entry] = entries;
+        isVisible = entry.isIntersecting;
+        if (isVisible) {
+          tryStart();
+        } else {
+          tryStop();
+        }
+      },
+      { rootMargin: '100px', threshold: 0 }
+    );
+    intersectionObserver.observe(canvas);
+
+    // 3. Document visibility change listener
+    const onVisibilityChange = () => {
+      isPageVisible = !document.hidden;
+      if (isPageVisible) {
+        tryStart();
+      } else {
+        tryStop();
+      }
+    };
+    document.addEventListener('visibilitychange', onVisibilityChange);
+
+    // 4. WebGL context loss recovery prevention
+    const onContextLost = (e: Event) => {
+      e.preventDefault();
+      isContextLost = true;
+      tryStop();
+    };
+    canvas.addEventListener('webglcontextlost', onContextLost, false);
+
     return () => {
-      cancelAnimationFrame(animationFrameId);
+      tryStop();
       resizeObserver.disconnect();
+      intersectionObserver.disconnect();
+      document.removeEventListener('visibilitychange', onVisibilityChange);
+      canvas.removeEventListener('webglcontextlost', onContextLost);
       if (posBuffer) gl.deleteBuffer(posBuffer);
       if (vertShader) gl.deleteShader(vertShader);
       if (fragShader) gl.deleteShader(fragShader);

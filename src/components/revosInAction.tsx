@@ -10,7 +10,7 @@ import {
   ArrowRight
 } from 'lucide-react';
 import { STORY_SCENES, StoryScene } from './theme-story/story-data';
-import StoryVisualizer from './theme-story/story-visualizer';
+import RevosInActionScrollingAnimation from './revosInAction_scrollingAnimation';
 
 interface CapabilityCard {
   id: string;
@@ -148,7 +148,7 @@ export default function RevosInAction() {
           {/* Left Column: Sticky Visual Panel */}
           <div className="lg:col-span-6 lg:sticky lg:top-24 w-full h-[380px] sm:h-[450px] lg:h-[calc(100vh-160px)] flex items-center justify-center z-10">
             <div className="w-full h-full max-w-xl mx-auto">
-              <StoryVisualizer activeScene={activeScene} />
+              <RevosInActionScrollingAnimation activeScene={activeScene} />
             </div>
           </div>
 
@@ -235,15 +235,15 @@ export default function RevosInAction() {
                 <Sparkles className="w-5 h-5 text-accent" />
               </div>
 
-              <h3 className="text-[24px] sm:text-[28px]] font-extrabold text-text-primary tracking-tight">
+              <h3 className="text-[24px] sm:text-[28px] font-extrabold text-text-primary tracking-tight">
                 Qualify With Evidence. Act With Clarity.
               </h3>
 
-              <p className="text-[14px]] sm:text-[16px] font-medium text-text-primary max-w-lg mx-auto leading-relaxed">
+              <p className="text-[14px] sm:text-[16px] font-medium text-text-primary max-w-lg mx-auto leading-relaxed">
                 SQL Qualification is one way RevOS turns evidence into action.
               </p>
 
-              <p className="text-[8px]] sm:text-[10]] text-text-secondary max-w-xl mx-auto leading-tight">
+              <p className="text-[8px] sm:text-[10px] text-text-secondary max-w-xl mx-auto leading-tight">
                 Across go-to-market strategy, lead qualification, and opportunity assessment, RevOS helps revenue professionals structure complex challenges, evaluate what they know, identify what needs attention, and make more informed decisions about what to do next.
               </p>
 

@@ -2,22 +2,22 @@ import { useEffect, useRef, useState } from 'react';
 
 export function RevosProductCard() {
   const cardRef = useRef<HTMLDivElement>(null);
-  const [animKey, setAnimKey] = useState<number>(0);
+  const [hasAnimated, setHasAnimated] = useState<boolean>(false);
 
-  // Re-run animations whenever the card enters the viewport
+  // Trigger animations once when the card enters the viewport
   useEffect(() => {
     const el = cardRef.current;
     if (!el) return;
 
     const observer = new IntersectionObserver(
       (entries) => {
-        entries.forEach((entry) => {
-          if (entry.isIntersecting) {
-            setAnimKey((k) => k + 1);
-          }
-        });
+        const [entry] = entries;
+        if (entry.isIntersecting) {
+          setHasAnimated(true);
+          observer.unobserve(el);
+        }
       },
-      { threshold: 0.15 }
+      { threshold: 0.1 }
     );
 
     observer.observe(el);
@@ -26,33 +26,9 @@ export function RevosProductCard() {
 
   return (
     <div ref={cardRef} className="w-full flex flex-col">
-      {/* Dynamic Keyframes for Step-by-Step Sequences */}
-      <style>{`
-        @keyframes stepFadeSlide {
-          0% {
-            opacity: 0;
-            transform: translateY(14px) scale(0.98);
-          }
-          100% {
-            opacity: 1;
-            transform: translateY(0) scale(1);
-          }
-        }
-        @keyframes arrowSlideIn {
-          0% {
-            opacity: 0;
-            transform: scale(0.92);
-          }
-          100% {
-            opacity: 1;
-            transform: scale(1);
-          }
-        }
-      `}</style>
-
       {/* 1. REVOS PRODUCT CARD */}
       <div 
-        className="w-full rounded-2xl sm:rounded-3xl lg:rounded-[36px] p-6 sm:p-10 lg:p-12 shadow-2xl border border-white/20 backdrop-blur-md overflow-hidden transition-all duration-300 bg-gradient-to-br from-gtm/60 via-lead/60 to-pipeline/60"
+        className="w-full rounded-2xl sm:rounded-3xl lg:rounded-[36px] p-6 sm:p-10 lg:p-12 shadow-2xl border border-white/20 backdrop-blur-sm overflow-hidden transition-all duration-300 bg-gradient-to-br from-gtm/60 via-lead/60 to-pipeline/60"
         style={{
           background: 'linear-gradient(135deg, rgba(197, 215, 4, 0.60) 0%, rgba(10, 159, 222, 0.60) 48%, rgba(4, 43, 87, 0.60) 100%)',
         }}
@@ -79,7 +55,6 @@ export function RevosProductCard() {
             <div className="w-full flex justify-end overflow-x-auto pb-1">
               <div className="w-full max-w-[720px]">
                 <svg
-                  key={`general-${animKey}`}
                   width="100%"
                   height="100%"
                   viewBox="0 0 3728 86"
@@ -88,7 +63,7 @@ export function RevosProductCard() {
                   xmlnsXlink="http://www.w3.org/1999/xlink"
                   xmlSpace="preserve"
                   style={{ fillRule: 'evenodd', clipRule: 'evenodd' }}
-                  className="w-full h-auto block select-none"
+                  className={`w-full h-auto block select-none ${hasAnimated ? 'workflow-chart-running' : 'workflow-chart-paused'}`}
                 >
                   {/* S1: Evidence Intelligence */}
                   <g 
@@ -429,7 +404,6 @@ export function RevosProductCard() {
             {/* REVOS WORKFLOW CHART (Sequence revos-step1 -> revos-step9) */}
             <div className="w-full">
               <svg
-                key={`revos-${animKey}`}
                 width="100%"
                 height="100%"
                 viewBox="0 0 3189 1511"
@@ -444,7 +418,7 @@ export function RevosProductCard() {
                   strokeLinejoin: 'round',
                   fontFamily: "'Inter', ui-sans-serif, system-ui, sans-serif",
                 }}
-                className="w-full h-auto block select-none drop-shadow-sm"
+                className={`w-full h-auto block select-none ${hasAnimated ? 'workflow-chart-running' : 'workflow-chart-paused'}`}
               >
                 {/* revos-step1: 1. Data & Input */}
                 <g 
