@@ -5,7 +5,7 @@ import { Database, Lightbulb, Target, Settings, TrendingUp, Users, HeartHandshak
 import Galaxy from '../components/Galaxy';
 import { MeteorBackground } from '../components/MeteorBackground';
 import { useTheme } from '../context/ThemeContext';
-import { TrustBar } from '../components/TrustBar';
+import { FounderTrustLogos } from '../components/FounderTrustLogos';
 import { ImpactTeaser } from '../components/ImpactTeaser';
 import { supabase, type Post, type ResearchReport } from '../lib/supabase';
 import { safeFetch, safeSupabaseQuery } from '../lib/fetchData';
@@ -291,7 +291,7 @@ export function Founder() {
       </section>
 
       {/* TRUST BAR / LOGOS */}
-      <TrustBar />
+      <FounderTrustLogos />
 
       {/* ABOUT ME & WHAT I DO */}
       <section className="py-24 bg-bg-surface">

@@ -17,6 +17,7 @@ import RevosInAction from '../components/revosInAction';
 import GradientWaves from '../components/GradientWaves';
 import { RevosMechanismSection } from '../components/RevosMechanismSection';
 import { RevosPlatformSection } from '../components/RevosPlatformSection';
+import { TrustBar } from '../components/TrustBar';
 
 type AudienceKey = 'individual' | 'enterprise' | 'executive';
 
@@ -240,6 +241,9 @@ export function Home() {
           </div>
         </motion.div>
       </section>
+
+      {/* TRUST BAR SECTION: TRUST THROUGH METHODOLOGY */}
+      <TrustBar />
 
       {/* NEGATIVE IMPACTS SECTION: RECOGNIZE THE COST OF THE PROBLEM */}
       <section 

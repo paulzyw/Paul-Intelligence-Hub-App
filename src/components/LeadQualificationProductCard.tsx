@@ -28,31 +28,31 @@ export function LeadQualificationProductCard() {
     <div ref={cardRef} className="w-full flex flex-col">
       {/* 1. LEAD QUALIFICATION PRODUCT CARD */}
       <div 
-        className="w-full rounded-2xl sm:rounded-3xl lg:rounded-[36px] p-6 sm:p-10 lg:p-12 shadow-2xl border border-white/20 backdrop-blur-sm overflow-hidden transition-all duration-300"
+        className="w-full rounded-2xl sm:rounded-3xl lg:rounded-[36px] p-4 sm:p-7 md:p-9 lg:p-12 shadow-2xl border border-white/20 backdrop-blur-sm overflow-hidden transition-all duration-300"
         style={{
           background: 'linear-gradient(135deg, rgba(178, 225, 245, 0.60) 0%, rgba(10, 159, 222, 0.60) 100%)',
         }}
       >
-        <div className="flex flex-col lg:flex-row items-stretch lg:items-stretch gap-8 lg:gap-12 w-full">
+        <div className="flex flex-col lg:flex-row items-stretch gap-6 sm:gap-8 lg:gap-10 xl:gap-12 w-full">
           
           {/* LEFT COLUMN: Text Information */}
-          <div className="lg:w-[28%] shrink-0 flex flex-col justify-end text-left pb-2 sm:pb-4">
-            <h3 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold text-[#F4F4F9] tracking-tight leading-none mb-3 lg:mb-4">
+          <div className="w-full lg:w-[28%] shrink-0 flex flex-col justify-start lg:justify-end text-left pb-1 sm:pb-2 lg:pb-4">
+            <h3 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold text-[#F4F4F9] tracking-tight leading-none mb-2 sm:mb-3 lg:mb-4 drop-shadow-xs">
               Lead Qualification
             </h3>
-            <h4 className="text-[16px] sm:text-[16px] lg:text-[18px] font-bold text-[#051c2c] tracking-tight leading-snug mb-0.5">
+            <h4 className="text-[15px] sm:text-[16px] md:text-[17px] lg:text-[18px] font-bold text-[#051c2c] tracking-tight leading-snug mb-1">
               Evidence-Driven Lead Intelligence
             </h4>
-            <p className="text-[14px] sm:text-[16px] text-[#051c2c]/85 font-medium leading-tight max-w-md">
+            <p className="text-[13px] sm:text-[14px] md:text-[15px] lg:text-[16px] text-[#051c2c]/85 font-medium leading-relaxed sm:leading-tight max-w-xl lg:max-w-md">
               Higher-quality leads and better conversion
             </p>
           </div>
 
           {/* RIGHT COLUMN: General Workflow & Lead Workflow Charts */}
-          <div className="lg:flex-1 w-full min-w-0 flex flex-col gap-6 sm:gap-8">
+          <div className="lg:flex-1 w-full min-w-0 flex flex-col gap-4 sm:gap-6 lg:gap-8">
             
             {/* TOP: GENERAL WORKFLOW CHART (Sequence S1 -> S8) */}
-            <div className="w-full flex justify-end overflow-x-auto pb-1">
+            <div className="w-full flex justify-end pb-1">
               <div className="w-full max-w-[720px]">
                 <svg
                   width="100%"
@@ -402,9 +402,8 @@ export function LeadQualificationProductCard() {
             </div>
 
             {/* BELOW: LEAD WORKFLOW CHART (Sequence lead-step1 -> lead-step11) */}
-            <div className="w-full overflow-x-auto pb-2">
-              <div className="w-full min-w-[700px] max-w-[840px] mx-auto">
-                <svg
+            <div className="w-full">
+              <svg
                   width="100%"
                   height="100%"
                   viewBox="0 0 3385 1747"
@@ -1021,7 +1020,6 @@ export function LeadQualificationProductCard() {
                     </g>
                   </g>
                 </svg>
-              </div>
             </div>
 
           </div>
@@ -1029,43 +1027,43 @@ export function LeadQualificationProductCard() {
       </div>
 
       {/* 2. FOUR COLUMN TEXT AREA BELOW CARD */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8 pt-10 sm:pt-14 text-left">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 sm:gap-6 lg:gap-8 pt-8 sm:pt-12 lg:pt-14 text-left">
         {/* Column 1: What is it */}
-        <div className="flex flex-col">
-          <h4 className="text-[14px] sm:text-[18px] font-bold text-white tracking-tight mb-2">
+        <div className="flex flex-col border-t border-white/10 pt-4 sm:border-t-0 sm:pt-0">
+          <h4 className="text-[14px] sm:text-[16px] lg:text-[18px] font-bold text-white tracking-tight mb-1.5 sm:mb-2">
             What is it
           </h4>
-          <p className="text-[12px] sm:text-[14px] text-text-hero-secondary leading-tight">
+          <p className="text-[13px] sm:text-[13px] lg:text-[14px] text-text-hero-secondary leading-relaxed sm:leading-normal">
             The RevOS Lead Qualification Engine helps B2B sales and marketing teams distinguish high-potential prospects from low-value leads and prioritize opportunities worth pursuing.
           </p>
         </div>
 
         {/* Column 2: Product Capabilities */}
-        <div className="flex flex-col">
-          <h4 className="text-[14px] sm:text-[18px] font-bold text-white tracking-tight mb-2">
+        <div className="flex flex-col border-t border-white/10 pt-4 sm:border-t-0 sm:pt-0">
+          <h4 className="text-[14px] sm:text-[16px] lg:text-[18px] font-bold text-white tracking-tight mb-1.5 sm:mb-2">
             Product Capabilities
           </h4>
-          <p className="text-[12px] sm:text-[14px] text-text-hero-secondary leading-tight">
+          <p className="text-[13px] sm:text-[13px] lg:text-[14px] text-text-hero-secondary leading-relaxed sm:leading-normal">
             It addresses inconsistent qualification criteria, subjective lead scoring, incomplete customer intelligence, and wasted sales effort.
           </p>
         </div>
 
         {/* Column 3: Operating Approach */}
-        <div className="flex flex-col">
-          <h4 className="text-[14px] sm:text-[18px] font-bold text-white tracking-tight mb-2">
+        <div className="flex flex-col border-t border-white/10 pt-4 sm:border-t-0 sm:pt-0">
+          <h4 className="text-[14px] sm:text-[16px] lg:text-[18px] font-bold text-white tracking-tight mb-1.5 sm:mb-2">
             Operating Approach
           </h4>
-          <p className="text-[12px] sm:text-[14px] text-text-hero-secondary leading-tight">
+          <p className="text-[13px] sm:text-[13px] lg:text-[14px] text-text-hero-secondary leading-relaxed sm:leading-normal">
             Using configurable qualification frameworks, industry context, buying signals, and evidence-based AI reasoning, the engine evaluates leads across business fit, customer needs, measurable success criteria, business value, stakeholder alignment, commercial readiness, and buying momentum.
           </p>
         </div>
 
         {/* Column 4: Value Delivery */}
-        <div className="flex flex-col">
-          <h4 className="text-[14px] sm:text-[18px] font-bold text-white tracking-tight mb-2">
+        <div className="flex flex-col border-t border-white/10 pt-4 sm:border-t-0 sm:pt-0">
+          <h4 className="text-[14px] sm:text-[16px] lg:text-[18px] font-bold text-white tracking-tight mb-1.5 sm:mb-2">
             Value Delivery
           </h4>
-          <p className="text-[12px] sm:text-[14px] text-text-hero-secondary leading-tight">
+          <p className="text-[13px] sm:text-[13px] lg:text-[14px] text-text-hero-secondary leading-relaxed sm:leading-normal">
             It supports including Marketing Qualified Lead (MQL), Sales Qualified Lead (SQL) assessment, and Qualified Opportunity, explaining qualification decisions, identifying evidence gaps, and recommending next actions to improve lead-to-opportunity conversion and sales productivity.
           </p>
         </div>
