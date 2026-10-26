@@ -523,7 +523,7 @@ export function RevOSConsole() {
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6 sm:mb-8">
           <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 sm:gap-4">
             <Link 
-              to="/solutions/revos"
+              to="/product/revos"
               className="p-2 sm:p-2.5 rounded-xl border border-border bg-bg-surface hover:text-accent hover:border-accent/40 transition-all flex items-center justify-center gap-2 text-xs sm:text-sm font-bold shadow-sm"
               id="back-to-revos-app"
             >

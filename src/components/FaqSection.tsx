@@ -212,7 +212,7 @@ export function FaqSection() {
                   aria-expanded={isOpen}
                   aria-controls={panelId}
                   onClick={() => toggleItem(item.id)}
-                  className={`w-full text-left flex items-center justify-between gap-4 py-[14x] sm:py-[16px] px-5 sm:px-8 min-h-[48px] group focus-visible:outline-2 focus-visible:outline-accent focus-visible:outline-offset-[-2px] transition-colors duration-200 ${
+                  className={`w-full text-left flex items-center justify-between gap-4 py-[14px] sm:py-[16px] px-5 sm:px-8 min-h-[48px] group focus-visible:outline-2 focus-visible:outline-accent focus-visible:outline-offset-[-2px] transition-colors duration-200 ${
                     isOpen
                       ? 'bg-accent/10 hover:bg-accent/15'
                       : 'bg-transparent hover:bg-accent/10'

@@ -36,11 +36,11 @@ export default function App() {
             <Route path="theme" element={<Navigate to="/" replace />} />
             <Route path="about" element={<About />} />
             <Route path="auth" element={<Auth />} />
-            <Route path="solutions" element={<Solutions />} />
+            <Route path="product" element={<Solutions />} />
             
             {/* RevOS App Protected Routes */}
             <Route 
-              path="solutions/revos/*" 
+              path="product/revos/*" 
               element={
                 <ProtectedRoute allowedRoles={[
                   'free_user', 
@@ -55,6 +55,10 @@ export default function App() {
                 </ProtectedRoute>
               } 
             />
+
+            {/* Backward-compatibility redirects */}
+            <Route path="solutions" element={<Navigate to="/product" replace />} />
+            <Route path="solutions/revos/*" element={<Navigate to="/product/revos" replace />} />
             
             <Route path="insights" element={<Insights />} />
             <Route path="post/:slug" element={<PostDetail />} />

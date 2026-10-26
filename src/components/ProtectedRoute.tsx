@@ -34,12 +34,12 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
   if (allowedRoles) {
     if (!profile) {
       // Fallback redirect if profile fetch failed but loading finished
-      return <Navigate to="/solutions" replace />;
+      return <Navigate to="/product" replace />;
     }
     
     if (!allowedRoles.includes(profile.role)) {
-      // If they aren't allowed, send them back to the solutions page
-      return <Navigate to="/solutions" replace />;
+      // If they aren't allowed, send them back to the product page
+      return <Navigate to="/product" replace />;
     }
   }
 

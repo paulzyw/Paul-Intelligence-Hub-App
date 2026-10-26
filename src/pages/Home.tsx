@@ -16,6 +16,7 @@ import {
 import RevosInAction from '../components/revosInAction';
 import { RevenueOutcomesSection } from '../components/RevenueOutcomesSection';
 import { FaqSection } from '../components/FaqSection';
+import { FinalCtaSection } from '../components/FinalCtaSection';
 import GradientWaves from '../components/GradientWaves';
 import { RevosMechanismSection } from '../components/RevosMechanismSection';
 import { RevosPlatformSection } from '../components/RevosPlatformSection';
@@ -209,7 +210,7 @@ export function Home() {
               className="flex flex-col sm:flex-row items-center justify-center gap-4"
             >
               <Link 
-                to="/solutions/revos" 
+                to="/product/revos" 
                 className="group relative px-7 py-3.5 sm:px-8 sm:py-4 bg-accent text-text-hero-primary text-sm sm:text-base font-bold rounded-full overflow-hidden transition-all hover:scale-105 active:scale-95"
               >
                 <div className="relative z-10 flex items-center gap-2">
@@ -495,6 +496,9 @@ export function Home() {
 
       {/* FAQ SECTION */}
       <FaqSection />
+
+      {/* FINAL CTA SECTION */}
+      <FinalCtaSection />
     </div>
   );
 }

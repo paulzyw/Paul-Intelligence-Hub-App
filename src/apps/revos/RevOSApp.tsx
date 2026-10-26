@@ -162,7 +162,7 @@ function RevOSContent() {
     );
   }
 
-  const isConsole = location.pathname.includes('/solutions/revos/console');
+  const isConsole = location.pathname.includes('/product/revos/console');
 
   return (
     <div className="flex flex-col md:flex-row min-h-[60vh] md:min-h-[80vh] md:overflow-hidden w-full">
@@ -213,7 +213,7 @@ function RevOSContent() {
                 return (
                   <Link
                     key={item.name}
-                    to={item.path === '' ? '/solutions/revos' : `/solutions/revos/${item.path}`}
+                    to={item.path === '' ? '/product/revos' : `/product/revos/${item.path}`}
                     title={!isSidebarExpanded ? item.name : undefined}
                     className={cn(
                       "flex items-center rounded-xl transition-all",
@@ -242,7 +242,7 @@ function RevOSContent() {
                     <div className="h-px bg-border/20 my-2" />
                   )}
                   <Link
-                    to="/solutions/revos/console"
+                    to="/product/revos/console"
                     title={!isSidebarExpanded ? "Governance Console" : undefined}
                     className={cn(
                       "flex items-center font-extrabold rounded-xl transition-all border",
@@ -281,7 +281,7 @@ function RevOSContent() {
                 return (
                   <Link
                     key={item.name}
-                    to={item.path === '' ? '/solutions/revos' : `/solutions/revos/${item.path}`}
+                    to={item.path === '' ? '/product/revos' : `/product/revos/${item.path}`}
                     className={cn(
                       "flex items-center gap-1.5 px-3 py-1.5 text-[10px] sm:text-xs font-bold uppercase tracking-wider rounded-lg transition-all border shrink-0",
                       isActive 
@@ -297,7 +297,7 @@ function RevOSContent() {
 
               {profile?.role === 'super_admin' && (
                 <Link
-                  to="/solutions/revos/console"
+                  to="/product/revos/console"
                   className={cn(
                     "flex items-center gap-1.5 px-3 py-1.5 text-[10px] sm:text-xs font-bold uppercase tracking-wider rounded-lg transition-all border shrink-0",
                     currentPath === 'console' 

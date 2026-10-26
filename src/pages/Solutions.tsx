@@ -39,7 +39,7 @@ const modules = [
     outcomes: ['Stronger GTM alignment', 'Better pipeline generation', 'Faster strategic execution', 'Improved revenue operations'],
     icon: Target,
     color: 'from-blue-500/20 to-indigo-500/20',
-    link: '/solutions/revos/gtmos'
+    link: '/product/revos/gtmos'
   },
   {
     id: 'leads',
@@ -50,7 +50,7 @@ const modules = [
     outcomes: ['Higher-quality opportunities', 'Better conversion rates', 'Stronger sales prioritization', 'Improved pipeline quality'],
     icon: UserCheck,
     color: 'from-emerald-500/20 to-teal-500/20',
-    link: '/solutions/revos/leads'
+    link: '/product/revos/leads'
   },
   {
     id: 'pipeline',
@@ -61,7 +61,7 @@ const modules = [
     outcomes: ['Higher win rates', 'Better forecast accuracy', 'Reduced opportunity risk', 'Improved executive visibility'],
     icon: PieChart,
     color: 'from-purple-500/20 to-pink-500/20',
-    link: '/solutions/revos/pipeline'
+    link: '/product/revos/pipeline'
   }
 ];
 
@@ -323,7 +323,7 @@ export function Solutions() {
 
             <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
               <Link 
-                to="/solutions/revos" 
+                to="/product/revos" 
                 className="group relative px-8 py-4 bg-accent text-black font-bold rounded-full overflow-hidden transition-all hover:scale-105 active:scale-95"
               >
                 <div className="relative z-10 flex items-center gap-2">
@@ -997,7 +997,7 @@ export function Solutions() {
             Join the ecosystem of organizations building a resilient, AI-native commercial operating model.
           </p>
           <Link
-            to="/solutions/revos"
+            to="/product/revos"
             className="inline-block px-10 py-5 bg-accent text-black font-extrabold rounded-full hover:scale-105 active:scale-95 transition-all text-center"
           >
             Get Started with RevOS

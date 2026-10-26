@@ -125,7 +125,7 @@ export const AboutDropdown: React.FC<AboutDropdownProps> = ({ isOpen, onClose })
 
                   <div className="space-y-2.5 sm:space-y-3 pt-0.5">
                     <Link
-                      to="/solutions"
+                      to="/product"
                       onClick={onClose}
                       className="about-nav-item group block p-1 -m-1 sm:p-0 sm:m-0 rounded-lg active:bg-white/5 transition-all"
                     >

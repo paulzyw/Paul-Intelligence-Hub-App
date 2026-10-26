@@ -249,7 +249,7 @@ export default function RevosInAction() {
 
               <div className="pt-2">
                 <Link
-                  to="/solutions/revos"
+                  to="/product/revos"
                   className="inline-flex items-center gap-2 px-6 py-3.5 bg-accent hover:opacity-90 text-text-hero-primary text-xs sm:text-sm font-bold uppercase tracking-wider rounded-xl transition-all duration-300 shadow-lg shadow-accent/15 hover:scale-105 active:scale-95"
                 >
                   <span>Explore RevOS</span>

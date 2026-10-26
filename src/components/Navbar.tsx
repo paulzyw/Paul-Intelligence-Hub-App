@@ -171,13 +171,13 @@ export function Navbar() {
               </button>
 
               <Link
-                to="/solutions"
+                to="/product"
                 className={cn(
                   "text-sm font-medium transition-colors hover:text-accent",
-                  isActive('/solutions') ? "text-accent font-semibold" : "text-text-secondary"
+                  isActive('/product') ? "text-accent font-semibold" : "text-text-secondary"
                 )}
               >
-                Solutions
+                Product
               </Link>
             </div>
             
@@ -213,7 +213,7 @@ export function Navbar() {
                             Admin Panel
                           </Link>
                           <Link
-                            to="/solutions/revos/console"
+                            to="/product/revos/console"
                             onClick={() => setIsUserMenuOpen(false)}
                             className="flex items-center gap-2 px-4 py-2 text-sm text-accent hover:bg-bg-primary/50 transition-colors font-semibold"
                           >
@@ -342,16 +342,16 @@ export function Navbar() {
             </div>
 
             <Link
-              to="/solutions"
+              to="/product"
               onClick={() => setIsMobileMenuOpen(false)}
               className={cn(
                 "block rounded-md px-3 py-2 text-base font-medium",
-                isActive('/solutions')
+                isActive('/product')
                   ? "bg-bg-primary text-accent font-semibold"
                   : "text-text-secondary hover:bg-bg-primary hover:text-accent"
               )}
             >
-              Solutions
+              Product
             </Link>
             {user ? (
               <button
@@ -403,7 +403,7 @@ export function Navbar() {
                     <span className="text-sm font-medium">Admin Panel</span>
                   </Link>
                   <Link
-                    to="/solutions/revos/console"
+                    to="/product/revos/console"
                     onClick={() => setIsUserMenuOpen(false)}
                     className="flex items-center gap-3 p-2 rounded-md text-accent hover:bg-bg-primary font-semibold"
                   >

@@ -30,7 +30,7 @@ export function Auth() {
   
   const navigate = useNavigate();
   const location = useLocation();
-  const from = (location.state as any)?.from?.pathname || '/solutions/revos';
+  const from = (location.state as any)?.from?.pathname || '/product/revos';
   const isRecoveringRef = useRef(false);
 
   // Check if user is already logged in or handling a redirect
