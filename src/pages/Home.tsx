@@ -14,6 +14,7 @@ import {
   Briefcase
 } from 'lucide-react';
 import RevosInAction from '../components/revosInAction';
+import { RevenueOutcomesSection } from '../components/RevenueOutcomesSection';
 import GradientWaves from '../components/GradientWaves';
 import { RevosMechanismSection } from '../components/RevosMechanismSection';
 import { RevosPlatformSection } from '../components/RevosPlatformSection';
@@ -487,6 +488,9 @@ export function Home() {
 
       {/* SEE REVOS IN ACTION SECTION */}
       <RevosInAction />
+
+      {/* REVENUE OUTCOMES SECTION */}
+      <RevenueOutcomesSection />
     </div>
   );
 }

@@ -12,7 +12,7 @@ interface TrustCard {
 const TRUST_CARDS: TrustCard[] = [
   {
     number: "01",
-    title: "Structured Methodologies",
+    title: "Proven Methodologies",
     shortDesc: "A repeatable approach to revenue challenges.",
     body: "RevOS organizes complex revenue questions into defined dimensions, criteria, and workflows, helping teams approach assessments with greater consistency.",
     icon: Layers,
@@ -98,13 +98,13 @@ export function TrustBar() {
           }`}
         >
           <span className="text-xs sm:text-sm font-bold tracking-[0.16em] uppercase text-accent mb-3 block">
-            TRUST THROUGH METHODOLOGY
+            THE PROVEN METHODOLOGY
           </span>
           <h2 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-extrabold text-text-hero-primary tracking-tight leading-tight mb-5">
-            Trust the Process Behind the Decision
+            Why RevOS
           </h2>
           <p className="text-sm sm:text-base md:text-lg text-text-hero-secondary leading-relaxed pt-1 max-w-3xl mx-auto font-normal">
-            RevOS combines structured revenue methodologies with evidence-informed AI reasoning to assess available information, identify gaps and risks, and turn complex revenue challenges into clearer, actionable decisions.
+            RevOS combines billions-of-revenue proven structured methodologies with evidence-informed AI reasoning to assess available information, identify gaps and risks, and turn complex revenue challenges into clearer, actionable decisions.
           </p>
         </div>
 
