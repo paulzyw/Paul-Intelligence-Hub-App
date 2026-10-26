@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import RevosInAction from '../components/revosInAction';
 import { RevenueOutcomesSection } from '../components/RevenueOutcomesSection';
+import { FaqSection } from '../components/FaqSection';
 import GradientWaves from '../components/GradientWaves';
 import { RevosMechanismSection } from '../components/RevosMechanismSection';
 import { RevosPlatformSection } from '../components/RevosPlatformSection';
@@ -491,6 +492,9 @@ export function Home() {
 
       {/* REVENUE OUTCOMES SECTION */}
       <RevenueOutcomesSection />
+
+      {/* FAQ SECTION */}
+      <FaqSection />
     </div>
   );
 }

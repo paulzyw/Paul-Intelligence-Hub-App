@@ -24,7 +24,7 @@ const OUTCOMES: OutcomeCard[] = [
     number: '01',
     title: 'Higher Win Rates',
     statement: 'Identify deal risks, strengthen winning strategies, and focus on opportunities with greater potential.',
-    kpiImpact: 'opportunity win rate, stage-to-stage conversion rate',
+    kpiImpact: 'opportunity win rate, conversion rate',
     icon: TrendingUp,
   },
   {
@@ -32,7 +32,7 @@ const OUTCOMES: OutcomeCard[] = [
     number: '02',
     title: 'Shorter Sales Cycles',
     statement: 'Uncover deal blockers, resolve critical gaps, and determine the next actions needed to move opportunities forward.',
-    kpiImpact: 'median sales-cycle length, time spent in each sales stage.',
+    kpiImpact: 'sales-cycle length, time spent in each sales stage.',
     icon: Clock,
   },
   {
@@ -40,7 +40,7 @@ const OUTCOMES: OutcomeCard[] = [
     number: '03',
     title: 'Better Resource Allocation',
     statement: 'Prioritize promising opportunities and direct sales effort where it can create the greatest value.',
-    kpiImpact: 'sales effort by opportunity segment, qualification-to-opportunity conversion, cost per acquired customer.',
+    kpiImpact: 'sales effort by opportunity segment, conversion rate, cost per acquired customer.',
     icon: Compass,
   },
   {
@@ -48,13 +48,13 @@ const OUTCOMES: OutcomeCard[] = [
     number: '04',
     title: 'Improved Forecast Accuracy',
     statement: 'Assess opportunities through structured criteria and clearer evidence to make more informed revenue forecasts.',
-    kpiImpact: 'forecast error, forecast bias, actual revenue versus forecast.',
+    kpiImpact: 'forecast error & bias, actual revenue vs. forecast.',
     icon: LineChart,
   },
   {
     id: 'profitable-sustainable-growth',
     number: '05',
-    title: 'Profitable, Sustainable Revenue Growth',
+    title: 'Profitable Revenue Growth',
     statement: 'Strengthen go-to-market decisions, address competitive and commercial risks, and pursue growth while protecting margins.',
     kpiImpact: 'revenue growth, gross margin, and revenue attainment.',
     icon: BarChart3,
@@ -88,10 +88,9 @@ export function RevenueOutcomesSection() {
       ([entry]) => {
         if (entry.isIntersecting) {
           setIsVisible(true);
-          observer.disconnect(); // Trigger animation once
         }
       },
-      { threshold: 0.12, rootMargin: '0px 0px -40px 0px' }
+      { threshold: 0.08, rootMargin: '40px 0px 40px 0px' }
     );
 
     const el = sectionRef.current;
@@ -116,10 +115,10 @@ export function RevenueOutcomesSection() {
         }}
       />
 
-      {/* 2. UP LAYER: --bg-surface/85 */}
+      {/* 2. UP LAYER: Animated between bg-bg-surface/100 and bg-bg-surface/85 */}
       <div
         aria-hidden="true"
-        className="absolute inset-0 pointer-events-none bg-bg-surface/85 backdrop-blur-xs"
+        className="absolute inset-0 pointer-events-none bg-bg-surface backdrop-blur-xs animate-pulse-surface"
       />
 
       <div className="relative z-10 max-w-6xl mx-auto">
@@ -134,7 +133,7 @@ export function RevenueOutcomesSection() {
           {/* Eyebrow */}
           <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-accent/10 border border-accent/20 text-xs font-bold tracking-[0.18em] uppercase text-accent shadow-xs">
             <Sparkles className="w-3.5 h-3.5 text-accent" />
-            <span>DESIGNED FOR BETTER REVENUE OUTCOMES</span>
+            <span>REVOS MAKES BETTER REVENUE OUTCOMES</span>
           </div>
 
           {/* Headline H2 */}
@@ -185,7 +184,7 @@ export function RevenueOutcomesSection() {
                   </h3>
 
                   {/* Short Statement */}
-                  <p className="text-sm sm:text-[15px] text-text-secondary leading-relaxed">
+                  <p className="text-sm sm:text-[15px] text-text-secondary leading-normal">
                     {item.statement}
                   </p>
                 </div>
@@ -195,7 +194,7 @@ export function RevenueOutcomesSection() {
                   <span className="block text-[11px] font-bold uppercase tracking-wider text-accent/90 mb-1">
                     KPI Impact
                   </span>
-                  <p className="text-xs sm:text-[13px] text-text-secondary/85 leading-normal">
+                  <p className="text-xs sm:text-[13px] text-text-secondary/85 leading-none">
                     {item.kpiImpact}
                   </p>
                 </div>
@@ -205,7 +204,7 @@ export function RevenueOutcomesSection() {
 
           {/* CARD 06: CLOSING STATEMENT CARD */}
           <div
-            className="group relative flex flex-col justify-between bg-accent text-white rounded-2xl sm:rounded-3xl p-6 sm:p-7 lg:p-8 border border-accent/30 hover:border-white/50 hover:shadow-2xl transition-all duration-300 transform-gpu overflow-hidden"
+            className="group relative flex flex-col justify-between bg-accent/60 text-white rounded-2xl sm:rounded-3xl p-6 sm:p-7 lg:p-8 border border-accent/30 hover:border-white/50 hover:shadow-2xl transition-all duration-300 transform-gpu overflow-hidden"
             style={{
               opacity: isVisible || prefersReducedMotion ? 1 : 0,
               transform: isVisible || prefersReducedMotion ? 'translateY(0)' : 'translateY(20px)',
@@ -238,7 +237,7 @@ export function RevenueOutcomesSection() {
               </span>
 
               {/* Closing Statement */}
-              <h3 className="text-lg sm:text-xl lg:text-[22px] font-extrabold text-white tracking-tight leading-snug relative z-10">
+              <h3 className="text-lg sm:text-xl lg:text-[20px] font-bold text-white tracking-tight leading-normal relative z-10">
                 Structure your thinking. Make Better-Informed Revenue Decisions. Focus your actions. Move revenue forward.
               </h3>
             </div>

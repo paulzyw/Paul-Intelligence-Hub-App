@@ -658,3 +658,25 @@ html.dark .custom-scrollbar-vertical::-webkit-scrollbar-thumb:hover,
   }
 }
 
+/* Revenue Outcomes Animated Background Surface Layer (animating between bg-bg-surface/75 and bg-bg-surface/100) */
+@keyframes bgSurfacePulse {
+  0%, 100% {
+    opacity: 0.75;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+.animate-pulse-surface {
+  animation: bgSurfacePulse 8s ease-in-out infinite;
+  will-change: opacity;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-pulse-surface {
+    animation: none !important;
+    opacity: 0.85;
+  }
+}
+
