@@ -17,7 +17,7 @@ import { PostDetail } from './pages/PostDetail';
 import { Research } from './pages/Research';
 import { ResearchDetail } from './pages/ResearchDetail';
 import { Impact } from './pages/Impact';
-import { Solutions } from './pages/Solutions';
+import { ProductFeature } from './pages/ProductFeature';
 import { Auth } from './pages/Auth';
 import { RevOSApp } from './apps/revos/RevOSApp';
 import { ScrollReset } from './components/ScrollReset';
@@ -36,7 +36,8 @@ export default function App() {
             <Route path="theme" element={<Navigate to="/" replace />} />
             <Route path="about" element={<About />} />
             <Route path="auth" element={<Auth />} />
-            <Route path="product" element={<Solutions />} />
+            <Route path="product" element={<Navigate to="/product/feature" replace />} />
+            <Route path="product/feature" element={<ProductFeature />} />
             
             {/* RevOS App Protected Routes */}
             <Route 
@@ -57,7 +58,7 @@ export default function App() {
             />
 
             {/* Backward-compatibility redirects */}
-            <Route path="solutions" element={<Navigate to="/product" replace />} />
+            <Route path="solutions" element={<Navigate to="/product/feature" replace />} />
             <Route path="solutions/revos/*" element={<Navigate to="/product/revos" replace />} />
             
             <Route path="insights" element={<Insights />} />

@@ -171,10 +171,10 @@ export function Navbar() {
               </button>
 
               <Link
-                to="/product"
+                to="/product/feature"
                 className={cn(
                   "text-sm font-medium transition-colors hover:text-accent",
-                  isActive('/product') ? "text-accent font-semibold" : "text-text-secondary"
+                  isActive('/product/feature') ? "text-accent font-semibold" : "text-text-secondary"
                 )}
               >
                 Product
@@ -342,11 +342,11 @@ export function Navbar() {
             </div>
 
             <Link
-              to="/product"
+              to="/product/feature"
               onClick={() => setIsMobileMenuOpen(false)}
               className={cn(
                 "block rounded-md px-3 py-2 text-base font-medium",
-                isActive('/product')
+                isActive('/product/feature')
                   ? "bg-bg-primary text-accent font-semibold"
                   : "text-text-secondary hover:bg-bg-primary hover:text-accent"
               )}
