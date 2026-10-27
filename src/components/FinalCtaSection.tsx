@@ -53,17 +53,17 @@ export function FinalCtaSection() {
       >
         {/* Soft radial glow */}
         <div
-          className="absolute -top-24 -right-24 w-96 h-96 rounded-full opacity-45 blur-3xl"
-          style={{ background: 'radial-gradient(circle, var(--accent) 0%, transparent 70%)' }}
+          className="absolute -top-24 -right-24 w-96 h-96 rounded-full opacity-35 blur-3xl"
+          style={{ background: 'radial-gradient(circle, var(--accent) 0%, transparent 60%)' }}
         />
         <div
-          className="absolute -bottom-24 -left-24 w-80 h-80 rounded-full opacity-25 blur-3xl"
-          style={{ background: 'radial-gradient(circle, #002b5c 0%, transparent 70%)' }}
+          className="absolute -bottom-24 -left-24 w-80 h-80 rounded-full opacity-15 blur-3xl"
+          style={{ background: 'radial-gradient(circle, #002b5c 0%, transparent 60%)' }}
         />
 
         {/* Abstract structured workflow node lines motif */}
         <svg
-          className="absolute inset-0 w-full h-full opacity-[0.16]"
+          className="absolute inset-0 w-full h-full opacity-[0.12]"
           xmlns="http://www.w3.org/2000/svg"
           fill="none"
         >

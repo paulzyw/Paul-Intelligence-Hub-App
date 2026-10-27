@@ -189,7 +189,7 @@ export function FaqSection() {
           </div>
 
           <h2 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold text-text-primary tracking-tight leading-tight">
-            Questions About RevOS?
+            FAQ
           </h2>
 
           <p className="text-base sm:text-lg text-text-secondary leading-relaxed pt-1 max-w-2xl mx-auto">
@@ -220,10 +220,10 @@ export function FaqSection() {
                 >
                   <span className="flex items-center gap-3 sm:gap-4 pr-2">
                     <span className="text-xs sm:text-sm font-mono font-bold tracking-wider text-accent shrink-0 select-none">
-                      FAQ {item.number}
+                      Q {item.number}
                     </span>
                     <span className="text-text-secondary select-none font-light">—</span>
-                    <span className="text-base sm:text-lg font-semibold text-text-primary tracking-tight transition-colors duration-180 group-hover:text-accent leading-snug">
+                    <span className="text-base sm:text-lg font-normal text-text-primary tracking-tight transition-colors duration-180 group-hover:text-accent leading-snug">
                       {item.question}
                     </span>
                   </span>
@@ -259,7 +259,7 @@ export function FaqSection() {
                       transition={{ duration: 0.25, ease: 'easeInOut' }}
                       className="overflow-hidden"
                     >
-                      <div className="px-5 sm:px-8 pb-6 sm:pb-7 pt-1 text-sm sm:text-base text-text-secondary leading-tight space-y-3.5 border-t border-border/30 bg-bg-surface">
+                      <div className="px-5 sm:px-8 pb-5 sm:pb-7 pt-5 text-sm sm:text-base text-text-secondary leading-tight space-y-3.5 border-t border-border/30 bg-bg-surface">
                         {item.content.paragraphs?.map((p, idx) => (
                           <p key={idx}>{p}</p>
                         ))}
@@ -291,7 +291,7 @@ export function FaqSection() {
         </div>
 
         {/* 3. COMPACT CLOSING STATEMENT */}
-        <div className="mt-12 sm:mt-16 p-6 sm:p-8 rounded-2xl bg-bg-surface border border-accent/30 shadow-xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6">
+      {/*}  <div className="mt-12 sm:mt-16 p-6 sm:p-8 rounded-2xl bg-bg-surface border border-accent/30 shadow-xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6">
           <div className="space-y-1.5 max-w-xl">
             <h3 className="text-xl sm:text-2xl font-bold text-text-primary tracking-tight">
               Ready to rethink your revenue decisions?
@@ -307,7 +307,7 @@ export function FaqSection() {
             <span>Explore Platform</span>
             <ArrowRight className="w-4 h-4" />
           </a>
-        </div>
+        </div> */}
       </div>
     </section>
   );

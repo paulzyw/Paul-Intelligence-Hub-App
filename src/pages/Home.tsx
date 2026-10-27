@@ -259,8 +259,8 @@ export function Home() {
             <span className="text-xs sm:text-sm font-bold tracking-[0.16em] uppercase text-accent">
               THE REVENUE CHALLENGE
             </span>
-            <h2 className="text-2xl sm:text-3xl md:text-4xl font-extrabold text-text-primary tracking-tight leading-tight">
-              When Revenue Execution Breaks Down, the Impact Adds Up.
+            <h2 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-extrabold text-text-primary tracking-tight leading-tight">
+              When Revenue Execution Breaks Down, the Impact Adds Up
             </h2>
             <p className="text-sm sm:text-base md:text-lg text-text-secondary leading-relaxed pt-1">
               The visible problem may be a missed target, a stalled deal, or pressure to discount. Behind it may be disconnected decisions across the revenue lifecycle.
@@ -355,11 +355,11 @@ export function Home() {
             <span className="text-xs sm:text-sm font-bold tracking-[0.16em] uppercase text-accent">
               LOOK BENEATH THE PROBLEMS
             </span>
-            <h2 className="text-2xl sm:text-3xl md:text-4xl font-extrabold text-text-primary tracking-tight leading-tight">
-              The Visible Problem Is Not Always the Root Cause.
+            <h2 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-extrabold text-text-primary tracking-tight leading-tight">
+              Root Cause behind Visible Problem
             </h2>
             <p className="text-sm sm:text-base md:text-lg text-text-secondary leading-relaxed pt-1">
-              A missed target, a stalled opportunity, or a price-led negotiation is an outcome. Understanding the underlying problem—and validating what is causing it—is where better revenue decisions begin.
+              A missed target, a stalled opportunity, or a price-led negotiation is an outcome. Understanding the underlying problem across various of roles—and validating what is causing it—is where better revenue decisions begin.
             </p>
           </div>
 

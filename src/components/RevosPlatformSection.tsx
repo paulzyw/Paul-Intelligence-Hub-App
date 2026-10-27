@@ -98,7 +98,7 @@ export function RevosPlatformSection() {
 
           {/* Heading H2 */}
           <h2 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold text-white tracking-tight leading-tight">
-            One Revenue Operating System. Connected Revenue Workflows.
+            An Unified Platform Connected Revenue Workflows
           </h2>
 
           {/* Supporting paragraph */}

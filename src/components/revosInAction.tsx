@@ -63,7 +63,7 @@ export default function RevosInAction() {
           </div>
 
           <h2 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold text-text-primary tracking-tight leading-tight">
-            From Revenue Challenge to Structured Decisions and Action
+            Turn Revenue Challenge into Decisions and Action
           </h2>
 
           <p className="text-base sm:text-lg text-text-secondary leading-relaxed pt-2 max-w-3xl mx-auto">
