@@ -157,7 +157,7 @@ export function ImpactTeaser() {
                 &quot;This dashboard contains protected performance data from served companies.&quot;
               </p>
               
-              <Link to="/impact" className="group relative">
+              <Link to="/about/founderImpact" className="group relative">
                 <div className="absolute -inset-1 bg-accent/30 rounded-lg blur opacity-25 group-hover:opacity-60 transition duration-500"></div>
                 <button className="relative px-10 py-5 bg-accent text-white rounded-lg flex items-center justify-center gap-3 font-bold transition-all duration-300 transform group-hover:scale-[1.02] active:scale-[0.98]">
                   <LockKeyhole size={20} />

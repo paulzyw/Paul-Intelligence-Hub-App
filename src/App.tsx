@@ -8,16 +8,16 @@ import { ThemeProvider } from './context/ThemeContext';
 import { AuthProvider } from './context/AuthContext';
 import { Layout } from './components/Layout';
 import { Home } from './pages/Home';
-import { Founder } from './pages/Founder';
-import { About } from './pages/About';
-import { Insights } from './pages/Insights';
+import { FounderProfile } from './pages/founderProfile';
+import { AboutFounder } from './pages/aboutFounder';
+import { FounderInsights } from './pages/founderInsights';
 import { Contact } from './pages/Contact';
 import { Admin } from './pages/Admin';
 import { PostDetail } from './pages/PostDetail';
-import { Research } from './pages/Research';
+import { FounderResearch } from './pages/founderResearch';
 import { ResearchDetail } from './pages/ResearchDetail';
-import { Impact } from './pages/Impact';
-import { ProductFeature } from './pages/ProductFeature';
+import { FounderImpact } from './pages/founderImpact';
+import { ProductOverviewRevos } from './pages/ProductOverviewRevos';
 import { Auth } from './pages/Auth';
 import { RevOSApp } from './apps/revos/RevOSApp';
 import { ScrollReset } from './components/ScrollReset';
@@ -32,12 +32,27 @@ export default function App() {
           <Routes>
           <Route path="/" element={<Layout />}>
             <Route index element={<Home />} />
-            <Route path="founder" element={<Founder />} />
+            {/* About / Founder Routes */}
+            <Route path="about/aboutFounder" element={<AboutFounder />} />
+            <Route path="about/founderProfile" element={<FounderProfile />} />
+            <Route path="about/founderImpact" element={<FounderImpact />} />
+            <Route path="about/founderInsights" element={<FounderInsights />} />
+            <Route path="about/founderResearch" element={<FounderResearch />} />
+            <Route path="about/contact" element={<Contact />} />
+
+            {/* Backward-compatibility redirects */}
+            <Route path="about" element={<Navigate to="/about/aboutFounder" replace />} />
+            <Route path="founder" element={<Navigate to="/about/founderProfile" replace />} />
+            <Route path="impact" element={<Navigate to="/about/founderImpact" replace />} />
+            <Route path="insights" element={<Navigate to="/about/founderInsights" replace />} />
+            <Route path="research" element={<Navigate to="/about/founderResearch" replace />} />
+            <Route path="contact" element={<Navigate to="/about/contact" replace />} />
             <Route path="theme" element={<Navigate to="/" replace />} />
-            <Route path="about" element={<About />} />
             <Route path="auth" element={<Auth />} />
-            <Route path="product" element={<Navigate to="/product/feature" replace />} />
-            <Route path="product/feature" element={<ProductFeature />} />
+            <Route path="product" element={<Navigate to="/product/overview/revos" replace />} />
+            <Route path="product/overview" element={<Navigate to="/product/overview/revos" replace />} />
+            <Route path="product/feature" element={<Navigate to="/product/overview/revos" replace />} />
+            <Route path="product/overview/revos" element={<ProductOverviewRevos />} />
             
             {/* RevOS App Protected Routes */}
             <Route 
@@ -58,15 +73,11 @@ export default function App() {
             />
 
             {/* Backward-compatibility redirects */}
-            <Route path="solutions" element={<Navigate to="/product/feature" replace />} />
+            <Route path="solutions" element={<Navigate to="/product/overview/revos" replace />} />
             <Route path="solutions/revos/*" element={<Navigate to="/product/revos" replace />} />
             
-            <Route path="insights" element={<Insights />} />
             <Route path="post/:slug" element={<PostDetail />} />
-            <Route path="research" element={<Research />} />
             <Route path="research/:slug" element={<ResearchDetail />} />
-            <Route path="impact" element={<Impact />} />
-            <Route path="contact" element={<Contact />} />
             
             {/* Admin Dashboard Protected Route */}
             <Route 

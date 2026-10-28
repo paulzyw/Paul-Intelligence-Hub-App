@@ -6,7 +6,7 @@ import { motion } from 'motion/react';
 import { supabase, type Post, type Category } from '../lib/supabase';
 import { safeSupabaseQuery } from '../lib/fetchData';
 
-export function Insights() {
+export function FounderInsights() {
   const [activeCategory, setActiveCategory] = useState<string>('All');
   const [searchQuery, setSearchQuery] = useState('');
   const [posts, setPosts] = useState<Post[]>([]);
@@ -460,3 +460,5 @@ export function Insights() {
     </div>
   );
 }
+
+export const Insights = FounderInsights;

@@ -118,7 +118,7 @@ export function PostDetail() {
     return (
       <div className="min-h-screen bg-bg-postdetail-primary pt-32 pb-24 text-center">
         <h1 className="text-4xl font-bold text-text-primary mb-4">Post Not Found</h1>
-        <Link to="/insights" className="text-accent hover:underline flex items-center justify-center gap-2">
+        <Link to="/about/founderInsights" className="text-accent hover:underline flex items-center justify-center gap-2">
           <ArrowLeft size={16} /> Back to Insights
         </Link>
       </div>
@@ -130,7 +130,7 @@ export function PostDetail() {
       <article className="mx-auto max-w-[900px] px-4 sm:px-6">
         
         {/* BACK LINK */}
-        <Link to="/insights" className="inline-flex items-center gap-2 text-text-secondary hover:text-accent transition-colors mb-8">
+        <Link to="/about/founderInsights" className="inline-flex items-center gap-2 text-text-secondary hover:text-accent transition-colors mb-8">
           <ArrowLeft size={16} /> Back to Insights
         </Link>
 

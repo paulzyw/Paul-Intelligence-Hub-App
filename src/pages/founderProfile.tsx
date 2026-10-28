@@ -35,7 +35,7 @@ function Counter({ value, duration = 2, prefix = '', suffix = '', decimals = 0 }
   );
 }
 
-export function Founder() {
+export function FounderProfile() {
   const { heroBackground, meteorDensity, meteorSpeed, galaxyStarSpeed, galaxyDensity, galaxyGlowIntensity, galaxySaturation } = useTheme();
   const [latestPosts, setLatestPosts] = useState<Post[]>([]);
   const [loadingPosts, setLoadingPosts] = useState(true);
@@ -218,7 +218,7 @@ export function Founder() {
             transition={{ duration: 0.6, delay: 0.4 }}
           >
             <Link 
-              to="/contact" 
+              to="/about/contact" 
               className="group inline-flex items-center justify-center px-8 py-4 bg-accent hover:opacity-90 text-white rounded-md transition-all duration-300 active:scale-95 shadow-lg shadow-accent/20"
             >
               <span className="text-base font-bold transition-transform duration-300 inline-block group-hover:scale-110">
@@ -586,7 +586,7 @@ export function Founder() {
               <h2 className="text-3xl md:text-4xl font-bold text-text-primary mb-4">Latest Insights</h2>
               <p className="text-text-secondary">Data-driven perspectives on scaling business and value-based solutions.</p>
             </div>
-            <Link to="/insights" className="hidden md:flex items-center gap-2 text-accent font-medium hover:underline">
+            <Link to="/about/founderInsights" className="hidden md:flex items-center gap-2 text-accent font-medium hover:underline">
               View All <ArrowRight size={16} />
             </Link>
           </div>
@@ -658,7 +658,7 @@ export function Founder() {
           </div>
           
           <div className="mt-8 text-center md:hidden">
-            <Link to="/insights" className="inline-flex items-center gap-2 text-accent font-medium hover:underline">
+            <Link to="/about/founderInsights" className="inline-flex items-center gap-2 text-accent font-medium hover:underline">
               View All Insights <ArrowRight size={16} />
             </Link>
           </div>
@@ -678,7 +678,7 @@ export function Founder() {
                 Data-driven analysis and quantitative research on operational efficiency and digital transformation.
               </p>
             </div>
-            <Link to="/research" className="flex items-center gap-2 text-accent font-bold uppercase text-xs tracking-widest hover:gap-3 transition-all">
+            <Link to="/about/founderResearch" className="flex items-center gap-2 text-accent font-bold uppercase text-xs tracking-widest hover:gap-3 transition-all">
               Explore Research <ArrowRight size={16} />
             </Link>
           </div>
@@ -777,3 +777,5 @@ export function Founder() {
     </div>
   );
 }
+
+export const Founder = FounderProfile;

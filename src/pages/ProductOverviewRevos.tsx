@@ -191,7 +191,7 @@ const renderMatrixIcon = (value: string) => {
   return null;
 };
 
-export function ProductFeature() {
+export function ProductOverviewRevos() {
   const [activeTab, setActiveTab] = useState<'differences' | 'comparisons'>('differences');
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const [isScrolled, setIsScrolled] = useState(false);
@@ -1150,5 +1150,6 @@ export function ProductFeature() {
   );
 }
 
-export const Solutions = ProductFeature;
+export const ProductFeature = ProductOverviewRevos;
+export const Solutions = ProductOverviewRevos;
 

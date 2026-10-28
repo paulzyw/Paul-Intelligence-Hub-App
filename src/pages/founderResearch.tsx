@@ -14,7 +14,7 @@ const ICON_MAP: Record<string, any> = {
   BarChart3,
 };
 
-export function Research() {
+export function FounderResearch() {
   const [reports, setReports] = useState<ResearchReport[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -220,3 +220,5 @@ export function Research() {
     </div>
   );
 }
+
+export const Research = FounderResearch;

@@ -119,7 +119,7 @@ function ImpactGate({ onAuthorized }: { onAuthorized: () => void }) {
       const newCount = clickCount + 1;
       setClickCount(newCount);
       if (newCount === 5) {
-        logUnlockEvent('/impact');
+        logUnlockEvent('/about/founderImpact');
         onAuthorized();
       }
     } else {
@@ -141,7 +141,7 @@ function ImpactGate({ onAuthorized }: { onAuthorized: () => void }) {
         .maybeSingle();
         
       if (data) {
-        logUnlockEvent('/impact');
+        logUnlockEvent('/about/founderImpact');
         onAuthorized();
       } else {
         const newAttempts = failedAttempts + 1;
@@ -185,7 +185,7 @@ function ImpactGate({ onAuthorized }: { onAuthorized: () => void }) {
 
         <div className="space-y-4">
           <Link 
-            to="/contact"
+            to="/about/contact"
             className="w-full py-4 px-6 border border-border rounded-xl flex items-center justify-between group hover:border-accent transition-all bg-bg-primary/30"
           >
             <div className="flex items-center gap-3">
@@ -770,7 +770,7 @@ function ImpactDashboardUI({ projects, timeline }: { projects: ImpactProject[], 
 // ===============================================================
 // 4. MAIN EXPORT - TERNARY SWITCHER
 // ===============================================================
-export function Impact() {
+export function FounderImpact() {
   const [isAuthorized, setIsAuthorized] = useState(() => {
     try {
       return sessionStorage.getItem('impact_authorized') === 'true';
@@ -1298,3 +1298,5 @@ function MetricTag({ label, value }: { label: string, value: string }) {
     </div>
   );
 }
+
+export const Impact = FounderImpact;

@@ -113,7 +113,7 @@ export function ResearchDetail() {
     return (
       <div className="min-h-screen bg-bg-primary flex flex-col items-center justify-center px-4">
         <h1 className="text-2xl font-bold text-text-primary mb-4">Report Not Found</h1>
-        <Link to="/research" className="text-accent hover:underline flex items-center gap-2">
+        <Link to="/about/founderResearch" className="text-accent hover:underline flex items-center gap-2">
           <ArrowLeft size={18} /> Back to Research
         </Link>
       </div>
@@ -152,7 +152,7 @@ export function ResearchDetail() {
           <div className="p-8 md:p-12 border-b border-border">
             <div className="max-w-4xl mx-auto">
               <div className="flex flex-wrap items-center justify-between gap-4 mb-8">
-                <Link to="/research" className="inline-flex items-center gap-2 text-sm font-bold text-accent uppercase tracking-widest hover:gap-3 transition-all">
+                <Link to="/about/founderResearch" className="inline-flex items-center gap-2 text-sm font-bold text-accent uppercase tracking-widest hover:gap-3 transition-all">
                   <ArrowLeft size={16} /> Research Feed
                 </Link>
                 <div className="flex items-center gap-3">
@@ -306,7 +306,7 @@ export function ResearchDetail() {
             <p className="text-sm text-text-secondary mb-4 italic">
               This report was generated and published via the Paul Wang Digital Intelligence Hub.
             </p>
-            <Link to="/contact" className="text-accent font-bold uppercase text-xs tracking-widest hover:underline">
+            <Link to="/about/contact" className="text-accent font-bold uppercase text-xs tracking-widest hover:underline">
               Discuss these findings with Paul
             </Link>
           </div>

@@ -111,13 +111,19 @@
     transition-duration: 400ms;
   }
 
-  /* Background blur effect when About Dropdown is open */
+  /* Background blur effect when About, Product, Solutions, or Resources Dropdown is open */
   main, footer {
     transition: filter 0.25s cubic-bezier(0.4, 0, 0.2, 1);
   }
 
   body.about-dropdown-open main,
-  body.about-dropdown-open footer {
+  body.about-dropdown-open footer,
+  body.product-dropdown-open main,
+  body.product-dropdown-open footer,
+  body.solutions-dropdown-open main,
+  body.solutions-dropdown-open footer,
+  body.resources-dropdown-open main,
+  body.resources-dropdown-open footer {
     filter: blur(8px);
     pointer-events: none;
     user-select: none;

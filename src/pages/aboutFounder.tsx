@@ -1,7 +1,7 @@
 import { motion, Variants } from 'motion/react';
 import { Target, Zap, Eye, Leaf } from 'lucide-react';
 
-export function About() {
+export function AboutFounder() {
   const containerVariants: Variants = {
     hidden: { opacity: 0 },
     visible: {
@@ -114,3 +114,5 @@ export function About() {
     </div>
   );
 }
+
+export const About = AboutFounder;

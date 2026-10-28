@@ -8,6 +8,9 @@ import { useTheme } from '../context/ThemeContext';
 import { useAuth } from '../hooks/useAuth';
 import { supabase } from '../lib/supabase';
 import { AboutDropdown } from './AboutDropdown';
+import { ProductDropdown } from './ProductDropdown';
+import { SolutionsDropdown } from './SolutionsDropdown';
+import { ResourcesDropdown } from './ResourcesDropdown';
 
 import apprevosLogoDark from '../../my_asset/apprevos_logo_dark.svg';
 import apprevosLogoLight from '../../my_asset/apprevos_logo_light.svg';
@@ -18,11 +21,20 @@ export function Navbar() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const [isAboutDropdownOpen, setIsAboutDropdownOpen] = useState(false);
+  const [isProductDropdownOpen, setIsProductDropdownOpen] = useState(false);
+  const [isSolutionsDropdownOpen, setIsSolutionsDropdownOpen] = useState(false);
+  const [isResourcesDropdownOpen, setIsResourcesDropdownOpen] = useState(false);
   const userMenuRef = useRef<HTMLDivElement>(null);
   const mobileUserMenuRef = useRef<HTMLDivElement>(null);
   const mobileUserButtonRef = useRef<HTMLButtonElement>(null);
   const aboutDropdownContainerRef = useRef<HTMLDivElement>(null);
   const aboutButtonRef = useRef<HTMLButtonElement>(null);
+  const productDropdownContainerRef = useRef<HTMLDivElement>(null);
+  const productButtonRef = useRef<HTMLButtonElement>(null);
+  const solutionsDropdownContainerRef = useRef<HTMLDivElement>(null);
+  const solutionsButtonRef = useRef<HTMLButtonElement>(null);
+  const resourcesDropdownContainerRef = useRef<HTMLDivElement>(null);
+  const resourcesButtonRef = useRef<HTMLButtonElement>(null);
   const { theme } = useTheme();
   const { user, profile } = useAuth();
 
@@ -41,6 +53,24 @@ export function Navbar() {
       if (clickedOutsideAboutDropdown && clickedOutsideAboutButton) {
         setIsAboutDropdownOpen(false);
       }
+
+      const clickedOutsideProductDropdown = !productDropdownContainerRef.current || !productDropdownContainerRef.current.contains(event.target as Node);
+      const clickedOutsideProductButton = !productButtonRef.current || !productButtonRef.current.contains(event.target as Node);
+      if (clickedOutsideProductDropdown && clickedOutsideProductButton) {
+        setIsProductDropdownOpen(false);
+      }
+
+      const clickedOutsideSolutionsDropdown = !solutionsDropdownContainerRef.current || !solutionsDropdownContainerRef.current.contains(event.target as Node);
+      const clickedOutsideSolutionsButton = !solutionsButtonRef.current || !solutionsButtonRef.current.contains(event.target as Node);
+      if (clickedOutsideSolutionsDropdown && clickedOutsideSolutionsButton) {
+        setIsSolutionsDropdownOpen(false);
+      }
+
+      const clickedOutsideResourcesDropdown = !resourcesDropdownContainerRef.current || !resourcesDropdownContainerRef.current.contains(event.target as Node);
+      const clickedOutsideResourcesButton = !resourcesButtonRef.current || !resourcesButtonRef.current.contains(event.target as Node);
+      if (clickedOutsideResourcesDropdown && clickedOutsideResourcesButton) {
+        setIsResourcesDropdownOpen(false);
+      }
     }
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
@@ -48,6 +78,9 @@ export function Navbar() {
 
   useEffect(() => {
     setIsAboutDropdownOpen(false);
+    setIsProductDropdownOpen(false);
+    setIsSolutionsDropdownOpen(false);
+    setIsResourcesDropdownOpen(false);
     setIsMobileMenuOpen(false);
   }, [location.pathname]);
 
@@ -117,9 +150,25 @@ export function Navbar() {
     }
   };
 
-  const isAboutActive = ['/about', '/founder', '/impact', '/insights', '/research', '/contact'].some(
+  const isAboutActive = [
+    '/about',
+    '/about/aboutFounder',
+    '/about/founderProfile',
+    '/about/founderImpact',
+    '/about/founderInsights',
+    '/about/founderResearch',
+    '/about/contact',
+    '/founder',
+    '/impact',
+    '/insights',
+    '/research',
+    '/contact'
+  ].some(
     p => location.pathname === p || location.pathname.startsWith(p + '/')
   );
+  const isProductActive = location.pathname.startsWith('/product');
+  const isSolutionsActive = location.pathname.startsWith('/solutions');
+  const isResourcesActive = location.pathname.startsWith('/resources');
 
   const isActive = (path: string) => {
     if (path === '/' && location.pathname !== '/') return false;
@@ -140,8 +189,8 @@ export function Navbar() {
             </Link>
           </div>
           
-          <div className="hidden md:flex items-center gap-8">
-            <div className="flex items-center space-x-8">
+          <div className="hidden md:flex items-center gap-6 lg:gap-8">
+            <div className="flex items-center space-x-6 lg:space-x-8">
               <Link
                 to="/"
                 className={cn(
@@ -152,11 +201,93 @@ export function Navbar() {
                 Home
               </Link>
 
+              {/* PRODUCT DROPDOWN BUTTON */}
+              <button
+                ref={productButtonRef}
+                type="button"
+                onClick={() => {
+                  setIsProductDropdownOpen(prev => !prev);
+                  setIsSolutionsDropdownOpen(false);
+                  setIsResourcesDropdownOpen(false);
+                  setIsAboutDropdownOpen(false);
+                }}
+                className={cn(
+                  "text-sm font-medium transition-colors hover:text-accent flex items-center gap-1.5 focus:outline-none cursor-pointer",
+                  (isProductDropdownOpen || isProductActive) ? "text-accent font-semibold" : "text-text-secondary"
+                )}
+                aria-expanded={isProductDropdownOpen}
+              >
+                <span>Product</span>
+                <ChevronDown className={cn(
+                  "w-3.5 h-3.5 transition-transform duration-200",
+                  isProductDropdownOpen ? "rotate-180 text-accent" : "text-text-secondary"
+                )} />
+              </button>
+
+              {/* SOLUTIONS DROPDOWN BUTTON */}
+              <button
+                ref={solutionsButtonRef}
+                type="button"
+                onClick={() => {
+                  setIsSolutionsDropdownOpen(prev => !prev);
+                  setIsProductDropdownOpen(false);
+                  setIsResourcesDropdownOpen(false);
+                  setIsAboutDropdownOpen(false);
+                }}
+                className={cn(
+                  "text-sm font-medium transition-colors hover:text-accent flex items-center gap-1.5 focus:outline-none cursor-pointer",
+                  (isSolutionsDropdownOpen || isSolutionsActive) ? "text-accent font-semibold" : "text-text-secondary"
+                )}
+                aria-expanded={isSolutionsDropdownOpen}
+              >
+                <span>Solutions</span>
+                <ChevronDown className={cn(
+                  "w-3.5 h-3.5 transition-transform duration-200",
+                  isSolutionsDropdownOpen ? "rotate-180 text-accent" : "text-text-secondary"
+                )} />
+              </button>
+
+              <Link
+                to="#"
+                onClick={(e) => e.preventDefault()}
+                className="text-sm font-medium transition-colors hover:text-accent text-text-secondary cursor-pointer"
+              >
+                Pricing
+              </Link>
+
+              {/* RESOURCES DROPDOWN BUTTON */}
+              <button
+                ref={resourcesButtonRef}
+                type="button"
+                onClick={() => {
+                  setIsResourcesDropdownOpen(prev => !prev);
+                  setIsProductDropdownOpen(false);
+                  setIsSolutionsDropdownOpen(false);
+                  setIsAboutDropdownOpen(false);
+                }}
+                className={cn(
+                  "text-sm font-medium transition-colors hover:text-accent flex items-center gap-1.5 focus:outline-none cursor-pointer",
+                  (isResourcesDropdownOpen || isResourcesActive) ? "text-accent font-semibold" : "text-text-secondary"
+                )}
+                aria-expanded={isResourcesDropdownOpen}
+              >
+                <span>Resources</span>
+                <ChevronDown className={cn(
+                  "w-3.5 h-3.5 transition-transform duration-200",
+                  isResourcesDropdownOpen ? "rotate-180 text-accent" : "text-text-secondary"
+                )} />
+              </button>
+
               {/* ABOUT DROPDOWN BUTTON */}
               <button
                 ref={aboutButtonRef}
                 type="button"
-                onClick={() => setIsAboutDropdownOpen(prev => !prev)}
+                onClick={() => {
+                  setIsAboutDropdownOpen(prev => !prev);
+                  setIsProductDropdownOpen(false);
+                  setIsSolutionsDropdownOpen(false);
+                  setIsResourcesDropdownOpen(false);
+                }}
                 className={cn(
                   "text-sm font-medium transition-colors hover:text-accent flex items-center gap-1.5 focus:outline-none cursor-pointer",
                   (isAboutDropdownOpen || isAboutActive) ? "text-accent font-semibold" : "text-text-secondary"
@@ -169,16 +300,6 @@ export function Navbar() {
                   isAboutDropdownOpen ? "rotate-180 text-accent" : "text-text-secondary"
                 )} />
               </button>
-
-              <Link
-                to="/product/feature"
-                className={cn(
-                  "text-sm font-medium transition-colors hover:text-accent",
-                  isActive('/product/feature') ? "text-accent font-semibold" : "text-text-secondary"
-                )}
-              >
-                Product
-              </Link>
             </div>
             
             <div className="flex items-center gap-4">
@@ -296,6 +417,30 @@ export function Navbar() {
         </div>
       </div>
 
+      {/* PRODUCT DROPDOWN COMPONENT */}
+      <div ref={productDropdownContainerRef}>
+        <ProductDropdown 
+          isOpen={isProductDropdownOpen} 
+          onClose={() => setIsProductDropdownOpen(false)} 
+        />
+      </div>
+
+      {/* SOLUTIONS DROPDOWN COMPONENT */}
+      <div ref={solutionsDropdownContainerRef}>
+        <SolutionsDropdown 
+          isOpen={isSolutionsDropdownOpen} 
+          onClose={() => setIsSolutionsDropdownOpen(false)} 
+        />
+      </div>
+
+      {/* RESOURCES DROPDOWN COMPONENT */}
+      <div ref={resourcesDropdownContainerRef}>
+        <ResourcesDropdown 
+          isOpen={isResourcesDropdownOpen} 
+          onClose={() => setIsResourcesDropdownOpen(false)} 
+        />
+      </div>
+
       {/* ABOUT DROPDOWN COMPONENT */}
       <div ref={aboutDropdownContainerRef}>
         <AboutDropdown 
@@ -321,12 +466,94 @@ export function Navbar() {
               Home
             </Link>
 
+            {/* Mobile Product Button */}
+            <div className="pt-0.5">
+              <button
+                type="button"
+                onClick={() => {
+                  setIsMobileMenuOpen(false);
+                  setIsAboutDropdownOpen(false);
+                  setIsSolutionsDropdownOpen(false);
+                  setIsResourcesDropdownOpen(false);
+                  setIsProductDropdownOpen(true);
+                }}
+                className={cn(
+                  "w-full flex items-center justify-between rounded-md px-3 py-2 text-base font-medium transition-colors cursor-pointer",
+                  (isProductDropdownOpen || isProductActive)
+                    ? "text-accent font-semibold"
+                    : "text-text-secondary hover:bg-bg-primary hover:text-accent"
+                )}
+              >
+                <span>Product</span>
+                <ChevronDown className={cn("w-4 h-4 transition-transform duration-200", isProductDropdownOpen ? "rotate-180 text-accent" : "")} />
+              </button>
+            </div>
+
+            {/* Mobile Solutions Button */}
+            <div className="pt-0.5">
+              <button
+                type="button"
+                onClick={() => {
+                  setIsMobileMenuOpen(false);
+                  setIsAboutDropdownOpen(false);
+                  setIsProductDropdownOpen(false);
+                  setIsResourcesDropdownOpen(false);
+                  setIsSolutionsDropdownOpen(true);
+                }}
+                className={cn(
+                  "w-full flex items-center justify-between rounded-md px-3 py-2 text-base font-medium transition-colors cursor-pointer",
+                  (isSolutionsDropdownOpen || isSolutionsActive)
+                    ? "text-accent font-semibold"
+                    : "text-text-secondary hover:bg-bg-primary hover:text-accent"
+                )}
+              >
+                <span>Solutions</span>
+                <ChevronDown className={cn("w-4 h-4 transition-transform duration-200", isSolutionsDropdownOpen ? "rotate-180 text-accent" : "")} />
+              </button>
+            </div>
+
+            <Link
+              to="#"
+              onClick={(e) => {
+                e.preventDefault();
+              }}
+              className="block rounded-md px-3 py-2 text-base font-medium text-text-secondary hover:bg-bg-primary hover:text-accent cursor-pointer"
+            >
+              Pricing
+            </Link>
+
+            {/* Mobile Resources Button */}
+            <div className="pt-0.5">
+              <button
+                type="button"
+                onClick={() => {
+                  setIsMobileMenuOpen(false);
+                  setIsAboutDropdownOpen(false);
+                  setIsProductDropdownOpen(false);
+                  setIsSolutionsDropdownOpen(false);
+                  setIsResourcesDropdownOpen(true);
+                }}
+                className={cn(
+                  "w-full flex items-center justify-between rounded-md px-3 py-2 text-base font-medium transition-colors cursor-pointer",
+                  (isResourcesDropdownOpen || isResourcesActive)
+                    ? "text-accent font-semibold"
+                    : "text-text-secondary hover:bg-bg-primary hover:text-accent"
+                )}
+              >
+                <span>Resources</span>
+                <ChevronDown className={cn("w-4 h-4 transition-transform duration-200", isResourcesDropdownOpen ? "rotate-180 text-accent" : "")} />
+              </button>
+            </div>
+
             {/* Mobile About Button */}
             <div className="pt-0.5">
               <button
                 type="button"
                 onClick={() => {
                   setIsMobileMenuOpen(false);
+                  setIsProductDropdownOpen(false);
+                  setIsSolutionsDropdownOpen(false);
+                  setIsResourcesDropdownOpen(false);
                   setIsAboutDropdownOpen(true);
                 }}
                 className={cn(
@@ -340,19 +567,6 @@ export function Navbar() {
                 <ChevronDown className={cn("w-4 h-4 transition-transform duration-200", isAboutDropdownOpen ? "rotate-180 text-accent" : "")} />
               </button>
             </div>
-
-            <Link
-              to="/product/feature"
-              onClick={() => setIsMobileMenuOpen(false)}
-              className={cn(
-                "block rounded-md px-3 py-2 text-base font-medium",
-                isActive('/product/feature')
-                  ? "bg-bg-primary text-accent font-semibold"
-                  : "text-text-secondary hover:bg-bg-primary hover:text-accent"
-              )}
-            >
-              Product
-            </Link>
             {user ? (
               <button
                 onClick={handleLogout}

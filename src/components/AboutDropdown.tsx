@@ -118,21 +118,21 @@ export const AboutDropdown: React.FC<AboutDropdownProps> = ({ isOpen, onClose })
                 {/* ========================================================= */}
                 <div className="flex flex-col space-y-2 sm:space-y-2.5">
                   <div className="pb-1.5 border-b pr-8 md:pr-0" style={lineStyle}>
-                    <h3 className="text-lg sm:text-xl md:text-xl lg:text-2xl font-medium tracking-normal font-sans leading-tight" style={titleStyle}>
+                    <h3 className="text-sm sm:text-base lg:text-lg font-medium tracking-normal font-sans leading-tight" style={titleStyle}>
                       About RevOS
                     </h3>
                   </div>
 
                   <div className="space-y-2.5 sm:space-y-3 pt-0.5">
                     <Link
-                      to="/product/feature"
+                      to="/product/overview/revos"
                       onClick={onClose}
                       className="about-nav-item group block p-1 -m-1 sm:p-0 sm:m-0 rounded-lg active:bg-white/5 transition-all"
                     >
                       <h4 className="about-nav-subtitle text-sm sm:text-base lg:text-lg font-medium font-sans leading-tight">
                         About RevOS
                       </h4>
-                      <p className="about-nav-desc text-xs sm:text-xs md:text-xs lg:text-sm font-sans mt-0.5 leading-snug">
+                      <p className="about-nav-desc text-xs sm:text-xs md:text-xs lg:text-sm font-sans mt-0.5 mb-3 leading-tight">
                         Mission, vision, philosophy, platform, and principles.
                       </p>
                     </Link>
@@ -144,7 +144,7 @@ export const AboutDropdown: React.FC<AboutDropdownProps> = ({ isOpen, onClose })
                 {/* ========================================================= */}
                 <div className="flex flex-col space-y-2 sm:space-y-2.5">
                   <div className="pb-1.5 border-b" style={lineStyle}>
-                    <h3 className="text-lg sm:text-xl md:text-xl lg:text-2xl font-medium tracking-normal font-sans leading-tight" style={titleStyle}>
+                    <h3 className="text-sm sm:text-base lg:text-lg font-medium tracking-normal font-sans leading-tight" style={titleStyle}>
                       About the Founder
                     </h3>
                   </div>
@@ -152,70 +152,70 @@ export const AboutDropdown: React.FC<AboutDropdownProps> = ({ isOpen, onClose })
                   <div className="space-y-2.5 sm:space-y-3 pt-0.5">
                     {/* Item 1: About Founder */}
                     <Link
-                      to="/about"
+                      to="/about/aboutFounder"
                       onClick={onClose}
                       className="about-nav-item group block p-1 -m-1 sm:p-0 sm:m-0 rounded-lg active:bg-white/5 transition-all"
                     >
                       <h4 className="about-nav-subtitle text-sm sm:text-base lg:text-lg font-medium font-sans leading-tight">
                         About Founder
                       </h4>
-                      <p className="about-nav-desc text-xs sm:text-xs md:text-xs lg:text-sm font-sans mt-0.5 leading-snug">
+                      <p className="about-nav-desc text-xs sm:text-xs md:text-xs lg:text-sm font-sans mt-0.5 mb-3 leading-tight">
                         Why the RevOS is created and the thinking behind the RevOS.
                       </p>
                     </Link>
 
                     {/* Item 2: Founder Profile */}
                     <Link
-                      to="/founder"
+                      to="/about/founderProfile"
                       onClick={onClose}
                       className="about-nav-item group block p-1 -m-1 sm:p-0 sm:m-0 rounded-lg active:bg-white/5 transition-all"
                     >
                       <h4 className="about-nav-subtitle text-sm sm:text-base lg:text-lg font-medium font-sans leading-tight">
                         Founder Profile
                       </h4>
-                      <p className="about-nav-desc text-xs sm:text-xs md:text-xs lg:text-sm font-sans mt-0.5 leading-snug">
+                      <p className="about-nav-desc text-xs sm:text-xs md:text-xs lg:text-sm font-sans mt-0.5 mb-3 leading-tight">
                         Professional history, expertise, and career achievements.
                       </p>
                     </Link>
 
                     {/* Item 3: Business Impact */}
                     <Link
-                      to="/impact"
+                      to="/about/founderImpact"
                       onClick={onClose}
                       className="about-nav-item group block p-1 -m-1 sm:p-0 sm:m-0 rounded-lg active:bg-white/5 transition-all"
                     >
                       <h4 className="about-nav-subtitle text-sm sm:text-base lg:text-lg font-medium font-sans leading-tight">
                         Business Impact
                       </h4>
-                      <p className="about-nav-desc text-xs sm:text-xs md:text-xs lg:text-sm font-sans mt-0.5 leading-snug">
+                      <p className="about-nav-desc text-xs sm:text-xs md:text-xs lg:text-sm font-sans mt-0.5 mb-3 leading-tight">
                         Evidence of professional impact and business outcomes.
                       </p>
                     </Link>
 
                     {/* Item 4: Insights */}
                     <Link
-                      to="/insights"
+                      to="/about/founderInsights"
                       onClick={onClose}
                       className="about-nav-item group block p-1 -m-1 sm:p-0 sm:m-0 rounded-lg active:bg-white/5 transition-all"
                     >
                       <h4 className="about-nav-subtitle text-sm sm:text-base lg:text-lg font-medium font-sans leading-tight">
                         Insights
                       </h4>
-                      <p className="about-nav-desc text-xs sm:text-xs md:text-xs lg:text-sm font-sans mt-0.5 leading-snug">
+                      <p className="about-nav-desc text-xs sm:text-xs md:text-xs lg:text-sm font-sans mt-0.5 mb-3 leading-tight">
                         Practical perspectives on revenue growth.
                       </p>
                     </Link>
 
                     {/* Item 5: Research */}
                     <Link
-                      to="/research"
+                      to="/about/founderResearch"
                       onClick={onClose}
                       className="about-nav-item group block p-1 -m-1 sm:p-0 sm:m-0 rounded-lg active:bg-white/5 transition-all"
                     >
                       <h4 className="about-nav-subtitle text-sm sm:text-base lg:text-lg font-medium font-sans leading-tight">
                         Research
                       </h4>
-                      <p className="about-nav-desc text-xs sm:text-xs md:text-xs lg:text-sm font-sans mt-0.5 leading-snug">
+                      <p className="about-nav-desc text-xs sm:text-xs md:text-xs lg:text-sm font-sans mt-0.5 mb-3 leading-tight">
                         Evidence-based research shaping revenue growth.
                       </p>
                     </Link>
@@ -227,21 +227,21 @@ export const AboutDropdown: React.FC<AboutDropdownProps> = ({ isOpen, onClose })
                 {/* ========================================================= */}
                 <div className="flex flex-col space-y-2 sm:space-y-2.5">
                   <div className="pb-1.5 border-b" style={lineStyle}>
-                    <h3 className="text-lg sm:text-xl md:text-xl lg:text-2xl font-medium tracking-normal font-sans leading-tight" style={titleStyle}>
+                    <h3 className="text-sm sm:text-base lg:text-lg font-medium tracking-normal font-sans leading-tight" style={titleStyle}>
                       Contact
                     </h3>
                   </div>
 
                   <div className="space-y-2.5 sm:space-y-3 pt-0.5">
                     <Link
-                      to="/contact"
+                      to="/about/contact"
                       onClick={onClose}
                       className="about-nav-item group block p-1 -m-1 sm:p-0 sm:m-0 rounded-lg active:bg-white/5 transition-all"
                     >
                       <h4 className="about-nav-subtitle text-sm sm:text-base lg:text-lg font-medium font-sans leading-tight">
                         Contact
                       </h4>
-                      <p className="about-nav-desc text-xs sm:text-xs md:text-xs lg:text-sm font-sans mt-0.5 leading-snug">
+                      <p className="about-nav-desc text-xs sm:text-xs md:text-xs lg:text-sm font-sans mt-0.5 mb-3 leading-tight">
                         Connect with RevOS to explore collaboration opportunities.
                       </p>
                     </Link>
