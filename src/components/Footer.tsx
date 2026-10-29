@@ -10,7 +10,7 @@ export function Footer() {
   return (
     <footer className="border-t border-border-hero bg-bg-hero-surface py-12">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-[280px_repeat(4,1fr)] gap-8 lg:gap-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-[320px_repeat(4,1fr)] gap-8 lg:gap-8">
           {/* First Column: Brand & Company Info */}
           <div className="flex flex-col space-y-4">
             <Link to="/" className="flex items-center gap-2">
