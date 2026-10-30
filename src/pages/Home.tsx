@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react';
-import { motion, AnimatePresence } from 'motion/react';
+import { useState, useEffect, useRef } from 'react';
+import { motion, AnimatePresence, useScroll, useTransform, useSpring } from 'motion/react';
 import { Link } from 'react-router-dom';
 import { 
   ArrowRight, 
@@ -136,8 +136,131 @@ const IMPACT_CARDS = [
   }
 ];
 
+// Distance (in pixels) the user must scroll for each card to transition from 0% to 100% opacity.
 export function Home() {
   const [activeAudience, setActiveAudience] = useState<AudienceKey>('individual');
+  const [isDesktop, setIsDesktop] = useState(
+    typeof window !== 'undefined' ? window.innerWidth >= 1024 : true
+  );
+
+  const trackRef = useRef<HTMLDivElement>(null);
+  const headerRef = useRef<HTMLDivElement>(null);
+  const [shiftY, setShiftY] = useState(210);
+  const [windowWidth, setWindowWidth] = useState(
+    typeof window !== 'undefined' ? window.innerWidth : 1200
+  );
+
+  useEffect(() => {
+    const handleResize = () => {
+      const desktop = window.innerWidth >= 1024;
+      setIsDesktop(desktop);
+      setWindowWidth(window.innerWidth);
+      if (headerRef.current) {
+        // Measure exact header height plus bottom margin so header completely clears the top
+        setShiftY(headerRef.current.offsetHeight + 32);
+      }
+    };
+
+    handleResize();
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  // Raw scroll progress through the generous 550vh storytelling track
+  const { scrollYProgress } = useScroll({
+    target: trackRef,
+    offset: ["start end", "end end"]
+  });
+
+  // Smooth the scroll input with a physics spring so mouse wheel notches and fast scrolls
+  // glide continuously across 60/120fps frames without abrupt stepping or instant snapping
+  const smoothProgress = useSpring(scrollYProgress, {
+    stiffness: 85,
+    damping: 22,
+    mass: 0.15,
+    restDelta: 0.0001
+  });
+
+  // Vertical framing shift with ease-in-out:
+  // - Stage 1 (First Half State: 0.00 -> 0.46): contentY = 0 (Header and Row 1 visible; Row 2 below screen)
+  // - Transition (0.46 -> 0.58): smoothly translates content up by shiftY (header completely clears top)
+  // - Stage 2 (Complete State: 0.58 -> 1.00): contentY = -shiftY (Row 1 at top, Row 2 fully in view with generous bottom clearance)
+  const contentY = useTransform(smoothProgress, (v) => {
+    if (!isDesktop) return 0;
+    if (v <= 0.46) return 0;
+    if (v >= 0.58) return -shiftY;
+    const progress = (v - 0.46) / (0.58 - 0.46);
+    // Smooth quadratic ease-in-out
+    const eased = progress < 0.5 
+      ? 2 * progress * progress 
+      : 1 - Math.pow(-2 * progress + 2, 2) / 2;
+    return -shiftY * eased;
+  });
+
+  // Storytelling card revelations driven directly by user scrolling:
+  //
+  // Row 1 (first half state):
+  // Card 01 (Missing sales targets): Fades in with vertical lift as section enters visible screen
+  const card1Opacity = useTransform(smoothProgress, [0.03, 0.15], [0, 1]);
+  const card1Y = useTransform(card1Opacity, [0, 1], [16, 0]);
+
+  // Slide distance from right side of viewport for Column 2 (center) and Column 3 (right):
+  const col2Slide = Math.min(windowWidth * 0.7, 850);
+  const col3Slide = Math.min(windowWidth * 0.45, 500);
+
+  // Card 02 (Low win rates): Enters moving from right side of the viewport to its position
+  const card2Opacity = useTransform(smoothProgress, [0.18, 0.23], [0, 1]);
+  const card2X = useTransform(smoothProgress, (v) => {
+    if (!isDesktop) return 0;
+    if (v <= 0.18) return col2Slide;
+    if (v >= 0.29) return 0;
+    const p = (v - 0.18) / (0.29 - 0.18);
+    const eased = 1 - Math.pow(1 - p, 3);
+    return col2Slide * (1 - eased);
+  });
+
+  // Card 03 (Price competition and margin erosion): Enters moving from right side of the viewport to its position
+  const card3Opacity = useTransform(smoothProgress, [0.32, 0.37], [0, 1]);
+  const card3X = useTransform(smoothProgress, (v) => {
+    if (!isDesktop) return 0;
+    if (v <= 0.32) return col3Slide;
+    if (v >= 0.43) return 0;
+    const p = (v - 0.32) / (0.43 - 0.32);
+    const eased = 1 - Math.pow(1 - p, 3);
+    return col3Slide * (1 - eased);
+  });
+
+  // Row 2 (complete state):
+  // Card 04 (High sales operating costs): Fades in with vertical lift as screen shifts to complete state framing
+  const card4Opacity = useTransform(smoothProgress, [0.50, 0.58], [0, 1]);
+  const card4Y = useTransform(card4Opacity, [0, 1], [16, 0]);
+
+  // Card 05 (Low sales efficiency and productivity): Enters moving from right side of the viewport to its position
+  const card5Opacity = useTransform(smoothProgress, [0.61, 0.66], [0, 1]);
+  const card5X = useTransform(smoothProgress, (v) => {
+    if (!isDesktop) return 0;
+    if (v <= 0.61) return col2Slide;
+    if (v >= 0.71) return 0;
+    const p = (v - 0.61) / (0.71 - 0.61);
+    const eased = 1 - Math.pow(1 - p, 3);
+    return col2Slide * (1 - eased);
+  });
+
+  // Card 06 (Low revenue predictability): Enters moving from right side of the viewport to its position
+  // Finishes at 0.84, giving a generous 16% buffer (0.84 -> 1.00) where all 6 cards are fully visible together
+  const card6Opacity = useTransform(smoothProgress, [0.74, 0.79], [0, 1]);
+  const card6X = useTransform(smoothProgress, (v) => {
+    if (!isDesktop) return 0;
+    if (v <= 0.74) return col3Slide;
+    if (v >= 0.84) return 0;
+    const p = (v - 0.74) / (0.84 - 0.74);
+    const eased = 1 - Math.pow(1 - p, 3);
+    return col3Slide * (1 - eased);
+  });
+
+  const cardOpacities = [card1Opacity, card2Opacity, card3Opacity, card4Opacity, card5Opacity, card6Opacity];
+  const cardXs = [0, card2X, card3X, 0, card5X, card6X];
+  const cardYs = [card1Y, 0, 0, card4Y, 0, 0];
 
   useEffect(() => {
     // Preload both audience images for instantaneous blurred background transition
@@ -251,64 +374,73 @@ export function Home() {
       {/* NEGATIVE IMPACTS SECTION: RECOGNIZE THE COST OF THE PROBLEM */}
       <section 
         id="negative-impacts" 
-        className="w-full bg-bg-surface py-20 lg:py-28 px-4 sm:px-6 lg:px-8 border-b border-border/60 transition-colors duration-400"
+        ref={trackRef}
+        className="relative w-full bg-bg-surface h-auto lg:h-[550vh] transition-colors duration-400"
       >
-        <div className="max-w-7xl mx-auto">
-          {/* Section Header */}
-          <div className="text-center max-w-3xl mx-auto mb-12 sm:mb-16 space-y-3.5">
-            <span className="text-xs sm:text-sm font-bold tracking-[0.16em] uppercase text-accent">
-              THE REVENUE CHALLENGE
-            </span>
-            <h2 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-extrabold text-text-primary tracking-tight leading-tight">
-              When Revenue Execution Breaks Down, the Impact Adds Up
-            </h2>
-            <p className="text-sm sm:text-base md:text-lg text-text-secondary leading-relaxed pt-1">
-              The visible problem may be a missed target, a stalled deal, or pressure to discount. Behind it may be disconnected decisions across the revenue lifecycle.
-            </p>
-          </div>
+        <div className="static lg:sticky lg:top-16 lg:h-[calc(100vh-64px)] w-full flex flex-col justify-start overflow-hidden pt-4 pb-12 lg:pt-5 lg:pb-14 px-4 sm:px-6 lg:px-8 border-b border-border/60">
+          <div className="max-w-7xl mx-auto w-full h-full flex flex-col justify-start">
+            <motion.div 
+              style={{ y: isDesktop ? contentY : 0 }}
+              className="flex flex-col w-full"
+            >
+              {/* Section Header */}
+              <div 
+                ref={headerRef}
+                className="text-center max-w-3xl mx-auto mb-6 sm:mb-8 space-y-2.5"
+              >
+                <span className="text-xs sm:text-sm font-bold tracking-[0.16em] uppercase text-accent">
+                  THE REVENUE CHALLENGE
+                </span>
+                <h2 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-extrabold text-text-primary tracking-tight leading-tight">
+                  When Revenue Execution Breaks Down, the Impact Adds Up
+                </h2>
+                <p className="text-sm sm:text-base md:text-lg text-text-secondary leading-relaxed pt-0.5">
+                  The visible problem may be a missed target, a stalled deal, or pressure to discount. Behind it may be disconnected decisions across the revenue lifecycle.
+                </p>
+              </div>
 
-          {/* Impact Cards Grid: Desktop 3 cols, Tablet 2 cols, Mobile 1 col */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 lg:gap-8">
-            {IMPACT_CARDS.map((card, index) => {
-              const Icon = card.icon;
-              return (
-                <motion.div
-                  key={card.number}
-                  initial={{ opacity: 0, y: 12 }}
-                  whileInView={{ opacity: 1, y: 0 }}
-                  viewport={{ once: true, amount: 0.18 }}
-                  transition={{
-                    duration: 0.38,
-                    delay: (index % 3) * 0.075,
-                    ease: "easeOut"
-                  }}
-                  className="bg-bg-primary rounded-2xl border border-border/80 hover:border-accent/50 p-6 sm:p-7 flex flex-col justify-between transition-colors shadow-sm"
-                >
-                  <div>
-                    <div className="flex items-center justify-between">
-                      <div className="w-10 h-10 rounded-xl bg-accent/10 border border-accent/20 flex items-center justify-center text-accent">
-                        <Icon className="w-5 h-5" />
+              {/* Impact Cards Grid: Desktop 3 cols, Tablet 2 cols, Mobile 1 col */}
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 lg:gap-5">
+                {IMPACT_CARDS.map((card, index) => {
+                  const Icon = card.icon;
+
+                  return (
+                    <motion.div
+                      key={card.number}
+                      style={{
+                        opacity: isDesktop ? cardOpacities[index] : 1,
+                        x: isDesktop ? cardXs[index] : 0,
+                        y: isDesktop ? cardYs[index] : 0,
+                      }}
+                      className="bg-bg-primary rounded-2xl border border-border/80 hover:border-accent/50 p-4 sm:p-5 lg:p-5 flex flex-col justify-between transition-colors shadow-sm"
+                    >
+                      <div>
+                        <div className="flex items-center justify-between">
+                          <div className="w-9 h-9 rounded-xl bg-accent/10 border border-accent/20 flex items-center justify-center text-accent">
+                            <Icon className="w-4 h-4 sm:w-4.5 sm:h-4.5" />
+                          </div>
+                          <span className="text-xs font-mono font-bold text-accent/80 tracking-wider">
+                            {card.number}
+                          </span>
+                        </div>
+
+                        <h3 className="text-base sm:text-lg font-bold text-accent mt-3 sm:mt-3.5 mb-1.5 leading-snug">
+                          {card.title}
+                        </h3>
+                        
+                        <p className="text-xs sm:text-[13.5px] text-text-primary leading-relaxed font-normal">
+                          {card.explanation}
+                        </p>
                       </div>
-                      <span className="text-xs font-mono font-bold text-accent/80 tracking-wider">
-                        {card.number}
-                      </span>
-                    </div>
 
-                    <h3 className="text-lg sm:text-xl font-bold text-accent mt-5 mb-2.5 leading-snug">
-                      {card.title}
-                    </h3>
-                    
-                    <p className="text-sm sm:text-[15px] text-text-primary leading-relaxed font-normal">
-                      {card.explanation}
-                    </p>
-                  </div>
-
-                  <div className="mt-6 pt-4 border-t border-border/50 text-xs text-text-secondary leading-snug">
-                    <span className="font-semibold text-text-primary">Possible signal:</span> {card.signal}
-                  </div>
-                </motion.div>
-              );
-            })}
+                      <div className="mt-4 pt-2.5 border-t border-border/50 text-[11px] sm:text-xs text-text-secondary leading-snug">
+                        <span className="font-semibold text-text-primary">Possible signal:</span> {card.signal}
+                      </div>
+                    </motion.div>
+                  );
+                })}
+              </div>
+            </motion.div>
           </div>
         </div>
       </section>

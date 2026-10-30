@@ -38,8 +38,8 @@ const CAPABILITY_CARDS: CapabilityCard[] = [
   {
     id: 'opportunity-assessment',
     badge: 'Assessment',
-    title: 'Opportunity Assessment',
-    description: 'Help sales professionals examine opportunity strengths, gaps, risks, competitive factors, and potential winning actions.',
+    title: 'Pipeline Assessment',
+    description: 'Help sales professionals examine pipeline strengths, gaps, risks, competitive factors, and potential winning actions.',
     icon: LineChart,
   },
 ];
