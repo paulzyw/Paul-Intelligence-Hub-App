@@ -144,26 +144,64 @@ export function Home() {
   );
 
   const trackRef = useRef<HTMLDivElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
   const headerRef = useRef<HTMLDivElement>(null);
-  const [shiftY, setShiftY] = useState(210);
+  const gridRef = useRef<HTMLDivElement>(null);
+  const [shiftRange, setShiftRange] = useState({ stage1Y: 140, stage2Y: -40 });
   const [windowWidth, setWindowWidth] = useState(
     typeof window !== 'undefined' ? window.innerWidth : 1200
   );
 
   useEffect(() => {
-    const handleResize = () => {
+    const updateLayout = () => {
       const desktop = window.innerWidth >= 1024;
       setIsDesktop(desktop);
       setWindowWidth(window.innerWidth);
-      if (headerRef.current) {
-        // Measure exact header height plus bottom margin so header completely clears the top
-        setShiftY(headerRef.current.offsetHeight + 32);
+
+      if (!desktop) {
+        setShiftRange({ stage1Y: 0, stage2Y: 0 });
+        return;
+      }
+
+      // Height of the sticky viewport (container or window height minus top-16 header)
+      const vHeight = containerRef.current?.clientHeight || (window.innerHeight - 64);
+      const headerEl = headerRef.current;
+      const gridEl = gridRef.current;
+
+      if (headerEl && gridEl) {
+        const headerH = headerEl.offsetHeight;
+        // header bottom margin (mb-6 / sm:mb-8)
+        const headerMb = window.innerWidth >= 640 ? 32 : 24;
+        const gridH = gridEl.offsetHeight;
+
+        // Measure first card height for Row 1
+        const firstCard = gridEl.children[0] as HTMLElement | undefined;
+        const row1H = firstCard ? firstCard.offsetHeight : Math.round((gridH - 20) / 2);
+
+        // Stage 1 (First Half State): Center Header + Row 1 cards vertically in the viewport
+        const stage1ContentH = headerH + headerMb + row1H;
+        const s1Y = Math.max(16, Math.round((vHeight - stage1ContentH) / 2));
+
+        // Stage 2 (Complete State): Center all 6 cards (the Grid) vertically in the viewport
+        const stage2GridTop = Math.max(16, Math.round((vHeight - gridH) / 2));
+        // motion.div contains header and then grid, so grid is at offset (headerH + headerMb) inside motion.div.
+        // To place grid at stage2GridTop, motion.div's y must be:
+        const s2Y = stage2GridTop - (headerH + headerMb);
+
+        setShiftRange({ stage1Y: s1Y, stage2Y: s2Y });
       }
     };
 
-    handleResize();
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
+    updateLayout();
+    const rafId = requestAnimationFrame(updateLayout);
+    const timer = setTimeout(updateLayout, 150);
+
+    window.addEventListener('resize', updateLayout);
+    return () => {
+      cancelAnimationFrame(rafId);
+      clearTimeout(timer);
+      window.removeEventListener('resize', updateLayout);
+    };
   }, []);
 
   // Raw scroll progress through the generous 550vh storytelling track
@@ -182,19 +220,21 @@ export function Home() {
   });
 
   // Vertical framing shift with ease-in-out:
-  // - Stage 1 (First Half State: 0.00 -> 0.46): contentY = 0 (Header and Row 1 visible; Row 2 below screen)
-  // - Transition (0.46 -> 0.58): smoothly translates content up by shiftY (header completely clears top)
-  // - Stage 2 (Complete State: 0.58 -> 1.00): contentY = -shiftY (Row 1 at top, Row 2 fully in view with generous bottom clearance)
+  // - Stage 1 (First Half State: 0.00 -> 0.46): contentY = shiftRange.stage1Y
+  //   Header and Row 1 are vertically centered in the viewport
+  // - Transition (0.46 -> 0.58): smoothly translates content to shiftRange.stage2Y
+  // - Stage 2 (Complete State: 0.58 -> 1.00): contentY = shiftRange.stage2Y
+  //   Row 1 and Row 2 (all 6 cards) are vertically centered in the viewport
   const contentY = useTransform(smoothProgress, (v) => {
     if (!isDesktop) return 0;
-    if (v <= 0.46) return 0;
-    if (v >= 0.58) return -shiftY;
+    if (v <= 0.46) return shiftRange.stage1Y;
+    if (v >= 0.58) return shiftRange.stage2Y;
     const progress = (v - 0.46) / (0.58 - 0.46);
     // Smooth quadratic ease-in-out
     const eased = progress < 0.5 
       ? 2 * progress * progress 
       : 1 - Math.pow(-2 * progress + 2, 2) / 2;
-    return -shiftY * eased;
+    return shiftRange.stage1Y + (shiftRange.stage2Y - shiftRange.stage1Y) * eased;
   });
 
   // Storytelling card revelations driven directly by user scrolling:
@@ -377,7 +417,10 @@ export function Home() {
         ref={trackRef}
         className="relative w-full bg-bg-surface h-auto lg:h-[550vh] transition-colors duration-400"
       >
-        <div className="static lg:sticky lg:top-16 lg:h-[calc(100vh-64px)] w-full flex flex-col justify-start overflow-hidden pt-4 pb-12 lg:pt-5 lg:pb-14 px-4 sm:px-6 lg:px-8 border-b border-border/60">
+        <div 
+          ref={containerRef}
+          className="static lg:sticky lg:top-16 lg:h-[calc(100vh-64px)] w-full flex flex-col justify-start overflow-hidden py-12 sm:py-16 lg:py-0 px-4 sm:px-6 lg:px-8 border-b border-border/60"
+        >
           <div className="max-w-7xl mx-auto w-full h-full flex flex-col justify-start">
             <motion.div 
               style={{ y: isDesktop ? contentY : 0 }}
@@ -400,7 +443,10 @@ export function Home() {
               </div>
 
               {/* Impact Cards Grid: Desktop 3 cols, Tablet 2 cols, Mobile 1 col */}
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 lg:gap-5">
+              <div 
+                ref={gridRef}
+                className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 lg:gap-5"
+              >
                 {IMPACT_CARDS.map((card, index) => {
                   const Icon = card.icon;
 
