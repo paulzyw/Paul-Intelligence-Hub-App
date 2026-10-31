@@ -1,16 +1,19 @@
 import { Link } from 'react-router-dom';
 import { useTheme } from '../context/ThemeContext';
+import { Cookie } from 'lucide-react';
+import { useCookieConsent } from '../context/CookieConsentContext';
 
 import apprevosLogoDark from '../../my_asset/apprevos_logo_dark.svg';
 import apprevosLogoLight from '../../my_asset/apprevos_logo_light.svg';
 
 export function Footer() {
   const { theme } = useTheme();
+  const { openPreferences } = useCookieConsent();
 
   return (
     <footer className="border-t border-border-hero bg-bg-hero-surface py-12">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-[320px_repeat(4,1fr)] gap-8 lg:gap-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-[350px_repeat(4,1fr)] gap-8 lg:gap-8">
           {/* First Column: Brand & Company Info */}
           <div className="flex flex-col space-y-4">
             <Link to="/" className="flex items-center gap-2">
@@ -26,9 +29,10 @@ export function Footer() {
             <p className="text-sm text-text-hero-secondary max-w-xs">
               Turn Revenue Challenges Into Clearer Paths to Growth
             </p>
+            {/*}
             <p className="text-xs text-text-hero-secondary mt-4 whitespace-nowrap">
               © {new Date().getFullYear()} Apprevos Technology. All rights reserved.
-            </p>
+            </p>*/}
           </div>
 
           {/* Column 2: Product */}
@@ -147,6 +151,50 @@ export function Footer() {
                 Contact
               </Link>
             </nav>
+          </div>
+        </div>
+
+        {/* Bottom Legal & Preferences Row */}
+        <div className="mt-10 pt-6 border-t border-border-hero/60 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-text-hero-secondary">
+          <p>© {new Date().getFullYear()} Apprevos Technology. All rights reserved.</p>
+          <div className="flex flex-wrap items-center gap-4 sm:gap-6">
+
+            <Link
+              to="/privacy-policy"
+              className="text-xs text-text-hero-secondary hover:text-accent transition-colors"
+            >
+              Privacy Policy
+            </Link>
+
+            <Link
+              to="/terms-of-service"
+              className="text-xs text-text-hero-secondary hover:text-accent transition-colors"
+            >
+              Terms of Service
+            </Link>
+
+            <Link
+              to="/cookie-policy"
+              className="text-xs text-text-hero-secondary hover:text-accent transition-colors"
+            >
+              Cookie Policy
+            </Link>
+            
+            <button
+              type="button"
+              onClick={openPreferences}
+              className="text-xs text-text-hero-secondary hover:text-accent transition-colors flex items-center gap-1.5 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent rounded px-1 py-0.5 cursor-pointer"
+            >
+              <Cookie className="h-3.5 w-3.5 text-accent" aria-hidden="true" />
+              <span>Cookie Settings</span>
+            </button>
+
+            <Link
+              to="/ai-disclaimer"
+              className="text-xs text-text-hero-secondary hover:text-accent transition-colors"
+            >
+              AI Disclaimer
+            </Link>
           </div>
         </div>
       </div>

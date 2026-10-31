@@ -6,6 +6,7 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { ThemeProvider } from './context/ThemeContext';
 import { AuthProvider } from './context/AuthContext';
+import { CookieConsentProvider } from './context/CookieConsentContext';
 import { Layout } from './components/Layout';
 import { Home } from './pages/Home';
 import { FounderProfile } from './pages/founderProfile';
@@ -20,6 +21,10 @@ import { FounderImpact } from './pages/founderImpact';
 import { ProductOverviewRevos } from './pages/ProductOverviewRevos';
 import { Auth } from './pages/Auth';
 import { RevOSApp } from './apps/revos/RevOSApp';
+import { CookiePolicy } from './pages/CookiePolicy';
+import { PrivacyPolicy } from './pages/PrivacyPolicy';
+import { TermsOfService } from './pages/TermsOfService';
+import { AiDisclaimer } from './pages/AiDisclaimer';
 import { ScrollReset } from './components/ScrollReset';
 import { ProtectedRoute } from './components/ProtectedRoute';
 
@@ -27,7 +32,8 @@ export default function App() {
   return (
     <ThemeProvider>
       <AuthProvider>
-        <BrowserRouter>
+        <CookieConsentProvider>
+          <BrowserRouter>
           <ScrollReset />
           <Routes>
           <Route path="/" element={<Layout />}>
@@ -78,6 +84,13 @@ export default function App() {
             
             <Route path="post/:slug" element={<PostDetail />} />
             <Route path="research/:slug" element={<ResearchDetail />} />
+            <Route path="cookie-policy" element={<CookiePolicy />} />
+            <Route path="privacy-policy" element={<PrivacyPolicy />} />
+            <Route path="privacy" element={<Navigate to="/privacy-policy" replace />} />
+            <Route path="terms-of-service" element={<TermsOfService />} />
+            <Route path="terms" element={<Navigate to="/terms-of-service" replace />} />
+            <Route path="ai-disclaimer" element={<AiDisclaimer />} />
+            <Route path="ai-notice" element={<Navigate to="/ai-disclaimer" replace />} />
             
             {/* Admin Dashboard Protected Route */}
             <Route 
@@ -91,6 +104,7 @@ export default function App() {
           </Route>
         </Routes>
       </BrowserRouter>
+      </CookieConsentProvider>
       </AuthProvider>
     </ThemeProvider>
   );

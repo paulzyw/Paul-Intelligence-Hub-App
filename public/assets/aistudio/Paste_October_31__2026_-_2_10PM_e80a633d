@@ -1,0 +1,970 @@
+# RevOS Privacy Policy Page — Production Implementation Specification V1.0
+
+## 1. Project Objective
+
+I am developing RevOS, an AI-native Revenue Operating System designed to help business users improve go-to-market strategy, lead qualification, opportunity assessment, pipeline management and revenue decision-making.
+
+I want you to inspect the existing RevOS codebase and implement a professional, production-quality **Privacy Policy page** that can be accessed through the Privacy Policy link in the website footer.
+
+This is not simply a request to create a generic legal page.
+
+You must first understand the actual RevOS application architecture, data flows, third-party services, user information collected, AI processing workflows, authentication mechanisms and storage arrangements.
+
+The Privacy Policy must accurately describe the actual practices of RevOS.
+
+**Critical principle: Never invent privacy practices, legal commitments, providers, data retention periods, legal bases, security certifications or technical capabilities that cannot be verified.**
+
+The implementation must preserve the existing RevOS architecture, functionality, design system and application behavior.
+
+---
+
+## 2. Mandatory First Stage: Inspect the Existing Codebase
+
+Before writing code or creating the policy content, inspect the existing project.
+
+Identify:
+
+- Frontend framework and application structure.
+- Routing configuration and existing public pages.
+- Existing footer component and legal links.
+- Global design system, typography, colors, spacing and responsive behavior.
+- Supabase configuration and integration.
+- Supabase Auth implementation.
+- Supabase database tables and relevant Row Level Security policies.
+- Supabase Storage buckets and access arrangements.
+- Supabase Edge Functions, if implemented.
+- Gemini API integration and AI-related data flows.
+- Hosting and deployment configuration.
+- Browser cookies, localStorage and sessionStorage usage.
+- Analytics, monitoring, logging and tracking scripts.
+- Contact forms, newsletter subscriptions, payment integrations or other data collection mechanisms, if present.
+- Existing Cookie Policy and Cookie Management System, if implemented.
+
+### 2.1 Specific Supabase investigation
+
+RevOS currently uses Supabase Auth directly from the frontend.
+
+Inspect the actual authentication implementation and determine:
+
+- What information is collected during registration.
+- Whether email addresses and other account information are stored.
+- How authentication sessions are maintained.
+- Whether the Supabase JavaScript client uses localStorage or another persistence mechanism.
+- What user-related records are stored in Supabase.
+- How user access to database records is controlled.
+- What happens to user data when an account is deleted, if an account-deletion workflow exists.
+
+Do not assume that Supabase Auth automatically means authentication cookies are used.
+
+Inspect the actual implementation.
+
+### 2.2 Specific Gemini AI investigation
+
+RevOS uses Gemini-related AI capabilities. Inspect the actual implementation and identify:
+
+- Which Gemini API or Google AI services are used.
+- Where API calls originate.
+- Whether requests are made through Supabase Edge Functions or another backend mechanism.
+- What user-provided information is transmitted to Gemini.
+- Whether lead, opportunity, customer, company, pipeline or strategic business information is included in AI requests.
+- Whether personal data can be included in those requests.
+- Whether prompts, responses or AI-generated assessments are stored in Supabase.
+- Whether AI inputs or outputs are included in application logs.
+- Whether any information is transmitted to additional third-party services.
+
+Do not assume that all AI requests contain the same information.
+
+Do not assume that Gemini API data is or is not used for model training. This must be checked against the actual Google service, applicable terms, configuration and contractual arrangements.
+
+If these matters cannot be established from the codebase, identify them as requiring owner confirmation.
+
+### 2.3 Specific hosting and third-party investigation
+
+Identify the actual providers involved in:
+
+- Application hosting.
+- Domain and DNS management, where relevant.
+- Database and authentication.
+- File storage.
+- AI processing.
+- Application monitoring.
+- Analytics.
+- Payment processing, if present.
+- Email delivery, if present.
+
+Identify relevant hosting and data-processing locations only where they can be verified.
+
+Do not infer data residency from a provider's corporate headquarters or website domain.
+
+---
+
+## 3. Produce a Privacy Audit Before Writing the Policy
+
+After inspecting the codebase, produce an internal audit report.
+
+The audit must distinguish three types of information:
+
+**A. Verified implementation facts**
+
+Information directly confirmed by the codebase, configuration or available technical documentation.
+
+**B. Provider or contractual facts requiring verification**
+
+Information that depends on external service terms, data-processing agreements, account configuration or provider documentation.
+
+**C. Business and legal information requiring owner confirmation**
+
+Information that cannot be established from source code.
+
+Examples include:
+
+- Legal name of the data controller.
+- Registered business address.
+- Official privacy contact email.
+- Whether a Data Protection Officer has been appointed.
+- Applicable legal entities and business relationships.
+- Actual legal bases for different processing activities.
+- Retention periods and deletion commitments.
+- Whether customer contracts include a Data Processing Agreement.
+- Whether RevOS acts as a controller, processor or both for different activities.
+- Applicable international-transfer arrangements.
+
+Create a structured audit table:
+
+| Area | Finding | Evidence | Verification status | Required action |
+|---|---|---|---|---|
+| Authentication | Actual implementation | Relevant code/configuration | Verified / Unverified | Action |
+| Database | Actual stored data | Schema and policies | Verified / Unverified | Action |
+| AI processing | Actual data flow | API integration | Verified / Unverified | Action |
+| Hosting | Actual provider | Deployment configuration | Verified / Unverified | Action |
+| Retention | Actual retention behavior | Code/configuration | Verified / Unverified | Action |
+| Legal identity | Controller information | Not necessarily in code | Owner confirmation | Action |
+
+Do not treat the absence of evidence as proof that a processing activity does not exist.
+
+---
+
+## 4. Privacy Policy Page Structure and Content
+
+Create a dedicated Privacy Policy page with the following structure.
+
+### Section 1. Introduction
+
+Suggested heading:
+
+**Privacy Policy**
+
+Suggested H1:
+
+**How RevOS Collects, Uses and Protects Your Personal Data**
+
+Explain:
+
+- The purpose of the Privacy Policy.
+- The RevOS website and platform services covered.
+- The importance of protecting personal information.
+- That the policy explains how personal data is collected, processed, stored, shared and retained.
+- That the policy applies to relevant website visitors, registered users and other individuals whose personal information is processed through RevOS.
+
+Only describe the scope that accurately reflects the actual service.
+
+Include a Last Updated date.
+
+### Section 2. Who We Are
+
+Suggested heading:
+
+**Who Is Responsible for Your Personal Data?**
+
+Explain the identity of the data controller.
+
+Include the following information where verified:
+
+- Legal entity name.
+- Registered business address.
+- Country of establishment.
+- Official contact email.
+- Data Protection Officer contact details, if applicable.
+
+Do not invent a company name, registered address, DPO or email address.
+
+If information is unavailable, flag it in the audit report and mark it as a publication blocker.
+
+### Section 3. What Personal Data We Collect
+
+Suggested heading:
+
+**Personal Information We Collect**
+
+Organize the information into understandable categories.
+
+Investigate and document the following categories only where applicable.
+
+#### 3.1 Account and Authentication Information
+
+Potential examples:
+
+- Email address.
+- Account identifier.
+- Authentication information.
+- Account creation and login information.
+- Account preferences.
+
+Do not claim that passwords are stored or accessible by RevOS in a particular form without verifying the actual authentication arrangement.
+
+#### 3.2 Business and Workspace Information
+
+Potential examples:
+
+- Company name.
+- Job title or business role.
+- Workspace information.
+- Organization-related information.
+- Account configuration and preferences.
+
+#### 3.3 User-Submitted Business Information
+
+This section is particularly important for RevOS.
+
+RevOS users may enter information related to:
+
+- Go-to-market strategy.
+- Ideal Customer Profiles.
+- Customers and prospects.
+- Marketing-qualified leads.
+- Sales-qualified leads.
+- Sales opportunities.
+- Customer requirements and business challenges.
+- Stakeholders and buying processes.
+- Sales pipelines.
+- Competitive intelligence.
+- Revenue performance.
+- SWOT assessments.
+- Strategic plans.
+- Supporting documents and evidence.
+
+Explain that user-submitted business information may contain personal data relating to other individuals, depending on what the user enters.
+
+Do not suggest that every listed category is necessarily collected or required. Explain that the actual information depends on the features used and information voluntarily supplied by users.
+
+#### 3.4 AI Inputs and Outputs
+
+Explain what information may be processed when users interact with RevOS AI capabilities.
+
+Potential examples:
+
+- User prompts.
+- Submitted business context.
+- Assessment information.
+- Supporting evidence.
+- AI-generated analysis.
+- Recommendations and assessment results.
+
+Verify whether these inputs and outputs are stored and where.
+
+#### 3.5 Technical and Usage Information
+
+Potential examples:
+
+- IP addresses.
+- Browser type.
+- Device information.
+- Operating system.
+- Access timestamps.
+- Application activity.
+- Error and diagnostic information.
+- Security logs.
+
+Only include information that is actually collected.
+
+#### 3.6 Communications and Support Information
+
+If implemented, explain the processing of:
+
+- Contact form submissions.
+- Support requests.
+- Email communications.
+- Feedback.
+- Newsletter subscription information.
+
+Do not invent contact forms or newsletter functionality.
+
+---
+
+### Section 4. How We Use Personal Data
+
+Suggested heading:
+
+**How We Use Your Information**
+
+Organize the actual processing purposes.
+
+Potential purposes include:
+
+1. Account registration and authentication.
+2. Providing access to RevOS services.
+3. Managing workspaces and user permissions.
+4. Processing user-submitted business information.
+5. Generating AI-assisted assessments and recommendations.
+6. Saving and displaying assessment results.
+7. Maintaining application functionality.
+8. Protecting the platform against misuse and security threats.
+9. Providing customer support.
+10. Managing subscriptions and payments, if implemented.
+11. Improving platform performance and reliability.
+12. Meeting legal and regulatory obligations.
+
+For each purpose, explain the relevant information involved and why it is processed.
+
+Do not claim that RevOS uses personal data for advertising, profiling, marketing or analytics unless the actual implementation supports that statement.
+
+---
+
+### Section 5. Legal Bases for Processing
+
+Suggested heading:
+
+**Legal Basis for Processing Your Personal Data**
+
+Where GDPR applies, identify the actual applicable legal basis for each processing purpose.
+
+Potential GDPR legal bases include:
+
+- Article 6(1)(b): Processing necessary for the performance of a contract or pre-contractual steps.
+- Article 6(1)(c): Processing necessary for compliance with a legal obligation.
+- Article 6(1)(f): Processing necessary for legitimate interests, subject to the applicable balancing requirements.
+- Article 6(1)(a): Processing based on consent.
+
+Do not automatically assign one legal basis to all processing activities.
+
+Create an internal mapping table:
+
+| Processing purpose | Personal data involved | Proposed legal basis | Verification required |
+|---|---|---|---|
+| Account creation | Actual account data | To be assessed | Yes |
+| Platform delivery | Actual user/workspace data | To be assessed | Yes |
+| AI processing | Actual AI input data | To be assessed | Yes |
+| Security | Actual security information | To be assessed | Yes |
+| Marketing communications | Actual communication data | To be assessed | Yes |
+
+Do not publish an unverified legal basis as an established fact.
+
+The final policy must describe the legal basis that the controller has actually determined and documented.
+
+---
+
+### Section 6. AI Processing and Third-Party AI Services
+
+Suggested heading:
+
+**How RevOS Uses Artificial Intelligence**
+
+This is a key section and should receive particular attention.
+
+Explain in clear, accessible language that RevOS uses AI capabilities to support structured business analysis, assessment and recommendations.
+
+Where verified, describe:
+
+- The Gemini service or API used.
+- The types of information transmitted to the AI provider.
+- The purposes for which information is processed.
+- Whether AI inputs and outputs are retained by RevOS.
+- Whether the AI provider retains submitted information.
+- Whether information is used for model training or product improvement under the applicable service terms.
+- Relevant processing locations and international transfers.
+- Relevant contractual safeguards.
+
+Make the following distinctions clear:
+
+**AI processing by RevOS:** How RevOS uses submitted information to provide its own platform functionality.
+
+**Processing by the AI provider:** How the external AI service processes information transmitted through the API.
+
+**Storage by RevOS:** Whether prompts, supporting information, responses and assessments are stored in RevOS databases or other systems.
+
+Do not make unsupported statements such as:
+
+- "Your information is never shared with third parties."
+- "Gemini never stores submitted information."
+- "Your business information is never used for AI training."
+- "All AI processing takes place within the European Union."
+
+Every such statement must be supported by the actual provider agreement, technical configuration and data flow.
+
+#### User responsibility and sensitive business information
+
+Explain that users should only submit personal information that they are authorized to provide and should avoid submitting unnecessary sensitive personal data.
+
+Where RevOS customers enter information about their own customers, employees or prospects, explain that they remain responsible for ensuring they have an appropriate legal basis and authority to provide that information to RevOS.
+
+Do not imply that RevOS automatically verifies the accuracy or legal validity of all submitted information.
+
+---
+
+### Section 7. How We Share Personal Data
+
+Suggested heading:
+
+**Who May Receive Your Personal Data?**
+
+Identify actual recipients and service-provider categories.
+
+Potential categories include:
+
+- Cloud hosting and infrastructure providers.
+- Database and authentication providers.
+- AI service providers.
+- File-storage providers.
+- Payment providers.
+- Email-delivery providers.
+- Application monitoring and analytics providers.
+- Professional advisers.
+- Competent public authorities where legally required.
+
+For each actual provider, document:
+
+- Provider name.
+- Service supplied.
+- Data processed.
+- Purpose.
+- Relevant role, where established.
+- Relevant privacy documentation.
+
+Investigate Supabase and Google Gemini specifically.
+
+Do not list a provider simply because it is mentioned in this specification. It must be confirmed as actually used.
+
+Do not imply that every service provider has the same legal role.
+
+Where applicable, distinguish between:
+
+- Data processors acting on behalf of RevOS.
+- Independent controllers.
+- Other recipients.
+
+---
+
+### Section 8. International Data Transfers
+
+Suggested heading:
+
+**International Transfers of Personal Data**
+
+Explain whether personal data may be processed or accessed outside the European Economic Area.
+
+Investigate actual provider locations, processing arrangements and applicable contractual terms.
+
+Where international transfers occur, explain the actual applicable transfer mechanism, such as:
+
+- An applicable European Commission adequacy decision.
+- Standard Contractual Clauses.
+- Other valid GDPR transfer mechanisms, where applicable.
+
+Do not assume that a provider's headquarters determines where data is processed.
+
+Do not claim that Standard Contractual Clauses or other safeguards apply unless verified.
+
+If transfer arrangements cannot be established, flag this as an owner/provider verification item.
+
+---
+
+### Section 9. Data Retention
+
+Suggested heading:
+
+**How Long Do We Retain Your Personal Data?**
+
+Explain that personal data should be retained only for as long as necessary for the relevant purposes, subject to applicable legal obligations.
+
+Investigate the actual retention arrangements for:
+
+- Account information.
+- Authentication records.
+- Workspace information.
+- User-submitted business information.
+- AI prompts and responses.
+- Assessment results.
+- Uploaded documents.
+- Application logs.
+- Security records.
+- Support communications.
+- Billing and transaction records, if applicable.
+
+Where specific retention periods are known, disclose them accurately.
+
+Where retention is determined by criteria rather than a fixed period, explain those criteria.
+
+Investigate:
+
+- What happens when an account is deleted.
+- Whether associated business data is deleted or retained.
+- Whether backups persist after deletion.
+- Whether third-party providers retain relevant data independently.
+- Whether legal obligations require retention of particular records.
+
+Do not invent retention periods such as 30, 90 or 365 days.
+
+Do not promise immediate or permanent deletion unless the implementation and provider arrangements support that commitment.
+
+---
+
+### Section 10. Data Security
+
+Suggested heading:
+
+**How We Protect Your Personal Data**
+
+Describe only security measures that are actually implemented or verified.
+
+Investigate:
+
+- Authentication and authorization.
+- Supabase Row Level Security.
+- Database access restrictions.
+- Encryption in transit.
+- Encryption at rest, where verified.
+- Secrets and API-key management.
+- Backend authorization controls.
+- File-access restrictions.
+- Application logging.
+- Security monitoring.
+- Backup and recovery arrangements.
+
+Do not claim certifications such as ISO 27001 or SOC 2 unless independently verified and applicable.
+
+Do not use absolute statements such as "Your data is completely secure."
+
+Use measured language explaining that appropriate technical and organizational measures are used to protect personal data, while acknowledging that no internet-based system can guarantee absolute security.
+
+---
+
+### Section 11. Your Data Protection Rights
+
+Suggested heading:
+
+**Your Rights Under Data Protection Law**
+
+Where GDPR applies, explain the following rights in accessible language:
+
+1. Right to be informed.
+2. Right of access.
+3. Right to rectification.
+4. Right to erasure.
+5. Right to restriction of processing.
+6. Right to data portability, where applicable.
+7. Right to object, where applicable.
+8. Right to withdraw consent where processing is based on consent.
+9. Right to lodge a complaint with a competent supervisory authority.
+
+Explain that rights are subject to applicable legal conditions and exceptions.
+
+Provide a clear contact method for submitting privacy requests.
+
+Do not invent a privacy email address.
+
+Investigate whether RevOS currently provides self-service account deletion or data export. Do not promise functionality that is not available.
+
+Explain that users may need to provide sufficient information to verify their identity before a request can be processed.
+
+Where applicable, explain that individuals may also have rights under other privacy laws depending on their location.
+
+---
+
+### Section 12. Cookies and Similar Technologies
+
+Suggested heading:
+
+**Cookies and Similar Technologies**
+
+Keep this section concise.
+
+Explain that RevOS may use cookies and similar browser-storage technologies for purposes such as authentication, platform functionality, preferences, security and other verified purposes.
+
+Clearly distinguish cookies from browser storage mechanisms such as localStorage and sessionStorage where relevant.
+
+Link to the dedicated Cookie Policy page.
+
+Provide a functional link or control for opening the existing Cookie Settings preference center.
+
+Do not duplicate the full Cookie Policy.
+
+Do not claim that all browser storage is exempt from consent requirements.
+
+Do not assume that analytics or marketing technologies are installed.
+
+---
+
+### Section 13. Automated Decision-Making and AI-Assisted Recommendations
+
+Suggested heading:
+
+**AI-Assisted Analysis and Decision-Making**
+
+Explain how RevOS uses AI to support business analysis and decision-making.
+
+Where accurate, clarify that RevOS generates AI-assisted assessments, insights and recommendations intended to support human judgment.
+
+Distinguish between:
+
+- AI-generated recommendations.
+- Structured assessments and scoring.
+- Decisions made by users.
+- Decisions made solely through automated processing.
+
+Investigate whether any actual RevOS functionality makes decisions that produce legal effects or similarly significant effects concerning individuals.
+
+Do not automatically state that GDPR Article 22 applies or does not apply without examining the actual processing.
+
+If relevant automated decision-making exists, provide the required meaningful information about the logic involved, significance and envisaged consequences.
+
+Do not describe ordinary business opportunity scoring as necessarily equivalent to automated decisions about individuals.
+
+---
+
+### Section 14. Third-Party Services and External Links
+
+Suggested heading:
+
+**Third-Party Services and External Websites**
+
+Explain that RevOS may integrate with external service providers to deliver its functionality.
+
+Explain that external websites linked from RevOS may have their own privacy practices.
+
+Identify relevant services only where verified.
+
+Do not suggest that RevOS controls the privacy practices of independent third-party websites.
+
+---
+
+### Section 15. Changes to This Privacy Policy
+
+Suggested heading:
+
+**Updates to This Privacy Policy**
+
+Explain that the policy may be updated when:
+
+- RevOS functionality changes.
+- New services or providers are introduced.
+- Data-processing practices change.
+- Legal or regulatory requirements change.
+
+Include a Last Updated date.
+
+Explain how material changes will be communicated where appropriate.
+
+Do not promise email notifications unless that process exists.
+
+---
+
+### Section 16. Contact and Complaints
+
+Suggested heading:
+
+**Contact Us About Privacy**
+
+Provide the verified contact details of the data controller.
+
+Explain how users can submit questions or exercise their data protection rights.
+
+Where GDPR applies, explain the right to lodge a complaint with the competent supervisory authority.
+
+Do not invent the name, address or contact details of the supervisory authority. Determine the appropriate authority based on the actual controller's establishment and applicable circumstances.
+
+---
+
+## 5. Page Design and User Experience
+
+The Privacy Policy should follow the existing RevOS visual identity.
+
+It should feel like a professional SaaS platform's legal information page, not a generic Word document.
+
+### 5.1 Page layout
+
+Use the existing public website layout and shared navigation/footer components.
+
+Recommended layout:
+
+**A. Page Header**
+- Small eyebrow label: LEGAL & PRIVACY
+- H1: How RevOS Collects, Uses and Protects Your Personal Data
+- Short introductory paragraph.
+- Last Updated date.
+
+**B. Privacy Policy Content**
+- Clear numbered sections.
+- Readable section headings.
+- Short paragraphs.
+- Bullet lists where appropriate.
+- Tables for structured information when useful.
+- Links to Cookie Policy, Terms of Service and other relevant legal pages.
+
+**C. Privacy Navigation**
+Consider a compact sticky table of contents on desktop, if consistent with the existing design system.
+
+On mobile, use a compact expandable contents navigation rather than a large fixed sidebar.
+
+**D. Related Legal Pages**
+Provide links to:
+- Cookie Policy.
+- Terms of Service.
+- AI Disclaimer.
+- Cookie Settings.
+
+Use actual existing routes or routes established by the project.
+
+### 5.2 Visual requirements
+
+- Reuse the existing RevOS typography and color palette.
+- Maintain a restrained, professional visual appearance.
+- Use consistent spacing and section hierarchy.
+- Ensure long-form content is easy to read.
+- Use responsive layouts for desktop, tablet and mobile.
+- Avoid excessive decorative graphics.
+- Avoid unnecessary scrolling animations.
+- Ensure accessible color contrast.
+- Use semantic HTML elements.
+- Provide keyboard-accessible navigation.
+- Respect reduced-motion preferences.
+
+The page should be visually consistent with the existing RevOS legal pages and website footer.
+
+---
+
+## 6. Footer Integration and Routing
+
+Inspect the existing footer and routing implementation.
+
+Integrate the Privacy Policy link into the bottom legal and utility row.
+
+The intended footer links are:
+
+- Privacy Policy
+- Terms of Service
+- Cookie Policy
+- Cookie Settings
+- AI Disclaimer
+
+Use the existing route conventions.
+
+Suggested route, only if consistent with the current routing system:
+
+`/privacy-policy`
+
+Do not create duplicate footer components or duplicate routing structures.
+
+Ensure the Privacy Policy is publicly accessible without requiring authentication.
+
+If RevOS has separate public website and authenticated application layouts, determine the appropriate shared legal navigation approach without breaking either layout.
+
+The Cookie Settings link must open the existing Cookie Preference Center rather than navigate to the Cookie Policy page.
+
+---
+
+## 7. SEO and Technical Requirements
+
+Implement the following where supported by the existing framework:
+
+**SEO title:**
+Privacy Policy | RevOS
+
+**Meta description:**
+Learn how RevOS collects, uses, stores and protects personal information, including data processed through its AI-powered revenue intelligence platform.
+
+**Suggested canonical path:**
+`/privacy-policy`
+
+Requirements:
+
+- Exactly one primary H1.
+- Proper semantic heading hierarchy.
+- Descriptive internal links.
+- Appropriate page metadata.
+- Canonical URL consistent with the project's existing SEO configuration.
+- No accidental `noindex` setting if this is intended as a public legal page.
+- Ensure the page renders correctly for search engines and normal visitors.
+- Avoid adding unnecessary third-party scripts or dependencies.
+
+---
+
+## 8. Legal Accuracy and Publication Controls
+
+This is a critical requirement.
+
+Do not treat AI-generated legal wording as proof of compliance.
+
+The page must not contain fabricated or unverified claims.
+
+In particular, do not invent:
+
+- Controller identity or registered address.
+- Privacy contact email.
+- Data Protection Officer.
+- Data collection activities.
+- Legal bases.
+- Third-party providers.
+- Data-processing locations.
+- International-transfer mechanisms.
+- Data retention periods.
+- Security certifications.
+- Deletion guarantees.
+- AI model-training practices.
+- Analytics or marketing activities.
+- User rights functionality that does not exist.
+
+### 8.1 Unresolved information
+
+Create a separate document named:
+
+`RevOS_Privacy_Policy_Verification_Checklist.md`
+
+List all information requiring confirmation from the RevOS owner.
+
+For each item, include:
+
+- What needs to be confirmed.
+- Why it matters.
+- Whether it blocks publication.
+- What evidence or decision is required.
+
+Examples:
+
+1. Legal entity and controller address.
+2. Official privacy contact email.
+3. Supabase project region and applicable processing arrangements.
+4. Gemini API service and applicable data-processing terms.
+5. Whether Gemini inputs are retained or used for model training under the actual service terms.
+6. Hosting provider and data-processing location.
+7. Analytics and monitoring tools.
+8. Actual data retention and deletion behavior.
+9. International-transfer mechanisms.
+10. Actual controller/processor roles.
+11. Whether a DPO is required or appointed.
+12. Whether customer-facing privacy and data-processing agreements exist.
+
+### 8.2 Publication readiness
+
+If critical information is unavailable:
+
+- Do not silently fill it with assumptions.
+- Do not present invented legal information as fact.
+- Do not claim that the policy is GDPR-compliant or legally approved.
+- Keep unresolved items clearly documented.
+- Mark the policy as requiring legal/business owner review before publication.
+
+You may implement the page layout and verified content, but do not treat the page as ready for legal publication while critical controller information or processing disclosures remain unresolved.
+
+---
+
+## 9. Functional and Integration Testing
+
+After implementation, test the following.
+
+### Navigation
+- Privacy Policy footer link opens the correct page.
+- The page is accessible without authentication.
+- Direct URL access works.
+- Browser refresh works.
+- Navigation back to the main website works.
+- Links to other legal pages point to valid destinations.
+
+### Cookie Integration
+- Cookie Policy link opens the correct page.
+- Cookie Settings opens the existing preference center.
+- Existing consent preferences are preserved.
+- No duplicate cookie manager is introduced.
+
+### Authentication and Application
+- The new page does not interfere with Supabase Auth.
+- Existing authenticated sessions remain functional.
+- The implementation does not change login or logout behavior.
+- No existing application functionality is broken.
+
+### Responsive and Accessibility
+- Desktop layout works.
+- Tablet layout works.
+- Mobile layout works.
+- Keyboard navigation works.
+- Heading hierarchy is valid.
+- Links have meaningful labels.
+- Text remains readable at different viewport sizes.
+
+### SEO
+- Page title and metadata are correct.
+- Canonical configuration is correct.
+- The page is publicly accessible.
+- No duplicate H1 is present.
+
+---
+
+## 10. Implementation Workflow
+
+Follow this sequence.
+
+**Stage 1 — Inspect**
+
+Examine the existing repository, architecture, data flows, legal pages and design system.
+
+**Stage 2 — Audit**
+
+Create the internal privacy audit report and identify verified, unverified and owner-dependent information.
+
+**Stage 3 — Design**
+
+Develop the Privacy Policy page structure using the existing RevOS design system.
+
+**Stage 4 — Implement**
+
+Build the page, integrate the footer link, configure the route and connect the relevant legal-page links.
+
+**Stage 5 — Validate**
+
+Run the available build, lint, type-check and application tests. Test the page in desktop and mobile layouts.
+
+**Stage 6 — Report**
+
+Provide an implementation report.
+
+---
+
+## 11. Required Final Deliverables
+
+When finished, provide:
+
+1. **Privacy Policy Page**
+   - Fully implemented page.
+   - Responsive design.
+   - Correct routing.
+   - Footer integration.
+
+2. **Privacy Audit Report**
+   - Actual RevOS data collection and processing architecture.
+   - Supabase-related findings.
+   - Gemini AI data-flow findings.
+   - Hosting and third-party provider findings.
+   - Browser storage and analytics findings.
+
+3. **Privacy Policy Verification Checklist**
+   - All unresolved legal, business and technical questions.
+   - Clear publication blockers.
+
+4. **Implementation Summary**
+   - Files created.
+   - Files modified.
+   - Routes added or changed.
+   - Components reused.
+   - Tests executed.
+   - Test results.
+   - Any remaining issues.
+
+5. **Publication Readiness Assessment**
+   - Ready for legal review.
+   - Not ready for publication.
+   - Critical information still required.
+
+Do not claim legal compliance certification.
+
+The final objective is to create a trustworthy, professional Privacy Policy page that accurately represents how RevOS operates today and can be maintained as the platform evolves.
+
+**Important: Inspect first. Verify actual data practices. Implement second. Never sacrifice factual accuracy for the appearance of a complete legal policy.**

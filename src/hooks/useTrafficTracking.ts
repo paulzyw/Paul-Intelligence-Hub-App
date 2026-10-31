@@ -1,11 +1,19 @@
 import { useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
+import { cookieConsentService } from '../services/cookieConsentService';
+import { useCookieConsent } from '../context/CookieConsentContext';
 
 export function useTrafficTracking() {
   const location = useLocation();
+  const { hasConsent } = useCookieConsent();
 
   useEffect(() => {
+    // Enforcement: Only log traffic if visitor has affirmatively granted Analytics consent
+    if (!hasConsent('analytics')) {
+      return;
+    }
+
     const logTraffic = async () => {
       if (!isSupabaseConfigured) return;
       try {
@@ -25,23 +33,26 @@ export function useTrafficTracking() {
     };
 
     logTraffic();
-  }, [location.pathname]);
+  }, [location.pathname, hasConsent]);
 }
 
 /**
- * Helper to log manual unlock events
+ * Helper to log manual unlock events - enforces Analytics consent
  */
 export const logUnlockEvent = async (path: string) => {
-    if (!isSupabaseConfigured) return;
-    try {
-        await supabase.functions.invoke('log-traffic', {
-          body: {
-            page_path: path,
-            referrer_url: document.referrer,
-            is_unlock_event: true
-          },
-        }).catch(() => {});
-    } catch (err) {
-        // Silently ignore
-    }
+  if (!cookieConsentService.hasConsent('analytics')) {
+    return;
+  }
+  if (!isSupabaseConfigured) return;
+  try {
+    await supabase.functions.invoke('log-traffic', {
+      body: {
+        page_path: path,
+        referrer_url: document.referrer,
+        is_unlock_event: true
+      },
+    }).catch(() => {});
+  } catch (err) {
+    // Silently ignore
+  }
 };

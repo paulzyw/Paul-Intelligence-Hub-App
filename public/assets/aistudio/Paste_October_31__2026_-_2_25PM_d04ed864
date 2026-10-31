@@ -1,0 +1,787 @@
+# RevOS AI Disclaimer Page — Production Implementation Specification V1.0
+
+## 1. Project Objective
+
+I am developing RevOS, an AI-native Revenue Operating System designed to help business users improve go-to-market strategy, lead qualification, opportunity assessment, pipeline management, SWOT analysis and revenue decision-making.
+
+I want you to inspect the existing RevOS codebase and implement a professional, production-quality **AI Disclaimer page** accessible through the AI Disclaimer link in the website footer.
+
+The purpose of this page is to explain:
+
+- How AI is used within RevOS.
+- What types of AI-generated outputs users may receive.
+- The limitations of AI-generated analysis and recommendations.
+- Why evidence and context matter.
+- Why human judgment remains essential.
+- Why RevOS cannot guarantee particular business or commercial outcomes.
+- How users should responsibly interpret and use AI-generated outputs.
+
+This must be a RevOS-specific AI Disclaimer, not a generic AI disclaimer copied from another SaaS platform.
+
+The content should reflect the actual capabilities and AI workflows implemented in RevOS.
+
+**Critical principle: Be transparent about AI capabilities and limitations. Do not make unsupported claims about AI accuracy, independent evidence verification, data privacy, model training or guaranteed business outcomes.**
+
+Preserve the existing RevOS architecture, functionality, design system and application behavior.
+
+---
+
+## 2. Mandatory First Stage: Inspect the Existing Codebase
+
+Before writing the disclaimer or modifying code, inspect the existing project.
+
+Identify:
+
+- Frontend framework and application structure.
+- Routing configuration.
+- Website navigation and footer components.
+- Existing legal pages, including Terms of Service and Privacy Policy.
+- Existing design system, typography, colors, spacing and responsive behavior.
+- Gemini API integration.
+- Supabase Edge Functions, if implemented.
+- AI-related application workflows.
+- GTMOS implementation.
+- Lead Qualification implementation.
+- Pipeline Assessment implementation.
+- SWOT Engine implementation, if available.
+- AI prompts and reasoning instructions.
+- AI input and output data structures.
+- Assessment scoring and recommendation logic.
+- Whether users can review, edit, save or export AI-generated outputs.
+- Whether AI outputs can trigger automated actions.
+- Existing AI-related notices or disclaimers within the application.
+
+Do not assume that every engine or feature is fully implemented.
+
+Distinguish between:
+
+1. Features currently available.
+2. Features partially implemented.
+3. Features planned for future development.
+
+Only describe implemented capabilities as existing RevOS functionality.
+
+### 2.1 Inspect the AI reasoning architecture
+
+RevOS uses AI reasoning as a cross-cutting capability supporting different business engines.
+
+Investigate how AI reasoning is actually used.
+
+Determine:
+
+- Whether AI receives structured user inputs.
+- Whether AI receives supporting evidence or business context.
+- Whether AI applies predefined methodologies or evaluation frameworks.
+- Whether AI identifies gaps, risks and assumptions.
+- Whether AI generates strategic recommendations.
+- Whether AI produces scores, classifications or readiness assessments.
+- Whether the outputs are generated dynamically.
+- Whether human users can review and modify the outputs.
+- Whether any AI output triggers an automated action or decision.
+
+Do not assume all engines use an identical reasoning process.
+
+Do not describe an AI feature as independently verifying information unless there is a genuine verification mechanism.
+
+### 2.2 Inspect the actual AI provider
+
+Determine which AI services and models are used by the application.
+
+Verify:
+
+- Actual provider and API integration.
+- Where requests originate.
+- What information is sent to the AI provider.
+- Whether AI requests are processed through backend functions.
+- Whether inputs and outputs are stored.
+- Whether AI service configurations or model versions are specified.
+- Whether AI outputs are subject to additional validation.
+
+Do not invent provider names, model versions, training arrangements, retention periods or processing locations.
+
+Detailed personal-data processing practices should be documented in the Privacy Policy rather than duplicated in this AI Disclaimer.
+
+If relevant provider arrangements cannot be verified, flag them for owner confirmation.
+
+---
+
+## 3. AI Disclaimer Page Structure
+
+Create a dedicated page using the following 10-section structure.
+
+### Section 1. Introduction
+
+Suggested eyebrow:
+
+AI TRANSPARENCY
+
+Suggested H1:
+
+**Understanding AI in RevOS**
+
+Suggested introductory message:
+
+"RevOS uses artificial intelligence to support structured business analysis, revenue assessment and strategic decision-making. This page explains how AI contributes to RevOS, what its outputs can and cannot tell you, and why human judgment remains essential."
+
+Explain that this disclaimer applies to AI-generated content, analysis, assessments, insights and recommendations produced through RevOS.
+
+Include a Last Updated date.
+
+Do not make the introduction unnecessarily legalistic.
+
+### Section 2. How RevOS Uses AI
+
+Suggested heading:
+
+**The Role of AI in RevOS**
+
+Explain that AI supports the examination of business information through structured methodologies and relevant context.
+
+Where verified, describe the following engines.
+
+#### GTMOS — Go-to-Market Strategy and Intelligence
+
+Explain how AI may support:
+
+- Analysis of go-to-market strategy.
+- Examination of market focus and ideal customer profiles.
+- Assessment of value propositions and positioning.
+- Identification of strategic gaps.
+- Generation of strategic recommendations.
+
+#### Lead Qualification
+
+Explain how AI may support:
+
+- Examination of lead information.
+- Assessment of qualification dimensions.
+- Identification of missing evidence.
+- Evaluation of qualification readiness.
+- Identification of potential risks.
+- Recommended qualification actions.
+
+Only describe MQL, SQL and Opportunity Qualification capabilities that are actually implemented.
+
+#### Pipeline Assessment
+
+Explain how AI may support:
+
+- Opportunity assessment.
+- Identification of deal risks and gaps.
+- Analysis of stakeholders and buying processes.
+- Evaluation of competitive positioning.
+- Development of winning strategies.
+- Recommended actions to improve opportunity progression.
+
+#### SWOT Engine
+
+Where implemented, explain how AI may support:
+
+- Identification of strengths and weaknesses.
+- Examination of opportunities and threats.
+- Evidence-informed strategic analysis.
+- Development of strategic recommendations.
+
+Do not describe planned capabilities as current functionality.
+
+### Section 3. AI-Generated Outputs
+
+Suggested heading:
+
+**What AI Can Generate**
+
+Explain that AI-generated outputs may include:
+
+- Business analysis.
+- Assessment findings.
+- Qualification insights.
+- Risk identification.
+- Gap analysis.
+- Strategic recommendations.
+- Opportunity insights.
+- Suggested next actions.
+- Summaries and explanations.
+- Other outputs supported by actual RevOS functionality.
+
+Explain that AI outputs are generated based on the information, evidence, instructions and context available to the relevant AI workflow.
+
+Do not imply that every output is independently researched or externally verified.
+
+### Section 4. Accuracy and Reliability
+
+Suggested heading:
+
+**Understanding AI Limitations**
+
+Clearly explain that artificial intelligence has inherent limitations.
+
+AI-generated outputs may:
+
+- Contain factual errors.
+- Misinterpret user-provided information.
+- Produce incomplete or misleading analysis.
+- Overlook relevant business context.
+- Generate unsupported assumptions.
+- Reflect outdated or insufficient information.
+- Produce recommendations that are unsuitable for a particular situation.
+- Vary when inputs, instructions, context or underlying models change.
+
+Explain that AI outputs can appear confident even when the underlying information is incomplete or incorrect.
+
+Do not claim that RevOS eliminates AI errors.
+
+Do not claim that advanced reasoning models guarantee accurate results.
+
+### Section 5. Evidence and Context
+
+Suggested heading:
+
+**Why Evidence and Context Matter**
+
+This section is especially important to RevOS's positioning.
+
+Explain the relationship between AI reasoning and available evidence.
+
+RevOS uses structured methodologies and available business information to support more systematic assessments.
+
+However:
+
+- User-provided evidence is not automatically independently verified.
+- The accuracy of an assessment depends partly on the quality of the available information.
+- Missing evidence can limit the completeness of an assessment.
+- Incorrect or outdated information may affect the quality of the result.
+- AI may identify potential gaps and inconsistencies but cannot guarantee that every relevant issue has been identified.
+- AI-generated conclusions should be interpreted in light of their underlying evidence and assumptions.
+
+Where the application displays evidence, assumptions, reasoning or assessment explanations, explain that users should review those elements.
+
+Do not claim that the platform exposes transparent reasoning or supporting evidence in every engine unless verified.
+
+Use this core message:
+
+"RevOS helps users reason more systematically from available evidence. It does not guarantee that the evidence is complete, that every conclusion is correct, or that every recommendation will produce the intended result."
+
+### Section 6. Human Judgment and Responsibility
+
+Suggested heading:
+
+**AI Supports Decisions. People Remain Responsible.**
+
+Explain that AI-generated analysis and recommendations are intended to support human decision-making.
+
+Users should:
+
+1. Review AI-generated findings.
+2. Validate important facts.
+3. Examine relevant supporting evidence.
+4. Challenge assumptions.
+5. Consider business circumstances not included in the submitted information.
+6. Seek additional evidence where necessary.
+7. Apply appropriate professional judgment before taking action.
+
+Explain that users remain responsible for their commercial decisions and actions, subject to applicable law and the contractual obligations of RevOS.
+
+Do not imply that RevOS has no responsibility for its own services.
+
+### Section 7. Business and Commercial Outcomes
+
+Suggested heading:
+
+**No Guaranteed Business Results**
+
+Explain that RevOS is a business decision-support platform.
+
+AI-generated assessments and recommendations do not guarantee:
+
+- Higher sales win rates.
+- Lead conversion.
+- Successful lead qualification.
+- Opportunity progression.
+- Deal closure.
+- Shorter sales cycles.
+- Forecast accuracy.
+- Revenue growth.
+- Profitability.
+- Successful market entry.
+- Competitive advantage.
+- Successful execution of a GTM strategy.
+- Any specific financial or commercial outcome.
+
+Explain that business outcomes depend on many factors, including market conditions, customer behavior, execution quality, competitive circumstances, resources and information available.
+
+Do not present RevOS as a guarantee of commercial success.
+
+### Section 8. Data and Confidentiality Considerations
+
+Suggested heading:
+
+**Information You Submit to AI Features**
+
+Explain that users should only submit information they are authorized to provide.
+
+Users should:
+
+- Avoid unnecessary personal information.
+- Avoid submitting sensitive personal information unless there is a lawful and appropriate reason.
+- Respect confidentiality obligations.
+- Ensure they have the necessary authority to submit third-party information.
+- Consider their organization's information-security policies.
+
+Link to:
+
+- Privacy Policy.
+- Terms of Service.
+
+Do not make unsupported claims about:
+
+- Whether AI providers retain submitted data.
+- Whether submitted data is used for model training.
+- Data processing locations.
+- Data deletion guarantees.
+- Confidentiality guarantees.
+
+These matters must be described consistently with the actual provider terms, configuration, Privacy Policy and applicable contractual arrangements.
+
+### Section 9. Responsible Use of AI
+
+Suggested heading:
+
+**Using RevOS AI Responsibly**
+
+Provide practical guidance.
+
+Users should not:
+
+- Treat AI-generated information as automatically verified fact.
+- Rely on AI outputs without appropriate review.
+- Make material decisions solely on incomplete AI-generated assessments.
+- Misrepresent AI-generated recommendations as independently verified conclusions.
+- Submit information they are not authorized to disclose.
+- Use AI outputs in ways that violate applicable law or third-party rights.
+
+Where decisions may significantly affect individuals, users should consider applicable legal requirements and appropriate human oversight.
+
+Do not make unsupported statements about regulatory compliance.
+
+### Section 10. Changes and Related Policies
+
+Suggested heading:
+
+**Updates and Related Information**
+
+Explain that RevOS AI capabilities and underlying services may evolve.
+
+The disclaimer may be updated to reflect:
+
+- New AI capabilities.
+- Changes to AI providers or models.
+- Changes to the platform's AI workflows.
+- Changes to applicable legal or regulatory requirements.
+
+Provide links to:
+
+- Terms of Service.
+- Privacy Policy.
+- Cookie Policy.
+- Contact page, if available.
+
+Include a Last Updated date.
+
+Do not promise that users will receive email notifications unless such a process exists.
+
+---
+
+## 4. Recommended Core Messaging
+
+Use the following positioning principles consistently throughout the page.
+
+### Primary message
+
+**AI-Powered Analysis. Human-Led Decisions.**
+
+Supporting text:
+
+"RevOS combines structured revenue methodologies with AI-assisted reasoning to help users assess available business information, identify potential gaps and risks, and develop actionable recommendations. AI outputs support decision-making but do not replace human judgment."
+
+### Evidence principle
+
+"Evidence-informed does not mean independently verified."
+
+Explain that RevOS can reason from information provided to it, but cannot guarantee that the information is accurate, complete or current.
+
+### Decision principle
+
+"AI supports decisions. People remain accountable for the decisions they make."
+
+### Outcome principle
+
+"Better-informed decisions can support stronger business execution, but no AI-generated assessment or recommendation guarantees a particular commercial result."
+
+Do not repeat these statements mechanically in every section. Use them as the underlying editorial principles.
+
+---
+
+## 5. Contextual AI Notices Within RevOS
+
+In addition to the public AI Disclaimer page, inspect the existing application and determine whether short AI-related notices would improve user understanding.
+
+The goal is to make users aware of AI limitations at the point where they review generated results.
+
+Do not introduce intrusive pop-ups or repeated legal warnings.
+
+### 5.1 Recommended contextual notice
+
+Where appropriate, add a compact reusable notice near AI-generated assessment results.
+
+Suggested text:
+
+"AI-generated assessment based on the information provided. Review supporting evidence, validate important assumptions and use your professional judgment before making business decisions."
+
+### 5.2 Possible placement
+
+Inspect the actual UI and consider the following locations:
+
+- GTMOS strategic assessment results.
+- Lead Qualification assessment results.
+- Opportunity Qualification results.
+- Pipeline Assessment findings and recommendations.
+- SWOT analysis results.
+- AI-generated recommendations and action plans.
+
+Only add notices where AI-generated content is actually displayed.
+
+Do not add duplicate notices to every card, chart or individual field.
+
+### 5.3 Component requirements
+
+If appropriate, create a reusable component, for example:
+
+`AIOutputNotice`
+
+Requirements:
+
+- Compact and visually unobtrusive.
+- Consistent with the RevOS design system.
+- Responsive.
+- Accessible.
+- Clear without being alarmist.
+- Reusable across engines.
+- No unnecessary animation.
+- No repeated large disclaimer blocks.
+
+Where useful, provide a link to the full AI Disclaimer page.
+
+Do not modify the underlying AI reasoning or assessment logic simply to introduce a notice.
+
+---
+
+## 6. Page Design and User Experience
+
+The AI Disclaimer should follow the existing RevOS visual identity.
+
+It should look like a professional SaaS legal and transparency page rather than a generic legal document.
+
+### 6.1 Page layout
+
+**A. Page Header**
+
+- Eyebrow: AI TRANSPARENCY
+- H1: Understanding AI in RevOS
+- Short introductory paragraph.
+- Last Updated date.
+
+**B. Main Content**
+
+- Ten clearly numbered sections.
+- Clear section headings.
+- Short, readable paragraphs.
+- Bullet lists where useful.
+- Appropriate emphasis for important principles.
+- Links to related legal pages.
+
+**C. Key Principles Visual Section**
+
+Consider a compact visual element with three principles:
+
+1. Structured Methodologies.
+2. Evidence-Informed AI Reasoning.
+3. Human-Led Decisions.
+
+This should reinforce the RevOS positioning without suggesting that AI independently verifies all evidence.
+
+**D. Related Legal Pages**
+
+Provide links to:
+
+- Terms of Service.
+- Privacy Policy.
+- Cookie Policy.
+- Cookie Settings.
+
+Use actual existing routes or routes established by the project.
+
+### 6.2 Visual requirements
+
+- Reuse the existing RevOS typography and color palette.
+- Maintain a restrained, professional appearance.
+- Ensure consistent spacing and heading hierarchy.
+- Provide a comfortable reading width.
+- Ensure responsive desktop, tablet and mobile layouts.
+- Avoid excessive decorative graphics.
+- Avoid unnecessary scrolling animations.
+- Use semantic HTML.
+- Provide keyboard-accessible navigation.
+- Ensure accessible color contrast.
+- Respect reduced-motion preferences.
+
+Do not introduce a new design language for this page.
+
+---
+
+## 7. Footer Integration and Routing
+
+Inspect the existing footer and routing implementation.
+
+Integrate the AI Disclaimer link into the bottom legal and utility row.
+
+Intended footer links:
+
+- Privacy Policy.
+- Terms of Service.
+- Cookie Policy.
+- Cookie Settings.
+- AI Disclaimer.
+
+Suggested route, only if consistent with the existing routing system:
+
+`/ai-disclaimer`
+
+Requirements:
+
+- Use existing routing conventions.
+- Do not create duplicate footer components.
+- Ensure the page is publicly accessible without authentication.
+- Ensure direct URL access works.
+- Ensure browser refresh works.
+- Preserve existing navigation and application functionality.
+
+If RevOS has separate public website and authenticated application layouts, determine the appropriate shared legal navigation approach without breaking either layout.
+
+---
+
+## 8. SEO and Technical Requirements
+
+Implement the following where supported by the existing framework.
+
+**SEO title:**
+
+AI Disclaimer | RevOS
+
+**Meta description:**
+
+Understand how RevOS uses artificial intelligence for business analysis, revenue assessments and recommendations, including AI limitations and the importance of human judgment.
+
+**Suggested canonical path:**
+
+`/ai-disclaimer`
+
+Requirements:
+
+- Exactly one primary H1.
+- Proper semantic heading hierarchy.
+- Descriptive internal links.
+- Appropriate page metadata.
+- Canonical URL consistent with the project's existing SEO configuration.
+- No accidental `noindex` setting if this is intended as a public information page.
+- Correct rendering for search engines and normal visitors.
+- No unnecessary third-party scripts or dependencies.
+
+---
+
+## 9. Legal Accuracy and Publication Controls
+
+This page must be consistent with:
+
+- Actual RevOS AI functionality.
+- Terms of Service.
+- Privacy Policy.
+- Actual Gemini API integration.
+- Applicable provider terms.
+- Any relevant customer contractual arrangements.
+
+Do not invent:
+
+- AI model versions.
+- AI accuracy percentages.
+- Independent evidence-verification capabilities.
+- Guaranteed output quality.
+- AI training arrangements.
+- Data retention commitments.
+- Confidentiality guarantees.
+- Automated decision-making capabilities.
+- Regulatory compliance certifications.
+- Guaranteed commercial outcomes.
+
+Do not use broad statements that attempt to exclude all liability.
+
+The AI Disclaimer must not contradict the Terms of Service or applicable mandatory legal protections.
+
+If an important fact cannot be established, flag it for owner confirmation.
+
+Do not claim that the page guarantees compliance with the EU AI Act, GDPR or other legislation.
+
+---
+
+## 10. Functional and Integration Testing
+
+After implementation, test the following.
+
+### Navigation and Routing
+
+- Footer AI Disclaimer link opens the correct page.
+- Page is publicly accessible.
+- Direct URL access works.
+- Browser refresh works.
+- Navigation back to the main website works.
+- Links to other legal pages work.
+
+### Contextual AI Notices
+
+If implemented:
+
+- Notices appear only near relevant AI-generated outputs.
+- Notices do not appear in unrelated non-AI sections.
+- No duplicate notices are displayed unnecessarily.
+- Links open the correct AI Disclaimer page.
+- Notices do not interfere with assessment workflows.
+- Existing AI features continue working.
+
+### Responsive and Accessibility
+
+- Desktop layout works.
+- Tablet layout works.
+- Mobile layout works.
+- Keyboard navigation works.
+- Heading hierarchy is valid.
+- Links have meaningful labels.
+- Text remains readable.
+
+### SEO
+
+- Page title and metadata are correct.
+- Canonical configuration is correct.
+- Page is publicly accessible.
+- No duplicate H1 is present.
+
+### Regression Testing
+
+- Login works.
+- Registration works.
+- Existing user sessions remain functional.
+- GTMOS continues working.
+- Lead Qualification continues working.
+- Pipeline Assessment continues working.
+- SWOT Engine continues working, where implemented.
+- Existing AI functionality remains unchanged.
+
+---
+
+## 11. Implementation Workflow
+
+Follow this sequence.
+
+**Stage 1 — Inspect**
+
+Examine the repository, actual AI workflows, engine functionality, legal pages and design system.
+
+**Stage 2 — Audit**
+
+Produce an AI capability and limitation audit.
+
+Identify verified, unverified and owner-dependent information.
+
+**Stage 3 — Draft**
+
+Prepare the AI Disclaimer content using verified implementation facts.
+
+**Stage 4 — Design**
+
+Build the page using the existing RevOS design system.
+
+**Stage 5 — Integrate**
+
+Add the footer route and consider contextual AI notices where appropriate.
+
+**Stage 6 — Validate**
+
+Run the available build, lint, type-check and application tests.
+
+Test desktop and mobile layouts and confirm existing application functionality remains intact.
+
+**Stage 7 — Report**
+
+Provide an implementation report and publication readiness assessment.
+
+---
+
+## 12. Required Final Deliverables
+
+When finished, provide:
+
+### 1. AI Disclaimer Page
+
+- Fully implemented page.
+- Responsive design.
+- Correct routing.
+- Footer integration.
+- Related legal-page links.
+
+### 2. AI Capability Audit Report
+
+Document:
+
+- Actual AI providers.
+- Actual AI-powered engines.
+- AI input types.
+- AI output types.
+- Assessment and recommendation workflows.
+- Human review capabilities.
+- Automated actions, if any.
+- Known technical limitations.
+- Information requiring owner confirmation.
+
+### 3. Contextual AI Notice Report
+
+If implemented, document:
+
+- Component created or reused.
+- Locations where it appears.
+- Reuse across engines.
+- Accessibility and responsive behavior.
+- Tests performed.
+
+If contextual notices are not appropriate for the current UI, explain why.
+
+### 4. Implementation Summary
+
+- Files created.
+- Files modified.
+- Routes added or changed.
+- Components reused.
+- Tests executed.
+- Test results.
+- Remaining issues.
+
+### 5. Publication Readiness Assessment
+
+Choose one:
+
+- Ready for legal review.
+- Not ready for publication.
+- Critical information still required.
+
+Do not claim legal compliance certification or legal approval.
+
+The final objective is to create a clear, credible and maintainable AI transparency page that explains how RevOS uses AI, what its limitations are, and how users should interpret AI-generated business assessments and recommendations.
+
+**Important: Inspect actual AI functionality first. Explain capabilities accurately. Be transparent about limitations. Implement the page without modifying existing AI reasoning or business workflows.**

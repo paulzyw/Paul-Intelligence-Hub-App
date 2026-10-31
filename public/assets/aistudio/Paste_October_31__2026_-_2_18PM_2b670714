@@ -1,0 +1,1219 @@
+# RevOS Terms of Service — Production Implementation Specification V1.0
+
+## 1. Project Objective
+
+I am developing RevOS, an AI-native Revenue Operating System designed to help business users improve go-to-market strategy, lead qualification, opportunity assessment, pipeline management, SWOT analysis and revenue decision-making.
+
+I want you to inspect the existing RevOS codebase and implement a professional, production-quality **Terms of Service page** accessible through the Terms of Service link in the website footer.
+
+The Terms of Service must establish the contractual framework governing access to and use of the RevOS platform.
+
+This is not a request to create a generic SaaS Terms of Service template.
+
+You must first understand the actual RevOS application, product functionality, user registration process, subscription model, AI integrations, customer data handling, platform architecture and commercial arrangements.
+
+The Terms must accurately reflect how RevOS operates.
+
+**Critical principle: Never invent legal entities, commercial terms, subscription arrangements, refund policies, service guarantees, intellectual property rights, liability commitments or contractual obligations that cannot be verified.**
+
+The implementation must preserve the existing RevOS architecture, functionality, design system and application behavior.
+
+---
+
+## 2. Mandatory First Stage: Inspect the Existing Codebase
+
+Before drafting the Terms or modifying code, inspect the existing project.
+
+Identify:
+
+- Frontend framework and application structure.
+- Existing routing configuration.
+- Website navigation and footer components.
+- Existing legal pages, including Privacy Policy and Cookie Policy.
+- Existing design system, typography, colors, spacing and responsive behavior.
+- Supabase Auth registration and login implementation.
+- Account creation and user onboarding flows.
+- Supabase database tables and relevant RLS policies.
+- Supabase Edge Functions, if implemented.
+- Gemini API integration and AI-related workflows.
+- GTMOS functionality.
+- Lead Qualification functionality, including MQL, SQL and Opportunity Qualification, where implemented.
+- Pipeline Assessment functionality.
+- SWOT Engine functionality, if implemented.
+- User workspaces and data ownership arrangements.
+- Subscription, pricing, payment and billing functionality, if implemented.
+- Usage limits, credits, quotas and plan restrictions, if implemented.
+- Account suspension and deletion mechanisms.
+- Customer support and contact mechanisms.
+- Hosting and deployment arrangements.
+
+Do not assume that a feature is implemented simply because it appears in product descriptions or future plans.
+
+Distinguish existing functionality from planned functionality.
+
+### 2.1 Product and service scope
+
+Investigate which RevOS capabilities are currently available.
+
+The Terms may refer to:
+
+- RevOS platform access.
+- GTMOS.
+- Lead Qualification.
+- Pipeline Assessment.
+- SWOT Engine.
+- AI-assisted business analysis.
+- Assessment results and recommendations.
+- Supporting visualizations and reports.
+- User workspaces and saved information.
+
+Include only the modules and capabilities that are actually available or clearly identified as part of the service.
+
+If the product is still evolving, draft the service description to allow reasonable future updates without promising features that do not exist.
+
+### 2.2 Account and authentication arrangements
+
+RevOS currently uses Supabase Auth directly from the frontend.
+
+Inspect:
+
+- Registration requirements.
+- Login and logout processes.
+- Account creation.
+- Email verification, if enabled.
+- Password reset.
+- Session handling.
+- User identity and account permissions.
+- Account deletion, if supported.
+- Whether users can create or join organizations and workspaces.
+
+Do not modify the existing authentication architecture simply to implement Terms acceptance.
+
+### 2.3 Subscription and payment arrangements
+
+Determine whether RevOS currently has:
+
+- Free plans.
+- Paid plans.
+- Trial subscriptions.
+- Monthly or annual billing.
+- Usage-based pricing.
+- AI credits.
+- Payment processing.
+- Automatic renewals.
+- Refund arrangements.
+- Cancellation workflows.
+- Plan upgrades or downgrades.
+
+If these features exist, document their actual operation.
+
+If they do not exist, do not invent prices, payment terms, renewal conditions, cancellation policies or refund commitments.
+
+Where future commercial functionality is anticipated, identify the relevant Terms provisions as requiring completion before that functionality launches.
+
+### 2.4 AI functionality
+
+Inspect the actual Gemini integration and determine:
+
+- Which AI services are used.
+- What types of user information are transmitted.
+- Which RevOS functions use AI.
+- Whether AI outputs are saved.
+- Whether outputs can be edited or exported.
+- Whether users can review and modify recommendations.
+- Whether any AI output triggers automated actions.
+- Whether the application makes decisions without human review.
+
+The Terms must describe AI capabilities accurately.
+
+Do not claim that RevOS uses AI exclusively as decision support if the actual implementation includes automated actions or decisions.
+
+---
+
+## 3. Produce a Commercial and Contractual Audit
+
+Before writing the final Terms, prepare an internal audit report.
+
+Classify findings into three categories.
+
+**A. Verified implementation facts**
+
+Information directly confirmed by the codebase or configuration.
+
+**B. Commercial and contractual facts requiring owner confirmation**
+
+Examples:
+
+- Legal entity name.
+- Registered business address.
+- Contracting entity.
+- Official contact email.
+- Intended customer segment.
+- Whether RevOS is B2B-only or also available to consumers.
+- Subscription and pricing arrangements.
+- Refund policy.
+- Support commitments.
+- Service availability commitments.
+- Contract duration.
+- Governing law.
+- Jurisdiction.
+- Liability limitations.
+- Intellectual property arrangements.
+
+**C. Future product or business decisions**
+
+Examples:
+
+- Planned subscription tiers.
+- Future AI credit arrangements.
+- Enterprise plans.
+- Service-level agreements.
+- Additional integrations.
+- Future account or workspace administration features.
+
+Create a structured audit table:
+
+| Area | Finding | Evidence | Status | Required action |
+|---|---|---|---|---|
+| Contracting entity | Actual legal entity | Business information | Verified / Unverified | Confirm |
+| Customer type | B2B, consumer or mixed | Registration and sales model | Verified / Unverified | Confirm |
+| Product scope | Actual modules | Application functionality | Verified / Unverified | Confirm |
+| Subscription | Actual payment model | Billing implementation | Verified / Unverified | Confirm |
+| AI processing | Actual AI workflows | API integration | Verified / Unverified | Confirm |
+| Customer content | Actual data handling | Database and application | Verified / Unverified | Confirm |
+| Governing law | Contractual decision | Owner/legal review | Unverified | Confirm |
+
+Do not treat an absence of information in the codebase as confirmation that a contractual obligation does not exist.
+
+---
+
+## 4. Terms of Service Content and Structure
+
+Create the Terms of Service using the following 18-section structure.
+
+### Section 1. Introduction and Acceptance
+
+Suggested heading:
+
+**Terms of Service**
+
+Suggested H1:
+
+**Terms Governing Your Use of RevOS**
+
+Explain:
+
+- These Terms govern access to and use of RevOS.
+- They apply to the website, application and services identified in the Terms.
+- Users should read the Terms before accessing the platform.
+- By accepting the Terms through an applicable acceptance mechanism, users agree to be bound by them.
+- If a user does not agree, they should not use the services.
+
+Clearly identify the contracting entity.
+
+Do not invent the legal entity's name or address.
+
+Determine whether acceptance occurs through:
+
+- Registration.
+- A checkbox during account creation.
+- An order or subscription process.
+- Another explicit acceptance mechanism.
+
+Do not claim that simply browsing a public website automatically creates a binding agreement unless that arrangement has been legally assessed.
+
+Include:
+
+- Effective Date.
+- Last Updated Date.
+- Version identifier.
+
+### Section 2. Definitions
+
+Suggested heading:
+
+**Definitions**
+
+Define important terms consistently.
+
+Potential definitions:
+
+- RevOS.
+- Platform.
+- Services.
+- Customer.
+- User.
+- Account.
+- Workspace.
+- Customer Content.
+- AI Inputs.
+- AI Outputs.
+- Subscription.
+- Authorized User.
+- Third-Party Services.
+
+Ensure definitions reflect actual product and commercial arrangements.
+
+Do not introduce terms that are not used elsewhere in the Terms.
+
+### Section 3. Eligibility and Authority
+
+Suggested heading:
+
+**Eligibility and Authority to Use RevOS**
+
+Explain:
+
+- Who may register for RevOS.
+- Any applicable minimum age requirement.
+- Whether users must have authority to represent an organization.
+- Whether users may register as individuals.
+- Whether users may use the platform on behalf of an employer or customer.
+- Their responsibility for complying with applicable laws.
+
+If RevOS is intended for business use, explain that clearly.
+
+However, do not automatically classify all users as business customers if the actual registration model allows consumers to subscribe.
+
+If consumer access is possible, ensure consumer rights are addressed separately and cannot be excluded through inappropriate contractual wording.
+
+### Section 4. Account Registration and Security
+
+Suggested heading:
+
+**Your Account and Account Security**
+
+Explain:
+
+- Registration requirements.
+- Accuracy of account information.
+- Responsibility for account credentials.
+- Responsibility for activity conducted through the account, subject to applicable law.
+- Appropriate account security practices.
+- Reporting suspected unauthorized access.
+- Account sharing restrictions, if applicable.
+- Account administration and user permissions, if implemented.
+
+Explain that RevOS may take reasonable security measures to protect user accounts.
+
+Do not claim that RevOS guarantees protection against all unauthorized access.
+
+### Section 5. RevOS Services and Platform Features
+
+Suggested heading:
+
+**Our Services**
+
+Describe the actual RevOS platform.
+
+Potential product capabilities include:
+
+**GTMOS — Go-to-Market Strategy and Intelligence**
+
+Supports structured examination of go-to-market strategy, market focus, ideal customer profiles, value propositions, competitive positioning and related strategic dimensions.
+
+**Lead Qualification**
+
+Supports structured evaluation of marketing-qualified leads, sales-qualified leads and opportunities, where these capabilities are implemented.
+
+**Pipeline Assessment**
+
+Supports structured opportunity assessment, identification of deal risks and gaps, and development of winning strategies and recommended actions.
+
+**SWOT Engine**
+
+Supports evidence-informed SWOT analysis and related strategic recommendations, where implemented.
+
+**AI-Assisted Analysis**
+
+Supports the examination of user-provided information and generation of relevant assessments, insights and recommendations.
+
+Explain that:
+
+- The exact features available may depend on the applicable subscription or access level.
+- Features may evolve over time.
+- Some functionality may be subject to usage limits.
+- RevOS may introduce improvements or modify features in accordance with applicable contractual and legal requirements.
+
+Do not promise specific functionality, performance or outcomes that cannot be verified.
+
+### Section 6. Subscription Plans, Fees and Payments
+
+Suggested heading:
+
+**Subscriptions, Fees and Payments**
+
+This section must reflect the actual RevOS commercial model.
+
+If paid subscriptions are implemented, explain:
+
+- Available plans.
+- Applicable fees.
+- Billing frequency.
+- Payment methods.
+- Applicable taxes.
+- Subscription commencement.
+- Automatic renewal, if applicable.
+- Upgrades and downgrades.
+- Usage limits.
+- AI credits or consumption limits, if applicable.
+- Failed payments.
+- Cancellation procedures.
+- Refund arrangements.
+
+Do not invent payment terms or prices.
+
+If no paid subscription functionality currently exists, do not create fictional payment obligations.
+
+Instead:
+
+- Include only the provisions appropriate to the current service.
+- Identify subscription provisions that require completion before commercial subscriptions launch.
+- Avoid presenting future commercial terms as current commitments.
+
+Where consumers may subscribe, ensure applicable mandatory consumer rights are preserved.
+
+### Section 7. Acceptable Use and Prohibited Activities
+
+Suggested heading:
+
+**Acceptable Use of RevOS**
+
+Explain that users must use RevOS lawfully and responsibly.
+
+Prohibited activities should include, where appropriate:
+
+- Illegal activities.
+- Unauthorized access to systems or accounts.
+- Attempting to bypass security or access controls.
+- Interfering with platform operation.
+- Uploading malicious code.
+- Reverse engineering or attempting to extract source code, except where applicable law permits.
+- Unauthorized copying, resale or redistribution of the platform.
+- Abusing API access or usage limits.
+- Circumventing subscription or usage restrictions.
+- Using the platform to infringe third-party rights.
+- Uploading information without appropriate authorization.
+- Using RevOS to generate unlawful, deceptive or harmful material.
+- Attempting to compromise other users' data or workspaces.
+
+Address automated scraping, bulk extraction or similar activities where relevant.
+
+Ensure the restrictions do not improperly prohibit lawful activities or mandatory rights under applicable law.
+
+### Section 8. Customer Content and User Responsibilities
+
+Suggested heading:
+
+**Your Content and Responsibilities**
+
+This is particularly important for RevOS.
+
+Users may submit:
+
+- Company information.
+- Customer and prospect information.
+- Lead records.
+- Opportunity details.
+- Sales pipeline information.
+- Customer requirements.
+- Stakeholder information.
+- Competitive intelligence.
+- Business strategies.
+- SWOT assessments.
+- Documents and supporting evidence.
+- Other commercial information.
+
+Explain the following principles:
+
+**Ownership**
+
+Customers retain ownership of the content and materials they submit, subject to third-party rights.
+
+**User authorization**
+
+Users must have the necessary rights, permissions and legal basis to submit the information.
+
+**Accuracy**
+
+Users are responsible for the information they provide and should correct inaccurate or outdated information.
+
+**Confidentiality**
+
+Users should only submit information they are authorized to share with the platform and relevant service providers.
+
+**Platform permissions**
+
+Users grant RevOS only the limited rights necessary to host, store, process, display, transmit and otherwise use submitted content to provide, secure and maintain the services, as applicable.
+
+The scope of these permissions must be consistent with the Privacy Policy and any applicable Data Processing Agreement.
+
+Do not introduce broad rights allowing RevOS to sell, publish or commercially exploit customer content without explicit and legally reviewed justification.
+
+### Section 9. Intellectual Property Rights
+
+Suggested heading:
+
+**Intellectual Property and Ownership**
+
+Clearly distinguish three categories.
+
+#### 9.1 RevOS Platform
+
+Explain that RevOS and its applicable licensors retain rights in the platform, including:
+
+- Software.
+- Source code.
+- Interface design.
+- Branding.
+- Logos.
+- Documentation.
+- Proprietary methodologies.
+- Frameworks.
+- Platform architecture.
+- Original content.
+- Other protected materials.
+
+Subject to applicable law and third-party rights.
+
+#### 9.2 Customer Content
+
+Explain that customers retain their rights in their submitted content.
+
+RevOS receives only the limited permissions necessary to operate and provide the services under the agreement.
+
+#### 9.3 AI Outputs
+
+Explain that users may access and use outputs generated through RevOS subject to:
+
+- Applicable law.
+- Third-party intellectual property rights.
+- Provider terms.
+- The nature of the AI-generated material.
+- Any applicable subscription or service restrictions.
+
+Do not guarantee that every AI-generated output is copyrightable, exclusive or free from third-party rights.
+
+Do not claim ownership of customer information merely because it is processed by RevOS.
+
+### Section 10. AI Features, Outputs and Limitations
+
+Suggested heading:
+
+**AI-Generated Analysis and Recommendations**
+
+This is a core contractual section for RevOS.
+
+Explain that the platform may use AI to support:
+
+- GTM strategy analysis.
+- Lead qualification.
+- Opportunity assessment.
+- Pipeline risk identification.
+- SWOT analysis.
+- Strategic recommendations.
+- Business insights.
+- Other AI-assisted functionality.
+
+The Terms should establish the following principles.
+
+**A. AI outputs are not guaranteed to be accurate**
+
+AI-generated results may contain:
+
+- Errors.
+- Incomplete analysis.
+- Outdated information.
+- Unsupported conclusions.
+- Inaccurate assumptions.
+- Recommendations that do not fit a specific business situation.
+
+**B. Outputs depend on available information**
+
+The quality and relevance of results depend partly on:
+
+- Information provided by users.
+- Completeness of evidence.
+- Accuracy of inputs.
+- Context available to the AI system.
+- The underlying AI service.
+
+**C. Human review remains important**
+
+Users should review and validate AI-generated outputs before relying on them.
+
+**D. No guaranteed commercial outcomes**
+
+RevOS does not guarantee:
+
+- Lead conversion.
+- Opportunity qualification success.
+- Deal closure.
+- Sales win rates.
+- Revenue growth.
+- Forecast accuracy.
+- Profitability.
+- Business performance.
+- The success of strategic recommendations.
+
+**E. No substitute for professional judgment**
+
+RevOS is a business decision-support platform.
+
+Its outputs should not automatically replace professional, legal, financial, regulatory, technical or other expert judgment.
+
+**F. No automatic reliance**
+
+Users remain responsible for their business decisions and actions based on RevOS outputs, subject to the responsibilities that cannot legally be excluded or limited.
+
+Do not overstate the disclaimer.
+
+It must not imply that RevOS has no responsibility for providing its contracted services or complying with applicable law.
+
+### Section 11. Confidentiality
+
+Suggested heading:
+
+**Confidential Information**
+
+Explain the responsibilities of both parties regarding confidential information.
+
+Potential principles:
+
+- Each party should protect confidential information received from the other.
+- Confidential information should be used only for appropriate purposes under the agreement.
+- Access should be limited to authorized personnel or service providers where necessary.
+- Appropriate safeguards should be applied.
+- Exceptions may apply to information already public, independently developed or lawfully obtained from another source.
+- Disclosure may be required by law or competent authorities.
+
+Define confidentiality in a way that appropriately covers customer business information, commercial strategies and other non-public information.
+
+Ensure the confidentiality provisions are consistent with the Privacy Policy and any separate DPA.
+
+### Section 12. Privacy and Data Protection
+
+Suggested heading:
+
+**Privacy and Data Protection**
+
+Explain that personal data is processed in accordance with the RevOS Privacy Policy and applicable data protection law.
+
+Link to:
+
+- Privacy Policy.
+- Cookie Policy.
+- Cookie Settings.
+
+Explain that:
+
+- Users should only provide personal information they are authorized to submit.
+- Customers are responsible for their own compliance obligations where they determine the purposes and means of processing.
+- The parties' roles depend on the actual processing relationship.
+- A separate Data Processing Agreement may apply where RevOS processes personal data on behalf of a customer.
+
+Do not automatically classify RevOS as a processor for all processing activities.
+
+Do not use the Terms of Service as a substitute for a DPA.
+
+### Section 13. Platform Availability, Maintenance and Changes
+
+Suggested heading:
+
+**Service Availability and Changes**
+
+Explain:
+
+- RevOS is provided through an online platform.
+- Maintenance or technical issues may occasionally affect availability.
+- Features may be improved, updated or modified.
+- Temporary interruptions may occur.
+- The platform depends on external infrastructure and third-party services.
+- Users should maintain appropriate copies of important business information where applicable.
+
+If an SLA exists, refer to it.
+
+If no SLA exists, do not promise a particular uptime percentage, support response time or recovery time.
+
+Any material service changes should be handled consistently with applicable contractual and legal obligations.
+
+### Section 14. Third-Party Services
+
+Suggested heading:
+
+**Third-Party Services and Integrations**
+
+Explain that RevOS may depend on or integrate with external service providers.
+
+Potential categories include:
+
+- Cloud infrastructure.
+- Authentication.
+- Database services.
+- AI processing.
+- File storage.
+- Payment services.
+- Email delivery.
+- Analytics and monitoring.
+
+Only describe providers and integrations that are actually used.
+
+Explain that third-party services may have their own terms and privacy policies.
+
+Where a third-party service is essential to RevOS functionality, explain the relationship accurately.
+
+Do not attempt to disclaim responsibility for every third-party issue regardless of RevOS's own contractual obligations.
+
+### Section 15. Suspension and Termination
+
+Suggested heading:
+
+**Suspension and Termination**
+
+Explain:
+
+- How users may stop using RevOS.
+- How users may close their accounts.
+- Whether subscription cancellation is handled separately.
+- Circumstances under which RevOS may suspend access.
+- Circumstances under which RevOS may terminate an agreement.
+- How serious misuse or security threats are handled.
+- Whether users are notified where appropriate.
+- What happens to access after termination.
+- How customer content is handled after account closure.
+
+Potential suspension reasons include:
+
+- Serious breach of the Terms.
+- Illegal activity.
+- Security threats.
+- Unauthorized access.
+- Fraudulent activity.
+- Non-payment, where applicable.
+- Material risk to the platform or other users.
+
+Suspension and termination rights must be proportionate and consistent with applicable law and contractual obligations.
+
+Do not promise immediate deletion of all data upon account termination unless the actual data lifecycle supports that commitment.
+
+Explain any applicable retention and deletion arrangements by reference to the Privacy Policy and DPA.
+
+### Section 16. Disclaimers and Limitation of Liability
+
+Suggested heading:
+
+**Disclaimers and Limitation of Liability**
+
+Draft this section carefully.
+
+Potential provisions include:
+
+- No guarantee of uninterrupted service.
+- No guarantee that AI outputs will be accurate or suitable for every purpose.
+- No guarantee of particular commercial outcomes.
+- Users remain responsible for reviewing business information and recommendations.
+- Appropriate limitations of liability, subject to applicable law.
+
+Do not use a blanket disclaimer that attempts to exclude every possible liability.
+
+If German or EU law applies, the Terms must preserve mandatory legal protections.
+
+In particular, do not attempt to exclude or improperly limit liability where applicable law prohibits it, including relevant mandatory rules concerning:
+
+- Intentional misconduct.
+- Gross negligence.
+- Injury to life, body or health.
+- Mandatory statutory liability.
+- Other non-excludable legal obligations.
+
+Any limitation of liability should be drafted and reviewed in light of the actual contracting model and applicable law.
+
+Do not invent a liability cap or fixed financial amount.
+
+### Section 17. Governing Law and Dispute Resolution
+
+Suggested heading:
+
+**Governing Law and Dispute Resolution**
+
+Include:
+
+- Governing law.
+- Competent courts or dispute-resolution arrangements.
+- Any applicable mandatory consumer protections.
+- Appropriate procedures for addressing disputes.
+
+Do not assume German law applies merely because the developer or platform operator may be located in Germany.
+
+Determine the actual contracting entity and intended customer jurisdictions.
+
+Do not invent a court, jurisdiction or arbitration arrangement.
+
+Flag the governing law and jurisdiction as owner/legal-review items if they cannot be established.
+
+### Section 18. General Provisions
+
+Suggested heading:
+
+**General Terms**
+
+Include appropriate provisions covering:
+
+- Changes to the Terms.
+- Effective dates of updated versions.
+- Severability.
+- Waiver.
+- Assignment.
+- Entire agreement.
+- Force majeure, where appropriate.
+- Relationship between the Terms, Privacy Policy and DPA.
+- Language and interpretation.
+- Contact information.
+
+Ensure that material changes to the Terms are communicated and accepted where legally required.
+
+Do not assume that simply posting updated Terms automatically makes all changes binding.
+
+---
+
+## 5. Commercial Model and Customer-Type Requirements
+
+The Terms must distinguish between the actual RevOS customer models.
+
+Investigate whether RevOS supports:
+
+1. Business customers.
+2. Individual professional users.
+3. Consumers.
+4. Enterprise customers.
+5. Trial users.
+6. Free users.
+7. Paid subscribers.
+
+Do not assume that one contractual model applies to every user.
+
+If RevOS is exclusively intended for B2B use, ensure that the actual registration, sales and contracting process supports that position.
+
+If consumers can access paid services, identify the consumer-law implications and ensure mandatory rights are preserved.
+
+Do not include consumer-specific clauses as a substitute for correctly defining the actual customer model.
+
+---
+
+## 6. Terms Acceptance and Version Management
+
+This is an important technical and contractual requirement.
+
+Inspect the existing registration and onboarding process.
+
+Determine whether users explicitly accept the Terms before creating or using an account.
+
+If a suitable acceptance mechanism already exists, reuse it.
+
+If no acceptance mechanism exists, report this gap and propose an implementation.
+
+Do not modify the authentication architecture unnecessarily.
+
+### 6.1 Recommended acceptance experience
+
+Where appropriate, implement a clear acceptance control during registration.
+
+Example wording:
+
+"I have read and agree to the Terms of Service and acknowledge the Privacy Policy."
+
+Use separate links to:
+
+- Terms of Service.
+- Privacy Policy.
+
+Do not preselect the acceptance checkbox.
+
+Do not treat acceptance of the Terms as consent to optional marketing or analytics processing.
+
+Privacy consent must remain separate from contractual acceptance.
+
+### 6.2 Acceptance records
+
+Investigate whether the system records:
+
+- User identifier.
+- Terms version.
+- Acceptance timestamp.
+- Relevant acceptance status.
+
+If an acceptance record is needed, design a secure and minimal implementation.
+
+Potential record fields:
+
+- user_id
+- terms_version
+- accepted_at
+
+Additional fields should be included only when justified.
+
+Do not collect unnecessary device fingerprints or personal information.
+
+If acceptance records are stored in Supabase:
+
+- Apply appropriate Row Level Security.
+- Prevent users from modifying their own historical acceptance records.
+- Use an appropriately authorized backend process where required.
+- Never expose the Supabase service-role key in frontend code.
+- Ensure the record can be associated with the correct version of the Terms.
+
+Do not silently change the registration flow without explaining the changes.
+
+---
+
+## 7. Page Design and User Experience
+
+The Terms of Service page must follow the existing RevOS visual identity.
+
+It should look like a professional SaaS platform's legal information page.
+
+### 7.1 Page layout
+
+**A. Page Header**
+
+- Eyebrow: LEGAL & AGREEMENTS
+- H1: Terms of Service
+- Short introductory paragraph.
+- Effective Date.
+- Last Updated Date.
+- Version number.
+
+**B. Terms Content**
+
+- Clearly numbered sections.
+- Readable section headings.
+- Short paragraphs.
+- Bullet lists where appropriate.
+- Tables only where they materially improve readability.
+- Links to relevant legal pages.
+
+**C. Table of Contents**
+
+Consider a compact sticky table of contents on desktop.
+
+For mobile, use a compact expandable contents navigation.
+
+Ensure the contents navigation links to the correct sections.
+
+**D. Related Legal Pages**
+
+Provide links to:
+
+- Privacy Policy.
+- Cookie Policy.
+- AI Disclaimer.
+- Cookie Settings.
+
+Use actual existing routes or routes established by the project.
+
+### 7.2 Visual requirements
+
+- Reuse existing RevOS typography and color palette.
+- Maintain a professional, restrained appearance.
+- Ensure consistent spacing and heading hierarchy.
+- Provide comfortable reading width.
+- Ensure responsive desktop, tablet and mobile layouts.
+- Avoid unnecessary graphics and animations.
+- Use semantic HTML.
+- Provide keyboard-accessible navigation.
+- Ensure accessible color contrast.
+- Respect reduced-motion preferences.
+
+The page should be consistent with the Privacy Policy and Cookie Policy pages.
+
+---
+
+## 8. Footer Integration and Routing
+
+Inspect the existing footer and routing implementation.
+
+Integrate the Terms of Service link into the bottom legal and utility row.
+
+Intended footer links:
+
+- Privacy Policy.
+- Terms of Service.
+- Cookie Policy.
+- Cookie Settings.
+- AI Disclaimer.
+
+Suggested route, only if consistent with the existing routing system:
+
+`/terms-of-service`
+
+Requirements:
+
+- Use existing routing conventions.
+- Do not create duplicate footer components.
+- Ensure the page is publicly accessible without authentication.
+- Ensure direct URL access works.
+- Ensure browser refresh works.
+- Preserve existing navigation and application functionality.
+
+If RevOS has separate public website and authenticated application layouts, determine the appropriate shared legal navigation approach without breaking either layout.
+
+---
+
+## 9. SEO and Technical Requirements
+
+Implement the following where supported by the existing framework.
+
+**SEO title:**
+
+Terms of Service | RevOS
+
+**Meta description:**
+
+Read the RevOS Terms of Service to understand the conditions governing platform access, user responsibilities, subscriptions, intellectual property, AI-assisted services and contractual obligations.
+
+**Suggested canonical path:**
+
+`/terms-of-service`
+
+Requirements:
+
+- Exactly one primary H1.
+- Proper semantic heading hierarchy.
+- Descriptive internal links.
+- Appropriate page metadata.
+- Canonical URL consistent with the project's existing SEO configuration.
+- No accidental `noindex` setting if this is intended as a public legal page.
+- Correct rendering for search engines and normal visitors.
+- No unnecessary third-party scripts or dependencies.
+
+---
+
+## 10. Legal Accuracy and Publication Controls
+
+This is a critical requirement.
+
+Do not treat AI-generated legal wording as proof of legal compliance.
+
+Do not invent:
+
+- Legal entity names.
+- Registered business addresses.
+- Contracting parties.
+- Subscription fees.
+- Billing cycles.
+- Refund periods.
+- Cancellation conditions.
+- Service-level commitments.
+- Uptime guarantees.
+- Support response times.
+- Intellectual property ownership arrangements.
+- AI training commitments.
+- Data deletion guarantees.
+- Liability caps.
+- Governing law.
+- Jurisdiction.
+- Arbitration arrangements.
+- Consumer-rights waivers.
+
+If a necessary detail is unavailable:
+
+1. Flag it in the audit report.
+2. Explain why it matters.
+3. Identify whether it blocks publication.
+4. Ask the RevOS owner to confirm it.
+5. Do not replace it with an invented value.
+
+### 10.1 Publication readiness checklist
+
+Create a separate document:
+
+`RevOS_Terms_of_Service_Verification_Checklist.md`
+
+Include:
+
+- Legal entity and contracting party.
+- Registered address and contact details.
+- B2B-only or mixed customer model.
+- Eligibility and registration requirements.
+- Actual product scope.
+- Subscription and pricing arrangements.
+- Billing and renewal conditions.
+- Cancellation and refund policy.
+- Customer content ownership.
+- RevOS intellectual property rights.
+- AI output ownership and usage rights.
+- AI service limitations.
+- Confidentiality obligations.
+- Privacy Policy and DPA relationship.
+- Suspension and termination conditions.
+- Data handling after termination.
+- Liability provisions.
+- Governing law and jurisdiction.
+- Terms acceptance and version records.
+
+For each item, state whether it is:
+
+- Verified.
+- Requires owner confirmation.
+- Requires legal review.
+- A publication blocker.
+
+Do not mark the Terms as ready for publication while critical contractual information remains unresolved.
+
+---
+
+## 11. Functional and Integration Testing
+
+After implementation, test the following.
+
+### Navigation and Routing
+
+- Footer Terms link opens the correct page.
+- The page is publicly accessible.
+- Direct URL access works.
+- Browser refresh works.
+- Navigation back to the main website works.
+- Links to other legal pages work.
+
+### Registration and Acceptance
+
+If acceptance functionality is implemented:
+
+- Acceptance checkbox is not preselected.
+- Users can open the Terms before accepting.
+- Users can open the Privacy Policy separately.
+- Registration is blocked where acceptance is required but missing.
+- Accepted Terms version is recorded correctly.
+- Acceptance timestamp is recorded correctly.
+- Existing Supabase Auth behavior remains functional.
+- Existing users are handled appropriately.
+- Updated Terms can be versioned without overwriting historical acceptance records.
+
+Do not make acceptance of optional cookies or marketing consent a condition of registration.
+
+### Responsive and Accessibility
+
+- Desktop layout works.
+- Tablet layout works.
+- Mobile layout works.
+- Table of contents works.
+- Keyboard navigation works.
+- Heading hierarchy is valid.
+- Links have meaningful labels.
+- Text remains readable.
+
+### SEO
+
+- Page title and metadata are correct.
+- Canonical configuration is correct.
+- Page is publicly accessible.
+- No duplicate H1 is present.
+
+### Regression Testing
+
+- Login works.
+- Registration works.
+- Logout works.
+- Existing user sessions remain functional.
+- RevOS engines continue working.
+- No existing application functionality is broken.
+
+---
+
+## 12. Implementation Workflow
+
+Follow this sequence.
+
+**Stage 1 — Inspect**
+
+Examine the repository, actual product functionality, user registration, commercial model and legal-page architecture.
+
+**Stage 2 — Audit**
+
+Produce the contractual audit report and identify verified, unverified and owner-dependent information.
+
+**Stage 3 — Draft**
+
+Prepare the Terms of Service content based on verified facts and clearly identified owner decisions.
+
+**Stage 4 — Design**
+
+Build the Terms page using the existing RevOS design system.
+
+**Stage 5 — Implement**
+
+Integrate the route, footer link and, if approved, Terms acceptance functionality.
+
+**Stage 6 — Validate**
+
+Run the available build, lint, type-check and application tests. Test the page in desktop and mobile layouts.
+
+**Stage 7 — Report**
+
+Provide an implementation report and publication readiness assessment.
+
+---
+
+## 13. Required Final Deliverables
+
+When finished, provide:
+
+### 1. Terms of Service Page
+
+- Fully implemented page.
+- Responsive design.
+- Correct routing.
+- Footer integration.
+- Relevant cross-links to other legal pages.
+
+### 2. Contractual and Commercial Audit Report
+
+- Actual RevOS product functionality.
+- Account and registration arrangements.
+- Subscription and billing findings.
+- AI functionality and limitations.
+- Customer content and intellectual property findings.
+- Actual contractual gaps.
+
+### 3. Terms Verification Checklist
+
+- All unresolved business and legal questions.
+- Clear publication blockers.
+- Required owner decisions.
+
+### 4. Terms Acceptance Implementation Report
+
+If applicable:
+
+- Existing acceptance functionality.
+- Changes made.
+- Acceptance record structure.
+- Terms versioning.
+- Supabase security and RLS arrangements.
+- Registration flow testing.
+
+If no changes are made, explain why.
+
+### 5. Implementation Summary
+
+- Files created.
+- Files modified.
+- Routes added or changed.
+- Components reused.
+- Tests executed.
+- Test results.
+- Remaining issues.
+
+### 6. Publication Readiness Assessment
+
+Choose one:
+
+- Ready for legal review.
+- Not ready for publication.
+- Critical information still required.
+
+Do not claim legal compliance certification or legal approval.
+
+The final objective is to establish a clear, trustworthy and maintainable contractual framework for RevOS that protects both the platform operator and its customers while accurately reflecting the way the platform actually operates.
+
+**Important: Inspect first. Verify actual product and commercial arrangements. Draft second. Implement third. Never invent contractual terms simply to make the document look complete.**

@@ -4,6 +4,8 @@ import { Footer } from './Footer';
 import { ChatAssistant } from './ChatAssistant';
 import { ScrollToTop } from './ScrollToTop';
 import { useTrafficTracking } from '../hooks/useTrafficTracking';
+import { CookieConsentBanner } from './cookies/CookieConsentBanner';
+import { CookiePreferenceCenter } from './cookies/CookiePreferenceCenter';
 
 export function Layout() {
   useTrafficTracking();
@@ -17,6 +19,8 @@ export function Layout() {
       <ScrollToTop />
       <ChatAssistant />
       <Footer />
+      <CookieConsentBanner />
+      <CookiePreferenceCenter />
     </div>
   );
 }

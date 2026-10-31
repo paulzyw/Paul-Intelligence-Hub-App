@@ -27,6 +27,7 @@ export function Auth() {
   const [error, setError] = useState<React.ReactNode | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [rememberMe, setRememberMe] = useState(false);
+  const [agreedToTerms, setAgreedToTerms] = useState(false);
   
   const navigate = useNavigate();
   const location = useLocation();
@@ -195,11 +196,21 @@ export function Auth() {
 
     try {
       if (view === 'signup') {
+        if (!agreedToTerms) {
+          setError('Please read and agree to the Terms of Service and acknowledge the Privacy Policy to create an account.');
+          setLoading(false);
+          return;
+        }
+
         const { data, error: signUpError } = await supabase.auth.signUp({
           email,
           password,
           options: {
-            data: { full_name: fullName },
+            data: { 
+              full_name: fullName,
+              terms_version: '1.0',
+              terms_accepted_at: new Date().toISOString()
+            },
             emailRedirectTo: `${window.location.origin}/auth`,
           }
         });
@@ -508,6 +519,29 @@ export function Auth() {
                 >
                   Forgot password?
                 </button>
+              </div>
+            )}
+
+            {view === 'signup' && (
+              <div className="flex items-start gap-2.5 pt-1 px-1">
+                <input 
+                  type="checkbox" 
+                  id="terms-agreement"
+                  required
+                  checked={agreedToTerms}
+                  onChange={(e) => setAgreedToTerms(e.target.checked)}
+                  className="mt-0.5 h-4 w-4 rounded border-border bg-bg-primary text-accent focus:ring-accent cursor-pointer transition-all"
+                />
+                <label htmlFor="terms-agreement" className="text-xs text-text-secondary leading-relaxed cursor-pointer select-none">
+                  I agree to the{' '}
+                  <Link to="/terms-of-service" target="_blank" className="text-accent underline hover:text-accent/80 font-medium">
+                    Terms of Service
+                  </Link>{' '}
+                  and acknowledge the{' '}
+                  <Link to="/privacy-policy" target="_blank" className="text-accent underline hover:text-accent/80 font-medium">
+                    Privacy Policy
+                  </Link>.
+                </label>
               </div>
             )}
 
