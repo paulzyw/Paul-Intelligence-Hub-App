@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
-import { supabase, type Post, type Category, type ResearchReport, type ReportType, type AccessCode } from '../lib/supabase';
-import { Plus, Edit, Trash2, Save, X, UploadCloud, Image as ImageIcon, FolderPlus, Sparkles, BarChart3, Key, Copy, Check, ShieldAlert, Orbit, Compass } from 'lucide-react';
+import { supabase, type Post, type Category, type ResearchReport, type ReportType, type AccessCode, type ContentType, type ContentStatus } from '../lib/supabase';
+import { Plus, Edit, Trash2, Save, X, UploadCloud, Image as ImageIcon, FolderPlus, Sparkles, BarChart3, Key, Copy, Check, ShieldAlert, Orbit, Compass, Globe, FileText, Lightbulb, ChevronDown, ChevronUp, Layers } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 import { Navigate, useNavigate, Link } from 'react-router-dom';
 import { useTheme } from '../context/ThemeContext';
@@ -225,6 +225,8 @@ export function Admin() {
   const [currentPost, setCurrentPost] = useState<Partial<Post>>({});
   const [uploadingImage, setUploadingImage] = useState(false);
   const [autoSyncReadTime, setAutoSyncReadTime] = useState(true);
+  const [contentFilter, setContentFilter] = useState<'all' | 'post' | 'insight'>('all');
+  const [showSeoFields, setShowSeoFields] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const calculateReadingTime = (content: string) => {
@@ -365,9 +367,15 @@ export function Admin() {
     
     const postData = {
       ...postDataToSave,
+      content_type: postDataToSave.content_type || 'post',
+      status: postDataToSave.status || 'published',
+      published_at: postDataToSave.published_at || new Date().toISOString(),
+      updated_at: new Date().toISOString(),
       // Ensure slug is generated if not provided
       slug: postDataToSave.slug || postDataToSave.title?.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, ''),
     };
+
+    let saveError: any = null;
 
     if (currentPost.id) {
       // Update
@@ -375,13 +383,49 @@ export function Admin() {
         .from('posts')
         .update(postData)
         .eq('id', currentPost.id);
-      if (error) alert(error.message);
+      saveError = error;
     } else {
       // Insert
       const { error } = await supabase
         .from('posts')
         .insert([postData]);
-      if (error) alert(error.message);
+      saveError = error;
+    }
+
+    // Graceful fallback: If Supabase database hasn't had the additive columns applied yet via SQL Editor
+    if (saveError && (saveError.message?.includes('does not exist') || saveError.code === '42703')) {
+      console.warn('Database table missing additive fields. Saving core fields. Please execute supabase/migrations/20261102_unified_content_model.sql in Supabase SQL Editor.', saveError.message);
+      const { 
+        content_type, 
+        status, 
+        published_at, 
+        updated_at, 
+        seo_title, 
+        seo_description, 
+        canonical_url, 
+        og_title, 
+        og_description, 
+        og_image, 
+        target_keyword, 
+        ...coreData 
+      } = postData;
+      
+      const retry = currentPost.id
+        ? await supabase.from('posts').update(coreData).eq('id', currentPost.id)
+        : await supabase.from('posts').insert([coreData]);
+        
+      if (retry.error) {
+        alert(retry.error.message);
+        setLoading(false);
+        return;
+      } else {
+        alert('Saved successfully! (Notice: Please run the SQL migration in supabase/migrations/20261102_unified_content_model.sql in your Supabase SQL Editor to enable persistent SEO/content-type database columns).');
+        saveError = null;
+      }
+    } else if (saveError) {
+      alert(saveError.message);
+      setLoading(false);
+      return;
     }
     
     setLoading(false);
@@ -676,6 +720,64 @@ export function Admin() {
             </div>
             
             <form onSubmit={handleSavePost} className="space-y-6">
+              {/* Content Type Selector */}
+              <div className="bg-bg-primary/50 border border-border rounded-xl p-4">
+                <label className="block text-sm font-semibold text-text-primary mb-2 flex items-center gap-2">
+                  <Layers size={18} className="text-accent" /> Content Classification & Publishing Mode
+                </label>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setCurrentPost({ ...currentPost, content_type: 'post' })}
+                    className={`p-3.5 rounded-lg border text-left transition-all flex items-start gap-3 cursor-pointer ${
+                      (currentPost.content_type || 'post') === 'post'
+                        ? 'border-accent bg-accent/10 ring-1 ring-accent'
+                        : 'border-border bg-bg-surface hover:border-text-secondary/40'
+                    }`}
+                  >
+                    <div className={`p-2 rounded-md ${ (currentPost.content_type || 'post') === 'post' ? 'bg-accent text-white' : 'bg-bg-primary text-text-secondary' }`}>
+                      <FileText size={20} />
+                    </div>
+                    <div>
+                      <div className="font-semibold text-sm text-text-primary flex items-center gap-1.5">
+                        Founder Blog Post
+                        {(currentPost.content_type || 'post') === 'post' && (
+                          <span className="text-[10px] font-bold px-1.5 py-0.5 bg-accent/20 text-accent rounded">Active</span>
+                        )}
+                      </div>
+                      <p className="text-xs text-text-secondary mt-0.5">
+                        Personal insights, stories, & updates. URL: <span className="font-mono text-accent">/post/:slug</span>
+                      </p>
+                    </div>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setCurrentPost({ ...currentPost, content_type: 'insight' })}
+                    className={`p-3.5 rounded-lg border text-left transition-all flex items-start gap-3 cursor-pointer ${
+                      currentPost.content_type === 'insight'
+                        ? 'border-accent bg-accent/10 ring-1 ring-accent'
+                        : 'border-border bg-bg-surface hover:border-text-secondary/40'
+                    }`}
+                  >
+                    <div className={`p-2 rounded-md ${ currentPost.content_type === 'insight' ? 'bg-accent text-white' : 'bg-bg-primary text-text-secondary' }`}>
+                      <Lightbulb size={20} />
+                    </div>
+                    <div>
+                      <div className="font-semibold text-sm text-text-primary flex items-center gap-1.5">
+                        Revenue Insight
+                        {currentPost.content_type === 'insight' && (
+                          <span className="text-[10px] font-bold px-1.5 py-0.5 bg-accent/20 text-accent rounded">Active</span>
+                        )}
+                      </div>
+                      <p className="text-xs text-text-secondary mt-0.5">
+                        Professional analytical SEO articles. URL: <span className="font-mono text-accent">/insights/:slug</span>
+                      </p>
+                    </div>
+                  </button>
+                </div>
+              </div>
+
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
                   <label className="block text-sm font-medium text-text-primary mb-1">Title</label>
@@ -842,6 +944,96 @@ export function Admin() {
                 />
               </div>
 
+              {/* Publication Status & SEO Settings */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 bg-bg-primary/40 border border-border rounded-xl">
+                <div>
+                  <label className="block text-xs font-semibold text-text-primary mb-1">Publication Status</label>
+                  <select
+                    value={currentPost.status || 'published'}
+                    onChange={(e) => setCurrentPost({ ...currentPost, status: e.target.value as ContentStatus })}
+                    className="w-full px-3 py-2 text-xs border border-border rounded-md bg-bg-surface text-text-primary focus:outline-none focus:border-accent"
+                  >
+                    <option value="published">Published (Publicly live on site & indexed)</option>
+                    <option value="draft">Draft (Private, not visible in public listings)</option>
+                    <option value="archived">Archived</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-text-primary mb-1">Target Keyword (SEO)</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. revenue operations, pipeline governance"
+                    value={currentPost.target_keyword || ''}
+                    onChange={(e) => setCurrentPost({ ...currentPost, target_keyword: e.target.value })}
+                    className="w-full px-3 py-2 text-xs border border-border rounded-md bg-bg-surface text-text-primary focus:outline-none focus:border-accent"
+                  />
+                </div>
+              </div>
+
+              {/* Expandable SEO & Search Engine Configuration */}
+              <div className="border border-border rounded-xl bg-bg-primary/30 overflow-hidden">
+                <button
+                  type="button"
+                  onClick={() => setShowSeoFields(!showSeoFields)}
+                  className="w-full px-5 py-4 flex items-center justify-between text-left hover:bg-bg-primary/50 transition-colors cursor-pointer"
+                >
+                  <div className="flex items-center gap-2.5">
+                    <Globe size={18} className="text-accent" />
+                    <div>
+                      <span className="font-semibold text-sm text-text-primary">SEO & Search Engine Metadata</span>
+                      <span className="text-xs text-text-secondary block">Configure custom Google Search title, meta description, and canonical URL</span>
+                    </div>
+                  </div>
+                  {showSeoFields ? <ChevronUp size={18} className="text-text-secondary" /> : <ChevronDown size={18} className="text-text-secondary" />}
+                </button>
+
+                {showSeoFields && (
+                  <div className="p-5 border-t border-border space-y-4 bg-bg-surface/50">
+                    <div>
+                      <div className="flex justify-between items-center mb-1">
+                        <label className="block text-xs font-medium text-text-primary">Custom SEO Title</label>
+                        <span className="text-[10px] text-text-secondary">Fallback: Title + " | RevOS"</span>
+                      </div>
+                      <input
+                        type="text"
+                        placeholder={currentPost.title ? `${currentPost.title} | RevOS` : 'e.g. 5 Shifts in B2B Revenue Intelligence | RevOS'}
+                        value={currentPost.seo_title || ''}
+                        onChange={(e) => setCurrentPost({ ...currentPost, seo_title: e.target.value })}
+                        className="w-full px-3 py-2 text-xs border border-border rounded-md bg-transparent text-text-primary focus:outline-none focus:border-accent"
+                      />
+                    </div>
+
+                    <div>
+                      <div className="flex justify-between items-center mb-1">
+                        <label className="block text-xs font-medium text-text-primary">Custom SEO Meta Description</label>
+                        <span className="text-[10px] text-text-secondary">Fallback: Post Summary</span>
+                      </div>
+                      <textarea
+                        rows={2}
+                        placeholder={currentPost.summary || 'Summary description displayed on Google search results...'}
+                        value={currentPost.seo_description || ''}
+                        onChange={(e) => setCurrentPost({ ...currentPost, seo_description: e.target.value })}
+                        className="w-full px-3 py-2 text-xs border border-border rounded-md bg-transparent text-text-primary focus:outline-none focus:border-accent resize-none"
+                      />
+                    </div>
+
+                    <div>
+                      <div className="flex justify-between items-center mb-1">
+                        <label className="block text-xs font-medium text-text-primary">Canonical URL (Optional override)</label>
+                        <span className="text-[10px] text-text-secondary">Auto-generated if left blank</span>
+                      </div>
+                      <input
+                        type="url"
+                        placeholder={currentPost.slug ? `https://www.apprevos.ai/${(currentPost.content_type || 'post') === 'insight' ? 'insights' : 'post'}/${currentPost.slug}/` : 'https://www.apprevos.ai/...'}
+                        value={currentPost.canonical_url || ''}
+                        onChange={(e) => setCurrentPost({ ...currentPost, canonical_url: e.target.value })}
+                        className="w-full px-3 py-2 text-xs border border-border rounded-md bg-transparent text-text-primary focus:outline-none focus:border-accent font-mono"
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
+
               <div className="flex justify-end gap-4">
                 <button 
                   type="button"
@@ -862,61 +1054,144 @@ export function Admin() {
           </div>
         ) : (
           <div className="bg-bg-surface border border-border rounded-xl overflow-hidden">
-            <div className="p-6 border-b border-border flex justify-between items-center">
-              <h2 className="text-xl font-bold text-text-primary">Blog Posts</h2>
+            <div className="p-6 border-b border-border flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+              <div>
+                <h2 className="text-xl font-bold text-text-primary flex items-center gap-2">
+                  <Layers size={20} className="text-accent" /> Unified Content Management
+                </h2>
+                <p className="text-xs text-text-secondary mt-1">
+                  Manage both Founder Blog Posts (/post/:slug) and Revenue Insights (/insights/:slug)
+                </p>
+              </div>
               <button 
-                onClick={() => setIsEditing(true)}
-                className="px-4 py-2 bg-accent text-white rounded-md hover:bg-accent/90 transition-colors flex items-center gap-2 text-sm font-medium"
+                onClick={() => {
+                  setCurrentPost({
+                    content_type: contentFilter === 'insight' ? 'insight' : 'post',
+                    status: 'published'
+                  });
+                  setIsEditing(true);
+                }}
+                className="px-4 py-2 bg-accent text-white rounded-md hover:bg-accent/90 transition-colors flex items-center gap-2 text-sm font-medium cursor-pointer"
               >
-                <Plus size={18} /> New Post
+                <Plus size={18} /> New Content
+              </button>
+            </div>
+
+            {/* Filter Tabs */}
+            <div className="flex border-b border-border bg-bg-primary/50 px-6 pt-3 gap-2">
+              <button
+                type="button"
+                onClick={() => setContentFilter('all')}
+                className={`pb-3 px-3 text-xs font-medium border-b-2 transition-colors cursor-pointer ${
+                  contentFilter === 'all'
+                    ? 'border-accent text-accent'
+                    : 'border-transparent text-text-secondary hover:text-text-primary'
+                }`}
+              >
+                All Content ({posts.length})
+              </button>
+              <button
+                type="button"
+                onClick={() => setContentFilter('post')}
+                className={`pb-3 px-3 text-xs font-medium border-b-2 transition-colors cursor-pointer flex items-center gap-1.5 ${
+                  contentFilter === 'post'
+                    ? 'border-accent text-accent'
+                    : 'border-transparent text-text-secondary hover:text-text-primary'
+                }`}
+              >
+                <FileText size={14} /> Blog Posts ({posts.filter(p => (p.content_type || 'post') === 'post').length})
+              </button>
+              <button
+                type="button"
+                onClick={() => setContentFilter('insight')}
+                className={`pb-3 px-3 text-xs font-medium border-b-2 transition-colors cursor-pointer flex items-center gap-1.5 ${
+                  contentFilter === 'insight'
+                    ? 'border-accent text-accent'
+                    : 'border-transparent text-text-secondary hover:text-text-primary'
+                }`}
+              >
+                <Lightbulb size={14} /> Revenue Insights ({posts.filter(p => p.content_type === 'insight').length})
               </button>
             </div>
             
             {posts.length === 0 ? (
               <div className="p-12 text-center text-text-secondary">
-                No posts found. Create your first post!
+                No content found. Create your first post!
               </div>
             ) : (
               <div className="overflow-x-auto">
                 <table className="w-full text-left border-collapse">
                   <thead>
                     <tr className="bg-bg-primary border-b border-border text-text-secondary text-sm">
-                      <th className="p-4 font-medium">Title</th>
+                      <th className="p-4 font-medium">Title & Slug</th>
+                      <th className="p-4 font-medium">Type</th>
                       <th className="p-4 font-medium">Category</th>
+                      <th className="p-4 font-medium">Status</th>
                       <th className="p-4 font-medium">Date</th>
                       <th className="p-4 font-medium text-right">Actions</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {posts.map((post) => (
-                      <tr key={post.id} className="border-b border-border hover:bg-bg-primary/50 transition-colors">
-                        <td className="p-4">
-                          <div className="font-medium text-text-primary">{post.title}</div>
-                          <div className="text-xs text-text-secondary">{post.slug}</div>
-                        </td>
-                        <td className="p-4 text-sm text-text-secondary">{post.category || 'Uncategorized'}</td>
-                        <td className="p-4 text-sm text-text-secondary">
-                          {new Date(post.created_at).toLocaleDateString()}
-                        </td>
-                        <td className="p-4 text-right">
-                          <div className="flex justify-end gap-2">
-                            <button 
-                              onClick={() => { setCurrentPost(post); setIsEditing(true); }}
-                              className="p-2 text-blue-500 hover:bg-blue-500/10 rounded transition-colors"
-                              title="Edit"
-                            >
-                              <Edit size={18} />
-                            </button>
-                            <button 
-                              onClick={() => handleDeletePost(post.id)}
-                              className="p-2 text-red-500 hover:bg-red-500/10 rounded transition-colors"
-                              title="Delete"
-                            >
-                              <Trash2 size={18} />
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
+                    {posts
+                      .filter(post => contentFilter === 'all' ? true : (post.content_type || 'post') === contentFilter)
+                      .map((post) => (
+                        <tr key={post.id} className="border-b border-border hover:bg-bg-primary/50 transition-colors">
+                          <td className="p-4">
+                            <div className="font-medium text-text-primary flex items-center gap-2">
+                              {post.title}
+                              {post.is_featured && (
+                                <span className="text-[10px] font-bold px-1.5 py-0.2 bg-amber/20 text-amber rounded">
+                                  Pinned
+                                </span>
+                              )}
+                            </div>
+                            <div className="text-xs text-text-secondary font-mono mt-0.5">
+                              {post.content_type === 'insight' ? `/insights/${post.slug}` : `/post/${post.slug}`}
+                            </div>
+                          </td>
+                          <td className="p-4 text-xs">
+                            {post.content_type === 'insight' ? (
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium bg-emerald-500/10 text-emerald-500 border border-emerald-500/20">
+                                <Lightbulb size={12} /> Insight
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium bg-accent/10 text-accent border border-accent/20">
+                                <FileText size={12} /> Blog Post
+                              </span>
+                            )}
+                          </td>
+                          <td className="p-4 text-sm text-text-secondary">{post.category || 'Uncategorized'}</td>
+                          <td className="p-4 text-xs">
+                            <span className={`px-2 py-0.5 rounded-full text-[11px] font-medium ${
+                              post.status === 'draft'
+                                ? 'bg-amber/10 text-amber border border-amber/20'
+                                : 'bg-emerald-500/10 text-emerald-500 border border-emerald-500/20'
+                            }`}>
+                              {post.status || 'published'}
+                            </span>
+                          </td>
+                          <td className="p-4 text-sm text-text-secondary">
+                            {new Date(post.created_at).toLocaleDateString()}
+                          </td>
+                          <td className="p-4 text-right">
+                            <div className="flex justify-end gap-2">
+                              <button 
+                                onClick={() => { setCurrentPost(post); setIsEditing(true); }}
+                                className="p-2 text-blue-500 hover:bg-blue-500/10 rounded transition-colors cursor-pointer"
+                                title="Edit"
+                              >
+                                <Edit size={18} />
+                              </button>
+                              <button 
+                                onClick={() => handleDeletePost(post.id)}
+                                className="p-2 text-red-500 hover:bg-red-500/10 rounded transition-colors cursor-pointer"
+                                title="Delete"
+                              >
+                                <Trash2 size={18} />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
                     ))}
                   </tbody>
                 </table>

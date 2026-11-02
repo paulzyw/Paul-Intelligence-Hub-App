@@ -118,11 +118,12 @@ export function FounderInsights() {
   }, []);
 
   const filteredPosts = posts.filter(post => {
+    const isBlogPost = (post.content_type || 'post') === 'post';
     const matchesCategory = activeCategory === 'All' || post.category === activeCategory;
     const matchesSearch = 
       (post.title || '').toLowerCase().includes(searchQuery.toLowerCase()) || 
       (post.summary || '').toLowerCase().includes(searchQuery.toLowerCase());
-    return matchesCategory && matchesSearch;
+    return isBlogPost && matchesCategory && matchesSearch;
   });
 
   const totalPages = Math.ceil(filteredPosts.length / postsPerPage);

@@ -15,6 +15,8 @@ import { FounderInsights } from './pages/founderInsights';
 import { Contact } from './pages/Contact';
 import { Admin } from './pages/Admin';
 import { PostDetail } from './pages/PostDetail';
+import { Insights } from './pages/Insights';
+import { InsightDetail } from './pages/InsightDetail';
 import { FounderResearch } from './pages/founderResearch';
 import { ResearchDetail } from './pages/ResearchDetail';
 import { FounderImpact } from './pages/founderImpact';
@@ -50,7 +52,10 @@ export default function App() {
             <Route path="about" element={<Navigate to="/about/aboutFounder" replace />} />
             <Route path="founder" element={<Navigate to="/about/founderProfile" replace />} />
             <Route path="impact" element={<Navigate to="/about/founderImpact" replace />} />
-            <Route path="insights" element={<Navigate to="/about/founderInsights" replace />} />
+            {/* Revenue Insights Module */}
+            <Route path="insights" element={<Insights />} />
+            <Route path="insights/:slug" element={<InsightDetail />} />
+            
             <Route path="research" element={<Navigate to="/about/founderResearch" replace />} />
             <Route path="contact" element={<Navigate to="/about/contact" replace />} />
             <Route path="theme" element={<Navigate to="/" replace />} />
@@ -83,6 +88,8 @@ export default function App() {
             <Route path="solutions/revos/*" element={<Navigate to="/product/revos" replace />} />
             
             <Route path="post/:slug" element={<PostDetail />} />
+            <Route path="blog/:slug" element={<PostDetail />} />
+            <Route path="blog" element={<Navigate to="/about/founderInsights" replace />} />
             <Route path="research/:slug" element={<ResearchDetail />} />
             <Route path="cookie-policy" element={<CookiePolicy />} />
             <Route path="privacy-policy" element={<PrivacyPolicy />} />

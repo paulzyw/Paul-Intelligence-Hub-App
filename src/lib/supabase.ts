@@ -25,6 +25,9 @@ export type Category = {
   slug: string;
 };
 
+export type ContentType = 'post' | 'insight';
+export type ContentStatus = 'draft' | 'published' | 'archived';
+
 export type Post = {
   id: string;
   title: string;
@@ -35,10 +38,44 @@ export type Post = {
   category_id: string;
   read_time: number;
   thumbnail_url: string;
-  featured: boolean;
+  featured?: boolean;
   is_featured: boolean;
+  content_type?: ContentType;
+  status?: ContentStatus;
+  published_at?: string;
+  updated_at?: string;
+  seo_title?: string;
+  seo_description?: string;
+  canonical_url?: string;
+  og_title?: string;
+  og_description?: string;
+  og_image?: string;
+  target_keyword?: string;
   created_at: string;
   categories?: Category; // For joined queries
+};
+
+export type ContentItem = Post;
+
+export type ContentPublishingStatus = 
+  | 'requested'
+  | 'building'
+  | 'build_succeeded'
+  | 'build_failed'
+  | 'deploying'
+  | 'deployment_succeeded'
+  | 'deployment_failed';
+
+export type ContentPublishingLog = {
+  id: string;
+  build_request_id: string;
+  event_type: string;
+  content_id?: string;
+  status: ContentPublishingStatus;
+  details?: Record<string, any>;
+  error_message?: string;
+  created_at: string;
+  updated_at: string;
 };
 
 export type ReportType = {

@@ -116,7 +116,7 @@ export function Footer() {
               <Link to="#" onClick={(e) => e.preventDefault()} className="text-xs text-text-hero-secondary hover:text-accent transition-colors">
                 Pipeline Assessment
               </Link>
-              <Link to="#" onClick={(e) => e.preventDefault()} className="text-xs text-text-hero-secondary hover:text-accent transition-colors">
+              <Link to="/insights" className="text-xs text-text-hero-secondary hover:text-accent transition-colors">
                 Revenue Insights
               </Link>
               <Link to="#" onClick={(e) => e.preventDefault()} className="text-xs text-text-hero-secondary hover:text-accent transition-colors">
@@ -155,27 +155,28 @@ export function Footer() {
         </div>
 
         {/* Bottom Legal & Preferences Row */}
-        <div className="mt-10 pt-6 border-t border-border-hero/60 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-text-hero-secondary">
-          <p>© {new Date().getFullYear()} Apprevos Technology. All rights reserved.</p>
-          <div className="flex flex-wrap items-center gap-4 sm:gap-6">
-
+        <div className="mt-10 pt-6 border-t border-border-hero/60 flex flex-col lg:flex-row items-center justify-between gap-4 lg:gap-6 text-xs text-text-hero-secondary">
+          <p className="order-2 lg:order-1 text-center lg:text-left">
+            © {new Date().getFullYear()} Apprevos Technology. All rights reserved.
+          </p>
+          <div className="order-1 lg:order-2 flex flex-wrap items-center justify-center lg:justify-end gap-x-4 sm:gap-x-6 gap-y-2.5">
             <Link
               to="/privacy-policy"
-              className="text-xs text-text-hero-secondary hover:text-accent transition-colors"
+              className="text-xs text-text-hero-secondary hover:text-accent transition-colors py-1 px-1 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent rounded"
             >
               Privacy Policy
             </Link>
 
             <Link
               to="/terms-of-service"
-              className="text-xs text-text-hero-secondary hover:text-accent transition-colors"
+              className="text-xs text-text-hero-secondary hover:text-accent transition-colors py-1 px-1 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent rounded"
             >
               Terms of Service
             </Link>
 
             <Link
               to="/cookie-policy"
-              className="text-xs text-text-hero-secondary hover:text-accent transition-colors"
+              className="text-xs text-text-hero-secondary hover:text-accent transition-colors py-1 px-1 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent rounded"
             >
               Cookie Policy
             </Link>
@@ -183,7 +184,7 @@ export function Footer() {
             <button
               type="button"
               onClick={openPreferences}
-              className="text-xs text-text-hero-secondary hover:text-accent transition-colors flex items-center gap-1.5 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent rounded px-1 py-0.5 cursor-pointer"
+              className="text-xs text-text-hero-secondary hover:text-accent transition-colors inline-flex items-center gap-1.5 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent rounded py-1 px-1 cursor-pointer"
             >
               <Cookie className="h-3.5 w-3.5 text-accent" aria-hidden="true" />
               <span>Cookie Settings</span>
@@ -191,7 +192,7 @@ export function Footer() {
 
             <Link
               to="/ai-disclaimer"
-              className="text-xs text-text-hero-secondary hover:text-accent transition-colors"
+              className="text-xs text-text-hero-secondary hover:text-accent transition-colors py-1 px-1 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent rounded"
             >
               AI Disclaimer
             </Link>
