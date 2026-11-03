@@ -19,7 +19,7 @@ export function FeaturedInsight({ post }: FeaturedInsightProps) {
   });
 
   return (
-    <section className="py-12 border-b border-border/60">
+    <section className="py-12 border-b border-border/60 bg-bg-surface">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         
         {/* Section Lead */}
@@ -34,7 +34,7 @@ export function FeaturedInsight({ post }: FeaturedInsightProps) {
         </div>
 
         {/* Editorial Feature Split Card */}
-        <div className="group relative rounded-2xl border border-border bg-bg-surface overflow-hidden shadow-sm hover:shadow-xl hover:border-accent/50 transition-all duration-500">
+        <div className="group relative rounded-2xl border border-border bg-bg-primary overflow-hidden shadow-sm hover:shadow-xl hover:border-accent/50 transition-all duration-500">
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-0">
             
             {/* Left/Top Media Slot (7 cols on desktop) - Zoom & Lighting on Hover */}
@@ -88,10 +88,14 @@ export function FeaturedInsight({ post }: FeaturedInsightProps) {
             <div className="lg:col-span-5 p-6 sm:p-8 lg:p-10 flex flex-col justify-between">
               <div>
                 {/* Clean unboxed metadata with separators */}
-                <div className="flex items-center gap-2 text-xs text-text-secondary mb-4">
+                <div className="flex flex-wrap items-center gap-2 text-xs text-text-secondary mb-4">
                   <span className="font-semibold text-accent">{post.category}</span>
                   <span aria-hidden="true" className="text-border">·</span>
                   <time dateTime={post.published_at || post.created_at}>{formattedDate}</time>
+                  <span aria-hidden="true" className="text-border">·</span>
+                  <span className="font-medium text-text-primary">
+                    {post.author || post.author_id || 'Paul Wang'}
+                  </span>
                   <span aria-hidden="true" className="text-border">·</span>
                   <span className="flex items-center gap-1">
                     <Clock size={12} className="opacity-70" />

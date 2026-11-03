@@ -262,9 +262,11 @@ export function FounderInsights() {
                         </div>
                       </div>
                       <div className="p-8 md:p-10 flex flex-col flex-grow">
-                        <div className="flex items-center gap-4 mb-4">
+                        <div className="flex flex-wrap items-center gap-3 mb-4">
                           <span className="text-accent font-bold text-sm uppercase tracking-wider">{featuredPost.category || 'Uncategorized'}</span>
                           <span className="text-text-secondary text-sm">{new Date(featuredPost.created_at).toLocaleDateString()}</span>
+                          <span className="text-text-secondary">·</span>
+                          <span className="text-text-primary text-sm font-semibold">{featuredPost.author || featuredPost.author_id || 'Paul Wang'}</span>
                         </div>
                         <h2 className="text-3xl md:text-4xl font-bold text-text-primary mb-4 group-hover:text-accent transition-colors">
                           {featuredPost.title}
@@ -312,9 +314,11 @@ export function FounderInsights() {
                           />
                         </div>
                         <div className="w-full md:w-2/3 p-6 md:p-8 flex flex-col justify-center">
-                          <div className="flex items-center gap-4 mb-3">
+                          <div className="flex flex-wrap items-center gap-3 mb-3">
                             <span className="text-accent font-bold text-xs uppercase tracking-wider">{post.category || 'Uncategorized'}</span>
                             <span className="text-text-secondary text-xs">{new Date(post.created_at).toLocaleDateString()}</span>
+                            <span className="text-text-secondary text-xs">·</span>
+                            <span className="text-text-primary text-xs font-semibold">{post.author || post.author_id || 'Paul Wang'}</span>
                           </div>
                           <h3 className="text-2xl font-bold text-text-primary mb-3 line-clamp-2 group-hover:text-accent transition-colors">
                             {post.title}

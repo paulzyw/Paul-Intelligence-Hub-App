@@ -53,6 +53,8 @@ export type Post = {
   og_description?: string;
   og_image?: string;
   target_keyword?: string;
+  author_id?: string;
+  author?: string;
   created_at: string;
   categories?: Category; // For joined queries
 };

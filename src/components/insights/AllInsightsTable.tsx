@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react';
 import { Link } from 'react-router-dom';
-import { Search, X, ChevronLeft, ChevronRight, FileText, Calendar, Tag, Hash } from 'lucide-react';
+import { Search, X, ChevronLeft, ChevronRight, FileText, Calendar, Tag, Hash, User } from 'lucide-react';
 import type { Post } from '../../lib/supabase';
 
 interface AllInsightsTableProps {
@@ -14,7 +14,7 @@ export function AllInsightsTable({ posts, activeCategory = 'All', onClearCategor
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
 
-  // Filter posts by keywords across title, summary, category, and active category
+  // Filter posts by keywords across title, summary, category, author, and active category
   const filteredPosts = useMemo(() => {
     const query = searchQuery.trim().toLowerCase();
     
@@ -26,7 +26,8 @@ export function AllInsightsTable({ posts, activeCategory = 'All', onClearCategor
       const title = (post.title || '').toLowerCase();
       const summary = (post.summary || '').toLowerCase();
       const category = (post.category || '').toLowerCase();
-      return title.includes(query) || summary.includes(query) || category.includes(query);
+      const author = (post.author || post.author_id || 'Paul Wang').toLowerCase();
+      return title.includes(query) || summary.includes(query) || category.includes(query) || author.includes(query);
     });
   }, [posts, searchQuery, activeCategory]);
 
@@ -192,6 +193,12 @@ export function AllInsightsTable({ posts, activeCategory = 'All', onClearCategor
                       <span>Published Date</span>
                     </span>
                   </th>
+                  <th scope="col" className="w-32 sm:w-40 px-4 sm:px-6 py-3.5 whitespace-nowrap">
+                    <span className="inline-flex items-center gap-1.5">
+                      <User size={12} className="opacity-70" />
+                      <span>Author</span>
+                    </span>
+                  </th>
                   <th scope="col" className="px-4 sm:px-6 py-3.5 min-w-[260px]">
                     <span className="inline-flex items-center gap-1.5">
                       <FileText size={12} className="opacity-70" />
@@ -228,7 +235,12 @@ export function AllInsightsTable({ posts, activeCategory = 'All', onClearCategor
                           {formatDate(article.published_at || article.created_at)}
                         </td>
 
-                        {/* 4th column: Article Title (Clickable link to view article) */}
+                        {/* 4th column: Author */}
+                        <td className="px-4 sm:px-6 py-3.5 whitespace-nowrap text-text-primary font-medium text-xs">
+                          {article.author || article.author_id || 'Paul Wang'}
+                        </td>
+
+                        {/* 5th column: Article Title (Clickable link to view article) */}
                         <td className="px-4 sm:px-6 py-3.5">
                           <div className="flex flex-col">
                             <Link
@@ -249,7 +261,7 @@ export function AllInsightsTable({ posts, activeCategory = 'All', onClearCategor
                   })
                 ) : (
                   <tr>
-                    <td colSpan={4} className="px-6 py-12 text-center text-text-secondary">
+                    <td colSpan={5} className="px-6 py-12 text-center text-text-secondary">
                       <div className="max-w-sm mx-auto space-y-2">
                         <p className="font-semibold text-text-primary text-sm">No insight articles found</p>
                         <p className="text-xs font-light">

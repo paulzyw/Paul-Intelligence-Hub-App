@@ -379,6 +379,8 @@ export function Admin() {
       status: postDataToSave.status || 'published',
       published_at: postDataToSave.published_at || new Date().toISOString(),
       updated_at: new Date().toISOString(),
+      author_id: postDataToSave.author_id || postDataToSave.author || 'Paul Wang',
+      author: postDataToSave.author || postDataToSave.author_id || 'Paul Wang',
       // Ensure slug is generated if not provided
       slug: postDataToSave.slug || postDataToSave.title?.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, ''),
     };
@@ -408,7 +410,7 @@ export function Admin() {
 
     // Graceful fallback: If Supabase database hasn't had the additive columns applied yet via SQL Editor
     if (saveError && (saveError.message?.includes('does not exist') || saveError.code === '42703')) {
-      console.warn('Database table missing additive fields. Saving core fields. Please execute supabase/migrations/20261102_unified_content_model.sql in Supabase SQL Editor.', saveError.message);
+      console.warn('Database table missing additive fields. Saving core fields. Please execute migrations in Supabase SQL Editor.', saveError.message);
       const { 
         content_type, 
         status, 
@@ -421,6 +423,8 @@ export function Admin() {
         og_description, 
         og_image, 
         target_keyword, 
+        author_id,
+        author,
         ...coreData 
       } = postData;
       
@@ -455,6 +459,33 @@ export function Admin() {
         alert('Post content saved, but updating Business Challenges failed: ' + challengeSaveError.message);
       }
     }
+
+    // Ensure only one featured post per content type (one featured Insight, one featured Blog Post = two featured in total)
+    if (postData.is_featured && savedPostId) {
+      const targetType = postData.content_type || 'post';
+      try {
+        const { data: allPosts } = await supabase
+          .from('posts')
+          .select('id, content_type, is_featured');
+
+        if (allPosts) {
+          const postsToUnfeature = allPosts.filter(p => {
+            if (p.id === savedPostId) return false;
+            const pType = p.content_type || 'post';
+            return pType === targetType && p.is_featured;
+          });
+
+          for (const p of postsToUnfeature) {
+            await supabase
+              .from('posts')
+              .update({ is_featured: false })
+              .eq('id', p.id);
+          }
+        }
+      } catch (err: any) {
+        console.warn('Error managing exclusive featured per content type:', err.message);
+      }
+    }
     
     setLoading(false);
     setIsEditing(false);
@@ -474,7 +505,7 @@ export function Admin() {
     <div className="bg-bg-primary py-10">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center mb-8">
-          <h1 className="text-3xl font-bold text-text-primary">Content Management</h1>
+          <h1 className="text-3xl font-bold text-text-primary">Traffic Monitoring</h1>
         </div>
 
         {!isEditing && (
@@ -730,10 +761,13 @@ export function Admin() {
               fetchReportTypes();
             }} />
             <AccessCodeGenerator />
+
+            <div className="flex justify-between items-center mb-8 mt-12">
+              <h1 className="text-3xl font-bold text-text-primary">Insights & Post CMS</h1>
+            </div>
+
             <CategoryManager categories={categories} fetchCategories={fetchCategories} />
             <BusinessChallengeManager />
-            <ReportTypeManager reportTypes={reportTypes} fetchReportTypes={fetchReportTypes} />
-            <ResearchManager reports={reports} reportTypes={reportTypes} fetchReports={fetchReports} />
           </>
         )}
 
@@ -850,6 +884,23 @@ export function Admin() {
                       <option key={cat.id} value={cat.name}>{cat.name}</option>
                     ))}
                   </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-text-primary mb-1">Author</label>
+                  <input 
+                    type="text" 
+                    placeholder="Paul Wang"
+                    value={currentPost.author_id || currentPost.author || ''}
+                    onChange={(e) => setCurrentPost({
+                      ...currentPost, 
+                      author_id: e.target.value,
+                      author: e.target.value
+                    })}
+                    className="w-full px-3 py-2 border border-border rounded-md bg-transparent text-text-primary focus:outline-none focus:border-accent"
+                  />
+                  <span className="text-[10px] text-text-secondary mt-0.5 block">
+                    Author attribution (stored in database author_id). Default: Paul Wang
+                  </span>
                 </div>
                 <div className="flex flex-col gap-4">
                   <div className="flex items-center gap-3 p-3 bg-bg-primary rounded-md border border-border">
@@ -1091,7 +1142,8 @@ export function Admin() {
             </form>
           </div>
         ) : (
-          <div className="bg-bg-surface border border-border rounded-xl overflow-hidden">
+          <>
+            <div className="bg-bg-surface border border-border rounded-xl overflow-hidden mb-8">
             <div className="p-6 border-b border-border flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
               <div>
                 <h2 className="text-xl font-bold text-text-primary flex items-center gap-2">
@@ -1105,7 +1157,9 @@ export function Admin() {
                 onClick={() => {
                   setCurrentPost({
                     content_type: contentFilter === 'insight' ? 'insight' : 'post',
-                    status: 'published'
+                    status: 'published',
+                    author_id: 'Paul Wang',
+                    author: 'Paul Wang'
                   });
                   setSelectedChallenges([]);
                   setIsEditing(true);
@@ -1165,6 +1219,7 @@ export function Admin() {
                       <th className="p-4 font-medium">Title & Slug</th>
                       <th className="p-4 font-medium">Type</th>
                       <th className="p-4 font-medium">Category</th>
+                      <th className="p-4 font-medium">Author</th>
                       <th className="p-4 font-medium">Status</th>
                       <th className="p-4 font-medium">Date</th>
                       <th className="p-4 font-medium text-right">Actions</th>
@@ -1200,6 +1255,9 @@ export function Admin() {
                             )}
                           </td>
                           <td className="p-4 text-sm text-text-secondary">{post.category || 'Uncategorized'}</td>
+                          <td className="p-4 text-xs font-semibold text-text-primary">
+                            {post.author_id || post.author || 'Paul Wang'}
+                          </td>
                           <td className="p-4 text-xs">
                             <span className={`px-2 py-0.5 rounded-full text-[11px] font-medium ${
                               post.status === 'draft'
@@ -1246,7 +1304,15 @@ export function Admin() {
               </div>
             )}
           </div>
-        )}
+
+          {/* Research CMS Section */}
+          <div className="flex justify-between items-center mb-8 mt-12">
+            <h1 className="text-3xl font-bold text-text-primary">Research CMS</h1>
+          </div>
+          <ReportTypeManager reportTypes={reportTypes} fetchReportTypes={fetchReportTypes} />
+          <ResearchManager reports={reports} reportTypes={reportTypes} fetchReports={fetchReports} />
+        </>
+      )}
       </div>
     </div>
   );

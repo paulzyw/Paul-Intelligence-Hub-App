@@ -218,6 +218,35 @@ export async function toggleBusinessChallengeStatus(
 }
 
 /**
+ * Delete a business challenge and its associated junction records from database.
+ */
+export async function deleteBusinessChallenge(
+  id: string
+): Promise<{ success: boolean; error: any }> {
+  try {
+    // 1. Delete associations in content_business_challenges junction table if any exist
+    await supabase
+      .from('content_business_challenges')
+      .delete()
+      .eq('challenge_id', id);
+
+    // 2. Delete the challenge itself
+    const { error } = await supabase
+      .from('business_challenges')
+      .delete()
+      .eq('id', id);
+
+    if (error) {
+      return { success: false, error };
+    }
+    return { success: true, error: null };
+  } catch (err: any) {
+    console.error('deleteBusinessChallenge error:', err);
+    return { success: false, error: err };
+  }
+}
+
+/**
  * Fetch Business Challenges associated with a specific article.
  */
 export async function fetchArticleBusinessChallenges(
@@ -352,6 +381,8 @@ export interface ArticleWithChallengeMeta {
   created_at: string;
   isPrimary: boolean;
   content_type?: string;
+  author_id?: string;
+  author?: string;
 }
 
 export interface ChallengeWithArticles {
@@ -388,12 +419,27 @@ export async function fetchActiveChallengesWithArticles(): Promise<{
       return { data: [], error: null };
     }
 
-    // 2. Fetch all published insight articles
-    const { data: rawPosts, error: postsError } = await supabase
+    // 2. Fetch all published insight articles (use select('*') to safely handle tables before migration)
+    let rawPosts: any[] | null = null;
+    let postsError: any = null;
+
+    const queryResult = await supabase
       .from('posts')
-      .select('id, title, slug, summary, category, read_time, thumbnail_url, is_featured, published_at, created_at, status, content_type')
+      .select('*')
       .eq('content_type', 'insight')
       .order('created_at', { ascending: false });
+
+    rawPosts = queryResult.data;
+    postsError = queryResult.error;
+
+    if (postsError && (postsError.code === '42703' || postsError.message?.includes('does not exist'))) {
+      const fallbackResult = await supabase
+        .from('posts')
+        .select('*')
+        .order('created_at', { ascending: false });
+      rawPosts = fallbackResult.data;
+      postsError = fallbackResult.error;
+    }
 
     if (postsError) {
       return { data: [], error: postsError };
@@ -447,7 +493,9 @@ export async function fetchActiveChallengesWithArticles(): Promise<{
         published_at: post.published_at,
         created_at: post.created_at,
         isPrimary: Boolean(row.is_primary),
-        content_type: post.content_type
+        content_type: post.content_type,
+        author_id: (post as any).author_id || (post as any).author || 'Paul Wang',
+        author: (post as any).author || (post as any).author_id || 'Paul Wang'
       };
 
       challengeArticlesMap.get(row.challenge_id)!.push(articleMeta);

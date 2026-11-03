@@ -20,7 +20,7 @@ export function BusinessChallengeDiscovery({
     : challengeGroups.filter(g => g.challenge.slug === selectedChallengeSlug);
 
   return (
-    <section id="business-challenges" className="py-16 md:py-20 border-b border-border/60 bg-bg-surface/30">
+    <section id="business-challenges" className="py-16 md:py-20 border-b border-border/60 bg-bg-surface">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         
         {/* Section Heading & Introduction */}
@@ -41,7 +41,7 @@ export function BusinessChallengeDiscovery({
 
         {/* Dynamic Condition Check */}
         {challengeGroups.length === 0 ? (
-          <div className="rounded-2xl border border-border bg-bg-surface p-8 sm:p-12 text-center max-w-2xl mx-auto">
+          <div className="rounded-2xl border border-border bg-bg-primary p-8 sm:p-12 text-center max-w-2xl mx-auto">
             <div className="w-12 h-12 rounded-full bg-accent/10 text-accent flex items-center justify-center mx-auto mb-4">
               <Layers size={22} />
             </div>
@@ -73,7 +73,7 @@ export function BusinessChallengeDiscovery({
                   onClick={() => setSelectedChallengeSlug('all')}
                   className={`px-3 py-1.5 text-xs font-medium rounded-md whitespace-nowrap transition-colors cursor-pointer border ${
                     selectedChallengeSlug === 'all'
-                      ? 'bg-text-primary text-bg-primary border-text-primary'
+                      ? 'bg-accent text-white border-accent'
                       : 'bg-bg-surface text-text-secondary hover:text-text-primary border-border'
                   }`}
                 >

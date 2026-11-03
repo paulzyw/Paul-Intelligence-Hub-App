@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { supabase, type Post } from '../lib/supabase';
 import { safeSupabaseQuery } from '../lib/fetchData';
-import { Clock, ArrowLeft, Calendar } from 'lucide-react';
+import { Clock, ArrowLeft, Calendar, User } from 'lucide-react';
 import { motion } from 'motion/react';
 import DOMPurify from 'dompurify';
 import hljs from 'highlight.js';
@@ -136,12 +136,15 @@ export function PostDetail() {
 
         {/* HEADER */}
         <header className="mb-12">
-          <div className="flex items-center gap-4 mb-6">
-            <span className="text-accent font-bold text-sm uppercase tracking-wider">{post.category || 'Uncategorized'}</span>
-            <span className="text-text-secondary text-sm flex items-center gap-1">
+          <div className="flex flex-wrap items-center gap-4 mb-6 text-sm">
+            <span className="text-accent font-bold uppercase tracking-wider">{post.category || 'Uncategorized'}</span>
+            <span className="text-text-primary font-semibold flex items-center gap-1.5">
+              <User size={14} className="text-accent" /> {post.author || post.author_id || 'Paul Wang'}
+            </span>
+            <span className="text-text-secondary flex items-center gap-1">
               <Calendar size={14} /> {new Date(post.created_at).toLocaleDateString()}
             </span>
-            <span className="text-text-secondary text-sm flex items-center gap-1">
+            <span className="text-text-secondary flex items-center gap-1">
               <Clock size={14} /> {post.read_time} Min Read
             </span>
           </div>

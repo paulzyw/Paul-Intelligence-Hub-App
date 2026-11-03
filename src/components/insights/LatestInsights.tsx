@@ -56,7 +56,9 @@ export function LatestInsights({ posts }: LatestInsightsProps) {
                 published_at: post.published_at,
                 created_at: post.created_at,
                 isPrimary: false,
-                content_type: post.content_type
+                content_type: post.content_type,
+                author_id: post.author_id || post.author || 'Paul Wang',
+                author: post.author || post.author_id || 'Paul Wang'
               };
 
               return (

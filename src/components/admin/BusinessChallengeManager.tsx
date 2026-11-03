@@ -4,6 +4,7 @@ import {
   createBusinessChallenge, 
   updateBusinessChallenge, 
   toggleBusinessChallengeStatus, 
+  deleteBusinessChallenge,
   type BusinessChallenge,
   PREDEFINED_CHALLENGES_SEED 
 } from '../../lib/businessChallenges';
@@ -11,6 +12,7 @@ import {
   Target, 
   Plus, 
   Edit2, 
+  Trash2,
   CheckCircle2, 
   XCircle, 
   Search, 
@@ -34,6 +36,7 @@ export const BusinessChallengeManager: React.FC = () => {
   const [editingChallenge, setEditingChallenge] = useState<BusinessChallenge | null>(null);
   const [actionLoading, setActionLoading] = useState(false);
   const [syncLoading, setSyncLoading] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
   const [notification, setNotification] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
 
   // Form state
@@ -151,6 +154,27 @@ export const BusinessChallengeManager: React.FC = () => {
     } else {
       showNotification(`Failed to toggle status: ${error?.message || 'Database error'}`, 'error');
     }
+  };
+
+  const handleDeleteChallenge = async (challenge: BusinessChallenge) => {
+    const promptMsg = challenge.article_count && challenge.article_count > 0
+      ? `Are you sure you want to delete "${challenge.name}" from the database? It is currently associated with ${challenge.article_count} article${challenge.article_count > 1 ? 's' : ''}. Deleting it will remove the challenge and its article links.`
+      : `Are you sure you want to delete "${challenge.name}" from the database? This action cannot be undone.`;
+
+    if (!window.confirm(promptMsg)) {
+      return;
+    }
+
+    setDeletingId(challenge.id);
+    const { success, error } = await deleteBusinessChallenge(challenge.id);
+
+    if (success) {
+      showNotification(`Deleted "${challenge.name}" successfully`);
+      setChallenges(prev => prev.filter(c => c.id !== challenge.id));
+    } else {
+      showNotification(`Failed to delete challenge: ${error?.message || 'Database error'}`, 'error');
+    }
+    setDeletingId(null);
   };
 
   const handleSeedPredefined = async () => {
@@ -378,6 +402,15 @@ export const BusinessChallengeManager: React.FC = () => {
                         title="Edit challenge"
                       >
                         <Edit2 size={15} />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteChallenge(challenge)}
+                        disabled={deletingId === challenge.id}
+                        className="p-1.5 text-red-500 hover:bg-red-500/10 rounded-md transition-colors cursor-pointer disabled:opacity-50"
+                        title="Delete challenge from database"
+                      >
+                        <Trash2 size={15} className={deletingId === challenge.id ? 'animate-pulse' : ''} />
                       </button>
                     </div>
                   </td>

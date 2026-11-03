@@ -56,6 +56,8 @@ export interface ArticleWithChallengeMeta {
   created_at: string;
   isPrimary: boolean;
   content_type?: string;
+  author_id?: string;
+  author?: string;
 }
 
 export interface ChallengeWithArticles {

@@ -24,7 +24,7 @@ export function InsightArticleCard({
   // Compact horizontal row layout matching challenge group discovery design
   if (variant === 'horizontal-compact') {
     return (
-      <article className="group relative w-full flex flex-col sm:flex-row items-stretch sm:items-center rounded-xl border border-border bg-bg-surface overflow-hidden hover:border-accent/50 hover:shadow-sm transition-all duration-200 p-2.5 sm:p-3 gap-3 sm:gap-4">
+      <article className="group relative w-full flex flex-col sm:flex-row items-stretch sm:items-center rounded-xl border border-border bg-bg-primary overflow-hidden hover:border-accent/50 hover:shadow-sm transition-all duration-200 p-2.5 sm:p-3 gap-3 sm:gap-4">
         {/* Left Thumbnail Slot - compact landscape height & clickable */}
         <Link
           to={`/insights/${article.slug}`}
@@ -61,11 +61,15 @@ export function InsightArticleCard({
 
         {/* Right Content Body - streamlined vertical stack */}
         <div className="flex flex-1 flex-col justify-center min-w-0 py-0.5">
-          {/* Eyebrow Metadata: Category · Date · Clock Read Time */}
+          {/* Eyebrow Metadata: Category · Date · Author · Clock Read Time */}
           <div className="flex flex-wrap items-center gap-1.5 text-[11px] sm:text-xs text-text-secondary mb-0.5">
             <span className="font-semibold text-accent">{article.category}</span>
             <span aria-hidden="true" className="text-border">·</span>
             <time dateTime={article.published_at || article.created_at}>{formattedDate}</time>
+            <span aria-hidden="true" className="text-border">·</span>
+            <span className="font-medium text-text-primary">
+              {article.author || article.author_id || 'Paul Wang'}
+            </span>
             <span aria-hidden="true" className="text-border">·</span>
             <span className="flex items-center gap-1">
               <Clock size={11} className="opacity-70" />
@@ -125,10 +129,14 @@ export function InsightArticleCard({
       <div className="flex flex-1 flex-col justify-between p-5 sm:p-6">
         <div>
           {/* Metadata Discipline: Zero-Pill Unboxed Text with Separators */}
-          <div className="flex items-center gap-2 text-xs text-text-secondary mb-3">
+          <div className="flex flex-wrap items-center gap-2 text-xs text-text-secondary mb-3">
             <span className="font-medium text-accent">{article.category}</span>
             <span aria-hidden="true" className="text-border">·</span>
             <time dateTime={article.published_at || article.created_at}>{formattedDate}</time>
+            <span aria-hidden="true" className="text-border">·</span>
+            <span className="font-medium text-text-primary">
+              {article.author || article.author_id || 'Paul Wang'}
+            </span>
             <span aria-hidden="true" className="text-border">·</span>
             <span className="flex items-center gap-1">
               <Clock size={12} className="opacity-70" />
