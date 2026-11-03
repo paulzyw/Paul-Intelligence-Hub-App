@@ -13,7 +13,7 @@ dotenv.config();
 
 const CANONICAL_DOMAIN = 'https://www.apprevos.ai';
 const SUPABASE_URL = process.env.VITE_SUPABASE_URL || 'https://yfonihlpdvelssfmzokp.supabase.co';
-const SUPABASE_ANON_KEY = process.env.VITE_SUPABASE_ANON_KEY || '';
+const SUPABASE_ANON_KEY = process.env.VITE_SUPABASE_ANON_KEY || 'placeholder-anon-key';
 
 interface PostRecord {
   id: string;
@@ -179,8 +179,12 @@ async function main() {
     .order('created_at', { ascending: false });
 
   if (error) {
-    console.error('[SSG] Critical Error fetching posts from Supabase:', error);
-    process.exit(1);
+    console.warn('[SSG] Notice: Supabase posts fetch returned an error (likely placeholder credentials in local dev):', error.message);
+    if (!SUPABASE_ANON_KEY || SUPABASE_ANON_KEY.includes('placeholder')) {
+      console.warn('[SSG] Proceeding with static shell generation and base sitemap.');
+    } else {
+      process.exit(1);
+    }
   }
 
   const allPosts: PostRecord[] = posts || [];
@@ -207,19 +211,77 @@ async function main() {
   ];
 
   // ----------------------------------------------------
+  // ----------------------------------------------------
   // 3. Generate Revenue Insights Listing (/insights/index.html)
   // ----------------------------------------------------
   console.log('[SSG] Generating Revenue Insights Listing: /insights/index.html');
+
+  // Query active business challenges and junction mappings for pre-rendering
+  let ssgChallengeGroups: Array<{
+    challenge: { id: string; name: string; slug: string; description: string | null; display_order: number };
+    articles: PostRecord[];
+  }> = [];
+
+  try {
+    const { data: challenges } = await supabase
+      .from('business_challenges')
+      .select('*')
+      .eq('status', 'active')
+      .order('display_order', { ascending: true });
+
+    if (challenges && challenges.length > 0) {
+      const { data: junctions } = await supabase
+        .from('content_business_challenges')
+        .select('content_id, challenge_id, is_primary');
+
+      const junctionMap = new Map<string, Array<{ content_id: string; is_primary: boolean }>>();
+      (junctions || []).forEach(j => {
+        if (!junctionMap.has(j.challenge_id)) {
+          junctionMap.set(j.challenge_id, []);
+        }
+        junctionMap.get(j.challenge_id)!.push({ content_id: j.content_id, is_primary: Boolean(j.is_primary) });
+      });
+
+      const insightMap = new Map<string, PostRecord>();
+      insightPosts.forEach(p => insightMap.set(p.id, p));
+
+      challenges.forEach(ch => {
+        const linked = junctionMap.get(ch.id) || [];
+        const articles: PostRecord[] = [];
+        linked.forEach(item => {
+          const art = insightMap.get(item.content_id);
+          if (art && (!art.status || art.status === 'published')) {
+            articles.push(art);
+          }
+        });
+
+        // Dynamic visibility rule: Only include active challenges with at least 1 published article
+        if (articles.length > 0) {
+          ssgChallengeGroups.push({
+            challenge: ch,
+            articles
+          });
+        }
+      });
+    }
+  } catch (err) {
+    console.warn('[SSG] Notice: Business challenges query for pre-rendering completed with fallback:', err);
+  }
+
+  const ssgFeaturedPost = insightPosts.find(p => p.is_featured) || insightPosts[0] || null;
+  const ssgRecommendedPosts = insightPosts.filter(p => !ssgFeaturedPost || p.id !== ssgFeaturedPost.id).slice(0, 3);
+
   const insightsListingMeta = buildMetaTags({
-    title: 'Strategic Perspectives for Growth | Revenue Insights | RevOS',
-    description: 'Data-driven methodologies, pipeline governance frameworks, and executive playbooks designed to turn complex commercial challenges into systematic revenue growth.',
+    title: 'Revenue Operations Insights & Business Growth Strategies | RevOS',
+    description: 'Explore evidence-driven insights on revenue operations, sales performance, lead qualification, pipeline management, forecasting, and business growth.',
     canonicalUrl: `${CANONICAL_DOMAIN}/insights/`,
     type: 'website',
     jsonLd: {
       '@context': 'https://schema.org',
       '@type': 'CollectionPage',
-      headline: 'RevOS Revenue Insights',
-      description: 'Strategic Perspectives for B2B Revenue Optimization and Sales Acceleration',
+      name: 'RevOS Revenue Insights',
+      headline: 'Make Better Revenue Decisions.',
+      description: 'Explore evidence-driven insights on revenue operations, sales performance, lead qualification, pipeline management, forecasting, and business growth.',
       url: `${CANONICAL_DOMAIN}/insights/`,
       publisher: {
         '@type': 'Organization',
@@ -229,29 +291,162 @@ async function main() {
     },
   });
 
+  const knowledgeCategories = [
+    'Go-to-Market Strategy',
+    'Revenue Operations',
+    'Sales Performance',
+    'Lead Qualification',
+    'Pipeline Management',
+    'Sales Forecasting',
+    'Customer Growth',
+    'AI & Revenue Intelligence'
+  ];
+
   const insightsListingHtmlBody = `
-    <header class="py-12 bg-bg-primary text-center px-4">
-      <h1 class="text-4xl md:text-5xl font-bold text-text-primary mb-4">Strategic Perspectives for Growth</h1>
-      <p class="text-xl text-text-secondary max-w-3xl mx-auto">
-        Data-driven methodologies, pipeline governance frameworks, and executive playbooks designed to turn complex commercial challenges into systematic revenue growth.
-      </p>
-    </header>
-    <main class="max-w-7xl mx-auto px-4 py-8">
-      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-        ${insightPosts.map(post => `
-          <article class="border border-border rounded-xl p-6 bg-bg-surface">
-            <span class="text-xs text-accent font-semibold uppercase tracking-wider">${escapeHtml(post.category)}</span>
-            <h2 class="text-xl font-bold text-text-primary mt-2 mb-3">
-              <a href="/insights/${escapeHtml(post.slug)}/">${escapeHtml(post.title)}</a>
-            </h2>
-            <p class="text-sm text-text-secondary mb-4">${escapeHtml(post.summary)}</p>
-            <div class="text-xs text-text-secondary flex items-center justify-between">
-              <time datetime="${post.created_at}">${new Date(post.created_at).toLocaleDateString()}</time>
-              <span>${post.read_time} min read</span>
-            </div>
-          </article>
-        `).join('')}
+    <!-- SECTION 1: EDITORIAL HERO -->
+    <header class="py-16 bg-bg-primary border-b border-border text-center px-4">
+      <div class="max-w-4xl mx-auto">
+        <div class="text-xs font-semibold tracking-widest uppercase text-accent mb-3">
+          RevOS Revenue Insights
+        </div>
+        <h1 class="text-4xl sm:text-5xl lg:text-6xl font-extrabold text-text-primary tracking-tight mb-6">
+          Make Better Revenue Decisions.
+        </h1>
+        <p class="text-lg sm:text-xl text-text-secondary max-w-3xl mx-auto font-light leading-relaxed mb-8">
+          Explore practical insights, analytical perspectives, and evidence-driven approaches to the challenges shaping modern revenue performance, sales execution, and business growth.
+        </p>
+        <div class="flex flex-wrap items-center justify-center gap-4 text-xs font-medium">
+          <a href="#business-challenges" class="px-5 py-2.5 rounded-lg bg-accent text-white hover:opacity-90">Explore by Business Challenge</a>
+          <a href="#knowledge-categories" class="px-5 py-2.5 rounded-lg border border-border bg-bg-surface text-text-primary">Browse Knowledge Areas</a>
+        </div>
       </div>
+    </header>
+
+    <main class="max-w-7xl mx-auto px-4 py-12 space-y-16">
+      
+      <!-- SECTION 2: FEATURED INSIGHT -->
+      ${ssgFeaturedPost ? `
+        <section class="border border-border rounded-2xl p-8 bg-bg-surface">
+          <div class="text-xs uppercase font-semibold text-accent mb-2">Featured Perspective</div>
+          <h2 class="text-2xl sm:text-3xl font-bold text-text-primary mb-3">
+            <a href="/insights/${escapeHtml(ssgFeaturedPost.slug)}/">${escapeHtml(ssgFeaturedPost.title)}</a>
+          </h2>
+          <p class="text-text-secondary text-sm sm:text-base mb-4 leading-relaxed">${escapeHtml(ssgFeaturedPost.summary)}</p>
+          <div class="text-xs text-text-secondary flex items-center gap-3">
+            <span>${escapeHtml(ssgFeaturedPost.category)}</span>
+            <span>·</span>
+            <time datetime="${ssgFeaturedPost.created_at}">${new Date(ssgFeaturedPost.created_at).toLocaleDateString()}</time>
+            <span>·</span>
+            <span>${ssgFeaturedPost.read_time} min read</span>
+          </div>
+        </section>
+      ` : ''}
+
+      <!-- SECTION 3: KNOWLEDGE CATEGORIES -->
+      <section id="knowledge-categories" class="space-y-4">
+        <h2 class="text-2xl font-bold text-text-primary">Explore by Knowledge Category</h2>
+        <div class="flex flex-wrap gap-2 text-xs">
+          ${knowledgeCategories.map(cat => `
+            <a href="/insights/#latest-insights" class="px-3.5 py-2 rounded-lg border border-border bg-bg-surface text-text-secondary hover:text-text-primary">
+              ${escapeHtml(cat)}
+            </a>
+          `).join('')}
+        </div>
+      </section>
+
+      <!-- SECTION 4: EXPLORE BY BUSINESS CHALLENGE -->
+      <section id="business-challenges" class="space-y-10">
+        <div>
+          <div class="text-xs font-semibold uppercase text-accent mb-1">Problem-Centric Discovery</div>
+          <h2 class="text-3xl font-extrabold text-text-primary">Explore by Business Challenge</h2>
+          <p class="text-sm text-text-secondary mt-1">Every revenue organization faces different challenges. Explore practical insights and evidence-driven perspectives based on the problems you are working to solve.</p>
+        </div>
+
+        ${ssgChallengeGroups.length > 0 ? ssgChallengeGroups.map(group => `
+          <div class="border-t border-border pt-8 space-y-6">
+            <div>
+              <h3 class="text-xl font-bold text-text-primary">${escapeHtml(group.challenge.name)}</h3>
+              ${group.challenge.description ? `<p class="text-xs text-text-secondary mt-1 font-light">${escapeHtml(group.challenge.description)}</p>` : ''}
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              ${group.articles.map(art => `
+                <article class="border border-border rounded-xl p-6 bg-bg-surface flex flex-col justify-between">
+                  <div>
+                    <span class="text-xs text-accent font-semibold">${escapeHtml(art.category)}</span>
+                    <h4 class="text-lg font-bold text-text-primary mt-1 mb-2">
+                      <a href="/insights/${escapeHtml(art.slug)}/">${escapeHtml(art.title)}</a>
+                    </h4>
+                    <p class="text-xs text-text-secondary line-clamp-3 mb-4 font-light">${escapeHtml(art.summary)}</p>
+                  </div>
+                  <div class="text-xs text-text-secondary flex items-center justify-between border-t border-border pt-3 mt-auto">
+                    <span>${art.read_time} min read</span>
+                    <a href="/insights/${escapeHtml(art.slug)}/" class="text-accent font-semibold">Read Insight →</a>
+                  </div>
+                </article>
+              `).join('')}
+            </div>
+          </div>
+        `).join('') : `
+          <div class="text-xs text-text-secondary">Explore all revenue insights across strategic operations below.</div>
+        `}
+      </section>
+
+      <!-- SECTION 5: LATEST INSIGHTS -->
+      <section id="latest-insights" class="space-y-6">
+        <div>
+          <h2 class="text-2xl font-bold text-text-primary">Latest Insights</h2>
+          <p class="text-xs text-text-secondary">Chronological research publications and executive analyses.</p>
+        </div>
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          ${insightPosts.map(post => `
+            <article class="border border-border rounded-xl p-6 bg-bg-surface flex flex-col justify-between">
+              <div>
+                <span class="text-xs text-accent font-semibold">${escapeHtml(post.category)}</span>
+                <h3 class="text-lg font-bold text-text-primary mt-1 mb-2">
+                  <a href="/insights/${escapeHtml(post.slug)}/">${escapeHtml(post.title)}</a>
+                </h3>
+                <p class="text-xs text-text-secondary mb-4 font-light line-clamp-3">${escapeHtml(post.summary)}</p>
+              </div>
+              <div class="text-xs text-text-secondary flex items-center justify-between border-t border-border pt-3 mt-auto">
+                <time datetime="${post.created_at}">${new Date(post.created_at).toLocaleDateString()}</time>
+                <span>${post.read_time} min read</span>
+              </div>
+            </article>
+          `).join('')}
+        </div>
+      </section>
+
+      <!-- SECTION 6: RECOMMENDED INSIGHTS -->
+      ${ssgRecommendedPosts.length > 0 ? `
+        <section class="space-y-6">
+          <h2 class="text-2xl font-bold text-text-primary">Recommended & Strategic Readings</h2>
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+            ${ssgRecommendedPosts.map(post => `
+              <div class="border border-border rounded-xl p-6 bg-bg-surface">
+                <span class="text-xs text-accent font-semibold">${escapeHtml(post.category)}</span>
+                <h3 class="text-base font-bold text-text-primary mt-1 mb-2">
+                  <a href="/insights/${escapeHtml(post.slug)}/">${escapeHtml(post.title)}</a>
+                </h3>
+                <p class="text-xs text-text-secondary font-light">${escapeHtml(post.summary)}</p>
+              </div>
+            `).join('')}
+          </div>
+        </section>
+      ` : ''}
+
+      <!-- SECTION 7: CALL TO ACTION -->
+      <section class="border border-border rounded-2xl p-10 bg-bg-surface text-center space-y-4">
+        <h2 class="text-3xl font-extrabold text-text-primary">From Revenue Insights to Revenue Impact.</h2>
+        <p class="text-sm text-text-secondary max-w-2xl mx-auto font-light">
+          Understanding revenue challenges is the first step. RevOS helps revenue teams turn evidence into clearer assessments, better strategies, and more actionable decisions.
+        </p>
+        <div>
+          <a href="/product/overview/revos" class="inline-flex items-center gap-2 px-6 py-3 rounded-lg bg-accent text-white text-sm font-semibold hover:opacity-90">
+            Explore RevOS →
+          </a>
+        </div>
+      </section>
+
     </main>
   `;
 
@@ -259,6 +454,7 @@ async function main() {
   const insightsListingFile = path.join(distPath, 'insights', 'index.html');
   ensureDirectoryExistence(insightsListingFile);
   fs.writeFileSync(insightsListingFile, insightsListingFullHtml);
+
 
   // ----------------------------------------------------
   // 4. Generate Revenue Insight Detail Pages (/insights/<slug>/index.html)

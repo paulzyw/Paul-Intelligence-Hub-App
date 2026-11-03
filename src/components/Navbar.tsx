@@ -160,7 +160,6 @@ export function Navbar() {
     '/about/contact',
     '/founder',
     '/impact',
-    '/insights',
     '/research',
     '/contact'
   ].some(
@@ -168,7 +167,12 @@ export function Navbar() {
   );
   const isProductActive = location.pathname.startsWith('/product');
   const isSolutionsActive = location.pathname.startsWith('/solutions');
-  const isResourcesActive = location.pathname.startsWith('/resources');
+  const isResourcesActive = [
+    '/resources',
+    '/insights'
+  ].some(
+    p => location.pathname === p || location.pathname.startsWith(p + '/')
+  );
 
   const isActive = (path: string) => {
     if (path === '/' && location.pathname !== '/') return false;

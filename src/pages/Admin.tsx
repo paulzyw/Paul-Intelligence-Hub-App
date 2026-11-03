@@ -99,6 +99,13 @@ import { ReportTypeManager } from '../components/ReportTypeManager';
 import { ResearchManager } from '../components/ResearchManager';
 import { TrafficMonitor } from '../components/TrafficMonitor';
 import { SeedDatabase } from '../components/SeedDatabase';
+import { BusinessChallengeManager } from '../components/admin/BusinessChallengeManager';
+import { BusinessChallengeSelector } from '../components/admin/BusinessChallengeSelector';
+import { 
+  fetchArticleBusinessChallenges, 
+  saveArticleBusinessChallenges, 
+  type SelectedBusinessChallenge 
+} from '../lib/businessChallenges';
 
 const CategoryManager = ({ categories, fetchCategories }: { categories: Category[], fetchCategories: () => void }) => {
   const [newCategoryName, setNewCategoryName] = useState('');
@@ -227,6 +234,7 @@ export function Admin() {
   const [autoSyncReadTime, setAutoSyncReadTime] = useState(true);
   const [contentFilter, setContentFilter] = useState<'all' | 'post' | 'insight'>('all');
   const [showSeoFields, setShowSeoFields] = useState(false);
+  const [selectedChallenges, setSelectedChallenges] = useState<SelectedBusinessChallenge[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const calculateReadingTime = (content: string) => {
@@ -376,6 +384,7 @@ export function Admin() {
     };
 
     let saveError: any = null;
+    let savedPostId: string | null = currentPost.id || null;
 
     if (currentPost.id) {
       // Update
@@ -386,10 +395,15 @@ export function Admin() {
       saveError = error;
     } else {
       // Insert
-      const { error } = await supabase
+      const { data: inserted, error } = await supabase
         .from('posts')
-        .insert([postData]);
+        .insert([postData])
+        .select('id')
+        .single();
       saveError = error;
+      if (inserted?.id) {
+        savedPostId = inserted.id;
+      }
     }
 
     // Graceful fallback: If Supabase database hasn't had the additive columns applied yet via SQL Editor
@@ -412,7 +426,7 @@ export function Admin() {
       
       const retry = currentPost.id
         ? await supabase.from('posts').update(coreData).eq('id', currentPost.id)
-        : await supabase.from('posts').insert([coreData]);
+        : await supabase.from('posts').insert([coreData]).select('id').single();
         
       if (retry.error) {
         alert(retry.error.message);
@@ -421,16 +435,31 @@ export function Admin() {
       } else {
         alert('Saved successfully! (Notice: Please run the SQL migration in supabase/migrations/20261102_unified_content_model.sql in your Supabase SQL Editor to enable persistent SEO/content-type database columns).');
         saveError = null;
+        if ((retry as any).data?.id) {
+          savedPostId = (retry as any).data.id;
+        }
       }
     } else if (saveError) {
       alert(saveError.message);
       setLoading(false);
       return;
     }
+
+    // Associate Business Challenges for Insight articles
+    if (postData.content_type === 'insight' && savedPostId) {
+      const { success, error: challengeSaveError } = await saveArticleBusinessChallenges(
+        savedPostId,
+        selectedChallenges
+      );
+      if (!success && challengeSaveError) {
+        alert('Post content saved, but updating Business Challenges failed: ' + challengeSaveError.message);
+      }
+    }
     
     setLoading(false);
     setIsEditing(false);
     setCurrentPost({});
+    setSelectedChallenges([]);
     fetchPosts();
   };
 
@@ -702,6 +731,7 @@ export function Admin() {
             }} />
             <AccessCodeGenerator />
             <CategoryManager categories={categories} fetchCategories={fetchCategories} />
+            <BusinessChallengeManager />
             <ReportTypeManager reportTypes={reportTypes} fetchReportTypes={fetchReportTypes} />
             <ResearchManager reports={reports} reportTypes={reportTypes} fetchReports={fetchReports} />
           </>
@@ -712,7 +742,7 @@ export function Admin() {
             <div className="flex justify-between items-center mb-6">
               <h2 className="text-2xl font-bold text-text-primary">{currentPost.id ? 'Edit Post' : 'New Post'}</h2>
               <button 
-                onClick={() => { setIsEditing(false); setCurrentPost({}); }}
+                onClick={() => { setIsEditing(false); setCurrentPost({}); setSelectedChallenges([]); }}
                 className="text-text-secondary hover:text-text-primary"
               >
                 <X size={24} />
@@ -944,6 +974,14 @@ export function Admin() {
                 />
               </div>
 
+              {/* Business Challenges Addressed (Only for Insight articles) */}
+              {(currentPost.content_type === 'insight') && (
+                <BusinessChallengeSelector
+                  selectedChallenges={selectedChallenges}
+                  onChange={setSelectedChallenges}
+                />
+              )}
+
               {/* Publication Status & SEO Settings */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 bg-bg-primary/40 border border-border rounded-xl">
                 <div>
@@ -1037,7 +1075,7 @@ export function Admin() {
               <div className="flex justify-end gap-4">
                 <button 
                   type="button"
-                  onClick={() => { setIsEditing(false); setCurrentPost({}); }}
+                  onClick={() => { setIsEditing(false); setCurrentPost({}); setSelectedChallenges([]); }}
                   className="px-4 py-2 border border-border rounded-md text-text-primary hover:bg-bg-primary transition-colors"
                 >
                   Cancel
@@ -1069,6 +1107,7 @@ export function Admin() {
                     content_type: contentFilter === 'insight' ? 'insight' : 'post',
                     status: 'published'
                   });
+                  setSelectedChallenges([]);
                   setIsEditing(true);
                 }}
                 className="px-4 py-2 bg-accent text-white rounded-md hover:bg-accent/90 transition-colors flex items-center gap-2 text-sm font-medium cursor-pointer"
@@ -1176,7 +1215,16 @@ export function Admin() {
                           <td className="p-4 text-right">
                             <div className="flex justify-end gap-2">
                               <button 
-                                onClick={() => { setCurrentPost(post); setIsEditing(true); }}
+                                onClick={async () => { 
+                                  setCurrentPost(post); 
+                                  setIsEditing(true);
+                                  if (post.content_type === 'insight') {
+                                    const { data } = await fetchArticleBusinessChallenges(post.id);
+                                    setSelectedChallenges(data || []);
+                                  } else {
+                                    setSelectedChallenges([]);
+                                  }
+                                }}
                                 className="p-2 text-blue-500 hover:bg-blue-500/10 rounded transition-colors cursor-pointer"
                                 title="Edit"
                               >
