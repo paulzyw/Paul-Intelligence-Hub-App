@@ -419,7 +419,7 @@ export function Home() {
       >
         <div 
           ref={containerRef}
-          className="static lg:sticky lg:top-16 lg:h-[calc(100vh-64px)] w-full flex flex-col justify-start overflow-hidden py-12 sm:py-16 lg:py-0 px-4 sm:px-6 lg:px-8 border-b border-border/60"
+          className="relative lg:sticky lg:top-16 lg:h-[calc(100vh-64px)] w-full flex flex-col justify-start overflow-hidden py-12 sm:py-16 lg:py-0 px-4 sm:px-6 lg:px-8 border-b border-border/60"
         >
           <div className="max-w-7xl mx-auto w-full h-full flex flex-col justify-start">
             <motion.div 

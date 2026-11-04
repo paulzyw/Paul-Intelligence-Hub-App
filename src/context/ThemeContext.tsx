@@ -127,34 +127,40 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
 
     fetchSettings();
 
-    // 2. Subscribe to real-time changes
-    const channel = supabase
-      .channel('site_settings_realtime')
-      .on(
-        'postgres_changes',
-        {
-          event: 'UPDATE',
-          schema: 'public',
-          table: 'site_settings',
-          filter: 'id=eq.default'
-        },
-        (payload) => {
-          const newSettings = payload.new;
-          if (newSettings) {
-            if (newSettings.hero_background !== undefined) setHeroBackgroundState(newSettings.hero_background);
-            if (newSettings.meteor_density !== undefined) setMeteorDensityState(Number(newSettings.meteor_density));
-            if (newSettings.meteor_speed !== undefined) setMeteorSpeedState(Number(newSettings.meteor_speed));
-            if (newSettings.galaxy_star_speed !== undefined) setGalaxyStarSpeedState(Number(newSettings.galaxy_star_speed));
-            if (newSettings.galaxy_density !== undefined) setGalaxyDensityState(Number(newSettings.galaxy_density));
-            if (newSettings.galaxy_glow_intensity !== undefined) setGalaxyGlowIntensityState(Number(newSettings.galaxy_glow_intensity));
-            if (newSettings.galaxy_saturation !== undefined) setGalaxySaturationState(Number(newSettings.galaxy_saturation));
+    // 2. Subscribe to real-time changes after initial load completes
+    let channel: any = null;
+    const realtimeTimer = setTimeout(() => {
+      channel = supabase
+        .channel('site_settings_realtime')
+        .on(
+          'postgres_changes',
+          {
+            event: 'UPDATE',
+            schema: 'public',
+            table: 'site_settings',
+            filter: 'id=eq.default'
+          },
+          (payload) => {
+            const newSettings = payload.new;
+            if (newSettings) {
+              if (newSettings.hero_background !== undefined) setHeroBackgroundState(newSettings.hero_background);
+              if (newSettings.meteor_density !== undefined) setMeteorDensityState(Number(newSettings.meteor_density));
+              if (newSettings.meteor_speed !== undefined) setMeteorSpeedState(Number(newSettings.meteor_speed));
+              if (newSettings.galaxy_star_speed !== undefined) setGalaxyStarSpeedState(Number(newSettings.galaxy_star_speed));
+              if (newSettings.galaxy_density !== undefined) setGalaxyDensityState(Number(newSettings.galaxy_density));
+              if (newSettings.galaxy_glow_intensity !== undefined) setGalaxyGlowIntensityState(Number(newSettings.galaxy_glow_intensity));
+              if (newSettings.galaxy_saturation !== undefined) setGalaxySaturationState(Number(newSettings.galaxy_saturation));
+            }
           }
-        }
-      )
-      .subscribe();
+        )
+        .subscribe();
+    }, 1200);
 
     return () => {
-      supabase.removeChannel(channel);
+      clearTimeout(realtimeTimer);
+      if (channel) {
+        supabase.removeChannel(channel);
+      }
       if (debounceTimeoutRef.current) {
         clearTimeout(debounceTimeoutRef.current);
       }

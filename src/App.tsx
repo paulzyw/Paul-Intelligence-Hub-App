@@ -12,9 +12,8 @@ import { Layout } from './components/Layout';
 import { ScrollReset } from './components/ScrollReset';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { PageSkeleton } from './components/PageSkeleton';
-
-// Route-level code-splitting: Lazy load pages to eliminate initial monolithic bundle payload
-const Home = lazy(() => import('./pages/Home').then(m => ({ default: m.Home })));
+import { Home } from './pages/Home';
+// Route-level code-splitting: Lazy load secondary pages to eliminate monolithic bundle payload
 const FounderProfile = lazy(() => import('./pages/founderProfile').then(m => ({ default: m.FounderProfile })));
 const AboutFounder = lazy(() => import('./pages/aboutFounder').then(m => ({ default: m.AboutFounder })));
 const FounderInsights = lazy(() => import('./pages/founderInsights').then(m => ({ default: m.FounderInsights })));

@@ -4,7 +4,6 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "predev": "node scripts/download-assets.js",
     "dev": "tsx server.ts",
     "prebuild": "node scripts/download-assets.js",
     "build:client": "vite build",

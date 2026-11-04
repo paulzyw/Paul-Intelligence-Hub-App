@@ -58,6 +58,11 @@ app.use("/models", express.static(path.join(process.cwd(), "public/models"), {
 // Serve /public directory directly for absolute /public/... asset paths
 app.use("/public", express.static(path.join(process.cwd(), "public")));
 
+// Explicitly serve /images directory from public/images
+app.use("/images", express.static(path.join(process.cwd(), "public/images"), {
+  maxAge: "7d"
+}));
+
 // ---------------------------------------------------------
 // SERVER-SIDE UTILITY ENDPOINTS
 // ---------------------------------------------------------

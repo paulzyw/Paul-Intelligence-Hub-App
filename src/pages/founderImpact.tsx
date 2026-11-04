@@ -1159,7 +1159,7 @@ function KPIItem({ label, value, icon, color }: { label: string, value: string, 
 function Sparkline({ data, color }: { data: any[], color: string }) {
   if (!data || data.length === 0) return null;
   return (
-    <ResponsiveContainer width="100%" height="100%">
+    <ResponsiveContainer width="100%" height="100%" minWidth={100} minHeight={40}>
       <AreaChart data={data}>
         <Area type="monotone" dataKey="revenueM" stroke={color} fill={color} fillOpacity={0.1} strokeWidth={2} isAnimationActive={false} />
       </AreaChart>

@@ -22,6 +22,25 @@ export default defineConfig(({ mode }) => {
         '@': path.resolve(__dirname, './'),
       },
     },
+
+    optimizeDeps: {
+      include: [
+        'react',
+        'react-dom',
+        'react-dom/client',
+        'react-router-dom',
+        'motion/react',
+        'lucide-react',
+        '@supabase/supabase-js',
+        'ogl',
+        'recharts',
+        'date-fns',
+        'dompurify',
+        'clsx',
+        'tailwind-merge',
+        'react-markdown'
+      ],
+    },
     
     build: {
       outDir: 'dist',
