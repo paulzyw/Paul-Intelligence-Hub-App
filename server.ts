@@ -55,6 +55,9 @@ app.use("/models", express.static(path.join(process.cwd(), "public/models"), {
   }
 }));
 
+// Serve /public directory directly for absolute /public/... asset paths
+app.use("/public", express.static(path.join(process.cwd(), "public")));
+
 // ---------------------------------------------------------
 // SERVER-SIDE UTILITY ENDPOINTS
 // ---------------------------------------------------------

@@ -689,6 +689,16 @@ Sitemap: ${CANONICAL_DOMAIN}/sitemap.xml
 
   fs.writeFileSync(path.join(distPath, 'robots.txt'), robotsTxt);
 
+  // ----------------------------------------------------
+  // 8. Mirror public directory into dist/public for /public/* asset path compatibility
+  // ----------------------------------------------------
+  const distPublicPath = path.join(distPath, 'public');
+  const sourcePublicPath = path.join(process.cwd(), 'public');
+  if (fs.existsSync(sourcePublicPath)) {
+    fs.cpSync(sourcePublicPath, distPublicPath, { recursive: true });
+    console.log('[SSG] Mirrored /public assets into dist/public for deployment path compatibility.');
+  }
+
   console.log('====================================================');
   console.log('✅ SSG Generation Complete!');
   console.log(`   • Total Pages Pre-rendered: ${insightPosts.length + blogPosts.length * 2 + 1}`);

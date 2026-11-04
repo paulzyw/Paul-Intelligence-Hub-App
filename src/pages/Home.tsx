@@ -37,7 +37,7 @@ const AUDIENCE_DATA: Record<AudienceKey, AudienceContent> = {
   individual: {
     label: "Sales Professional",
     cardTitle: "Sales Professional",
-    image: "https://yfonihlpdvelssfmzokp.supabase.co/storage/v1/object/public/page_image/Individual_sales.webp",
+    image: "/public/images/Individual_sales.webp",
     imageAlt: "Sales professional",
     experiencing: [
       "Leads look promising but lack verified buying potential.",
@@ -55,7 +55,7 @@ const AUDIENCE_DATA: Record<AudienceKey, AudienceContent> = {
   enterprise: {
     label: "Enterprise Team",
     cardTitle: "Enterprise Team",
-    image: "https://yfonihlpdvelssfmzokp.supabase.co/storage/v1/object/public/page_image/enterprise_team_02.webp",
+    image: "/public/images/enterprise_team.webp",
     imageAlt: "Enterprise team reviewing sales strategy and performance",
     experiencing: [
       "Marketing and sales disagree about which leads deserve attention.",
@@ -73,7 +73,7 @@ const AUDIENCE_DATA: Record<AudienceKey, AudienceContent> = {
   executive: {
     label: "Enterprise Executive",
     cardTitle: "Enterprise Executive",
-    image: "https://yfonihlpdvelssfmzokp.supabase.co/storage/v1/object/public/page_image/enterprise_executive.webp",
+    image: "/public/images/enterprise_executive.webp",
     imageAlt: "Enterprise executive seated at desk with laptop and strategy documents",
     experiencing: [
       "Revenue targets are difficult to achieve consistently.",
