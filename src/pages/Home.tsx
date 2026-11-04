@@ -37,7 +37,7 @@ const AUDIENCE_DATA: Record<AudienceKey, AudienceContent> = {
   individual: {
     label: "Sales Professional",
     cardTitle: "Sales Professional",
-    image: "/public/images/Individual_sales.webp",
+    image: "/images/Individual_sales.webp",
     imageAlt: "Sales professional",
     experiencing: [
       "Leads look promising but lack verified buying potential.",
@@ -55,7 +55,7 @@ const AUDIENCE_DATA: Record<AudienceKey, AudienceContent> = {
   enterprise: {
     label: "Enterprise Team",
     cardTitle: "Enterprise Team",
-    image: "/public/images/enterprise_team.webp",
+    image: "/images/enterprise_team.webp",
     imageAlt: "Enterprise team reviewing sales strategy and performance",
     experiencing: [
       "Marketing and sales disagree about which leads deserve attention.",
@@ -73,7 +73,7 @@ const AUDIENCE_DATA: Record<AudienceKey, AudienceContent> = {
   executive: {
     label: "Enterprise Executive",
     cardTitle: "Enterprise Executive",
-    image: "/public/images/enterprise_executive.webp",
+    image: "/images/enterprise_executive.webp",
     imageAlt: "Enterprise executive seated at desk with laptop and strategy documents",
     experiencing: [
       "Revenue targets are difficult to achieve consistently.",
@@ -596,6 +596,12 @@ export function Home() {
                       alt={AUDIENCE_DATA[activeAudience].imageAlt}
                       className="w-full h-64 sm:h-80 md:h-full object-cover object-center rounded-xl sm:rounded-2xl border border-border/40 shadow-sm"
                       loading="lazy"
+                      onError={(e) => {
+                        const target = e.currentTarget;
+                        if (target.src.includes('/public/images/')) {
+                          target.src = target.src.replace('/public/images/', '/images/');
+                        }
+                      }}
                     />
                   </div>
 
