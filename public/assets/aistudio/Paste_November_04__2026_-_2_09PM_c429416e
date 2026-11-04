@@ -1,0 +1,701 @@
+RevOS Performance Engineering & Optimization V1.0
+1. ROLE AND RESPONSIBILITY
+Act as a Senior Software Performance Architect, React Performance Engineer, Full-Stack Engineer, and DevOps Engineer.
+You are responsible for conducting a comprehensive performance audit and implementing production-ready performance optimizations across the existing RevOS SaaS platform.
+Your responsibility is not simply to improve individual page-loading speeds.
+You must investigate and optimize the complete application performance lifecycle, including:
+1.	Frontend architecture and resource delivery.
+2.	React application initialization and rendering.
+3.	JavaScript execution and bundle optimization.
+4.	Supabase authentication and session initialization.
+5.	Database and API request performance.
+6.	Browser caching and static asset management.
+7.	Vite production build optimization.
+8.	GitHub Actions CI/CD performance.
+9.	Wasmer Edge deployment and application delivery.
+10.	Application runtime performance and monitoring.
+You must work directly with the existing RevOS codebase.
+Do not provide only theoretical recommendations. After conducting the audit, implement the appropriate optimizations, validate the results, and provide a comprehensive implementation report.
+________________________________________
+2. EXISTING REVOS TECHNICAL ENVIRONMENT
+The current RevOS architecture is understood to include the following technologies:
+Layer	Technology	Responsibility
+Frontend	React	Application interface
+Language	TypeScript	Application development
+Build tool	Vite	Development and production builds
+Backend	Supabase	Database, authentication and backend services
+Authentication	Supabase Auth	User authentication and session management
+Database	Supabase PostgreSQL	Business and application data
+Backend processing	Supabase Edge Functions	Business logic and AI processing
+Hosting	Wasmer Edge	Static website hosting
+Source control	GitHub	Version control
+CI/CD	GitHub Actions	Automated building and deployment
+DNS/CDN	Cloudflare	DNS, proxy, security and CDN
+Important architectural characteristics:
+•	RevOS currently uses React with Vite and TypeScript.
+•	The application is deployed as a static website through Wasmer.
+•	Supabase authentication is initialized from the frontend.
+•	Supabase browser-managed session persistence is currently used.
+•	GitHub Actions handles application updates and deployment to Wasmer.
+•	Cloudflare DNS and Proxy have already undergone performance-oriented configuration.
+•	The application includes both public-facing pages and authenticated business application functionality.
+Before making any assumptions, inspect the actual repository and verify the implementation of every relevant technology and configuration.
+If any information above differs from the actual codebase, use the codebase as the authoritative source.
+________________________________________
+3. PERFORMANCE PROBLEM TO SOLVE
+RevOS currently exhibits the following performance characteristics.
+Problem A: Slow browser refresh
+When accessing the live RevOS website and clicking the browser Refresh button, the refreshed application generally takes approximately five seconds or longer to become available and usable.
+The objective is to identify why the complete refresh lifecycle takes this long.
+Investigate:
+•	Initial HTML delivery.
+•	JavaScript and CSS downloads.
+•	React application initialization.
+•	Authentication and session restoration.
+•	Supabase database requests.
+•	Application configuration retrieval.
+•	Component rendering.
+•	Initial page readiness.
+Problem B: Cloudflare Proxy performance differences
+The owner has conducted comparative tests with Cloudflare DNS Proxy enabled and disabled.
+The observed result is that website refreshes appear slower when Cloudflare Proxy is enabled.
+Cloudflare has already undergone an initial configuration optimization.
+Do not assume Cloudflare is necessarily the cause.
+Investigate the application-side delivery configuration and identify whether there are remaining issues involving:
+•	Response caching.
+•	Asset caching.
+•	Cache-control headers.
+•	Static asset versioning.
+•	Origin response behaviour.
+•	Resource loading.
+•	Duplicate requests.
+Do not modify Cloudflare configuration as part of this task unless a specific application-side requirement is identified and explicitly documented.
+Problem C: Performance degradation immediately after deployment
+After pushing application updates through GitHub Actions to Wasmer, the first browser refreshes can take considerably longer than normal.
+Investigate:
+•	Vite production build output.
+•	Hashed asset generation.
+•	HTML and asset version consistency.
+•	Cache invalidation.
+•	Browser caching.
+•	Wasmer CDN caching configuration.
+•	Deployment propagation.
+•	Asset availability immediately after deployment.
+•	GitHub Actions deployment sequence.
+Determine whether the problem originates from the build, deployment, caching, asset delivery or application initialization.
+Do not assume that a new Wasmer deployment automatically explains the delay. Establish evidence.
+Problem D: Increasing application complexity
+RevOS continues to evolve, with new business engines, workflows, analytics, AI capabilities and content functionality.
+The application must remain performant as additional features are introduced.
+The optimization must therefore establish a scalable performance architecture rather than solve only the current five-second refresh problem.
+________________________________________
+4. IMPORTANT BUSINESS FUNCTIONALITY THAT MUST BE PRESERVED
+RevOS is a business decision-support platform.
+Its existing business functionality must be preserved throughout this optimization.
+The codebase may include the following modules and capabilities:
+Core business engines
+•	GTMOS.
+•	Lead Qualification Engine.
+•	Pipeline Assessment Engine.
+Supporting business intelligence capabilities
+•	Business Challenge-Driven Content Discovery.
+•	Insight and knowledge discovery.
+•	Customer Problem-Value Matrix.
+•	Impact-to-Solution Narrative Map.
+•	SWOT analysis.
+•	AI reasoning and recommendation capabilities.
+•	Business intelligence dashboards.
+•	Historical assessment and reporting.
+Platform functionality
+•	User authentication and account management.
+•	Subscription and access management.
+•	User profiles and permissions.
+•	Supabase database integration.
+•	Content management system.
+•	Blog and Insight pages.
+•	Public-facing website.
+•	Application navigation and routing.
+The above is a functional preservation checklist, not an assumption that every module is implemented in a particular location.
+Inspect the actual repository and identify all existing features.
+Do not remove, simplify, replace or disable existing business functionality to achieve performance improvements.
+________________________________________
+5. NON-NEGOTIABLE ENGINEERING PRINCIPLES
+Before conducting the optimization, follow these rules.
+5.1 Preserve the existing architecture
+Do not migrate the application to Next.js, another framework, or a new hosting architecture simply to improve performance.
+Optimize the existing React + Vite + TypeScript architecture first.
+Do not introduce SSR, SSG or another rendering architecture without demonstrating why it is necessary and documenting the migration implications.
+5.2 Preserve business functionality
+Do not redesign existing pages or change business logic unnecessarily.
+Do not modify business calculation logic, AI prompts, assessment methodologies, scoring models or database business rules unless a specific performance problem requires it and the impact is understood.
+5.3 Preserve database integrity
+Do not delete, rename or modify existing Supabase tables, columns, relationships, policies or functions as a routine optimization measure.
+If database changes are necessary:
+•	Explain the performance problem.
+•	Identify the affected schema.
+•	Propose a migration.
+•	Explain compatibility implications.
+•	Obtain approval before applying destructive or breaking changes.
+Preserve all existing Row Level Security policies.
+5.4 Preserve authentication and security
+Do not weaken Supabase authentication.
+Do not disable session verification.
+Do not bypass authorization checks.
+Do not expose service-role keys or other privileged credentials in frontend code.
+Do not cache personalized or authenticated data in shared CDN caches.
+Preserve existing user access permissions and subscription restrictions.
+5.5 Avoid unnecessary dependencies
+Prefer native React, Vite, browser APIs and existing libraries.
+Only introduce additional libraries when their benefits justify the additional bundle size, maintenance requirements and complexity.
+5.6 Avoid speculative optimization
+Do not modify components simply because they appear to be potential performance problems.
+Use code inspection, browser profiling, build analysis and actual performance measurements to identify bottlenecks.
+Every significant optimization must have a clear technical justification.
+________________________________________
+6. WORKSTREAM 1: COMPREHENSIVE PERFORMANCE AUDIT
+Before changing application code, conduct a comprehensive technical audit.
+Inspect the following areas.
+6.1 Repository architecture
+Identify:
+•	Application entry points.
+•	React initialization sequence.
+•	Routing architecture.
+•	Main application layouts.
+•	Shared components.
+•	Page-level components.
+•	State management architecture.
+•	Context providers.
+•	Global hooks.
+•	Authentication providers.
+•	Supabase client initialization.
+•	Application-wide configuration loading.
+Produce an application initialization dependency map.
+Identify which operations must complete before the first page becomes usable.
+Identify which operations can execute asynchronously.
+6.2 Frontend bundle analysis
+Inspect:
+•	package.json.
+•	vite.config.ts.
+•	TypeScript configuration.
+•	Build scripts.
+•	Production build output.
+•	Existing dynamic imports.
+•	Existing lazy-loaded components.
+•	Third-party dependencies.
+Determine:
+•	Total JavaScript bundle size.
+•	Initial JavaScript bundle size.
+•	Total CSS bundle size.
+•	Largest individual JavaScript chunks.
+•	Large third-party dependencies.
+•	Duplicate dependencies.
+•	Unnecessary imports.
+•	Components included in the initial application bundle unnecessarily.
+Identify opportunities for:
+•	Code splitting.
+•	Tree shaking.
+•	Dynamic imports.
+•	Route-level lazy loading.
+•	Component-level lazy loading.
+Do not create excessive small chunks that introduce additional network overhead.
+6.3 React initialization and rendering audit
+Investigate:
+•	Unnecessary component re-rendering.
+•	Expensive calculations during rendering.
+•	Excessive useEffect execution.
+•	Duplicate state.
+•	Unnecessary context updates.
+•	Large component trees.
+•	Heavy synchronous operations.
+•	Inefficient list rendering.
+•	SVG and chart rendering costs.
+•	Animation-related performance problems.
+Determine whether components below the visible screen are being unnecessarily initialized.
+Identify opportunities for:
+•	React.memo.
+•	useMemo.
+•	useCallback.
+•	Virtualization where appropriate.
+•	Intersection Observer.
+•	Deferred rendering.
+•	CSS-based animations.
+Do not apply memoization indiscriminately.
+Only optimize components where there is an identifiable rendering cost.
+6.4 Supabase authentication audit
+Investigate the complete authentication initialization lifecycle.
+The existing Supabase browser-managed session persistence must be preserved.
+Inspect:
+•	Supabase client initialization.
+•	Session restoration.
+•	Auth state listeners.
+•	getSession calls.
+•	getUser calls.
+•	Authentication context.
+•	Protected route initialization.
+•	Permission retrieval.
+•	User profile retrieval.
+•	Duplicate authentication requests.
+•	Authentication-related loading states.
+Identify whether application initialization is unnecessarily waiting for multiple authentication requests.
+Avoid repeatedly subscribing to authentication events.
+Avoid duplicate Supabase client instances.
+Avoid unnecessary getUser requests when a validated existing session is sufficient for the relevant operation.
+However, preserve server-side authorization and security checks where required.
+Optimize authentication initialization without weakening security.
+6.5 Supabase data request audit
+Inspect all significant frontend Supabase requests.
+Determine:
+•	Which requests happen during initial application loading.
+•	Which requests are page-specific.
+•	Which requests execute sequentially.
+•	Which requests can run in parallel.
+•	Which requests retrieve excessive data.
+•	Which requests retrieve unused fields.
+•	Whether requests are duplicated.
+•	Whether data is fetched repeatedly during navigation.
+•	Whether database queries are unnecessarily expensive.
+Classify data requests into:
+A. Critical initialization data.
+B. Page-specific data.
+C. Background and supplementary data.
+Implement appropriate loading strategies for each category.
+Independent requests should execute concurrently where appropriate.
+Noncritical requests must not unnecessarily block the initial user interface.
+Use pagination for large datasets.
+Avoid retrieving complete tables when only a subset of records is required.
+Do not compromise RLS or authorization to reduce query latency.
+6.6 Asset delivery audit
+Inspect:
+•	Images.
+•	SVG files.
+•	Icons.
+•	Fonts.
+•	CSS.
+•	JavaScript.
+•	Video and other large resources.
+Identify oversized or unnecessarily duplicated resources.
+Determine whether assets are appropriately compressed, versioned and cached.
+Check whether images are unnecessarily loaded before becoming visible.
+Recommend appropriate lazy loading and responsive image strategies.
+6.7 GitHub Actions and Wasmer deployment audit
+Inspect:
+•	All GitHub Actions workflow files.
+•	Build commands.
+•	Dependency installation.
+•	Build artifact generation.
+•	Deployment commands.
+•	Wasmer configuration files.
+•	Static asset delivery configuration.
+•	Deployment verification.
+Determine whether:
+•	Dependencies are unnecessarily reinstalled.
+•	Build operations are duplicated.
+•	Unnecessary files are included in deployment.
+•	Asset versioning is consistent.
+•	The HTML entry point references the correct assets.
+•	Deployment completion is verified.
+•	The deployed application becomes available before the workflow reports success.
+Investigate whether GitHub Actions can efficiently reuse dependency caches.
+Do not sacrifice deployment reliability for a faster workflow.
+________________________________________
+7. WORKSTREAM 2: FRONTEND PERFORMANCE OPTIMIZATION
+After completing the audit, implement the justified frontend optimizations.
+7.1 Implement intelligent code splitting
+Introduce route-level lazy loading where appropriate.
+Ensure that business engines are not unnecessarily included in the initial application bundle.
+Potential candidates include:
+•	GTMOS.
+•	Lead Qualification.
+•	Pipeline Assessment.
+•	Insight.
+•	SWOT.
+•	Analytics dashboards.
+•	Other large functional modules.
+Use React.lazy and Suspense where appropriate.
+Load modules when users navigate to them.
+Preserve existing routing, navigation and access control.
+7.2 Optimize initial application rendering
+The initial application interface should become available without waiting for every background operation to finish.
+Establish a clear distinction between:
+•	Application initialization.
+•	Authentication restoration.
+•	Critical user data.
+•	Page-specific information.
+•	Background operations.
+Use appropriate loading indicators or skeleton components.
+Avoid blank screens caused by waiting for noncritical data.
+Do not display protected content before authorization has been established.
+7.3 Optimize React rendering
+Implement justified improvements to:
+•	Expensive components.
+•	Repeated rendering.
+•	Large data lists.
+•	Chart rendering.
+•	SVG rendering.
+•	State management.
+•	Heavy calculations.
+Use React performance tools where available.
+Avoid introducing unnecessary global state.
+7.4 Optimize animation performance
+RevOS contains animated and interactive visual components.
+Investigate:
+•	Scroll-triggered animations.
+•	SVG animations.
+•	Repeated layout calculations.
+•	JavaScript-driven animations.
+•	Expensive transitions.
+•	Animations running outside the visible viewport.
+Prefer transform and opacity animations when suitable.
+Use CSS animations where possible.
+Use Intersection Observer to defer animations until they are relevant.
+Respect prefers-reduced-motion.
+Animations must not interfere with initial application usability or normal scrolling.
+7.5 Optimize image and asset loading
+Implement:
+•	Appropriate image formats.
+•	Responsive image dimensions.
+•	Lazy loading for below-the-fold images.
+•	Explicit image dimensions.
+•	Font loading optimization.
+•	Appropriate resource preloading for genuinely critical resources.
+Avoid preloading every asset.
+________________________________________
+8. WORKSTREAM 3: SUPABASE AND APPLICATION INITIALIZATION OPTIMIZATION
+This is a particularly important workstream.
+8.1 Establish an optimized initialization sequence
+Design an application initialization strategy that:
+1.	Initializes the Supabase client once.
+2.	Restores the existing authentication session.
+3.	Establishes the authenticated user context.
+4.	Retrieves only essential application configuration.
+5.	Establishes the user's authorized application access.
+6.	Renders the appropriate application shell.
+7.	Retrieves page-specific data independently.
+8.	Loads noncritical background information asynchronously.
+Do not make the entire application wait for all database queries to finish.
+8.2 Introduce appropriate request management
+Where justified, implement:
+•	Request deduplication.
+•	Parallel requests.
+•	Cancellation of obsolete requests.
+•	Pagination.
+•	Selective field retrieval.
+•	Appropriate client-side caching.
+•	Background data refresh.
+If TanStack Query or an equivalent request-management library already exists, optimize its current configuration before introducing another library.
+If no request-management library exists, first assess whether native React and existing application patterns are sufficient.
+Do not introduce an additional library without justification.
+8.3 Establish sensible data freshness policies
+Different categories of data require different freshness requirements.
+For example:
+•	User permissions: retrieve and validate appropriately.
+•	User-specific business records: use appropriate authenticated data access.
+•	Public static content: cache where safe.
+•	Application configuration: cache where appropriate.
+•	AI-generated recommendations: use suitable freshness and persistence policies.
+Never apply a single caching policy to every category.
+Never cache personalized information in a public CDN cache.
+________________________________________
+9. WORKSTREAM 4: VITE BUILD, CACHING AND ASSET OPTIMIZATION
+9.1 Optimize Vite production configuration
+Inspect and optimize vite.config.ts.
+Investigate:
+•	Production minification.
+•	Tree shaking.
+•	Chunk splitting.
+•	Dependency optimization.
+•	CSS optimization.
+•	Asset naming.
+•	Source map generation.
+•	Build output configuration.
+Use manualChunks only when there is a clear performance benefit.
+Avoid generating excessively large initial bundles.
+Ensure that the build output remains compatible with Wasmer static hosting.
+9.2 Establish a production asset caching strategy
+Implement the following intended cache policy where supported by the actual hosting and serving configuration.
+HTML entry point:
+Cache-Control: no-cache
+Content-hashed JavaScript:
+Cache-Control: public, max-age=31536000, immutable
+Content-hashed CSS:
+Cache-Control: public, max-age=31536000, immutable
+Public versioned images:
+Use an appropriate long-term cache policy.
+Authenticated and personalized responses:
+Cache-Control: private, no-store
+Important:
+Inspect how Wasmer serves static files and whether the relevant HTTP response headers can actually be configured.
+Do not assume that modifying a configuration file automatically changes Wasmer response headers.
+Do not introduce a custom server simply to set headers unless necessary.
+9.3 Preserve deployment version consistency
+Ensure that every production deployment:
+•	Generates a consistent Vite asset manifest.
+•	Generates the correct index.html.
+•	References the corresponding JavaScript and CSS files.
+•	Deploys all required assets.
+•	Avoids references to nonexistent assets.
+•	Preserves appropriate cache policies.
+•	Does not unnecessarily invalidate unchanged immutable assets.
+Ensure that old hashed assets are not prematurely removed when they might still be referenced by existing browser sessions.
+Investigate Wasmer's CDN caching configuration and its interaction with Cloudflare.
+Do not blindly enable additional caching layers.
+________________________________________
+10. WORKSTREAM 5: GITHUB ACTIONS AND WASMER DEPLOYMENT OPTIMIZATION
+Optimize the deployment pipeline while maintaining deployment integrity.
+10.1 GitHub Actions
+Investigate:
+•	Dependency caching.
+•	Build execution time.
+•	Duplicate workflow operations.
+•	Artifact handling.
+•	Unnecessary installation steps.
+•	Deployment verification.
+Implement dependency caching where appropriate.
+Avoid running unnecessary full builds multiple times within the same workflow.
+Ensure that the production build is generated once and the verified artifact is deployed.
+10.2 Deployment reliability
+Establish the following deployment sequence:
+1.	Checkout source code.
+2.	Install dependencies using the existing lockfile.
+3.	Run TypeScript and code-quality checks.
+4.	Build the production application.
+5.	Validate build output.
+6.	Deploy to Wasmer.
+7.	Verify deployment availability.
+8.	Verify that the HTML entry point and referenced assets are accessible.
+9.	Report deployment success only after the relevant checks pass.
+Where practical, implement a lightweight post-deployment health check.
+Do not expose deployment credentials.
+Do not hardcode secrets.
+Preserve the existing GitHub repository and Wasmer deployment configuration unless changes are technically justified.
+10.3 Deployment performance monitoring
+Record:
+•	Dependency installation duration.
+•	Build duration.
+•	Deployment duration.
+•	Post-deployment verification duration.
+The objective is to identify whether deployment itself contributes to the delay experienced by visitors.
+________________________________________
+11. WORKSTREAM 6: PERFORMANCE MONITORING AND ACCEPTANCE CRITERIA
+Establish a measurable performance baseline.
+Use available tools such as:
+•	Chrome DevTools.
+•	Lighthouse.
+•	Lighthouse CI, where practical.
+•	Vite build analysis.
+•	Browser Performance API.
+•	Supabase request timing.
+•	GitHub Actions execution logs.
+11.1 Core Web Vitals targets
+Use the following as initial engineering targets:
+Metric	Target
+First Contentful Paint	≤ 1.8 seconds
+Largest Contentful Paint	≤ 2.5 seconds
+Interaction to Next Paint	≤ 200 ms
+Cumulative Layout Shift	≤ 0.1
+Total Blocking Time	Ideally < 200 ms
+Distinguish actual field metrics from laboratory measurements.
+Do not claim that laboratory tests establish real-user Core Web Vitals.
+11.2 RevOS-specific performance targets
+Establish the following objectives:
+Measurement	Initial target
+Normal browser refresh	≤ 2 seconds
+Initial application usability	≤ 2.5 seconds
+Initial HTML TTFB	Ideally ≤ 500 ms
+Initial JavaScript transfer	Reduce materially from baseline
+Duplicate initialization requests	Eliminate unnecessary duplicates
+Deployment-related performance regression	No avoidable regression
+These are engineering objectives, not guaranteed results.
+If network conditions, external services or hosting limitations prevent a target from being achieved, identify the limiting factor and document the evidence.
+11.3 Define application usability
+Do not measure performance only by whether HTML has arrived.
+Define when RevOS is actually usable.
+For an authenticated user, the application should be considered ready when:
+•	The correct application shell is displayed.
+•	Authentication has been restored.
+•	The appropriate user permissions have been established.
+•	The requested page's critical content is available.
+•	The main interface is interactive.
+Noncritical background data must not prevent this state.
+Instrument the relevant lifecycle events using appropriate performance marks.
+________________________________________
+12. REQUIRED TESTING SCENARIOS
+Conduct testing under the following scenarios.
+Scenario A: First visit
+Test a new browser session with no existing application cache.
+Measure:
+•	HTML response time.
+•	JavaScript download.
+•	React initialization.
+•	Authentication restoration.
+•	Initial page usability.
+Scenario B: Normal refresh
+Refresh an already loaded RevOS page.
+Measure:
+•	HTML response time.
+•	Cached asset delivery.
+•	Application initialization.
+•	Authentication restoration.
+•	Total time until usable.
+Scenario C: Authenticated application refresh
+Refresh an authenticated business application page.
+Verify:
+•	Session persistence.
+•	Correct user identity.
+•	Correct permissions.
+•	No unnecessary login redirect.
+•	No duplicate authentication initialization.
+•	No exposure of protected content.
+Scenario D: Business engine navigation
+Navigate between:
+•	GTMOS.
+•	Lead Qualification.
+•	Pipeline Assessment.
+•	Insight.
+•	Other existing functional modules.
+Verify that lazy loading works correctly and that modules remain fully functional.
+Scenario E: Post-deployment refresh
+Deploy a new version using GitHub Actions.
+Then test:
+•	The first browser refresh.
+•	A second browser refresh.
+•	Access to new JavaScript and CSS assets.
+•	Correct HTML-to-asset references.
+•	Cache consistency.
+•	Application initialization.
+Scenario F: Public and authenticated pages
+Verify both public-facing pages and authenticated application pages.
+Ensure that public content remains accessible and SEO-related functionality is not broken.
+________________________________________
+13. IMPLEMENTATION AND CHANGE MANAGEMENT
+Work in the following sequence.
+Phase 1: Audit
+Complete the repository and performance audit.
+Produce:
+•	Existing architecture map.
+•	Application initialization flow.
+•	Performance bottleneck inventory.
+•	Bundle analysis.
+•	Supabase request analysis.
+•	Deployment analysis.
+•	Prioritized optimization recommendations.
+For every identified problem, document:
+1.	Problem.
+2.	Technical cause.
+3.	Evidence.
+4.	Performance impact.
+5.	Proposed solution.
+6.	Implementation risk.
+Phase 2: Optimization planning
+Classify recommendations into:
+•	Priority 1: Critical performance bottlenecks.
+•	Priority 2: High-impact improvements.
+•	Priority 3: Secondary improvements.
+•	Priority 4: Future architectural improvements.
+Identify dependencies between optimizations.
+Do not begin major architectural changes without explaining their benefits and risks.
+Phase 3: Implementation
+Implement the justified optimizations incrementally.
+After each logical group of changes:
+•	Run the production build.
+•	Run TypeScript checks.
+•	Run relevant tests.
+•	Check for runtime errors.
+•	Verify existing functionality.
+•	Review the resulting bundle.
+Do not combine unrelated changes into one large refactoring operation.
+If a proposed change requires a major architectural migration, database migration or significant security change, document it separately and request approval before proceeding.
+Phase 4: Validation
+Run all available tests.
+Compare before-and-after performance measurements.
+Verify the six testing scenarios defined above.
+Ensure that the optimization has not introduced regressions.
+Phase 5: Production readiness
+Confirm:
+•	Production build succeeds.
+•	Existing business functionality remains intact.
+•	Authentication works.
+•	Database access remains secure.
+•	Application routes work.
+•	Static assets load correctly.
+•	Deployment completes successfully.
+•	New deployment assets are consistent.
+•	No critical runtime errors remain.
+________________________________________
+14. FINAL DELIVERABLES
+When implementation is complete, produce a comprehensive engineering report.
+The report must include:
+Deliverable 1: Performance Audit Report
+Document the original performance problems and their technical causes.
+Deliverable 2: Performance Architecture Specification
+Describe the optimized RevOS architecture, including:
+•	Application initialization.
+•	Component loading.
+•	Authentication.
+•	Data retrieval.
+•	Caching.
+•	Asset delivery.
+•	Deployment.
+Deliverable 3: Implementation Change Log
+List:
+•	Files modified.
+•	Files created.
+•	Configuration changes.
+•	Dependencies added or removed.
+•	Components optimized.
+•	Functions optimized.
+•	GitHub Actions modifications.
+Explain the purpose of each significant change.
+Deliverable 4: Before-and-After Performance Comparison
+Provide actual measurements wherever available.
+Use this structure:
+Performance metric	Before	After	Improvement
+Initial HTML TTFB	Measured	Measured	Calculated
+Initial JS transfer	Measured	Measured	Calculated
+FCP	Measured	Measured	Calculated
+LCP	Measured	Measured	Calculated
+TBT	Measured	Measured	Calculated
+Normal refresh	Measured	Measured	Calculated
+Application usability	Measured	Measured	Calculated
+Production build time	Measured	Measured	Calculated
+Deployment duration	Measured	Measured	Calculated
+Never invent performance measurements.
+If production measurements cannot be collected from your environment, explicitly identify the measurements that still require manual testing.
+Deliverable 5: Functional Regression Report
+Confirm that all relevant existing RevOS functionality has been tested.
+Document any remaining issues.
+Deliverable 6: Deployment Instructions
+Provide clear instructions for deploying the optimized application through the existing GitHub Actions and Wasmer workflow.
+Include any required environment configuration.
+Deliverable 7: Future Performance Engineering Standards
+Establish ongoing development standards covering:
+•	JavaScript bundle management.
+•	Lazy loading.
+•	Component rendering.
+•	API request management.
+•	Supabase access.
+•	Caching.
+•	Asset optimization.
+•	CI/CD performance.
+•	Monitoring.
+The objective is to ensure that future RevOS features do not unnecessarily degrade application performance.
+________________________________________
+15. FINAL EXECUTION INSTRUCTIONS
+Follow these instructions throughout the task.
+1.	First inspect the entire relevant codebase before proposing changes.
+2.	Do not assume the source of the five-second refresh delay.
+3.	Establish measurable evidence before prioritizing optimizations.
+4.	Implement safe, high-impact optimizations within the existing architecture.
+5.	Preserve all existing functionality and business logic.
+6.	Preserve Supabase authentication, RLS and authorization.
+7.	Do not modify Cloudflare settings unnecessarily.
+8.	Do not introduce an unnecessary framework migration.
+9.	Do not introduce unnecessary dependencies.
+10.	Do not claim performance improvements without measurements.
+11.	Validate every significant change through builds and tests.
+12.	Document all modified files and configuration changes.
+13.	Never replace working production functionality with simplified placeholder implementations.
+If you discover that a particular performance problem cannot be solved within the current architecture, explain the technical limitation and present the recommended solution separately.
+Your ultimate objective is:
+Transform RevOS into a responsive, efficient, scalable and production-ready SaaS platform, where application initialization, user interaction, business engine navigation, data retrieval and deployment remain consistently performant as the platform continues to evolve.
+Begin by inspecting the existing RevOS repository and conducting the comprehensive performance audit. Then proceed with the implementation according to the phases above.

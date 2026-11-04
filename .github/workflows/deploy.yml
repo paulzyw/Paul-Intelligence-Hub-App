@@ -17,17 +17,15 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '22'
-
-      - name: Download pristine watch model files
-        run: |
-          mkdir -p public/models
-          curl -L "https://ciechanow.ski/models/watch_vertices.dat?v=2" -o public/models/watch_vertices.dat
-          curl -L "https://ciechanow.ski/models/watch_indices.dat?v=2" -o public/models/watch_indices.dat
+          cache: 'npm'
 
       - name: Install dependencies
-        run: npm install --legacy-peer-deps
+        run: npm ci --legacy-peer-deps || npm install --legacy-peer-deps
 
-      - name: Build the app
+      - name: Cache or download pristine 3D model assets
+        run: node scripts/download-assets.js
+
+      - name: Build production application
         run: npm run build
         env:
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
@@ -35,6 +33,12 @@ jobs:
           VITE_EMAILJS_SERVICE_ID: ${{ secrets.VITE_EMAILJS_SERVICE_ID }}
           VITE_EMAILJS_TEMPLATE_ID: ${{ secrets.VITE_EMAILJS_TEMPLATE_ID }}
           VITE_EMAILJS_PUBLIC_KEY: ${{ secrets.VITE_EMAILJS_PUBLIC_KEY }}
+
+      - name: Validate build artifacts
+        run: |
+          test -f dist/index.html || (echo "Missing dist/index.html" && exit 1)
+          test -d dist/assets || (echo "Missing dist/assets" && exit 1)
+          echo "Verified: Core production bundle and SSG artifacts successfully validated."
 
       - name: Setup Wasmer
         uses: wasmerio/setup-wasmer@v3.1

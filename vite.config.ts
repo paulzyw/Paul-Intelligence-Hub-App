@@ -27,7 +27,60 @@ export default defineConfig(({ mode }) => {
       outDir: 'dist',
       assetsDir: 'assets',
       copyPublicDir: true,
-  
+      cssCodeSplit: true,
+      chunkSizeWarningLimit: 1000,
+      target: 'es2020',
+      sourcemap: false,
+      rollupOptions: {
+        output: {
+          manualChunks(id) {
+            if (id.includes('node_modules')) {
+              // Heavy editor dependencies (TipTap, TinyMCE, lowlight syntax highlighting)
+              if (
+                id.includes('@tiptap') || 
+                id.includes('@tinymce') || 
+                id.includes('lowlight') || 
+                id.includes('highlight.js') ||
+                id.includes('react-quill')
+              ) {
+                return 'vendor-editor';
+              }
+              // PDF compilation engine
+              if (id.includes('pagedjs')) {
+                return 'vendor-pagedjs';
+              }
+              // Data visualization & charts
+              if (id.includes('recharts') || id.includes('d3-')) {
+                return 'vendor-charts';
+              }
+              // 3D WebGL library
+              if (id.includes('ogl')) {
+                return 'vendor-ogl';
+              }
+              // Supabase ecosystem
+              if (id.includes('@supabase')) {
+                return 'vendor-supabase';
+              }
+              // Animation library
+              if (id.includes('motion')) {
+                return 'vendor-motion';
+              }
+              // Lucide icons
+              if (id.includes('lucide-react')) {
+                return 'vendor-icons';
+              }
+              // Core React framework
+              if (
+                id.includes('react-router') || 
+                id.includes('react-dom') || 
+                id.includes('/react/')
+              ) {
+                return 'vendor-react';
+              }
+            }
+          },
+        },
+      },
     },
 
     server: {
