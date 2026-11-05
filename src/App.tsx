@@ -60,8 +60,10 @@ export default function App() {
                   <Route path="founder" element={<Navigate to="/about/founderProfile" replace />} />
                   <Route path="impact" element={<Navigate to="/about/founderImpact" replace />} />
                   {/* Revenue Insights Module */}
-                  <Route path="insights" element={<Insights />} />
-                  <Route path="insights/:slug" element={<InsightDetail />} />
+                  <Route path="resources/insights" element={<Insights />} />
+                  <Route path="resources/insights/:slug" element={<InsightDetail />} />
+                  <Route path="insights" element={<Navigate to="/resources/insights" replace />} />
+                  <Route path="insights/:slug" element={<Navigate to="/resources/insights/:slug" replace />} />
                   
                   <Route path="research" element={<Navigate to="/about/founderResearch" replace />} />
                   <Route path="contact" element={<Navigate to="/about/contact" replace />} />

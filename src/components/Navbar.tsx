@@ -170,7 +170,7 @@ export function Navbar() {
   const isSolutionsActive = location.pathname.startsWith('/solutions');
   const isResourcesActive = [
     '/resources',
-    '/insights'
+    '/resources/insights'
   ].some(
     p => location.pathname === p || location.pathname.startsWith(p + '/')
   );

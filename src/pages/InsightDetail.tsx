@@ -142,7 +142,7 @@ export function InsightDetail() {
         <p className="text-text-secondary mb-6 max-w-md mx-auto">
           The requested Revenue Insight could not be found or may have been updated.
         </p>
-        <Link to="/insights" className="text-accent hover:underline inline-flex items-center justify-center gap-2 font-medium">
+        <Link to="/resources/insights" className="text-accent hover:underline inline-flex items-center justify-center gap-2 font-medium">
           <ArrowLeft size={16} /> Back to Revenue Insights
         </Link>
       </div>
@@ -158,7 +158,7 @@ export function InsightDetail() {
           <nav className="flex items-center gap-2 text-xs text-text-secondary" aria-label="Breadcrumb">
             <Link to="/" className="hover:text-accent transition-colors">Home</Link>
             <ChevronRight size={12} />
-            <Link to="/insights" className="hover:text-accent transition-colors">Revenue Insights</Link>
+            <Link to="/resources/insights" className="hover:text-accent transition-colors">Revenue Insights</Link>
             <ChevronRight size={12} />
             <span className="text-text-primary truncate max-w-[200px] sm:max-w-[300px]">{post.title}</span>
           </nav>
@@ -243,7 +243,7 @@ export function InsightDetail() {
               {relatedInsights.map((item) => (
                 <Link
                   key={item.id}
-                  to={`/insights/${item.slug}`}
+                  to={`/resources/insights/${item.slug}`}
                   className="group bg-bg-surface border border-border rounded-xl p-5 hover:border-accent/40 transition-all flex flex-col justify-between"
                 >
                   <div>

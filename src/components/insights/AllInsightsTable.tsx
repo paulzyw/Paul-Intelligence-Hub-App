@@ -244,7 +244,7 @@ export function AllInsightsTable({ posts, activeCategory = 'All', onClearCategor
                         <td className="px-4 sm:px-6 py-3.5">
                           <div className="flex flex-col">
                             <Link
-                              to={`/insights/${article.slug}`}
+                              to={`/resources/insights/${article.slug}`}
                               className="font-semibold text-text-primary group-hover:text-accent hover:underline transition-colors line-clamp-1 sm:line-clamp-2"
                             >
                               {article.title}

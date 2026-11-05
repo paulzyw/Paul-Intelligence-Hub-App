@@ -27,7 +27,7 @@ export function InsightArticleCard({
       <article className="group relative w-full flex flex-col sm:flex-row items-stretch sm:items-center rounded-xl border border-border bg-bg-primary overflow-hidden hover:border-accent/50 hover:shadow-sm transition-all duration-200 p-2.5 sm:p-3 gap-3 sm:gap-4">
         {/* Left Thumbnail Slot - compact landscape height & clickable */}
         <Link
-          to={`/insights/${article.slug}`}
+          to={`/resources/insights/${article.slug}`}
           tabIndex={-1}
           aria-hidden="true"
           className="relative w-full sm:w-28 sm:h-20 md:w-32 md:h-20 shrink-0 overflow-hidden rounded-lg bg-bg-primary block focus:outline-hidden"
@@ -79,7 +79,7 @@ export function InsightArticleCard({
 
           {/* Title */}
           <h4 className="text-base sm:text-lg md:text-xl font-bold text-text-primary group-hover:text-accent transition-colors tracking-tight line-clamp-1 sm:line-clamp-2 my-0.5 leading-snug">
-            <Link to={`/insights/${article.slug}`}>
+            <Link to={`/resources/insights/${article.slug}`}>
               {article.title}
             </Link>
           </h4>
@@ -146,7 +146,7 @@ export function InsightArticleCard({
 
           {/* Title */}
           <h3 className="text-base sm:text-lg font-bold text-text-primary group-hover:text-accent transition-colors line-clamp-2 leading-snug mb-2.5">
-            <Link to={`/insights/${article.slug}`}>
+            <Link to={`/resources/insights/${article.slug}`}>
               {article.title}
             </Link>
           </h3>
@@ -160,7 +160,7 @@ export function InsightArticleCard({
         {/* Read Action Footer */}
         <div className="pt-3 border-t border-border/40 mt-auto flex items-center justify-between">
           <Link
-            to={`/insights/${article.slug}`}
+            to={`/resources/insights/${article.slug}`}
             className="inline-flex items-center gap-1.5 text-xs font-semibold text-accent group-hover:translate-x-0.5 transition-transform"
           >
             <span>Read Full Insight</span>

@@ -171,7 +171,7 @@ function RevOSContent() {
       {/* RevOS Desktop Sidebar */}
       {!isConsole && (
         <aside className={cn(
-          "border-r border-border bg-bg-primary/50 hidden md:block shrink-0 transition-all duration-300 ease-in-out select-none",
+          "border-r border-border bg-bg-hero-primary/90 hidden md:block shrink-0 transition-all duration-300 ease-in-out select-none",
           isSidebarExpanded ? "w-64" : "w-18"
         )}>
           <div className={cn("transition-all duration-300", isSidebarExpanded ? "p-6" : "p-3")}>
@@ -182,13 +182,13 @@ function RevOSContent() {
                   <div className="h-8 w-8 rounded-lg bg-accent flex items-center justify-center text-black font-extrabold shadow-md shadow-accent/10 shrink-0">
                     R
                   </div>
-                  <span className="font-bold tracking-tight text-sm animate-in fade-in duration-300">
+                  <span className="font-bold tracking-tight text-sm text-text-hero-primary animate-in fade-in duration-300">
                     RevOS <span className="text-[9px] bg-accent/20 text-accent px-1.5 py-0.5 rounded ml-1">V1.0</span>
                   </span>
                 </div>
                 <button 
                   onClick={() => setIsSidebarExpanded(false)}
-                  className="p-1 rounded-lg hover:bg-bg-primary text-text-secondary hover:text-text-primary transition-all cursor-pointer mr-1"
+                  className="p-1 rounded-lg hover:bg-bg-hero-primary text-text-hero-secondary hover:text-text-hero-primary transition-all cursor-pointer mr-1"
                   title="Collapse Sidebar"
                 >
                   <ChevronLeft size={16} />
@@ -222,7 +222,7 @@ function RevOSContent() {
                       isSidebarExpanded ? "gap-3 px-3 py-2 text-sm font-medium" : "justify-center p-3 text-sm",
                       isActive 
                         ? "bg-accent text-black shadow-lg shadow-accent/20" 
-                        : "text-text-secondary hover:text-text-primary hover:bg-bg-primary"
+                        : "text-text-hero-secondary hover:text-text-hero-primary hover:bg-bg-hero-primary"
                     )}
                   >
                     <item.icon className="h-4 w-4 shrink-0" />
@@ -251,7 +251,7 @@ function RevOSContent() {
                       isSidebarExpanded ? "gap-3 px-3 py-2.5 text-xs sm:text-sm" : "justify-center p-3",
                       currentPath === 'console' 
                         ? "bg-accent border-accent text-black shadow-lg shadow-accent/20" 
-                        : "text-accent border-accent/20 bg-accent/5 hover:bg-accent/15 hover:text-text-primary"
+                        : "text-accent border-accent/20 bg-accent/5 hover:bg-accent/15 hover:text-text-hero-primary"
                     )}
                   >
                     <Shield size={14} className="shrink-0 text-accent" />

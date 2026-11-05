@@ -46,7 +46,7 @@ export function RecommendedInsights({ recommendedPosts }: RecommendedInsightsPro
                 </div>
 
                 <h3 className="text-base font-bold text-text-primary hover:text-accent transition-colors line-clamp-2 mb-2.5">
-                  <Link to={`/insights/${post.slug}`}>
+                  <Link to={`/resources/insights/${post.slug}`}>
                     {post.title}
                   </Link>
                 </h3>
@@ -58,7 +58,7 @@ export function RecommendedInsights({ recommendedPosts }: RecommendedInsightsPro
 
               <div className="pt-4 border-t border-border/40 mt-auto">
                 <Link
-                  to={`/insights/${post.slug}`}
+                  to={`/resources/insights/${post.slug}`}
                   className="inline-flex items-center gap-1.5 text-xs font-semibold text-accent hover:underline"
                 >
                   <span>Explore Framework</span>

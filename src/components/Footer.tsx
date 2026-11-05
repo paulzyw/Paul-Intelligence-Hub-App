@@ -116,7 +116,7 @@ export function Footer() {
               <Link to="#" onClick={(e) => e.preventDefault()} className="text-xs text-text-hero-secondary hover:text-accent transition-colors">
                 Pipeline Assessment
               </Link>
-              <Link to="/insights" className="text-xs text-text-hero-secondary hover:text-accent transition-colors">
+              <Link to="/resources/insights" className="text-xs text-text-hero-secondary hover:text-accent transition-colors">
                 Revenue Insights
               </Link>
               <Link to="#" onClick={(e) => e.preventDefault()} className="text-xs text-text-hero-secondary hover:text-accent transition-colors">

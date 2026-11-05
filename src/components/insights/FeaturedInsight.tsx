@@ -39,7 +39,7 @@ export function FeaturedInsight({ post }: FeaturedInsightProps) {
             
             {/* Left/Top Media Slot (7 cols on desktop) - Zoom & Lighting on Hover */}
             <Link
-              to={`/insights/${post.slug}`}
+              to={`/resources/insights/${post.slug}`}
               className="lg:col-span-7 relative block min-h-[300px] sm:min-h-[380px] lg:min-h-[440px] bg-bg-primary overflow-hidden focus:outline-hidden"
             >
               {!imageError && post.thumbnail_url ? (
@@ -105,7 +105,7 @@ export function FeaturedInsight({ post }: FeaturedInsightProps) {
 
                 {/* Headline */}
                 <h2 className="text-2xl sm:text-3xl font-extrabold text-text-primary group-hover:text-accent transition-colors duration-300 leading-tight mb-4">
-                  <Link to={`/insights/${post.slug}`}>
+                  <Link to={`/resources/insights/${post.slug}`}>
                     {post.title}
                   </Link>
                 </h2>
@@ -119,7 +119,7 @@ export function FeaturedInsight({ post }: FeaturedInsightProps) {
               {/* Action */}
               <div className="pt-6 border-t border-border/50">
                 <Link
-                  to={`/insights/${post.slug}`}
+                  to={`/resources/insights/${post.slug}`}
                   className="inline-flex items-center gap-2 text-sm font-semibold text-accent hover:underline"
                 >
                   <span>Read Full Insight</span>

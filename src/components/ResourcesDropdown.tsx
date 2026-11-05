@@ -67,7 +67,7 @@ const RESOURCES_TABS: TabContent[] = [
         {
           title: 'Revenue Insights',
           description: 'Explore ideas and strategies for better revenue performance',
-          link: '/insights',
+          link: '/resources/insights',
         },
       ],
       // Column 2

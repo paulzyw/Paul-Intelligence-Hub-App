@@ -835,7 +835,7 @@ export function Admin() {
                         )}
                       </div>
                       <p className="text-xs text-text-secondary mt-0.5">
-                        Professional analytical SEO articles. URL: <span className="font-mono text-accent">/insights/:slug</span>
+                        Professional analytical SEO articles. URL: <span className="font-mono text-accent">/resources/insights/:slug</span>
                       </p>
                     </div>
                   </button>
@@ -1113,7 +1113,7 @@ export function Admin() {
                       </div>
                       <input
                         type="url"
-                        placeholder={currentPost.slug ? `https://www.apprevos.ai/${(currentPost.content_type || 'post') === 'insight' ? 'insights' : 'post'}/${currentPost.slug}/` : 'https://www.apprevos.ai/...'}
+                        placeholder={currentPost.slug ? `https://www.apprevos.ai/${(currentPost.content_type || 'post') === 'insight' ? 'resources/insights' : 'post'}/${currentPost.slug}/` : 'https://www.apprevos.ai/...'}
                         value={currentPost.canonical_url || ''}
                         onChange={(e) => setCurrentPost({ ...currentPost, canonical_url: e.target.value })}
                         className="w-full px-3 py-2 text-xs border border-border rounded-md bg-transparent text-text-primary focus:outline-none focus:border-accent font-mono"
@@ -1150,7 +1150,7 @@ export function Admin() {
                   <Layers size={20} className="text-accent" /> Unified Content Management
                 </h2>
                 <p className="text-xs text-text-secondary mt-1">
-                  Manage both Founder Blog Posts (/post/:slug) and Revenue Insights (/insights/:slug)
+                  Manage both Founder Blog Posts (/post/:slug) and Revenue Insights (/resources/insights/:slug)
                 </p>
               </div>
               <button 
@@ -1240,7 +1240,7 @@ export function Admin() {
                               )}
                             </div>
                             <div className="text-xs text-text-secondary font-mono mt-0.5">
-                              {post.content_type === 'insight' ? `/insights/${post.slug}` : `/post/${post.slug}`}
+                              {post.content_type === 'insight' ? `/resources/insights/${post.slug}` : `/post/${post.slug}`}
                             </div>
                           </td>
                           <td className="p-4 text-xs">
