@@ -165,7 +165,7 @@ export function AboutRevos() {
             <h2 className="text-2xl sm:text-4xl font-bold tracking-tight text-text-primary">
               Revenue Challenges Are Connected. Revenue Decisions Should Be Too.
             </h2>
-            <p className="text-base sm:text-lg text-text-secondary leading-relaxed">
+            <p className="text-base sm:text-lg text-text-secondary leading-tight">
               Organizations invest in salespeople, technology, marketing activities and customer relationships. Yet revenue performance can remain difficult to improve when the decisions guiding these activities are fragmented, inconsistent or insufficiently supported by evidence.
             </p>
           </div>
@@ -173,7 +173,7 @@ export function AboutRevos() {
           {/* Four Fundamental Challenges */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 sm:gap-8">
             {/* Challenge 1 */}
-            <div className="p-6 sm:p-8 rounded-2xl border border-border bg-bg-surface hover:border-accent/60 transition-colors space-y-3">
+            <div className="p-6 sm:p-8 rounded-2xl border border-border bg-accent/2 hover:bg-accent/5 hover:border-accent/60 transition-colors space-y-3">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-mono font-bold text-accent">CHALLENGE 01</span>
                 <Layers className="w-5 h-5 text-accent" />
@@ -187,7 +187,7 @@ export function AboutRevos() {
             </div>
 
             {/* Challenge 2 */}
-            <div className="p-6 sm:p-8 rounded-2xl border border-border bg-bg-surface hover:border-accent/60 transition-colors space-y-3">
+            <div className="p-6 sm:p-8 rounded-2xl border border-border bg-accent/2 hover:bg-accent/5 hover:border-accent/60 transition-colors space-y-3">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-mono font-bold text-accent">CHALLENGE 02</span>
                 <Scale className="w-5 h-5 text-accent" />
@@ -201,7 +201,7 @@ export function AboutRevos() {
             </div>
 
             {/* Challenge 3 */}
-            <div className="p-6 sm:p-8 rounded-2xl border border-border bg-bg-surface hover:border-accent/60 transition-colors space-y-3">
+            <div className="p-6 sm:p-8 rounded-2xl border border-border bg-accent/2 hover:bg-accent/5 hover:border-accent/60 transition-colors space-y-3">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-mono font-bold text-accent">CHALLENGE 03</span>
                 <FileText className="w-5 h-5 text-accent" />
@@ -215,7 +215,7 @@ export function AboutRevos() {
             </div>
 
             {/* Challenge 4 */}
-            <div className="p-6 sm:p-8 rounded-2xl border border-border bg-bg-surface hover:border-accent/60 transition-colors space-y-3">
+            <div className="p-6 sm:p-8 rounded-2xl border border-border bg-accent/2 hover:bg-accent/5 hover:border-accent/60 transition-colors space-y-3">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-mono font-bold text-accent">CHALLENGE 04</span>
                 <CheckSquare className="w-5 h-5 text-accent" />
@@ -309,7 +309,7 @@ export function AboutRevos() {
             <h2 className="text-2xl sm:text-4xl font-bold tracking-tight text-text-primary">
               Better Revenue Outcomes Begin With Better Thinking.
             </h2>
-            <p className="text-base sm:text-lg text-text-secondary leading-relaxed">
+            <p className="text-base sm:text-lg text-text-secondary leading-tight">
               Revenue growth is a complex business process involving markets, customers, value propositions, buying decisions, competition, commercial considerations and execution. We believe better revenue decisions require a more structured way to understand and manage these interconnected dimensions.
             </p>
           </div>
@@ -375,7 +375,7 @@ export function AboutRevos() {
           {/* Philosophy Summary Banner */}
           <div className="p-6 rounded-2xl border border-border bg-bg-surface text-center">
             <p className="text-base sm:text-lg font-semibold text-text-primary">
-              Our philosophy is simple: structure the thinking, understand the evidence, assess the situation and focus on the actions that matter.
+              Our philosophy is simple: structure thinking, understand evidence, assess situation and focus on the actions that matter.
             </p>
           </div>
         </div>
@@ -394,7 +394,7 @@ export function AboutRevos() {
             <h2 className="text-2xl sm:text-4xl font-bold tracking-tight text-text-primary">
               An Operating System for More Intelligent Revenue Decisions.
             </h2>
-            <p className="text-base sm:text-lg text-text-secondary leading-relaxed">
+            <p className="text-base sm:text-lg text-text-secondary leading-tight">
               RevOS translates its philosophy into a practical AI-native operating system through specialized revenue engines. Rather than treating revenue challenges as isolated tasks, RevOS provides structured capabilities for examining go-to-market strategy, qualifying leads and assessing pipeline opportunities.
             </p>
           </div>
@@ -609,7 +609,7 @@ export function AboutRevos() {
             <h2 className="text-2xl sm:text-4xl font-bold tracking-tight text-text-primary">
               The Principles Behind Every RevOS Decision.
             </h2>
-            <p className="text-base sm:text-lg text-text-secondary leading-relaxed">
+            <p className="text-base sm:text-lg text-text-secondary leading-tight">
               The value of an AI-native operating system should not be measured only by the intelligence it generates, but also by the quality of the methodology, evidence and decisions behind it.
             </p>
           </div>
@@ -698,7 +698,7 @@ export function AboutRevos() {
             <h2 className="text-2xl sm:text-4xl font-bold tracking-tight text-text-primary">
               Beyond Managing Revenue Activities. Toward Improving Revenue Decisions.
             </h2>
-            <p className="text-base sm:text-lg text-text-secondary leading-relaxed">
+            <p className="text-base sm:text-lg text-text-secondary leading-tight">
               Traditional revenue systems and processes often focus on managing information, recording activities and tracking progress. RevOS introduces a complementary approach: helping people think more systematically about revenue challenges, evaluate available evidence, assess situations and determine what actions can improve execution.
             </p>
           </div>
@@ -781,13 +781,13 @@ export function AboutRevos() {
       <section id="closing" className="w-full py-24 sm:py-32 px-4 sm:px-6 lg:px-8 bg-bg-hero-primary text-text-hero-primary border-t border-border/40 relative overflow-hidden">
         <div className="absolute inset-0 opacity-15 bg-[linear-gradient(to_right,#80808015_1px,transparent_1px),linear-gradient(to_bottom,#80808015_1px,transparent_1px)] bg-[size:32px_32px] pointer-events-none" />
         
-        <div className="max-w-4xl mx-auto text-center space-y-8 relative z-10">
+        <div className="max-w-5xl mx-auto text-center space-y-8 relative z-10">
           <h2 className="text-3xl sm:text-5xl font-extrabold tracking-tight text-text-hero-primary leading-tight">
-            Structure Your Thinking. Strengthen Your Decisions. <br className="hidden sm:inline" />
-            Move Revenue Forward.
+            Structure Your Thinking, Strengthen Your Decisions <br className="hidden sm:inline" />
+            Move Revenue Forward
           </h2>
 
-          <p className="text-base sm:text-lg lg:text-xl text-text-hero-secondary max-w-2xl mx-auto leading-relaxed">
+          <p className="text-base sm:text-lg lg:text-xl text-text-hero-secondary max-w-4xl mx-auto leading-tight">
             Revenue growth requires more than activity. It requires a clear understanding of the market, customers, opportunities and actions that matter. RevOS brings structured methodologies and evidence-informed AI reasoning together to help revenue professionals approach these challenges with greater clarity and discipline.
           </p>
 
