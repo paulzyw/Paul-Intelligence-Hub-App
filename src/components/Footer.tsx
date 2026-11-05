@@ -129,7 +129,7 @@ export function Footer() {
           <div className="flex flex-col space-y-4">
             <h3 className="font-semibold text-text-hero-primary">About</h3>
             <nav className="flex flex-col space-y-2">
-              <Link to="/product/overview/revos" className="text-xs text-text-hero-secondary hover:text-accent transition-colors">
+              <Link to="/about/aboutRevos" className="text-xs text-text-hero-secondary hover:text-accent transition-colors">
                 About RevOS
               </Link>
               <Link to="/about/aboutFounder" className="text-xs text-text-hero-secondary hover:text-accent transition-colors">

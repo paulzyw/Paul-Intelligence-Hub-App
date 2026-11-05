@@ -198,6 +198,7 @@ async function main() {
 
   const sitemapUrls: Array<{ loc: string; lastmod: string; changefreq: string; priority: string }> = [
     { loc: `${CANONICAL_DOMAIN}/`, lastmod: new Date().toISOString().split('T')[0], changefreq: 'daily', priority: '1.0' },
+    { loc: `${CANONICAL_DOMAIN}/about/aboutRevos`, lastmod: new Date().toISOString().split('T')[0], changefreq: 'weekly', priority: '0.9' },
     { loc: `${CANONICAL_DOMAIN}/about/aboutFounder`, lastmod: new Date().toISOString().split('T')[0], changefreq: 'monthly', priority: '0.8' },
     { loc: `${CANONICAL_DOMAIN}/about/founderProfile`, lastmod: new Date().toISOString().split('T')[0], changefreq: 'monthly', priority: '0.8' },
     { loc: `${CANONICAL_DOMAIN}/about/founderImpact`, lastmod: new Date().toISOString().split('T')[0], changefreq: 'monthly', priority: '0.8' },

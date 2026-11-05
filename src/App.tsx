@@ -14,6 +14,7 @@ import { ProtectedRoute } from './components/ProtectedRoute';
 import { PageSkeleton } from './components/PageSkeleton';
 import { Home } from './pages/Home';
 // Route-level code-splitting: Lazy load secondary pages to eliminate monolithic bundle payload
+const AboutRevos = lazy(() => import('./pages/AboutRevos').then(m => ({ default: m.AboutRevos })));
 const FounderProfile = lazy(() => import('./pages/founderProfile').then(m => ({ default: m.FounderProfile })));
 const AboutFounder = lazy(() => import('./pages/aboutFounder').then(m => ({ default: m.AboutFounder })));
 const FounderInsights = lazy(() => import('./pages/founderInsights').then(m => ({ default: m.FounderInsights })));
@@ -45,6 +46,7 @@ export default function App() {
                 <Route path="/" element={<Layout />}>
                   <Route index element={<Home />} />
                   {/* About / Founder Routes */}
+                  <Route path="about/aboutRevos" element={<AboutRevos />} />
                   <Route path="about/aboutFounder" element={<AboutFounder />} />
                   <Route path="about/founderProfile" element={<FounderProfile />} />
                   <Route path="about/founderImpact" element={<FounderImpact />} />
@@ -53,7 +55,8 @@ export default function App() {
                   <Route path="about/contact" element={<Contact />} />
 
                   {/* Backward-compatibility redirects */}
-                  <Route path="about" element={<Navigate to="/about/aboutFounder" replace />} />
+                  <Route path="about/revos" element={<Navigate to="/about/aboutRevos" replace />} />
+                  <Route path="about" element={<Navigate to="/about/aboutRevos" replace />} />
                   <Route path="founder" element={<Navigate to="/about/founderProfile" replace />} />
                   <Route path="impact" element={<Navigate to="/about/founderImpact" replace />} />
                   {/* Revenue Insights Module */}

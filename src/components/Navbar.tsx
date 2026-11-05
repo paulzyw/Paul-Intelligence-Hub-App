@@ -152,6 +152,7 @@ export function Navbar() {
 
   const isAboutActive = [
     '/about',
+    '/about/aboutRevos',
     '/about/aboutFounder',
     '/about/founderProfile',
     '/about/founderImpact',
