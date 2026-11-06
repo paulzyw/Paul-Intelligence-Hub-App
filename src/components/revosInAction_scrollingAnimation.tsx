@@ -13,8 +13,6 @@ export type StoryVisualizerProps = RevosInActionScrollingAnimationProps;
 interface SceneImagePair {
   dark: string;
   light: string;
-  fallbackDark: string;
-  fallbackLight: string;
   alt: string;
   stepName: string;
 }
@@ -23,40 +21,30 @@ const SCENE_IMAGES: Record<string, SceneImagePair> = {
   "01": {
     dark: "/images/info_inherit_dark.webp",
     light: "/images/info_inherit_light.webp",
-    fallbackDark: "/assets/images/info_inherit_dark.webp",
-    fallbackLight: "/assets/images/info_inherit_light.webp",
     alt: "RevOS SQL Qualification - Start With What You Already Know",
     stepName: "Problem & Goal Context"
   },
   "02": {
     dark: "/images/evidence_dark.webp",
     light: "/images/evidence_light.webp",
-    fallbackDark: "/assets/images/evidence_dark.webp",
-    fallbackLight: "/assets/images/evidence_light.webp",
     alt: "RevOS SQL Qualification - Qualify With Evidence, Not Assumptions",
     stepName: "Qualification Evidence"
   },
   "03": {
     dark: "/images/supporting_risks_dark.png",
     light: "/images/supporting_risks_light.png",
-    fallbackDark: "/assets/images/supporting_risks_dark.png",
-    fallbackLight: "/assets/images/supporting_risks_light.png",
     alt: "RevOS SQL Qualification - Supporting Evidence and Risks",
     stepName: "Supporting Evidence & Risks"
   },
   "04": {
     dark: "/images/action_dark.webp",
     light: "/images/action_light.webp",
-    fallbackDark: "/assets/images/action_dark.webp",
-    fallbackLight: "/assets/images/action_light.webp",
     alt: "RevOS SQL Qualification - Turn Qualification Gaps Into Practical Actions",
     stepName: "Practical Next Actions"
   },
   "05": {
     dark: "/images/promotion_dark.webp",
     light: "/images/promotion_light.webp",
-    fallbackDark: "/assets/images/promotion_dark.webp",
-    fallbackLight: "/assets/images/promotion_light.webp",
     alt: "RevOS SQL Qualification - Decide Whether the Opportunity Warrants Further Investment",
     stepName: "Promotion Decision"
   }
@@ -64,7 +52,7 @@ const SCENE_IMAGES: Record<string, SceneImagePair> = {
 
 interface ImageWithLensMagnifierProps {
   src: string;
-  fallbackSrc: string;
+  fallbackSrc?: string;
   alt: string;
   isDark: boolean;
 }
@@ -141,7 +129,7 @@ function ImageWithLensMagnifier({ src, fallbackSrc, alt, isDark }: ImageWithLens
         src={imgSrc}
         alt={alt}
         onError={() => {
-          if (imgSrc !== fallbackSrc) {
+          if (fallbackSrc && imgSrc !== fallbackSrc) {
             setImgSrc(fallbackSrc);
           }
         }}
@@ -220,7 +208,6 @@ export default function RevosInActionScrollingAnimation({ activeScene }: RevosIn
   const imageConfig = SCENE_IMAGES[currentChapter] || SCENE_IMAGES["01"];
 
   const activeSrc = isDark ? imageConfig.dark : imageConfig.light;
-  const fallbackSrc = isDark ? imageConfig.fallbackDark : imageConfig.fallbackLight;
 
   return (
     <div className="relative w-full h-full min-h-[380px] sm:min-h-[440px] lg:min-h-[500px] bg-bg-surface/90 dark:bg-zinc-950/90 rounded-2xl border border-border overflow-hidden shadow-2xl flex flex-col transition-all duration-500">
@@ -273,7 +260,6 @@ export default function RevosInActionScrollingAnimation({ activeScene }: RevosIn
             <div className="relative group max-w-full max-h-full flex items-center justify-center rounded-xl sm:rounded-2xl p-1 sm:p-2 bg-bg-surface/50 dark:bg-zinc-900/40 border border-border/70 dark:border-zinc-800/80 shadow-xl shadow-black/5 dark:shadow-black/50 backdrop-blur-sm transition-all duration-300">
               <ImageWithLensMagnifier
                 src={activeSrc}
-                fallbackSrc={fallbackSrc}
                 alt={imageConfig.alt}
                 isDark={isDark}
               />

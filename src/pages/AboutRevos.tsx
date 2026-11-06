@@ -230,7 +230,7 @@ export function AboutRevos() {
           </div>
 
           {/* Closing statement */}
-          <div className="p-6 rounded-2xl bg-bg-surface border-l-4 border-accent border-y border-r border-border">
+          <div className="p-6 rounded-2xl bg-accent/5 border-l-6 border-accent border-y border-r border-accent/30 shadow-lg">
             <p className="text-base sm:text-lg font-medium text-text-primary">
               The challenge is not simply to manage more revenue activities. It is to improve thinking, decisions and actions that drive them.
             </p>

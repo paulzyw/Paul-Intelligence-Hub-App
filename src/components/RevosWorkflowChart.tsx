@@ -32,6 +32,23 @@ export const RevosWorkflowChart: React.FC<RevosWorkflowChartProps> = ({ classNam
     };
   }, []);
 
+  // Lock body scroll and listen for Escape key when expanded
+  useEffect(() => {
+    if (isFullscreen) {
+      document.body.style.overflow = 'hidden';
+      const handleKeyDown = (e: KeyboardEvent) => {
+        if (e.key === 'Escape') setIsFullscreen(false);
+      };
+      window.addEventListener('keydown', handleKeyDown);
+      return () => {
+        document.body.style.overflow = '';
+        window.removeEventListener('keydown', handleKeyDown);
+      };
+    } else {
+      document.body.style.overflow = '';
+    }
+  }, [isFullscreen]);
+
   const stepsInfo = [
     {
       num: 1,
@@ -135,7 +152,7 @@ export const RevosWorkflowChart: React.FC<RevosWorkflowChartProps> = ({ classNam
           useGradientBg 
             ? 'border-white/20 shadow-2xl backdrop-blur-sm' 
             : 'border-border bg-white dark:bg-[#121416] shadow-md'
-        } ${isFullscreen ? 'max-w-none' : 'max-w-6xl mx-auto'}`}
+        }`}
         style={
           useGradientBg
             ? { background: 'linear-gradient(135deg, rgba(197, 215, 4, 0.60) 0%, rgba(10, 159, 222, 0.60) 48%, rgba(4, 43, 87, 0.60) 100%)' }
@@ -164,6 +181,73 @@ export const RevosWorkflowChart: React.FC<RevosWorkflowChartProps> = ({ classNam
         </div>
         <span className="text-[11px] text-text-secondary/70">Source: RevOS Core Technical Architecture V1.0</span>
       </div>
+
+      {/* Expanded Fullscreen Lightbox Modal */}
+      {isFullscreen && (
+        <div 
+          className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex flex-col p-4 sm:p-6 lg:p-8 overflow-y-auto"
+          onClick={() => setIsFullscreen(false)}
+        >
+          <div 
+            className="relative w-full max-w-7xl mx-auto my-auto bg-bg-surface border border-border rounded-2xl p-4 sm:p-6 shadow-2xl flex flex-col"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Modal Header */}
+            <div className="flex items-center justify-between pb-4 border-b border-border">
+              <div>
+                <span className="text-xs font-semibold uppercase tracking-wider text-accent">Expanded Platform Architecture</span>
+                <h3 className="text-base sm:text-xl font-bold text-text-primary mt-0.5">
+                  RevOS End-to-End Revenue Operating Workflow
+                </h3>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setUseGradientBg(!useGradientBg)}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border bg-bg-primary/50 text-xs font-medium text-text-secondary hover:text-accent hover:border-accent transition-colors"
+                >
+                  {useGradientBg ? <Eye className="w-3.5 h-3.5" /> : <Palette className="w-3.5 h-3.5" />}
+                  <span>{useGradientBg ? 'Preview Canvas' : 'RevOS Gradient'}</span>
+                </button>
+                <button
+                  onClick={() => setIsFullscreen(false)}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-accent bg-accent text-white text-xs font-semibold hover:opacity-90 transition-opacity"
+                >
+                  <Minimize2 className="w-4 h-4" />
+                  <span>Standard View (Esc)</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Expanded SVG Container */}
+            <div 
+              className={`w-full overflow-hidden rounded-xl p-4 sm:p-8 my-4 border transition-all duration-300 ${
+                useGradientBg 
+                  ? 'border-white/20 shadow-2xl backdrop-blur-sm' 
+                  : 'border-border bg-white dark:bg-[#121416] shadow-md'
+              }`}
+              style={
+                useGradientBg
+                  ? { background: 'linear-gradient(135deg, rgba(197, 215, 4, 0.60) 0%, rgba(10, 159, 222, 0.60) 48%, rgba(4, 43, 87, 0.60) 100%)' }
+                  : undefined
+              }
+            >
+              {svgContent ? (
+                <div 
+                  className="w-full h-auto flex items-center justify-center [&>svg]:w-full [&>svg]:h-auto [&>svg]:block [&>svg]:max-w-full select-none"
+                  dangerouslySetInnerHTML={{ __html: svgContent }}
+                />
+              ) : (
+                <img
+                  src={`/images/RevOS_Workflow_Chart_revos.svg?v=${Date.now()}`}
+                  alt="RevOS Workflow Architecture Chart"
+                  className="w-full h-auto object-contain mx-auto block"
+                />
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
+

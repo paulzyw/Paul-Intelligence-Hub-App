@@ -458,7 +458,7 @@ export function Home() {
                         x: isDesktop ? cardXs[index] : 0,
                         y: isDesktop ? cardYs[index] : 0,
                       }}
-                      className="bg-bg-primary rounded-2xl border border-border/80 hover:border-accent/50 p-4 sm:p-5 lg:p-5 flex flex-col justify-between transition-colors shadow-sm"
+                      className="bg-bg-primary rounded-2xl border border-border/80 hover:border-accent/50 p-4 sm:p-5 lg:p-5 flex flex-col justify-between transition-colors shadow-lg"
                     >
                       <div>
                         <div className="flex items-center justify-between">
