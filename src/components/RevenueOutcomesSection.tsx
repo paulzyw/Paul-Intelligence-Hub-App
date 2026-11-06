@@ -157,7 +157,7 @@ export function RevenueOutcomesSection() {
             return (
               <div
                 key={item.id}
-                className="group relative flex flex-col justify-between bg-bg-primary rounded-2xl sm:rounded-3xl p-6 sm:p-7 lg:p-8 border border-border/80 hover:border-accent hover:shadow-xl transition-all duration-300 transform-gpu"
+                className="group relative flex flex-col justify-between bg-bg-primary rounded-2xl sm:rounded-3xl p-6 sm:p-7 lg:p-8 border border-border/80 hover:border-accent shadow-lg hover:shadow-xl transition-all duration-300 transform-gpu"
                 style={{
                   opacity: isVisible || prefersReducedMotion ? 1 : 0,
                   transform: isVisible || prefersReducedMotion ? 'translateY(0)' : 'translateY(20px)',
@@ -204,7 +204,7 @@ export function RevenueOutcomesSection() {
 
           {/* CARD 06: CLOSING STATEMENT CARD */}
           <div
-            className="group relative flex flex-col justify-between bg-accent/60 text-white rounded-2xl sm:rounded-3xl p-6 sm:p-7 lg:p-8 border border-accent/30 hover:border-white/50 hover:shadow-2xl transition-all duration-300 transform-gpu overflow-hidden"
+            className="group relative flex flex-col justify-between bg-accent/60 hover:bg-accent/90 text-white rounded-2xl sm:rounded-3xl p-6 sm:p-7 lg:p-8 border border-accent/30 hover:border-white/50 shadow-lg hover:shadow-xl transition-all duration-300 transform-gpu overflow-hidden"
             style={{
               opacity: isVisible || prefersReducedMotion ? 1 : 0,
               transform: isVisible || prefersReducedMotion ? 'translateY(0)' : 'translateY(20px)',

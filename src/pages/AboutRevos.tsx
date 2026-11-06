@@ -117,7 +117,7 @@ export function AboutRevos() {
           {/* Headline */}
           <h1 className="text-3xl sm:text-5xl lg:text-6xl font-extrabold tracking-tight text-text-hero-primary leading-tight sm:leading-[1.15]">
             A Better Way to Think About <br className="hidden sm:inline" />
-            Revenue Growth.
+            Revenue Growth
           </h1>
 
           {/* Supporting statement */}
@@ -256,7 +256,7 @@ export function AboutRevos() {
           {/* Connected Dual Concept Cards */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8 lg:gap-10">
             {/* MISSION */}
-            <div className="p-8 sm:p-10 rounded-2xl border border-border bg-bg-surface shadow-sm hover:shadow-md transition-all duration-300 space-y-5 flex flex-col justify-between">
+            <div className="p-8 sm:p-10 rounded-2xl border border-border bg-bg-surface shadow-xl shadow-[var(--text-primary)] hover:border-accent/60 transition-all duration-300 space-y-5 flex flex-col justify-between">
               <div className="space-y-4">
                 <div className="inline-flex items-center gap-2 px-3 py-1 rounded-md bg-accent/10 text-accent text-xs font-mono font-bold uppercase tracking-wider">
                   MISSION
@@ -275,7 +275,7 @@ export function AboutRevos() {
             </div>
 
             {/* VISION */}
-            <div className="p-8 sm:p-10 rounded-2xl border border-border bg-bg-surface shadow-sm hover:shadow-md transition-all duration-300 space-y-5 flex flex-col justify-between">
+            <div className="p-8 sm:p-10 rounded-2xl border border-border bg-bg-surface shadow-xl shadow-[var(--text-primary)] hover:border-accent/60 transition-all duration-300 space-y-5 flex flex-col justify-between">
               <div className="space-y-4">
                 <div className="inline-flex items-center gap-2 px-3 py-1 rounded-md bg-accent/10 text-accent text-xs font-mono font-bold uppercase tracking-wider">
                   VISION
