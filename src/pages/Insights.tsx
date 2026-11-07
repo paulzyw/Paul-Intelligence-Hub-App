@@ -31,8 +31,6 @@ export function Insights() {
 
   // 1. Dynamic Head Metadata for SEO
   useEffect(() => {
-    document.title = 'Revenue Operations Insights & Business Growth Strategies | RevOS';
-    
     // Meta description update
     let metaDesc = document.querySelector('meta[name="description"]');
     if (!metaDesc) {

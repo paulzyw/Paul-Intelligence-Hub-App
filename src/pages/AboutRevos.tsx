@@ -27,8 +27,6 @@ import { RevosWorkflowChart } from '../components/RevosWorkflowChart';
 export function AboutRevos() {
   // SEO & Structured Metadata
   useEffect(() => {
-    document.title = 'About RevOS | Mission, Vision & AI-Native Revenue Operating System';
-
     // Update meta description
     let metaDesc = document.querySelector('meta[name="description"]');
     if (!metaDesc) {

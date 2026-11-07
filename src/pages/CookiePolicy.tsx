@@ -22,7 +22,6 @@ export function CookiePolicy() {
 
   // SEO & Document Title
   useEffect(() => {
-    document.title = 'Cookie Policy | RevOS';
     const metaDescription = document.querySelector('meta[name="description"]');
     if (metaDescription) {
       metaDescription.setAttribute(

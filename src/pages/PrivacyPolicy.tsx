@@ -22,7 +22,6 @@ export function PrivacyPolicy() {
   const { openPreferences } = useCookieConsent();
 
   useEffect(() => {
-    document.title = 'Privacy Policy | RevOS';
     const metaDescription = document.querySelector('meta[name="description"]');
     if (metaDescription) {
       metaDescription.setAttribute(

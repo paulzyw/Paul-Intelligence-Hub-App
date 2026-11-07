@@ -54,6 +54,12 @@ export function InsightDetail() {
   }, [slug]);
 
   useEffect(() => {
+    if (post?.title) {
+      document.title = `Revenue Insights | ${post.title}`;
+    }
+  }, [post?.title]);
+
+  useEffect(() => {
     if (!loading && post) {
       const timer = setTimeout(() => {
         const blocks = document.querySelectorAll('pre');

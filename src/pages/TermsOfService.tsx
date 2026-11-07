@@ -22,7 +22,6 @@ export function TermsOfService() {
   const { openPreferences } = useCookieConsent();
 
   useEffect(() => {
-    document.title = 'Terms of Service | RevOS';
     const metaDescription = document.querySelector('meta[name="description"]');
     if (metaDescription) {
       metaDescription.setAttribute(

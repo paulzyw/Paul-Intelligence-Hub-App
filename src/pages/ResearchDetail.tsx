@@ -70,6 +70,12 @@ export function ResearchDetail() {
   }, [slug]);
 
   useEffect(() => {
+    if (report?.title) {
+      document.title = `Research | ${report.title}`;
+    }
+  }, [report?.title]);
+
+  useEffect(() => {
     // Add copy buttons to code blocks
     if (!loading && report) {
       const timer = setTimeout(() => {

@@ -10,6 +10,7 @@ import { AuthProvider } from './context/AuthContext';
 import { CookieConsentProvider } from './context/CookieConsentContext';
 import { Layout } from './components/Layout';
 import { ScrollReset } from './components/ScrollReset';
+import { DynamicTitle } from './components/DynamicTitle';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { PageSkeleton } from './components/PageSkeleton';
 import { Home } from './pages/Home';
@@ -41,6 +42,7 @@ export default function App() {
         <CookieConsentProvider>
           <BrowserRouter>
             <ScrollReset />
+            <DynamicTitle />
             <Suspense fallback={<PageSkeleton />}>
               <Routes>
                 <Route path="/" element={<Layout />}>

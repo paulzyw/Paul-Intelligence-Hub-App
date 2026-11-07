@@ -21,7 +21,6 @@ export function AiDisclaimer() {
   const { openPreferences } = useCookieConsent();
 
   useEffect(() => {
-    document.title = 'AI Disclaimer | RevOS';
     const metaDescription = document.querySelector('meta[name="description"]');
     if (metaDescription) {
       metaDescription.setAttribute(

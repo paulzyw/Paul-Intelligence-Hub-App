@@ -41,6 +41,12 @@ export function PostDetail() {
   }, [slug]);
 
   useEffect(() => {
+    if (post?.title) {
+      document.title = `Insights | ${post.title}`;
+    }
+  }, [post?.title]);
+
+  useEffect(() => {
     // Add copy buttons to code blocks after content is rendered
     if (!loading && post) {
       const timer = setTimeout(() => {
