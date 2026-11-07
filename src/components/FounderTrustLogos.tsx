@@ -38,7 +38,7 @@ function LogoItem({ logo }: { logo: typeof LOGO_DATA[0] }) {
           alt={`${logo.name} logo`}
           loading="lazy"
           onError={() => setHasError(true)}
-          className="h-10 w-auto object-contain opacity-60 hover:opacity-100 transition-opacity duration-500 cursor-default dark:invert"
+          className="h-10 w-auto object-contain grayscale opacity-80 hover:opacity-100 transition-all duration-500 cursor-default dark:invert"
         />
       ) : (
         <div className="border-l-4 border-accent pl-3 py-1">

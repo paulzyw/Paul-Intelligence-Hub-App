@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Linkedin, Mail, ArrowRight, CheckCircle2, Loader2, AlertCircle } from 'lucide-react';
+import { Mail, CheckCircle2, Loader2, AlertCircle, ChevronDown } from 'lucide-react';
 import { motion } from 'motion/react';
 import emailjs from '@emailjs/browser';
 import { supabase } from '../lib/supabase';
@@ -126,7 +126,7 @@ export function Contact() {
             transition={{ duration: 0.5, delay: 0.1 }}
             className="text-xl text-text-secondary max-w-3xl"
           >
-            Welcome opportunities of exploring collaboration, partnerships and inquiries for digital transformation advisory.
+            Welcome opportunities of exploring collaboration, partnerships and inquiries for how to utilize RevOS to accelerate your revenue growth and digital transformation advisory.
           </motion.p>
         </div>
       </div>
@@ -239,20 +239,36 @@ export function Contact() {
 
                   <div>
                     <label htmlFor="subject" className="block text-sm font-medium text-text-primary mb-2">Subject of Inquiry</label>
-                    <select 
-                      id="subject" 
-                      required
-                      value={formData.subject}
-                      onChange={handleChange}
-                      disabled={status === 'submitting'}
-                      className="w-full px-4 py-3 bg-transparent border border-border rounded-md text-text-primary focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent transition-colors appearance-none disabled:opacity-50"
-                    >
-                      <option value="" disabled>Select an option</option>
-                      <option value="partnership">Partnership</option>
-                      <option value="advisory">Advisory</option>
-                      <option value="speaking">Speaking</option>
-                      <option value="other">Other</option>
-                    </select>
+                    <div className="relative">
+                      <select 
+                        id="subject" 
+                        required
+                        value={formData.subject}
+                        onChange={handleChange}
+                        disabled={status === 'submitting'}
+                        className="w-full px-4 py-3 pr-10 bg-bg-surface dark:bg-[#1E2124] border border-border rounded-md text-text-primary focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent transition-colors appearance-none cursor-pointer disabled:opacity-50"
+                      >
+                        <option value="" disabled className="bg-bg-surface text-text-secondary dark:bg-[#1E2124] dark:text-[#A0AEC0]">
+                          Select an option
+                        </option>
+                        <option value="demo" className="bg-bg-surface text-text-primary dark:bg-[#1E2124] dark:text-[#F4F4F9]">
+                          Book a RevOS Demo
+                        </option>
+                        <option value="partnership" className="bg-bg-surface text-text-primary dark:bg-[#1E2124] dark:text-[#F4F4F9]">
+                          Partnership
+                        </option>
+                        <option value="advisory" className="bg-bg-surface text-text-primary dark:bg-[#1E2124] dark:text-[#F4F4F9]">
+                          Advisory
+                        </option>
+                        <option value="speaking" className="bg-bg-surface text-text-primary dark:bg-[#1E2124] dark:text-[#F4F4F9]">
+                          Speaking
+                        </option>
+                        <option value="other" className="bg-bg-surface text-text-primary dark:bg-[#1E2124] dark:text-[#F4F4F9]">
+                          Other
+                        </option>
+                      </select>
+                      <ChevronDown className="absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none w-4 h-4 text-text-secondary" />
+                    </div>
                   </div>
 
                   <div>
@@ -303,23 +319,6 @@ export function Contact() {
               <div>
                 <h3 className="text-sm font-bold text-text-secondary uppercase tracking-wider mb-6">Direct Professional Links</h3>
                 <div className="space-y-6">
-                  <a 
-                    href="https://www.linkedin.com/in/paulzyw" 
-                    target="_blank" 
-                    rel="noopener noreferrer"
-                    className="flex items-center gap-4 p-6 bg-bg-surface border border-border rounded-xl hover:border-accent group transition-colors"
-                  >
-                    <div className="w-12 h-12 bg-[#0A66C2]/10 text-[#0A66C2] rounded-full flex items-center justify-center group-hover:scale-110 transition-transform">
-                      <Linkedin size={24} />
-                    </div>
-                    <div>
-                      <h4 className="font-bold text-text-primary mb-1">LinkedIn</h4>
-                      <p className="text-accent text-sm font-medium flex items-center gap-1">
-                        View Professional Profile <ArrowRight size={14} className="group-hover:translate-x-1 transition-transform" />
-                      </p>
-                    </div>
-                  </a>
-
                   <a 
                     href="mailto:paul.zy.wang@hotmail.com" 
                     className="flex items-center gap-4 p-6 bg-bg-surface border border-border rounded-xl hover:border-accent group transition-colors"

@@ -757,20 +757,12 @@ export function FounderProfile() {
             Whether you are exploring collaboration, partnership opportunities, or simply exchanging ideas, feel free to reach out.
           </p>
           <div className="flex flex-col sm:flex-row items-center justify-center gap-6">
-            <a 
-              href="mailto:paul.zy.wang@hotmail.com"
+            <Link 
+              to="/about/contact"
               className="inline-flex items-center justify-center px-8 py-4 text-base font-bold text-white bg-accent hover:opacity-90 rounded-md transition-all hover:scale-[1.03] active:scale-[0.97] w-full sm:w-auto shadow-lg shadow-accent/20"
             >
-              EMAIL ME
-            </a>
-            <a 
-              href="https://www.linkedin.com/in/paulzyw" 
-              target="_blank" 
-              rel="noopener noreferrer"
-              className="text-text-secondary hover:text-accent transition-colors flex items-center gap-2 font-medium"
-            >
-              Find me on LinkedIn <ArrowRight size={16} />
-            </a>
+              Contact Me
+            </Link>
           </div>
         </div>
       </section>
