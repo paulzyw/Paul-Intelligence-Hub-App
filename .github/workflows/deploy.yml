@@ -40,10 +40,11 @@ jobs:
           test -d dist/assets || (echo "Missing dist/assets" && exit 1)
           echo "Verified: Core production bundle and SSG artifacts successfully validated."
 
-      - name: Setup Wasmer
-        uses: wasmerio/setup-wasmer@v3.1
-        with:
-          version: 'latest'
+      - name: Install Wasmer Manually & Globally
+        run: |
+          curl https://get.wasmer.io -sSfL | sh
+          sudo cp $HOME/.wasmer/bin/wasmer /usr/local/bin/wasmer || true
+          wasmer --version
 
       - name: Deploy to Wasmer Edge
         env:
