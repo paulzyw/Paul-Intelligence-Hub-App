@@ -42,6 +42,8 @@ jobs:
 
       - name: Setup Wasmer
         uses: wasmerio/setup-wasmer@v3.1
+        with:
+          version: 'latest'
 
       - name: Deploy to Wasmer Edge
         env:
