@@ -203,6 +203,9 @@ async function main() {
     { loc: `${CANONICAL_DOMAIN}/about/founderProfile`, lastmod: new Date().toISOString().split('T')[0], changefreq: 'monthly', priority: '0.8' },
     { loc: `${CANONICAL_DOMAIN}/about/founderImpact`, lastmod: new Date().toISOString().split('T')[0], changefreq: 'monthly', priority: '0.8' },
     { loc: `${CANONICAL_DOMAIN}/about/founderInsights`, lastmod: new Date().toISOString().split('T')[0], changefreq: 'weekly', priority: '0.9' },
+    { loc: `${CANONICAL_DOMAIN}/about/founderResearch`, lastmod: new Date().toISOString().split('T')[0], changefreq: 'monthly', priority: '0.8' },
+    { loc: `${CANONICAL_DOMAIN}/about/contact`, lastmod: new Date().toISOString().split('T')[0], changefreq: 'monthly', priority: '0.8' },
+    { loc: `${CANONICAL_DOMAIN}/resources/insights`, lastmod: new Date().toISOString().split('T')[0], changefreq: 'weekly', priority: '0.9' },
     { loc: `${CANONICAL_DOMAIN}/insights`, lastmod: new Date().toISOString().split('T')[0], changefreq: 'weekly', priority: '0.9' },
     { loc: `${CANONICAL_DOMAIN}/product/overview/revos`, lastmod: new Date().toISOString().split('T')[0], changefreq: 'weekly', priority: '0.9' },
     { loc: `${CANONICAL_DOMAIN}/privacy-policy`, lastmod: new Date().toISOString().split('T')[0], changefreq: 'yearly', priority: '0.3' },
@@ -212,6 +215,207 @@ async function main() {
   ];
 
   // ----------------------------------------------------
+  // 2.5. Pre-render Homepage (/index.html) for Instant Crawlability
+  // ----------------------------------------------------
+  console.log('[SSG] Pre-rendering Homepage: /index.html');
+  const homepageHtmlBody = `
+    <main class="revos-homepage-pre-rendered">
+      <!-- SECTION 1: HERO -->
+      <section id="hero" class="py-20 text-center">
+        <div class="text-xs uppercase font-bold text-accent">AI-Native Revenue Operating System</div>
+        <h1 class="text-4xl md:text-6xl font-extrabold text-text-primary">
+          RevOS Turns Revenue Challenges Into Clearer Paths to Growth
+        </h1>
+        <p class="text-lg text-text-secondary max-w-4xl mx-auto">
+          Revenue growth becomes difficult when go-to-market priorities, lead qualification, and sales pipeline decisions are disconnected. RevOS brings structured revenue methodologies and AI-powered reasoning together to help you assess what matters, identify what is missing, and decide what to do next.
+        </p>
+        <div>
+          <a href="/product/revos" class="inline-flex items-center gap-2 px-6 py-3 rounded-full bg-accent text-white font-bold">Explore RevOS →</a>
+        </div>
+      </section>
+
+      <!-- SECTION 2: THE REVENUE CHALLENGE / NEGATIVE IMPACTS -->
+      <section id="negative-impacts" class="py-16">
+        <div class="text-xs uppercase font-bold text-accent">The Revenue Challenge</div>
+        <h2 class="text-3xl font-extrabold text-text-primary">When Revenue Execution Breaks Down, the Impact Adds Up</h2>
+        <p class="text-text-secondary">The visible problem may be a missed target, a stalled deal, or pressure to discount. Behind it may be disconnected decisions across the revenue lifecycle.</p>
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <article>
+            <h3 class="text-xl font-bold text-accent">01. Missing sales targets</h3>
+            <p>Revenue goals remain out of reach when the pipeline, qualification decisions, and opportunity execution do not translate into sufficient progress.</p>
+          </article>
+          <article>
+            <h3 class="text-xl font-bold text-accent">02. Low win rates</h3>
+            <p>Opportunities consume time and resources but fail to convert into won business.</p>
+          </article>
+          <article>
+            <h3 class="text-xl font-bold text-accent">03. Price competition and margin erosion</h3>
+            <p>Deals become price-led when customer value, differentiation, or concession trade-offs are not sufficiently clear.</p>
+          </article>
+          <article>
+            <h3 class="text-xl font-bold text-accent">04. High sales operating costs</h3>
+            <p>Selling and presales resources are consumed by opportunities that may not merit the same level of effort.</p>
+          </article>
+          <article>
+            <h3 class="text-xl font-bold text-accent">05. Low sales efficiency and productivity</h3>
+            <p>Preparation, discovery, prioritization, and follow-up are repetitive or inconsistent.</p>
+          </article>
+          <article>
+            <h3 class="text-xl font-bold text-accent">06. Low revenue predictability</h3>
+            <p>Pipeline progress, deal risks, and expected close dates are difficult to assess consistently.</p>
+          </article>
+        </div>
+      </section>
+
+      <!-- SECTION 3: ROOT CAUSES -->
+      <section id="critical-problems" class="py-16">
+        <div class="text-xs uppercase font-bold text-accent">Look Beneath the Problems</div>
+        <h2 class="text-3xl font-extrabold text-text-primary">Root Cause behind Visible Problem</h2>
+        <p class="text-text-secondary">A missed target, a stalled opportunity, or a price-led negotiation is an outcome. Understanding the underlying problem across various roles—and validating what is causing it—is where better revenue decisions begin.</p>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <article>
+            <h3 class="text-xl font-bold text-accent">Sales Professional</h3>
+            <p>Leads look promising but lack verified buying potential. Discovery does not fully establish the customer's problem or decision criteria.</p>
+          </article>
+          <article>
+            <h3 class="text-xl font-bold text-accent">Enterprise Team</h3>
+            <p>Marketing and sales disagree about which leads deserve attention. Pipeline reviews reveal risks too late to influence outcomes.</p>
+          </article>
+          <article>
+            <h3 class="text-xl font-bold text-accent">Enterprise Executive</h3>
+            <p>Revenue targets are difficult to achieve consistently. Forecasts change unexpectedly while commercial investment does not translate into proportional growth.</p>
+          </article>
+        </div>
+      </section>
+
+      <!-- SECTION 4: REVOS MECHANISM -->
+      <section id="revos-mechanism" class="py-16">
+        <div class="text-xs uppercase font-bold text-accent">RevOS Mechanism</div>
+        <h2 class="text-3xl font-extrabold text-text-primary">Move From Revenue Complexity to Structured Action.</h2>
+        <p class="text-text-secondary">Revenue challenges rarely have a single obvious cause. RevOS combines structured revenue methodologies with AI-powered reasoning to help you organize the problem, examine the available evidence, and identify the actions worth taking next.</p>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <article>
+            <h3 class="text-xl font-bold text-accent">Pillar 01: Structured Methodologies</h3>
+            <p>Start with a clear framework for understanding the revenue challenge. RevOS helps organize the problem, establish relevant evaluation criteria, and create a repeatable path from initial questions to structured assessment.</p>
+          </article>
+          <article>
+            <h3 class="text-xl font-bold text-accent">Pillar 02: Evidence-Informed AI Reasoning</h3>
+            <p>RevOS uses AI-powered reasoning to help users examine available information, connect evidence to the problem, and identify assumptions, uncertainties, and missing details that may affect the assessment.</p>
+          </article>
+          <article>
+            <h3 class="text-xl font-bold text-accent">Pillar 03: Actionable Intelligence</h3>
+            <p>Turn structured analysis into practical next steps. RevOS helps users understand what deserves attention, which gaps or risks to address, and what actions can move the revenue process forward.</p>
+          </article>
+        </div>
+      </section>
+
+      <!-- SECTION 5: THE REVOS PLATFORM -->
+      <section id="revos-platform" class="py-16">
+        <div class="text-xs uppercase font-bold text-accent">The RevOS Platform</div>
+        <h2 class="text-3xl font-extrabold text-text-primary">An Unified Platform Connected Revenue Workflows</h2>
+        <p class="text-text-secondary">RevOS connects go-to-market strategy, lead qualification, and opportunity assessment through structured workflows and AI-powered intelligence—helping individuals and teams make more informed revenue decisions.</p>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <article>
+            <h3 class="text-xl font-bold text-accent">GTMOS</h3>
+            <p>Structure and organize go-to-market strategy, including target markets, ideal customer profiles, value propositions, messaging, and revenue approach.</p>
+            <a href="/product/overview/revos">Explore GTMOS →</a>
+          </article>
+          <article>
+            <h3 class="text-xl font-bold text-accent">Lead Qualification</h3>
+            <p>Support MQL, SQL, and Opportunity Qualification through structured evaluation of lead and opportunity fit, readiness, evidence, risks, and progression.</p>
+            <a href="/product/overview/revos">Explore Lead Qualification →</a>
+          </article>
+          <article>
+            <h3 class="text-xl font-bold text-accent">Pipeline Assessment</h3>
+            <p>Help sales professionals examine pipeline strengths, gaps, risks, competitive factors, and potential winning actions.</p>
+            <a href="/product/overview/revos">Explore Pipeline Assessment →</a>
+          </article>
+        </div>
+      </section>
+
+      <!-- SECTION 6: SEE REVOS IN ACTION -->
+      <section id="see-revos-in-action" class="py-16">
+        <div class="text-xs uppercase font-bold text-accent">See RevOS in Action</div>
+        <h2 class="text-3xl font-extrabold text-text-primary">Turn Revenue Challenge into Decisions and Action</h2>
+        <p class="text-text-secondary">RevOS helps sales professionals and revenue teams turn the information they have into structured assessments, clearer priorities, and actionable decisions across the revenue lifecycle.</p>
+        <h3 class="text-2xl font-bold text-text-primary">From MQL to SQL: Turn Customer Evidence Into Qualification Decisions</h3>
+        <p class="text-text-secondary">A promising lead is not yet a qualified sales opportunity. See how RevOS applies its structured, evidence-informed approach to SQL Qualification.</p>
+      </section>
+
+      <!-- SECTION 7: REVENUE OUTCOMES -->
+      <section id="revenue-outcomes" class="py-16">
+        <div class="text-xs uppercase font-bold text-accent">RevOS Makes Better Revenue Outcomes</div>
+        <h2 class="text-3xl font-extrabold text-text-primary">Better Revenue Decisions, Better Business Outcomes</h2>
+        <p class="text-text-secondary">RevOS helps revenue teams qualify smarter, focus their efforts, manage opportunities more effectively, and make informed decisions that support stronger sales performance and profitable growth.</p>
+        <ul class="space-y-3">
+          <li><strong>01. Higher Win Rates:</strong> Identify deal risks, strengthen winning strategies, and focus on opportunities with greater potential.</li>
+          <li><strong>02. Shorter Sales Cycles:</strong> Uncover deal blockers, resolve critical gaps, and determine the next actions needed to move opportunities forward.</li>
+          <li><strong>03. Better Resource Allocation:</strong> Prioritize promising opportunities and direct sales effort where it can create the greatest value.</li>
+          <li><strong>04. Improved Forecast Accuracy:</strong> Assess opportunities through structured criteria and clearer evidence to make more informed revenue forecasts.</li>
+          <li><strong>05. Profitable Revenue Growth:</strong> Strengthen go-to-market decisions, address competitive and commercial risks, and pursue growth while protecting margins.</li>
+        </ul>
+      </section>
+
+      <!-- SECTION 8: FAQ -->
+      <section id="faq" class="py-16">
+        <div class="text-xs uppercase font-bold text-accent">Questions &amp; Answers</div>
+        <h2 class="text-3xl font-extrabold text-text-primary">Frequently Asked Questions</h2>
+        <dl class="space-y-6">
+          <div>
+            <dt class="font-bold text-lg text-accent">What is RevOS?</dt>
+            <dd class="text-text-secondary">RevOS is a Revenue Operating System designed to help sales professionals and revenue teams approach complex revenue challenges through structured methodologies and evidence-informed AI reasoning.</dd>
+          </div>
+          <div>
+            <dt class="font-bold text-lg text-accent">How is RevOS different from a CRM?</dt>
+            <dd class="text-text-secondary">A CRM primarily helps businesses manage customer relationships, sales activities, and related records. RevOS focuses on structuring revenue challenges, assessing available evidence, and supporting decisions about what to prioritize and do next.</dd>
+          </div>
+          <div>
+            <dt class="font-bold text-lg text-accent">What can I do with RevOS?</dt>
+            <dd class="text-text-secondary">RevOS brings together three core capability areas: GTMOS (Go-to-Market Strategy &amp; Intelligence), Lead Qualification (MQL and SQL readiness), and Pipeline Assessment (deal health, winability, and winning strategies).</dd>
+          </div>
+          <div>
+            <dt class="font-bold text-lg text-accent">How does RevOS use AI to support revenue decisions?</dt>
+            <dd class="text-text-secondary">RevOS combines structured revenue methodologies with AI reasoning to help users examine business context, interpret available information, distinguish supported findings from assumptions, and generate actionable recommendations.</dd>
+          </div>
+          <div>
+            <dt class="font-bold text-lg text-accent">How does RevOS evaluate evidence and identify gaps?</dt>
+            <dd class="text-text-secondary">RevOS uses information available within structured assessments to highlight factors that support qualification, identify unresolved gaps, and recommend appropriate follow-up actions.</dd>
+          </div>
+          <div>
+            <dt class="font-bold text-lg text-accent">Who is RevOS designed for?</dt>
+            <dd class="text-text-secondary">RevOS is designed for individual sales professionals, enterprise sales and revenue teams, and enterprise executives (CSOs, CMOs, CROs, CEOs) seeking a more structured way to approach revenue strategy, qualification, and opportunity decisions.</dd>
+          </div>
+          <div>
+            <dt class="font-bold text-lg text-accent">What information do I need to get started?</dt>
+            <dd class="text-text-secondary">The information you need depends on the RevOS capability you want to use: target market details for GTMOS, customer qualification context for Lead Qualification, or opportunity and deal parameters for Pipeline Assessment.</dd>
+          </div>
+          <div>
+            <dt class="font-bold text-lg text-accent">How can I start using RevOS?</dt>
+            <dd class="text-text-secondary">Start by exploring the RevOS capability most relevant to your current revenue challenge, input your available context, review the structured assessment and recommendations, and use the identified gaps to guide execution.</dd>
+          </div>
+        </dl>
+      </section>
+
+      <!-- SECTION 9: FINAL CTA -->
+      <section id="final-cta" class="py-16 text-center">
+        <h2 class="text-3xl font-extrabold text-text-primary">Ready to Take a More Structured Approach to Revenue Growth?</h2>
+        <p class="text-text-secondary max-w-2xl mx-auto">Start with the revenue challenge in front of you. Explore how RevOS can help you organize the evidence, assess the situation, and identify the next steps worth taking.</p>
+        <div class="flex justify-center gap-4 mt-6">
+          <a href="/product/revos" class="btn-primary">Get Started with RevOS</a>
+          <a href="/product/overview/revos" class="btn-secondary">Explore Solutions</a>
+        </div>
+      </section>
+    </main>
+  `;
+
+  // Inject pre-rendered body into dist/index.html
+  let homepageFullHtml = templateHtml;
+  if (homepageFullHtml.includes('<div id="root"></div>')) {
+    homepageFullHtml = homepageFullHtml.replace('<div id="root"></div>', `<div id="root">${homepageHtmlBody}</div>`);
+    fs.writeFileSync(indexHtmlPath, homepageFullHtml);
+    console.log('[SSG] Successfully pre-rendered homepage content into dist/index.html');
+  }
+
   // ----------------------------------------------------
   // 3. Generate Revenue Insights Listing (/insights/index.html)
   // ----------------------------------------------------
@@ -670,6 +874,9 @@ ${sitemapUrls.map(u => `  <url>
 </urlset>`;
 
   fs.writeFileSync(path.join(distPath, 'sitemap.xml'), sitemapXml);
+  try {
+    fs.writeFileSync(path.join(process.cwd(), 'public', 'sitemap.xml'), sitemapXml);
+  } catch (e) {}
 
   // ----------------------------------------------------
   // 7. Generate robots.txt (dist/robots.txt)

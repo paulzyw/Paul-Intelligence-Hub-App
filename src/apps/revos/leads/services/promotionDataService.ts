@@ -9,7 +9,43 @@ export interface MQLSQLPromotion {
   promoted_by?: string;
 }
 
+let memoryPromotedLeadIds: string[] | null = null;
+let memorySqlOpportunityPromotedLeadIds: string[] | null = null;
+
 export class PromotionDataService {
+  /**
+   * Synchronous cached getters for instant (0ms) render on component mount
+   */
+  static getCachedPromotedLeadIds(): string[] {
+    if (memoryPromotedLeadIds) return memoryPromotedLeadIds;
+    if (typeof window !== 'undefined') {
+      try {
+        const stored = localStorage.getItem('revos_cached_promoted_lead_ids');
+        if (stored) {
+          const parsed = JSON.parse(stored);
+          memoryPromotedLeadIds = parsed;
+          return parsed;
+        }
+      } catch (e) {}
+    }
+    return [];
+  }
+
+  static getCachedSqlOpportunityPromotedLeadIds(): string[] {
+    if (memorySqlOpportunityPromotedLeadIds) return memorySqlOpportunityPromotedLeadIds;
+    if (typeof window !== 'undefined') {
+      try {
+        const stored = localStorage.getItem('sql_opportunity_promoted_lead_ids');
+        if (stored) {
+          const parsed = JSON.parse(stored);
+          memorySqlOpportunityPromotedLeadIds = parsed;
+          return parsed;
+        }
+      } catch (e) {}
+    }
+    return [];
+  }
+
   /**
    * Get all promoted lead IDs from Supabase table mql_sql_promotions.
    */
@@ -21,12 +57,19 @@ export class PromotionDataService {
 
       if (error) {
         console.warn('mql_sql_promotions table fetch:', error.message);
-        return [];
+        return this.getCachedPromotedLeadIds();
       }
-      return (data || []).map((row: any) => row.lead_id).filter(Boolean);
+      const ids = (data || []).map((row: any) => row.lead_id).filter(Boolean);
+      memoryPromotedLeadIds = ids;
+      if (typeof window !== 'undefined') {
+        try {
+          localStorage.setItem('revos_cached_promoted_lead_ids', JSON.stringify(ids));
+        } catch (e) {}
+      }
+      return ids;
     } catch (err) {
       console.error('Failed to fetch promoted lead IDs from Supabase:', err);
-      return [];
+      return this.getCachedPromotedLeadIds();
     }
   }
 
@@ -81,6 +124,9 @@ export class PromotionDataService {
       if (typeof window !== 'undefined') {
         localStorage.setItem(`mql_promotion_date_${leadId}`, dateToSave);
       }
+      if (memoryPromotedLeadIds && !memoryPromotedLeadIds.includes(leadId)) {
+        memoryPromotedLeadIds.push(leadId);
+      }
       const { error } = await supabase
         .from('mql_sql_promotions')
         .upsert(
@@ -104,6 +150,9 @@ export class PromotionDataService {
   static async unpromoteLead(leadId: string): Promise<boolean> {
     if (!leadId) return false;
     try {
+      if (memoryPromotedLeadIds) {
+        memoryPromotedLeadIds = memoryPromotedLeadIds.filter(id => id !== leadId);
+      }
       const { error } = await supabase
         .from('mql_sql_promotions')
         .delete()
@@ -123,6 +172,9 @@ export class PromotionDataService {
   static async unpromoteSqlOpportunity(opportunityId: string): Promise<boolean> {
     if (!opportunityId) return false;
     try {
+      if (memorySqlOpportunityPromotedLeadIds) {
+        memorySqlOpportunityPromotedLeadIds = memorySqlOpportunityPromotedLeadIds.filter(id => id !== opportunityId);
+      }
       const { error } = await supabase
         .from('sql_opportunity_promotions')
         .delete()
@@ -169,13 +221,14 @@ export class PromotionDataService {
       }
 
       const leadIds = (data || []).map((row: any) => row.lead_id).filter(Boolean);
+      memorySqlOpportunityPromotedLeadIds = leadIds;
       if (typeof window !== 'undefined') {
         localStorage.setItem('sql_opportunity_promoted_lead_ids', JSON.stringify(leadIds));
       }
       return leadIds;
     } catch (err) {
       console.error('Failed to fetch promoted lead IDs from sql_opportunity_promotions:', err);
-      return [];
+      return this.getCachedSqlOpportunityPromotedLeadIds();
     }
   }
 
@@ -343,6 +396,9 @@ export class PromotionDataService {
           localStorage.setItem('sql_opportunity_promoted_lead_ids', JSON.stringify(ids));
         }
       } catch {}
+      if (memorySqlOpportunityPromotedLeadIds && leadId && !memorySqlOpportunityPromotedLeadIds.includes(leadId)) {
+        memorySqlOpportunityPromotedLeadIds.push(leadId);
+      }
     }
 
     const payload = {

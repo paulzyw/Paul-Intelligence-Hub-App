@@ -1,5 +1,7 @@
 import { supabase } from '@/src/lib/supabase';
 import { OpportunitySession, OpportunityEvidenceRecord, OpportunityQualificationResult } from '../../types/opportunity_qualification';
+let memoryOppRevenueMap: Record<string, number> | null = null;
+let memoryOppNameMap: Record<string, string> | null = null;
 
 export class OpportunityDataService {
   // Session Management
@@ -423,8 +425,42 @@ export class OpportunityDataService {
   }
 
   /**
+   * Synchronous cached getters for instant (0ms) render on component mount
+   */
+  static getCachedOpportunityEstimatedRevenuesMap(): Record<string, number> {
+    if (memoryOppRevenueMap) return memoryOppRevenueMap;
+    if (typeof window !== 'undefined') {
+      try {
+        const stored = localStorage.getItem('revos_cached_opp_revenue_map');
+        if (stored) {
+          const parsed = JSON.parse(stored);
+          memoryOppRevenueMap = parsed;
+          return parsed;
+        }
+      } catch (e) {}
+    }
+    return {};
+  }
+
+  static getCachedOpportunityNamesMap(): Record<string, string> {
+    if (memoryOppNameMap) return memoryOppNameMap;
+    if (typeof window !== 'undefined') {
+      try {
+        const stored = localStorage.getItem('revos_cached_opp_name_map');
+        if (stored) {
+          const parsed = JSON.parse(stored);
+          memoryOppNameMap = parsed;
+          return parsed;
+        }
+      } catch (e) {}
+    }
+    return {};
+  }
+
+  /**
    * Get Estimated Revenue map for all opportunities/leads from Opportunity Form records
    * Sums up or queries the canonical "Estimated Revenue" defined in the Opportunity Form.
+   * Runs queries in parallel with Promise.all for ultra-fast response and persists to cache.
    */
   static async getOpportunityEstimatedRevenuesMap(): Promise<Record<string, number>> {
     const revenueMap: Record<string, number> = {};
@@ -437,12 +473,27 @@ export class OpportunityDataService {
     };
 
     try {
-      // 1. Fetch opportunities (reads description JSON with estimated_revenue)
-      const { data: opps } = await supabase
-        .from('opportunities')
-        .select('id, mql_reference_id, description');
+      // Parallelize all 5 database queries for maximum performance
+      const [oppsRes, handoversRes, formRecordsRes, sqlPromosRes, mqlPromosRes] = await Promise.all([
+        supabase
+          .from('opportunities')
+          .select('id, mql_reference_id, description'),
+        supabase
+          .from('opportunity_sql_handover_details')
+          .select('opportunity_id, editable_fields'),
+        supabase
+          .from('opportunity_form_records')
+          .select('opportunity_id, estimated_revenue'),
+        supabase
+          .from('sql_opportunity_promotions')
+          .select('lead_id, opportunity_id'),
+        supabase
+          .from('mql_sql_promotions')
+          .select('lead_id, opportunity_id')
+      ]);
 
-      (opps || []).forEach((opp: any) => {
+      // 1. Opportunities description JSON
+      (oppsRes.data || []).forEach((opp: any) => {
         let rev: string | null = null;
         if (opp.description && opp.description.trim().startsWith('{')) {
           try {
@@ -458,85 +509,80 @@ export class OpportunityDataService {
           }
         }
       });
-    } catch (e) {
-      console.warn('Error fetching opportunities for revenue map:', e);
-    }
 
-    try {
-      // 2. Fetch opportunity_sql_handover_details
-      const { data: handovers } = await supabase
-        .from('opportunity_sql_handover_details')
-        .select('opportunity_id, editable_fields');
-
-      (handovers || []).forEach((h: any) => {
+      // 2. Handover details
+      (handoversRes.data || []).forEach((h: any) => {
         const rev = h.editable_fields?.estimated_revenue;
         if (rev) {
           const num = parseNum(rev);
           revenueMap[h.opportunity_id] = num;
         }
       });
-    } catch (e) {
-      console.warn('Error fetching handover details for revenue map:', e);
-    }
 
-    try {
-      // 3. Fetch opportunity_form_records (highest priority canonical source)
-      const { data: formRecords } = await supabase
-        .from('opportunity_form_records')
-        .select('opportunity_id, estimated_revenue');
-
-      (formRecords || []).forEach((f: any) => {
+      // 3. Form records (canonical authority)
+      (formRecordsRes.data || []).forEach((f: any) => {
         if (f.estimated_revenue) {
           const num = parseNum(f.estimated_revenue);
           revenueMap[f.opportunity_id] = num;
         }
       });
+
+      // 4. Map by lead_id from sql_opportunity_promotions
+      (sqlPromosRes.data || []).forEach((p: any) => {
+        if (p.opportunity_id && revenueMap[p.opportunity_id] && p.lead_id) {
+          revenueMap[p.lead_id] = revenueMap[p.opportunity_id];
+        }
+      });
+
+      // 5. Map by lead_id from mql_sql_promotions
+      (mqlPromosRes.data || []).forEach((p: any) => {
+        if (p.opportunity_id && revenueMap[p.opportunity_id] && p.lead_id) {
+          revenueMap[p.lead_id] = revenueMap[p.opportunity_id];
+        }
+      });
+
+      // Update in-memory and localStorage cache
+      memoryOppRevenueMap = revenueMap;
+      if (typeof window !== 'undefined') {
+        try {
+          localStorage.setItem('revos_cached_opp_revenue_map', JSON.stringify(revenueMap));
+        } catch (e) {}
+      }
     } catch (e) {
-      console.warn('Error fetching form records for revenue map:', e);
+      console.warn('Error fetching opportunity estimated revenues map:', e);
     }
-
-    try {
-      // 4. Also map by lead_id from sql_opportunity_promotions
-      const { data: promos } = await supabase
-        .from('sql_opportunity_promotions')
-        .select('lead_id, opportunity_id');
-
-      (promos || []).forEach((p: any) => {
-        if (p.opportunity_id && revenueMap[p.opportunity_id] && p.lead_id) {
-          revenueMap[p.lead_id] = revenueMap[p.opportunity_id];
-        }
-      });
-    } catch (e) {}
-
-    try {
-      // 5. Also map by lead_id from mql_sql_promotions
-      const { data: mqlPromos } = await supabase
-        .from('mql_sql_promotions')
-        .select('lead_id, opportunity_id');
-
-      (mqlPromos || []).forEach((p: any) => {
-        if (p.opportunity_id && revenueMap[p.opportunity_id] && p.lead_id) {
-          revenueMap[p.lead_id] = revenueMap[p.opportunity_id];
-        }
-      });
-    } catch (e) {}
 
     return revenueMap;
   }
 
   /**
    * Fetches opportunity names map indexed by both opportunity_id and lead_id.
+   * Runs queries in parallel with Promise.all for high-speed retrieval and persists to cache.
    */
   static async getOpportunityNamesMap(): Promise<Record<string, string>> {
     const nameMap: Record<string, string> = {};
 
     try {
-      // 1. Fetch opportunities
-      const { data: opps } = await supabase
-        .from('opportunities')
-        .select('id, mql_reference_id, opportunity_name, description, company_name');
+      const [oppsRes, handoversRes, formRecordsRes, sqlPromosRes, mqlPromosRes] = await Promise.all([
+        supabase
+          .from('opportunities')
+          .select('id, mql_reference_id, opportunity_name, description, company_name'),
+        supabase
+          .from('opportunity_sql_handover_details')
+          .select('opportunity_id, editable_fields'),
+        supabase
+          .from('opportunity_form_records')
+          .select('opportunity_id, opportunity_name'),
+        supabase
+          .from('sql_opportunity_promotions')
+          .select('lead_id, opportunity_id'),
+        supabase
+          .from('mql_sql_promotions')
+          .select('lead_id, opportunity_id')
+      ]);
 
-      (opps || []).forEach((opp: any) => {
+      // 1. Opportunities
+      (oppsRes.data || []).forEach((opp: any) => {
         let name = opp.opportunity_name;
         if (!name && opp.description && opp.description.trim().startsWith('{')) {
           try {
@@ -554,66 +600,46 @@ export class OpportunityDataService {
           }
         }
       });
-    } catch (e) {
-      console.warn('Error fetching opportunities for name map:', e);
-    }
 
-    try {
-      // 2. Fetch opportunity_sql_handover_details
-      const { data: handovers } = await supabase
-        .from('opportunity_sql_handover_details')
-        .select('opportunity_id, editable_fields');
-
-      (handovers || []).forEach((h: any) => {
+      // 2. Handover details
+      (handoversRes.data || []).forEach((h: any) => {
         const name = h.editable_fields?.opportunity_name;
         if (name) {
           nameMap[h.opportunity_id] = name;
         }
       });
-    } catch (e) {
-      console.warn('Error fetching handover details for name map:', e);
-    }
 
-    try {
-      // 3. Fetch opportunity_form_records
-      const { data: formRecords } = await supabase
-        .from('opportunity_form_records')
-        .select('opportunity_id, opportunity_name');
-
-      (formRecords || []).forEach((f: any) => {
+      // 3. Form records
+      (formRecordsRes.data || []).forEach((f: any) => {
         if (f.opportunity_name) {
           nameMap[f.opportunity_id] = f.opportunity_name;
         }
       });
-    } catch (e) {
-      console.warn('Error fetching form records for name map:', e);
-    }
 
-    try {
       // 4. Map lead_id via sql_opportunity_promotions
-      const { data: promos } = await supabase
-        .from('sql_opportunity_promotions')
-        .select('lead_id, opportunity_id');
-
-      (promos || []).forEach((p: any) => {
+      (sqlPromosRes.data || []).forEach((p: any) => {
         if (p.opportunity_id && nameMap[p.opportunity_id] && p.lead_id) {
           nameMap[p.lead_id] = nameMap[p.opportunity_id];
         }
       });
-    } catch (e) {}
 
-    try {
       // 5. Map lead_id via mql_sql_promotions
-      const { data: mqlPromos } = await supabase
-        .from('mql_sql_promotions')
-        .select('lead_id, opportunity_id');
-
-      (mqlPromos || []).forEach((p: any) => {
+      (mqlPromosRes.data || []).forEach((p: any) => {
         if (p.opportunity_id && nameMap[p.opportunity_id] && p.lead_id) {
           nameMap[p.lead_id] = nameMap[p.opportunity_id];
         }
       });
-    } catch (e) {}
+
+      // Update in-memory and localStorage cache
+      memoryOppNameMap = nameMap;
+      if (typeof window !== 'undefined') {
+        try {
+          localStorage.setItem('revos_cached_opp_name_map', JSON.stringify(nameMap));
+        } catch (e) {}
+      }
+    } catch (e) {
+      console.warn('Error fetching opportunity names map:', e);
+    }
 
     return nameMap;
   }
@@ -695,6 +721,31 @@ export class OpportunityDataService {
     } catch (e) {
       console.info('opportunity_form_records upsert note (will succeed once migration runs):', e);
     }
+
+    // Update in-memory and localStorage caches immediately for instant UI reactivity
+    try {
+      const cleanNum = parseFloat(String(formData.estimated_revenue || '').replace(/[^0-9.]/g, ''));
+      if (!isNaN(cleanNum) && cleanNum > 0) {
+        if (!memoryOppRevenueMap) memoryOppRevenueMap = {};
+        memoryOppRevenueMap[opportunityId] = cleanNum;
+        if (typeof window !== 'undefined') {
+          const stored = localStorage.getItem('revos_cached_opp_revenue_map');
+          const map = stored ? JSON.parse(stored) : {};
+          map[opportunityId] = cleanNum;
+          localStorage.setItem('revos_cached_opp_revenue_map', JSON.stringify(map));
+        }
+      }
+      if (formData.opportunity_name) {
+        if (!memoryOppNameMap) memoryOppNameMap = {};
+        memoryOppNameMap[opportunityId] = formData.opportunity_name;
+        if (typeof window !== 'undefined') {
+          const stored = localStorage.getItem('revos_cached_opp_name_map');
+          const map = stored ? JSON.parse(stored) : {};
+          map[opportunityId] = formData.opportunity_name;
+          localStorage.setItem('revos_cached_opp_name_map', JSON.stringify(map));
+        }
+      }
+    } catch (e) {}
 
     return true;
   }

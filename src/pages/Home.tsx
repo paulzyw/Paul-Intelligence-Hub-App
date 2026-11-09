@@ -336,14 +336,14 @@ export function Home() {
     
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 text-center relative z-20">
           <div>
-            <motion.h2 
+            <motion.div 
               initial={{ opacity: 0, y: 8 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.35, ease: "easeOut" }}
               className="text-xs sm:text-sm font-bold tracking-[0.14em] sm:tracking-[0.2em] uppercase text-accent mb-3 sm:mb-4"
             >
               AI-Native Revenue Operating System
-            </motion.h2>
+            </motion.div>
             
             <motion.h1 
               initial={{ opacity: 0, y: 8 }}

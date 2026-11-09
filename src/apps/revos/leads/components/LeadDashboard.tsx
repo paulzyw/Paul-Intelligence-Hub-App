@@ -46,9 +46,9 @@ export const LeadDashboard: React.FC<LeadDashboardProps> = ({
 
   const [mqlPromotions, setMqlPromotions] = useState<any[]>([]);
   const [oppPromotions, setOppPromotions] = useState<any[]>([]);
-  const [oppRevenueMap, setOppRevenueMap] = useState<Record<string, number>>({});
-  const [promotedLeadIds, setPromotedLeadIds] = useState<string[]>([]);
-  const [sqlPromotedLeadIds, setSqlPromotedLeadIds] = useState<string[]>([]);
+  const [oppRevenueMap, setOppRevenueMap] = useState<Record<string, number>>(() => OpportunityDataService.getCachedOpportunityEstimatedRevenuesMap());
+  const [promotedLeadIds, setPromotedLeadIds] = useState<string[]>(() => PromotionDataService.getCachedPromotedLeadIds());
+  const [sqlPromotedLeadIds, setSqlPromotedLeadIds] = useState<string[]>(() => PromotionDataService.getCachedSqlOpportunityPromotedLeadIds());
   const [opportunities, setOpportunities] = useState<SQLOpportunity[]>([]);
   const [sqlAssessments, setSqlAssessments] = useState<SQLAssessment[]>([]);
   const [sqlResultsMap, setSqlResultsMap] = useState<Record<string, any>>({});
@@ -360,8 +360,11 @@ export const LeadDashboard: React.FC<LeadDashboardProps> = ({
         } catch (e) {}
       }
     }
-    const rawNum = parseFloat(String(lead.annual_revenue || '').replace(/[^0-9.]/g, ''));
-    return isNaN(rawNum) ? 0 : rawNum;
+    if ((lead as any).estimated_revenue) {
+      const num = parseFloat(String((lead as any).estimated_revenue).replace(/[^0-9.]/g, ''));
+      if (!isNaN(num) && num > 0) return num;
+    }
+    return 0;
   };
 
   // Value formatting: converted to kilo (k) when > 1,000,000, and million (M) when > 10,000,000

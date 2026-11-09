@@ -1,0 +1,617 @@
+1. ROLE AND OBJECTIVE
+Act as a senior technical SEO strategist, SEO content architect and experienced frontend developer.
+Your task is to audit, define and implement the complete SEO and page metadata for the existing RevOS homepage, based on the approved RevOS Homepage Design V1.2.
+This is an implementation task, not merely an SEO recommendation exercise.
+You must:
+1.	Understand the existing homepage narrative, content and section structure.
+2.	Develop a homepage-specific SEO strategy aligned with the RevOS positioning.
+3.	Optimize the homepage title, meta description, headings and visible content where appropriate.
+4.	Implement technical SEO metadata.
+5.	Implement appropriate structured data.
+6.	Verify indexing, crawling, canonicalization and internal linking.
+7.	Evaluate whether the current rendering architecture allows search engines to reliably access the homepage content.
+8.	Preserve the approved V1.2 design, storytelling and user experience.
+Do not redesign the homepage or rewrite its narrative unnecessarily.
+The objective is to make the existing homepage more discoverable through search engines without compromising its strategic positioning, visual design or conversion experience.
+________________________________________
+2. REVOS PRODUCT AND POSITIONING CONTEXT
+RevOS is an AI-native Revenue Operating System.
+Its purpose is to help individual sales professionals, revenue teams and business executives improve revenue decisions through:
+•	Structured revenue methodologies.
+•	Evidence-informed AI reasoning.
+•	Multidimensional assessment.
+•	Risk and gap identification.
+•	Actionable recommendations.
+RevOS is not another CRM.
+Its differentiation is its focus on improving the quality of revenue thinking, assessment, decision-making and execution rather than simply recording sales activities or managing customer relationships.
+Main product engines
+GTMOS — Go-to-Market Strategy & Intelligence
+Supports structured GTM strategy development, strategic analysis, scenario thinking and actionable planning.
+Lead Qualification
+Supports structured MQL and SQL qualification through qualification dimensions, available evidence, readiness assessment and next-step recommendations.
+Pipeline Assessment
+Supports opportunity assessment, pipeline health analysis, winability evaluation, risk identification and winning strategy recommendations.
+Primary audience
+1.	Individual Sales Professionals.
+2.	Enterprise Sales and Revenue Teams.
+3.	Enterprise Executives, including CSOs, CMOs, CROs and CEOs.
+Core positioning
+AI-Native Revenue Operating System.
+Core value proposition
+RevOS combines structured revenue methodologies with evidence-informed AI reasoning to help users assess revenue challenges, identify potential gaps and risks, and make better-informed decisions.
+Do not position RevOS as a generic AI assistant, a conventional CRM, or an all-purpose business intelligence platform.
+________________________________________
+3. HOMEPAGE DESIGN V1.2 — SEO CONTENT FOUNDATION
+The homepage uses a progressive storytelling approach.
+Its core narrative is:
+Negative Impact → Critical Problem → Root Cause → RevOS Mechanism → Desired Outcome.
+The SEO implementation must preserve this narrative.
+Inspect the actual V1.2 homepage implementation and map the SEO content to its real sections.
+The following is the approved conceptual content framework.
+Section 1 — Hero
+The homepage positioning emphasizes accelerating revenue growth through better revenue decisions.
+The hero should establish:
+•	RevOS as an AI-native Revenue Operating System.
+•	The relationship between structured methodologies and AI reasoning.
+•	The intended outcome of better-informed revenue decisions and stronger revenue execution.
+Preserve the actual approved hero headline and supporting copy where already implemented.
+Do not replace the approved hero with a generic keyword-heavy headline.
+Section 2 — Negative Business Impacts
+The homepage communicates the business consequences of ineffective revenue management:
+•	Missing revenue targets.
+•	Low win rates.
+•	Price competition and margin erosion.
+•	High sales operating costs.
+•	Low sales efficiency and productivity.
+•	Low revenue predictability.
+Use this section to establish the commercial problems RevOS addresses.
+Section 3 — Critical Problems and Root Causes
+Explain why these negative business impacts occur.
+The narrative should connect fragmented revenue processes, inconsistent qualification, insufficient evidence-based assessment, weak opportunity management and disconnected execution.
+Do not invent additional problems or claim that every organization experiences all of them.
+Section 4 — RevOS Mechanism
+Explain how RevOS approaches these challenges.
+The core mechanisms include:
+•	Structured revenue methodologies.
+•	Evidence-informed AI reasoning.
+•	Systematic assessment.
+•	Risk and gap identification.
+•	Actionable recommendations.
+AI reasoning is a critical capability across the engines, not a separate product engine.
+Section 5 — RevOS Platform / Product Introduction
+Introduce the three principal engines:
+•	GTMOS.
+•	Lead Qualification.
+•	Pipeline Assessment.
+Explain their distinct purposes and their relationship within the overall RevOS platform.
+Link to their dedicated product pages.
+Section 6 — Product Demo
+The homepage includes a representative SQL Qualification workflow.
+Its conceptual stages are:
+1.	Carry Forward MQL Context.
+2.	Capture and Validate Evidence.
+3.	Evaluate Qualification Readiness.
+4.	Identify Next Best Actions.
+5.	Make SQL Promotion Decision.
+The SQL example is a representative demonstration of RevOS capabilities, not the complete workflow for every engine.
+Section 7 — Desired Business Outcomes
+The five primary desired outcomes are:
+1.	Higher Win Rates.
+2.	Shorter Sales Cycles.
+3.	Better Resource Allocation.
+4.	Improved Forecast Accuracy.
+5.	Profitable, Sustainable Revenue Growth.
+Use outcome-oriented language without promising guaranteed results.
+Section 8 — Audience / Solutions
+The homepage addresses individual sales professionals, enterprise teams and enterprise executives.
+Ensure that the homepage links to the appropriate Solutions pages if they exist.
+Section 9 — Trust Through Methodology
+The trust narrative emphasizes:
+•	Structured Methodologies.
+•	Evidence-Informed AI.
+•	Transparent Assessment or Structured Analysis, depending on the actual product implementation.
+•	Actionable Next Steps.
+Use the existing approved wording.
+Do not claim transparency of evidence or AI reasoning in areas where the product does not actually expose it.
+Section 10 — FAQ
+The homepage FAQ addresses:
+•	What is RevOS?
+•	How is RevOS different from a CRM?
+•	What can users do with RevOS?
+•	How does RevOS use AI?
+•	How does RevOS evaluate evidence and identify gaps?
+•	Who is RevOS designed for?
+•	What information do users need?
+•	How can users get started?
+Use the existing approved FAQ content where available.
+Do not introduce contradictory or duplicate answers.
+________________________________________
+4. HOMEPAGE SEO KEYWORD STRATEGY
+Develop a focused keyword strategy for the homepage.
+The homepage should primarily target the RevOS brand and its overall product category.
+Use the following keyword groups as starting hypotheses, not as claims about actual search volume or keyword difficulty.
+Primary keyword group
+•	AI-native Revenue Operating System.
+•	Revenue Operating System.
+•	AI Revenue Operating System.
+Prioritize the brand's distinctive category positioning.
+Important: "AI-native Revenue Operating System" is a strategic positioning phrase. Do not assume it has substantial existing search volume. Use it to establish category relevance and brand differentiation.
+Secondary keyword group
+•	Revenue Growth Strategy.
+•	Revenue Intelligence.
+•	Revenue Performance Improvement.
+•	Revenue Decision-Making.
+•	Sales Performance Improvement.
+Supporting capability keywords
+•	Go-to-Market Strategy.
+•	Lead Qualification.
+•	Sales Lead Qualification.
+•	SQL Qualification.
+•	Sales Pipeline Assessment.
+•	Opportunity Assessment.
+•	Sales Pipeline Health.
+•	Opportunity Win Probability.
+•	Sales Win Strategy.
+These supporting terms should appear naturally when introducing the engines and their capabilities.
+Search intent
+Prioritize visitors who are:
+•	Looking for a more systematic approach to revenue growth.
+•	Trying to improve sales performance.
+•	Seeking better lead and opportunity qualification.
+•	Trying to improve pipeline visibility and opportunity assessment.
+•	Exploring AI-assisted revenue decision-making.
+•	Evaluating tools that can strengthen revenue execution.
+Keyword allocation
+Do not force every keyword into the homepage.
+Use the following allocation:
+Page	Primary SEO focus
+Homepage	RevOS, AI-native Revenue Operating System, revenue growth and revenue decisions
+GTMOS page	Go-to-market strategy, GTM planning and strategy assessment
+Lead Qualification page	MQL qualification, SQL qualification and lead readiness
+Pipeline Assessment page	Pipeline assessment, opportunity health, winability and winning strategies
+Solutions pages	Specific business challenges and their solutions
+Insights pages	Specific informational and problem-solving search queries
+Avoid keyword cannibalization between the homepage, product pages and Solutions pages.
+Keyword research requirement
+If reliable keyword research tools or data are available, use them to assess:
+•	Search volume.
+•	Search intent.
+•	Keyword difficulty or competition.
+•	Related queries.
+•	Relevant long-tail queries.
+Do not invent search volumes, keyword difficulty values, rankings or traffic forecasts.
+If no keyword research data is available, label keyword recommendations as strategic hypotheses requiring validation in Google Search Console and an appropriate keyword research tool.
+Deliver a keyword mapping table showing:
+•	Target keyword.
+•	Search intent.
+•	Priority.
+•	Homepage section.
+•	Recommended placement.
+•	Whether the term should primarily belong to another RevOS page.
+________________________________________
+5. HOMEPAGE TITLE AND META DESCRIPTION
+Use the following as the recommended starting point.
+SEO Title
+RevOS | AI-Native Revenue Operating System
+Meta Description
+Discover RevOS, an AI-native Revenue Operating System combining structured methodologies and evidence-informed AI reasoning to improve revenue decisions, qualify opportunities, drive growth, and identify practical next actions.
+Review the final title and description for:
+•	Accuracy.
+•	Clarity.
+•	Search intent.
+•	Brand consistency.
+•	Readability.
+•	Appropriate length.
+Avoid treating character counts as rigid Google ranking rules.
+Do not create multiple competing title tags or meta descriptions.
+Use one authoritative title and description for the canonical homepage URL.
+If the current homepage has a different approved headline, preserve the visible H1 and optimize the SEO title independently.
+________________________________________
+6. HEADING STRUCTURE AND ON-PAGE SEO
+Audit the complete homepage heading structure.
+Implement a logical hierarchy.
+Requirements:
+•	One clear H1 representing the overall RevOS value proposition.
+•	H2 headings for the main homepage sections.
+•	H3 headings for meaningful subsections and cards where appropriate.
+•	No heading levels selected purely for visual styling.
+•	No repeated H1 headings caused by duplicated components.
+•	No hidden keyword-stuffed headings.
+•	No unnatural repetition of the primary keyword.
+Use semantic HTML elements appropriately.
+The page must remain readable and persuasive to people, not just search engines.
+Content optimization
+Review the existing visible content and identify opportunities to improve:
+1.	Product category clarity.
+2.	Search-intent alignment.
+3.	Semantic relevance.
+4.	Internal linking.
+5.	Section heading clarity.
+6.	Conciseness and readability.
+Do not add paragraphs solely to increase keyword density.
+Do not compromise the concise editorial style of Homepage Design V1.2.
+Preserve the storytelling progression.
+If copy changes are recommended, report the original wording, proposed wording and SEO reason.
+Make only changes that materially improve clarity or search relevance.
+________________________________________
+7. TECHNICAL SEO METADATA IMPLEMENTATION
+Inspect the existing frontend architecture before implementation.
+The current project has previously been described as a React, Vite and TypeScript website deployed as a static site through GitHub Actions to Wasmer. Verify the current implementation rather than assuming this architecture is unchanged.
+Implement the following where appropriate.
+A. HTML document metadata
+Ensure the homepage HTML document contains:
+•	Unique title.
+•	Meta description.
+•	Canonical URL.
+•	Robots directive where needed.
+•	Correct character encoding.
+•	Viewport declaration.
+•	Appropriate language attribute.
+The intended public homepage URL should be identified from the actual deployment and domain configuration.
+Do not accidentally canonicalize the homepage to a product subpage or a development URL.
+B. Canonical URL
+Implement one consistent canonical URL for the public homepage.
+Inspect:
+•	HTTP versus HTTPS.
+•	www versus non-www.
+•	Trailing slash behavior.
+•	Redirect behavior.
+•	Existing canonical tags.
+Do not introduce competing canonical URLs.
+Use the verified production URL.
+C. Robots metadata
+For the public homepage:
+•	Allow indexing unless there is a deliberate technical or business reason not to.
+•	Do not use noindex on the public homepage.
+•	Do not block essential CSS or JavaScript resources required to render meaningful page content.
+•	Ensure authenticated application pages and private user content are not inadvertently exposed to indexing.
+Inspect existing robots directives and preserve appropriate application-level restrictions.
+D. Open Graph metadata
+Implement:
+•	og:type
+•	og:title
+•	og:description
+•	og:url
+•	og:site_name
+•	og:image
+•	og:image:width
+•	og:image:height
+•	og:locale where appropriate
+Recommended social title:
+RevOS | AI-Native Revenue Operating System
+Recommended social description:
+A more structured approach to revenue growth. Discover how RevOS combines revenue methodologies and evidence-informed AI reasoning to support better revenue decisions.
+Create or select an appropriate branded social sharing image.
+Recommended image dimensions: 1200 × 630 pixels.
+The image should:
+•	Use the RevOS brand identity.
+•	Include the RevOS name or logo.
+•	Communicate the AI-native Revenue Operating System positioning.
+•	Remain legible when displayed in social previews.
+•	Avoid excessive text.
+•	Use a verified production asset URL.
+Do not invent a social image URL.
+E. Twitter / X metadata
+Implement the appropriate Twitter card metadata, including:
+•	twitter:card
+•	twitter:title
+•	twitter:description
+•	twitter:image
+Use the appropriate large-image card format when supported by the image.
+F. Favicon and brand metadata
+Inspect the current favicon and brand assets.
+Ensure the homepage references the correct production assets.
+Do not duplicate existing declarations unnecessarily.
+________________________________________
+8. STRUCTURED DATA / SCHEMA.ORG
+Implement structured data only where the information is accurate and supported by the existing website.
+Evaluate the following schema types.
+A. Organization
+Use Organization schema if the necessary organization information is available and verified.
+Potential properties:
+•	Name.
+•	URL.
+•	Logo.
+•	Description.
+•	SameAs links to verified official social profiles.
+•	Contact details only if publicly confirmed.
+Do not invent the company's legal name, registered address, social profiles or contact details.
+If the legal entity is not established or confirmed in the project, use only the verified brand-level information and report any missing fields.
+B. WebSite
+Use WebSite schema for the public website.
+Include:
+•	Name.
+•	URL.
+•	Description.
+•	Publisher relationship where appropriate.
+Do not implement a fake search action or SearchAction if the website does not have a genuine functioning search feature.
+C. SoftwareApplication
+Evaluate SoftwareApplication schema as a way to describe RevOS.
+Potential properties:
+•	Name.
+•	Application category.
+•	Operating system or platform, only where accurate.
+•	Description.
+•	URL.
+•	Publisher.
+Do not invent:
+•	Aggregate ratings.
+•	Reviews.
+•	Pricing.
+•	Free trial availability.
+•	Download options.
+•	Unsupported platform compatibility.
+•	Product availability.
+Only implement optional properties that can be verified.
+D. FAQPage
+Inspect the existing homepage FAQ section.
+Use structured data only if it accurately represents the visible FAQ content and follows current Google and Schema.org requirements.
+Do not promise FAQ rich results. Google currently limits FAQ rich-result visibility substantially, and valid markup does not guarantee enhanced search presentation.
+E. Validation
+After implementation:
+•	Validate JSON-LD syntax.
+•	Check for invalid or unsupported properties.
+•	Test using Google's Rich Results Test where applicable.
+•	Test with Schema.org Validator.
+•	Ensure structured data describes visible, accurate page content.
+•	Avoid duplicate conflicting Organization or WebSite entities generated by multiple components.
+________________________________________
+9. TECHNICAL SEO: RENDERING AND INDEXABILITY
+This is a critical area for the RevOS project.
+Inspect how the homepage is delivered to search engines.
+Determine whether it uses:
+•	Client-side rendering.
+•	Server-side rendering.
+•	Static site generation.
+•	Pre-rendering.
+•	A hybrid approach.
+If the project is a React/Vite static website, verify whether the important homepage content is present in the initial HTML response or only injected after JavaScript execution.
+Test the production page, not only the local development environment.
+Evaluate:
+1.	Is the H1 present in the initial HTML?
+2.	Are the important section headings accessible?
+3.	Is the main text content accessible to search engines?
+4.	Are internal links rendered as crawlable HTML links?
+5.	Are structured data scripts present in the delivered HTML?
+6.	Does rendering depend on third-party scripts or delayed API calls?
+7.	Can Google render the page correctly?
+8.	Is there a meaningful fallback if JavaScript fails?
+If the current implementation relies heavily on client-side rendering, evaluate whether pre-rendering or static generation would materially improve indexability.
+Do not automatically migrate the entire project to another framework.
+Provide a technical recommendation first, assess its impact on the current architecture and deployment, and implement only a safe change consistent with the existing project.
+Preserve all existing application functionality.
+________________________________________
+10. ROBOTS.TXT AND XML SITEMAP
+Inspect the existing public SEO files.
+Robots.txt
+Ensure an appropriate robots.txt exists at the public domain root.
+It should:
+•	Allow crawling of public website pages.
+•	Avoid blocking important assets.
+•	Avoid exposing private application content.
+•	Reference the actual production XML sitemap URL.
+Do not accidentally block the homepage or all JavaScript/CSS resources.
+XML Sitemap
+Inspect the existing sitemap.
+If necessary, create or update an XML sitemap that includes the canonical public pages.
+Prioritize:
+•	Homepage.
+•	About RevOS.
+•	Product Overview.
+•	GTMOS.
+•	Lead Qualification.
+•	Pipeline Assessment.
+•	Solutions pages.
+•	Relevant public Resources and Insights pages.
+Include only pages that:
+•	Are publicly accessible.
+•	Are intended to be indexed.
+•	Return successful responses.
+•	Have canonical URLs.
+•	Are not duplicates or private application routes.
+Do not include:
+•	Login pages unless deliberately intended for indexing.
+•	Authenticated workspace pages.
+•	User-specific dashboards.
+•	Internal API endpoints.
+•	Duplicate URL variants.
+•	Development or preview URLs.
+Use accurate lastmod values only when they can be reliably maintained.
+Do not add arbitrary change frequencies or priority values as though they control Google's crawling behavior.
+If the website already has an automated sitemap-generation mechanism, improve and reuse it rather than introducing a second sitemap generator.
+________________________________________
+11. INTERNAL LINKING STRATEGY
+The homepage should establish clear internal links to relevant RevOS pages.
+Inspect the actual routes before creating links.
+Recommended internal linking relationships:
+Homepage content	Destination
+About RevOS introduction	About RevOS
+Platform introduction	Product Overview
+GTMOS capability	GTMOS page
+Lead Qualification capability	Lead Qualification page
+Pipeline Assessment capability	Pipeline Assessment page
+Business challenge discussion	Relevant Solutions pages
+Revenue methodology / AI topics	Relevant Insights articles
+FAQ and product access	Relevant existing pages or workspace
+Requirements:
+•	Use descriptive anchor text.
+•	Avoid generic repeated anchors such as "Click here".
+•	Ensure links are normal crawlable HTML links.
+•	Avoid linking every card to the same destination.
+•	Avoid broken or invented routes.
+•	Preserve existing CTA functionality.
+Homepage internal links should help visitors and search engines understand the relationship between the RevOS platform, engines and business solutions.
+________________________________________
+12. PERFORMANCE AND CORE WEB VITALS
+SEO optimization must not undermine the existing Homepage Design V1.2 performance.
+Audit:
+•	Largest Contentful Paint (LCP).
+•	Interaction to Next Paint (INP).
+•	Cumulative Layout Shift (CLS).
+•	Image loading.
+•	Font loading.
+•	JavaScript bundle size.
+•	Render-blocking resources.
+•	Third-party scripts.
+•	Scroll animation overhead.
+•	Mobile performance.
+Pay particular attention to the homepage's scroll-based storytelling and visual assets.
+Recommendations:
+•	Optimize the hero image or visual asset.
+•	Use modern image formats where supported.
+•	Provide image dimensions to reduce layout shifts.
+•	Lazy-load below-the-fold images.
+•	Do not lazy-load the main LCP image.
+•	Use appropriate font loading strategies.
+•	Avoid unnecessary JavaScript dependencies.
+•	Avoid duplicate analytics or tracking scripts.
+•	Preserve reduced-motion behavior.
+•	Avoid excessive animation and large rendering effects.
+Do not make unsupported claims about current Core Web Vitals scores.
+Measure the actual deployed page where possible.
+________________________________________
+13. INTERNATIONAL SEO AND LANGUAGE
+Inspect the current website language and target markets.
+Determine:
+•	The primary page language.
+•	Whether translated homepage versions exist.
+•	Whether language-specific routes exist.
+•	Whether hreflang is required.
+If only one language version exists, do not add speculative hreflang tags.
+If multiple language versions exist:
+•	Implement reciprocal hreflang relationships.
+•	Use valid language and region codes.
+•	Ensure each language version has the appropriate canonical URL.
+•	Ensure the language selector links to real pages.
+Do not create duplicate translated pages or automatic language redirects without reviewing the existing architecture.
+________________________________________
+14. GOOGLE SEARCH CONSOLE READINESS
+Prepare the homepage for Google Search Console.
+Verify:
+•	Production homepage URL.
+•	Canonical URL.
+•	Robots accessibility.
+•	Sitemap URL.
+•	Indexability.
+•	Mobile usability.
+•	Structured data validity.
+Do not invent a Google Search Console verification token.
+If the project already contains a verification token, preserve it.
+If verification is missing, identify the required configuration and explain what the website owner must provide.
+Prepare a checklist for:
+1.	Verify the production domain in Google Search Console.
+2.	Submit the XML sitemap.
+3.	Inspect the homepage URL.
+4.	Request indexing after the final production deployment.
+5.	Monitor indexing and performance.
+6.	Review search queries and landing-page performance.
+Do not claim that the homepage has been indexed or ranked unless this has been verified.
+________________________________________
+15. SEO CONTENT GOVERNANCE
+The homepage is a platform-level page.
+It should not become an exhaustive explanation of all RevOS engines or every revenue-management problem.
+Use the following content hierarchy:
+Homepage: What RevOS is, why it exists, its overall approach and the outcomes it supports.
+Product pages: What each engine does and how its methodology and workflows operate.
+Solutions pages: How RevOS addresses specific business challenges.
+Revenue Insights pages: Deeper educational and problem-solving content targeting specific search queries.
+Avoid:
+•	Keyword stuffing.
+•	Repetitive use of "AI-native Revenue Operating System".
+•	Generic AI marketing language.
+•	Unsupported superiority claims.
+•	Artificially lengthening content.
+•	Duplicating entire sections from product pages.
+•	Overpromising measurable business outcomes.
+Maintain the executive-oriented, concise and persuasive style of Homepage Design V1.2.
+________________________________________
+16. IMPLEMENTATION PROCESS
+Execute the task in the following phases.
+Phase 1 — SEO Audit
+Inspect:
+•	Existing homepage source code.
+•	Current title and meta description.
+•	Canonical tags.
+•	Open Graph and social metadata.
+•	Heading hierarchy.
+•	Structured data.
+•	Robots.txt.
+•	XML sitemap.
+•	Rendering architecture.
+•	Internal links.
+•	Page performance.
+•	Existing Google verification configuration.
+Produce a concise audit identifying:
+•	Existing implementation.
+•	Missing elements.
+•	Incorrect elements.
+•	Duplicate elements.
+•	Recommended changes.
+Phase 2 — SEO Strategy and Keyword Mapping
+Produce the homepage keyword mapping table.
+Confirm the primary keyword focus and secondary supporting topics.
+Identify which keywords should be assigned to dedicated RevOS product or Solutions pages instead of the homepage.
+Phase 3 — Metadata and Content Optimization
+Finalize:
+•	SEO title.
+•	Meta description.
+•	H1 and heading structure.
+•	Open Graph metadata.
+•	Twitter metadata.
+•	Image metadata.
+•	Internal linking.
+Preserve approved homepage copy wherever possible.
+Phase 4 — Technical Implementation
+Implement the verified metadata and technical SEO changes directly in the project.
+Update existing shared metadata components or utilities where appropriate.
+Avoid unnecessary duplication.
+Phase 5 — Structured Data
+Implement and validate appropriate JSON-LD.
+Avoid invented or unsupported properties.
+Phase 6 — Technical Validation
+Test the deployed or production-build output.
+Verify:
+•	Metadata in rendered HTML.
+•	Canonical URL.
+•	Robots directives.
+•	Structured data.
+•	Sitemap.
+•	Robots.txt.
+•	Internal links.
+•	Mobile rendering.
+•	JavaScript and rendering dependencies.
+•	Console and build errors.
+Phase 7 — Final SEO Report
+Provide a concise but complete report containing:
+1.	SEO audit findings.
+2.	Final keyword strategy and mapping.
+3.	Final title and meta description.
+4.	Heading changes, if any.
+5.	Metadata implemented.
+6.	Structured data implemented.
+7.	Robots.txt and sitemap status.
+8.	Rendering and indexability findings.
+9.	Internal linking improvements.
+10.	Performance findings.
+11.	Google Search Console readiness.
+12.	Files created or modified.
+13.	Outstanding issues and recommended next steps.
+Clearly distinguish between:
+•	Implemented and tested.
+•	Implemented but not yet verified in production.
+•	Recommended but not implemented.
+•	Requiring manual owner action.
+________________________________________
+17. FINAL QUALITY STANDARD
+The finished homepage SEO implementation must achieve the following:
+1.	Search engines can clearly understand what RevOS is.
+2.	The homepage is associated with the AI-native Revenue Operating System category.
+3.	Its content connects naturally to revenue growth and revenue decision-making search intent.
+4.	Its metadata accurately represents the actual homepage.
+5.	The homepage is technically crawlable and indexable.
+6.	Structured data is valid and factually accurate.
+7.	Search engines can discover the relevant RevOS product and Solutions pages through internal links.
+8.	The implementation does not create keyword cannibalization.
+9.	The existing Homepage Design V1.2 narrative and visual experience and any content on the existing Homepage remain intact.
+10.	SEO implementation does not introduce unnecessary performance or application regressions.
+The ultimate objective is not simply to make the RevOS homepage contain more keywords. It is to make RevOS easier to discover, understand and evaluate by the people actively looking for better ways to improve revenue performance and decision-making.

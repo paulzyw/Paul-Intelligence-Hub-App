@@ -106,6 +106,16 @@ export default function RevosInAction() {
                     {cap.description}
                   </p>
                 </div>
+
+                <div className="mt-4 pt-3 border-t border-border/60">
+                  <Link
+                    to="/product/overview/revos"
+                    className="text-xs font-semibold text-accent inline-flex items-center gap-1 hover:underline"
+                  >
+                    <span>Explore {cap.title}</span>
+                    <ArrowRight className="w-3.5 h-3.5" />
+                  </Link>
+                </div>
               </motion.div>
             );
           })}
@@ -120,10 +130,10 @@ export default function RevosInAction() {
               <span>ONE EXAMPLE: SQL QUALIFICATION</span>
             </div>
 
-            {/* H2 */}
-            <h2 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold text-text-primary tracking-tight leading-tight">
+            {/* Sub-section H3 */}
+            <h3 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold text-text-primary tracking-tight leading-tight">
               From MQL to SQL: Turn Customer Evidence Into Qualification Decisions
-            </h2>
+            </h3>
 
             {/* Supporting Copy */}
             <p className="text-base sm:text-lg text-text-secondary leading-relaxed pt-1 max-w-4xl mx-auto">

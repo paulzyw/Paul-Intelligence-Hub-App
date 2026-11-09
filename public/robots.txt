@@ -1,0 +1,13 @@
+# RevOS Production Robots Directive
+User-agent: *
+Allow: /
+Allow: /images/
+Allow: /assets/
+
+# Protected Application & Admin Routes
+Disallow: /admin
+Disallow: /admin/
+Disallow: /product/revos/
+Disallow: /api/
+
+Sitemap: https://www.apprevos.ai/sitemap.xml

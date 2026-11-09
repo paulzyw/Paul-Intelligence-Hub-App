@@ -52,7 +52,31 @@ async function validate() {
     }
   }
 
-  // 3. Check /insights/index.html
+  // 3. Check Homepage (/dist/index.html)
+  const homeIndexPath = path.join(distPath, 'index.html');
+  if (fs.existsSync(homeIndexPath)) {
+    const homeHtml = fs.readFileSync(homeIndexPath, 'utf-8');
+    const hasH1 = homeHtml.includes('<h1') && homeHtml.includes('RevOS Turns Revenue Challenges Into Clearer Paths to Growth');
+    const hasTitle = homeHtml.includes('<title>RevOS | AI-Native Revenue Operating System</title>');
+    const hasDesc = homeHtml.includes('name="description"') && homeHtml.includes('AI-native Revenue Operating System');
+    const hasCanonical = homeHtml.includes('rel="canonical"') && homeHtml.includes('https://www.apprevos.ai/');
+    const hasOg = homeHtml.includes('property="og:title"') && homeHtml.includes('property="og:image"');
+    const hasTwitter = homeHtml.includes('name="twitter:card"');
+    const hasJsonLd = homeHtml.includes('application/ld+json') && homeHtml.includes('FAQPage') && homeHtml.includes('SoftwareApplication');
+    const hasPreRenderedBody = homeHtml.includes('revos-homepage-pre-rendered') || homeHtml.includes('<main');
+
+    if (hasH1 && hasTitle && hasDesc && hasCanonical && hasOg && hasTwitter && hasJsonLd) {
+      console.log('✅ Homepage (/index.html) passed all SEO criteria (Pre-rendered H1, Title, Description, Canonical, OG, Twitter, Schema.org @graph with FAQPage & SoftwareApplication)');
+    } else {
+      console.error(`❌ Homepage (/index.html) verification failed: H1=${hasH1}, Title=${hasTitle}, Desc=${hasDesc}, Canonical=${hasCanonical}, OG=${hasOg}, Twitter=${hasTwitter}, JSON-LD=${hasJsonLd}`);
+      errorsCount++;
+    }
+  } else {
+    console.error('❌ dist/index.html is missing');
+    errorsCount++;
+  }
+
+  // 4. Check /insights/index.html
   const insightsIndexPath = path.join(distPath, 'insights', 'index.html');
   if (fs.existsSync(insightsIndexPath)) {
     const content = fs.readFileSync(insightsIndexPath, 'utf-8');

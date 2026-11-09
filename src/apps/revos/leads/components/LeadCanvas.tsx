@@ -40,10 +40,10 @@ export const LeadCanvas: React.FC<LeadCanvasProps> = ({ leads, campaigns, onLead
     return name.includes(query) || company.includes(query);
   });
 
-  const [promotedLeadIds, setPromotedLeadIds] = useState<string[]>([]);
-  const [sqlPromotedLeadIds, setSqlPromotedLeadIds] = useState<string[]>([]);
-  const [oppRevenueMap, setOppRevenueMap] = useState<Record<string, number>>({});
-  const [oppNameMap, setOppNameMap] = useState<Record<string, string>>({});
+  const [promotedLeadIds, setPromotedLeadIds] = useState<string[]>(() => PromotionDataService.getCachedPromotedLeadIds());
+  const [sqlPromotedLeadIds, setSqlPromotedLeadIds] = useState<string[]>(() => PromotionDataService.getCachedSqlOpportunityPromotedLeadIds());
+  const [oppRevenueMap, setOppRevenueMap] = useState<Record<string, number>>(() => OpportunityDataService.getCachedOpportunityEstimatedRevenuesMap());
+  const [oppNameMap, setOppNameMap] = useState<Record<string, string>>(() => OpportunityDataService.getCachedOpportunityNamesMap());
 
   useEffect(() => {
     PromotionDataService.getPromotedLeadIds().then(ids => {
@@ -191,9 +191,13 @@ export const LeadCanvas: React.FC<LeadCanvasProps> = ({ leads, campaigns, onLead
         } catch (e) {}
       }
     }
-    // 3. Fallback to lead annual_revenue if numeric
-    const rawNum = parseFloat(String(lead.annual_revenue || '').replace(/[^0-9.]/g, ''));
-    return isNaN(rawNum) ? 0 : rawNum;
+    // 3. Fallback: check if lead object itself contains estimated_revenue from opportunity table
+    if ((lead as any).estimated_revenue) {
+      const num = parseFloat(String((lead as any).estimated_revenue).replace(/[^0-9.]/g, ''));
+      if (!isNaN(num) && num > 0) return num;
+    }
+    // Never fall back to company annual revenue (which represents company turnover, not opportunity deal size)
+    return 0;
   };
 
   // Accumulated number by summing up the "Estimated Revenue" in the Opportunity Form of all opportunities listed in this Opportunity Column
@@ -430,14 +434,14 @@ export const LeadCanvas: React.FC<LeadCanvasProps> = ({ leads, campaigns, onLead
             <p className="text-xs font-semibold text-text-primary mt-0.5">
               {getOpportunityEstimatedRevenue(currentLead) > 0
                 ? `$${getOpportunityEstimatedRevenue(currentLead).toLocaleString('en-US')}`
-                : (currentLead.annual_revenue || '$0')}
+                : '—'}
             </p>
           )}
           {type === 'opp' && (
             <p className="text-xs font-semibold text-text-primary mt-0.5">
               {getOpportunityEstimatedRevenue(currentLead) > 0
                 ? `$${getOpportunityEstimatedRevenue(currentLead).toLocaleString('en-US')}`
-                : (currentLead.annual_revenue || '$0')}
+                : '—'}
             </p>
           )}
         </div>

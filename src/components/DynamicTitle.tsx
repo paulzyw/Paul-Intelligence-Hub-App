@@ -1,11 +1,11 @@
 import { useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
 
-export const DEFAULT_SITE_TITLE = 'Revenue Growth Accelerator';
+export const DEFAULT_SITE_TITLE = 'RevOS | AI-Native Revenue Operating System';
 
 /**
  * Maps application paths to dynamic browser tab titles following the convention:
- * - Homepage: exact title from index.html ("Revenue Growth Accelerator")
+ * - Homepage: exact title from index.html ("RevOS | AI-Native Revenue Operating System")
  * - Other pages: "previous level section name + page name" (e.g. "Platform Overview | RevOS")
  */
 export function getPageTitle(pathname: string): string {
