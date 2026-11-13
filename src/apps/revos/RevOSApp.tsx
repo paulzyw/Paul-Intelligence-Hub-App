@@ -1,4 +1,4 @@
-import { useState, lazy, Suspense } from 'react';
+import { useState, lazy, Suspense, Component, type ErrorInfo, type ReactNode, type ComponentType } from 'react';
 import { Routes, Route, Link, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
@@ -18,10 +18,75 @@ import {
 import { cn } from '../../lib/utils';
 import { RevOSProvider, useRevOS } from './context/RevOSContext';
 
+function lazyWithRetry<T extends ComponentType<any>>(
+  factory: () => Promise<{ default: T }>,
+  retries = 2
+) {
+  return lazy(async () => {
+    let lastError: unknown;
+    for (let attempt = 0; attempt <= retries; attempt++) {
+      try {
+        return await factory();
+      } catch (err) {
+        lastError = err;
+        if (attempt < retries) {
+          await new Promise((resolve) => setTimeout(resolve, 400 * (attempt + 1)));
+        }
+      }
+    }
+    throw lastError;
+  });
+}
+
+class ModuleErrorBoundary extends Component<
+  { children: ReactNode; resetKey: string },
+  { hasError: boolean; message: string }
+> {
+  constructor(props: { children: ReactNode; resetKey: string }) {
+    super(props);
+    this.state = { hasError: false, message: '' };
+  }
+
+  static getDerivedStateFromError(error: Error) {
+    return { hasError: true, message: error?.message || 'Failed to load module.' };
+  }
+
+  componentDidUpdate(prevProps: { resetKey: string }) {
+    if (prevProps.resetKey !== this.props.resetKey && this.state.hasError) {
+      this.setState({ hasError: false, message: '' });
+    }
+  }
+
+  componentDidCatch(error: Error, info: ErrorInfo) {
+    console.error('RevOS module load error:', error, info);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="p-8 sm:p-12 text-center bg-bg-surface border border-border rounded-2xl max-w-md mx-auto my-12">
+          <ShieldAlert className="h-10 w-10 text-amber-500 mx-auto mb-3" />
+          <h3 className="text-base font-bold text-text-primary mb-2">Module Temporarily Unavailable</h3>
+          <p className="text-xs text-text-secondary mb-5">{this.state.message}</p>
+          <button
+            type="button"
+            onClick={() => window.location.reload()}
+            className="px-4 py-2 bg-accent text-black font-bold text-xs rounded-xl hover:opacity-90 transition-all cursor-pointer"
+          >
+            Reload Workspace
+          </button>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
 // Modular lazy loading of business engines
-const MQLModule = lazy(() => import('./leads/MQLModule').then(m => ({ default: m.MQLModule })));
-const GTMOSModule = lazy(() => import('./gtmos/GTMOSModule').then(m => ({ default: m.GTMOSModule })));
-const RevOSConsole = lazy(() => import('../../pages/RevOSConsole').then(m => ({ default: m.RevOSConsole })));
+const MQLModule = lazyWithRetry(() => import('./leads/MQLModule').then(m => ({ default: m.MQLModule })));
+const GTMOSModule = lazyWithRetry(() => import('./gtmos/GTMOSModule').then(m => ({ default: m.GTMOSModule })));
+const PipelineModule = lazyWithRetry(() => import('./pipeline/PipelineModule').then(m => ({ default: m.PipelineModule })));
+const RevOSConsole = lazyWithRetry(() => import('../../pages/RevOSConsole').then(m => ({ default: m.RevOSConsole })));
 
 // Placeholder sub-pages for now
 const RevOSDashboard = () => {
@@ -327,36 +392,38 @@ function RevOSContent() {
             transition={{ duration: 0.2 }}
             className="h-full w-full min-w-0"
           >
-            <Suspense fallback={
-              <div className="p-12 flex flex-col items-center justify-center min-h-[40vh]">
-                <Loader2 className="h-8 w-8 text-accent animate-spin mb-3" />
-                <span className="text-xs text-text-secondary uppercase tracking-widest font-semibold">Loading Module...</span>
-              </div>
-            }>
-              <Routes>
-                <Route index element={<RevOSDashboard />} />
-                <Route path="gtmos" element={<GTMOSModule />} />
-                <Route path="leads/*" element={<MQLModule />} />
-                <Route path="pipeline" element={<RevOSModulePlaceholder title="Pipeline Assessment" />} />
-                <Route path="settings" element={<RevOSModulePlaceholder title="Settings" />} />
-                <Route 
-                  path="console/*" 
-                  element={
-                    profile?.role === 'super_admin' ? (
-                      <RevOSConsole />
-                    ) : (
-                      <div className="p-8 sm:p-12 text-center bg-bg-surface border border-red-500/20 rounded-2xl max-w-md mx-auto my-12 animate-in fade-in">
-                        <Lock className="h-10 w-10 text-red-500 mx-auto mb-4 animate-bounce" />
-                        <h3 className="text-lg font-black text-red-200">System Elevation Required</h3>
-                        <p className="text-xs text-text-secondary mt-1.5 max-w-sm mx-auto leading-relaxed">
-                          This controller is exclusively restricted to super administrators of the system directory.
-                        </p>
-                      </div>
-                    )
-                  } 
-                />
-              </Routes>
-            </Suspense>
+            <ModuleErrorBoundary resetKey={location.pathname}>
+              <Suspense fallback={
+                <div className="p-12 flex flex-col items-center justify-center min-h-[40vh]">
+                  <Loader2 className="h-8 w-8 text-accent animate-spin mb-3" />
+                  <span className="text-xs text-text-secondary uppercase tracking-widest font-semibold">Loading Module...</span>
+                </div>
+              }>
+                <Routes>
+                  <Route index element={<RevOSDashboard />} />
+                  <Route path="gtmos" element={<GTMOSModule />} />
+                  <Route path="leads/*" element={<MQLModule />} />
+                  <Route path="pipeline/*" element={<PipelineModule />} />
+                  <Route path="settings" element={<RevOSModulePlaceholder title="Settings" />} />
+                  <Route 
+                    path="console/*" 
+                    element={
+                      profile?.role === 'super_admin' ? (
+                        <RevOSConsole />
+                      ) : (
+                        <div className="p-8 sm:p-12 text-center bg-bg-surface border border-red-500/20 rounded-2xl max-w-md mx-auto my-12 animate-in fade-in">
+                          <Lock className="h-10 w-10 text-red-500 mx-auto mb-4 animate-bounce" />
+                          <h3 className="text-lg font-black text-red-200">System Elevation Required</h3>
+                          <p className="text-xs text-text-secondary mt-1.5 max-w-sm mx-auto leading-relaxed">
+                            This controller is exclusively restricted to super administrators of the system directory.
+                          </p>
+                        </div>
+                      )
+                    } 
+                  />
+                </Routes>
+              </Suspense>
+            </ModuleErrorBoundary>
           </motion.div>
         </AnimatePresence>
       </main>

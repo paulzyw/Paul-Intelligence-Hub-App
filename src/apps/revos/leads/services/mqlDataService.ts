@@ -1,19 +1,59 @@
 import { supabase } from '@/src/lib/supabase';
 import { MQLCampaign, MQLLead, MQLEvidenceAssessment, MQLQualificationResult } from '../../types/mql';
 
+const isTransientFetchError = (err: any): boolean => {
+  const msg = String(err?.message || err || '').toLowerCase();
+  return (
+    msg.includes('failed to fetch') ||
+    msg.includes('networkerror') ||
+    msg.includes('load failed') ||
+    msg.includes('fetch')
+  );
+};
+
+async function withTransientRetry<T>(
+  fn: () => PromiseLike<{ data: T | null; error: any }>,
+  retries = 2
+): Promise<{ data: T | null; error: any }> {
+  let attempt = 0;
+  while (true) {
+    try {
+      const res = await fn();
+      if (!res.error || attempt >= retries || !isTransientFetchError(res.error)) {
+        return res;
+      }
+    } catch (err) {
+      if (attempt >= retries || !isTransientFetchError(err)) {
+        return { data: null, error: err };
+      }
+    }
+    attempt += 1;
+    await new Promise((resolve) => setTimeout(resolve, 350 * attempt));
+  }
+}
+
 export class MQLDataService {
   static async getGTMCampaigns() {
-    // Assuming revos_gtmos_strategies is the table holding GTMOS campaigns
-    const { data, error } = await supabase.from('revos_gtmos_strategies').select('*').order('created_at', { ascending: false });
-    if (error) {
-      console.error(error);
+    try {
+      // Assuming revos_gtmos_strategies is the table holding GTMOS campaigns
+      const { data, error } = await withTransientRetry(() =>
+        supabase.from('revos_gtmos_strategies').select('*').order('created_at', { ascending: false })
+      );
+      if (error) {
+        console.warn('Non-blocking warning fetching GTM campaigns:', error?.message || error);
+        return [];
+      }
+      return data || [];
+    } catch (err: any) {
+      console.warn('Non-blocking warning fetching GTM campaigns:', err?.message || err);
       return [];
     }
-    return data;
   }
 
   static async getCampaigns() {
-    const { data, error } = await supabase.from('mql_campaigns').select('*').order('created_at', { ascending: false });
+    const { data, error } = await withTransientRetry(() =>
+      supabase.from('mql_campaigns').select('*').order('created_at', { ascending: false })
+    );
     if (error) throw error;
     return data as MQLCampaign[];
   }
@@ -25,11 +65,13 @@ export class MQLDataService {
   }
 
   static async getLeads(campaignId?: string) {
-    let query = supabase.from('mql_leads').select('*, mql_campaigns(*)').order('created_at', { ascending: false });
-    if (campaignId) {
-      query = query.eq('campaign_id', campaignId);
-    }
-    const { data, error } = await query;
+    const { data, error } = await withTransientRetry(() => {
+      let query = supabase.from('mql_leads').select('*, mql_campaigns(*)').order('created_at', { ascending: false });
+      if (campaignId) {
+        query = query.eq('campaign_id', campaignId);
+      }
+      return query;
+    });
     if (error) throw error;
     return data;
   }

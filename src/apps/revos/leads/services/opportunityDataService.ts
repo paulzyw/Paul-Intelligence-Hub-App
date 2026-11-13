@@ -3,9 +3,15 @@ import { OpportunitySession, OpportunityEvidenceRecord, OpportunityQualification
 let memoryOppRevenueMap: Record<string, number> | null = null;
 let memoryOppNameMap: Record<string, string> | null = null;
 
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const isValidUuid = (id?: string | null): id is string => typeof id === 'string' && UUID_REGEX.test(id);
+
 export class OpportunityDataService {
   // Session Management
   static async createSession(opportunityId: string, options: { sqlInheritanceData?: any; revenueMotion?: string; industry?: string }) {
+    if (!isValidUuid(opportunityId)) {
+      throw new Error(`Invalid opportunity UUID: ${opportunityId}`);
+    }
     const { data, error } = await supabase.functions.invoke('lead-qualification', {
       body: {
         action: 'create-opportunity-session',
@@ -20,6 +26,7 @@ export class OpportunityDataService {
   }
 
   static async getSessionByOpportunity(opportunityId: string) {
+    if (!isValidUuid(opportunityId)) return null;
     const { data, error } = await supabase
       .from('opportunity_qualification_sessions')
       .select('*')
@@ -34,6 +41,7 @@ export class OpportunityDataService {
 
   // Dedicated SQL Handover Intelligence Storage
   static async getSqlHandoverData(opportunityId: string) {
+    if (!isValidUuid(opportunityId)) return null;
     try {
       // 1. Try retrieving from the dedicated isolated table
       const { data, error } = await supabase
@@ -185,6 +193,7 @@ export class OpportunityDataService {
   }
 
   static async getEvidenceRecords(sessionId: string) {
+    if (!isValidUuid(sessionId)) return [];
     const { data, error } = await supabase
       .from('opportunity_qualification_evidence')
       .select('*')
@@ -366,6 +375,7 @@ export class OpportunityDataService {
 
   // Opportunity Form Data Management (Supabase-Persisted)
   static async getOpportunityFormData(opportunityId: string) {
+    if (!isValidUuid(opportunityId)) return null;
     // 1. Try dedicated opportunity_form_records table
     try {
       const { data, error } = await supabase
@@ -849,6 +859,10 @@ export class OpportunityDataService {
     const localStarted = typeof window !== 'undefined' && localStorage.getItem(`oq_started_${opportunityId}`) === 'true';
     const localSaved = typeof window !== 'undefined' && localStorage.getItem(`oq_has_saved_evidence_${opportunityId}`) === 'true';
 
+    if (!isValidUuid(opportunityId)) {
+      return localStarted && localSaved;
+    }
+
     try {
       // Database check: query session
       const session = await this.getSessionByOpportunity(opportunityId);
@@ -1059,6 +1073,10 @@ export class OpportunityDataService {
       return true;
     }
 
+    if (!isValidUuid(opportunityId)) {
+      return false;
+    }
+
     try {
       // Check session status first
       const session = await this.getSessionByOpportunity(opportunityId);
@@ -1111,8 +1129,10 @@ export class OpportunityDataService {
    */
   static async getSavedQualificationResult(opportunityId: string, sessionId?: string): Promise<any | null> {
     if (!opportunityId) return null;
+    if (!isValidUuid(opportunityId) && !isValidUuid(sessionId)) return null;
 
     // 1. Query by opportunity_id in Supabase table directly (Primary)
+    if (isValidUuid(opportunityId)) {
     try {
       const { data, error } = await supabase
         .from('opportunity_qualification_results')
@@ -1145,15 +1165,16 @@ export class OpportunityDataService {
         return reconstituted;
       }
     } catch (err) {}
+    }
 
     // 2. Fallback: query by session_id
-    let targetSessionId = sessionId;
-    if (!targetSessionId) {
+    let targetSessionId = isValidUuid(sessionId) ? sessionId : undefined;
+    if (!targetSessionId && isValidUuid(opportunityId)) {
       const session = await this.getSessionByOpportunity(opportunityId);
       targetSessionId = session?.id;
     }
 
-    if (targetSessionId) {
+    if (isValidUuid(targetSessionId)) {
       try {
         const { data, error } = await supabase
           .from('opportunity_qualification_results')
@@ -1292,6 +1313,7 @@ export class OpportunityDataService {
   static async getQualificationHistory(opportunityId: string): Promise<any[]> {
     if (!opportunityId) return [];
 
+    if (isValidUuid(opportunityId)) {
     try {
       // Dynamically fetch Opportunity Owner from Opportunity Form
       let dynamicOwner = 'Sales Representative';
@@ -1333,6 +1355,7 @@ export class OpportunityDataService {
       }
     } catch (e) {
       console.warn('Error fetching opportunity_qualification_history:', e);
+    }
     }
 
     // Check localStorage fallback

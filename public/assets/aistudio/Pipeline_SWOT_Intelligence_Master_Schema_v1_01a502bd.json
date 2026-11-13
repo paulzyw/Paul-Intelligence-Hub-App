@@ -1,0 +1,989 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://apprevos.eu.cc/schemas/pipeline-swot-intelligence-master-v1.0.json",
+  "title": "RevOS Pipeline SWOT Intelligence Master Schema",
+  "description": "Canonical master schema governing evidence-driven SWOT intelligence, TOWS strategic analysis, and winning strategy integration within the RevOS Pipeline Assessment engine.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_metadata",
+    "framework_definition",
+    "inheritance_model",
+    "swot_taxonomy",
+    "evidence_intelligence",
+    "factor_evaluation",
+    "intelligence_integration",
+    "evidence_gap_management",
+    "tows_intelligence",
+    "winning_strategy_integration",
+    "evolution_governance",
+    "ai_reasoning_governance"
+  ],
+  "properties": {
+    "schema_metadata": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_name",
+        "schema_version",
+        "schema_type",
+        "framework_version",
+        "status",
+        "created_date"
+      ],
+      "properties": {
+        "schema_name": {
+          "const": "Pipeline SWOT Intelligence Master Schema"
+        },
+        "schema_version": {
+          "const": "1.0"
+        },
+        "schema_type": {
+          "const": "canonical_master_schema"
+        },
+        "framework_version": {
+          "const": "1.0"
+        },
+        "status": {
+          "enum": [
+            "draft",
+            "approved",
+            "frozen",
+            "deprecated"
+          ]
+        },
+        "created_date": {
+          "type": "string",
+          "format": "date"
+        },
+        "last_updated_date": {
+          "type": "string",
+          "format": "date"
+        },
+        "description": {
+          "type": "string"
+        },
+        "compatible_assets": {
+          "type": "array",
+          "items": {
+            "enum": [
+              "Pipeline_industry_configuration_JSON",
+              "Pipeline_evidence_knowledge_base",
+              "Pipeline_assessment_rules"
+            ]
+          },
+          "uniqueItems": true
+        }
+      }
+    },
+
+    "framework_definition": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "framework_purpose",
+        "framework_scope",
+        "design_principles",
+        "analytical_boundaries"
+      ],
+      "properties": {
+        "framework_purpose": {
+          "type": "string"
+        },
+        "framework_scope": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1
+        },
+        "design_principles": {
+          "type": "array",
+          "items": {
+            "enum": [
+              "evidence_driven",
+              "context_aware",
+              "dynamically_updated",
+              "traceable",
+              "strategically_actionable",
+              "user_augmentable",
+              "confidence_aware",
+              "integrated"
+            ]
+          },
+          "uniqueItems": true
+        },
+        "analytical_boundaries": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "internal_factor_definition",
+            "external_factor_definition",
+            "padf_relationship",
+            "risk_intelligence_relationship",
+            "winning_strategy_relationship"
+          ],
+          "properties": {
+            "internal_factor_definition": {
+              "type": "string"
+            },
+            "external_factor_definition": {
+              "type": "string"
+            },
+            "padf_relationship": {
+              "type": "string"
+            },
+            "risk_intelligence_relationship": {
+              "type": "string"
+            },
+            "winning_strategy_relationship": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    },
+
+    "inheritance_model": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "inheritance_order",
+        "universal_baseline",
+        "revenue_motion_overrides",
+        "industry_overrides",
+        "resolution_rules"
+      ],
+      "properties": {
+        "inheritance_order": {
+          "const": [
+            "universal_baseline",
+            "revenue_motion_override",
+            "industry_override"
+          ]
+        },
+        "universal_baseline": {
+          "$ref": "#/$defs/swot_configuration_layer"
+        },
+        "revenue_motion_overrides": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/configuration_override"
+          }
+        },
+        "industry_overrides": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/configuration_override"
+          }
+        },
+        "resolution_rules": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1
+        }
+      }
+    },
+
+    "swot_taxonomy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "strengths",
+        "weaknesses",
+        "opportunities",
+        "threats"
+      ],
+      "properties": {
+        "strengths": {
+          "$ref": "#/$defs/swot_category_configuration"
+        },
+        "weaknesses": {
+          "$ref": "#/$defs/swot_category_configuration"
+        },
+        "opportunities": {
+          "$ref": "#/$defs/swot_category_configuration"
+        },
+        "threats": {
+          "$ref": "#/$defs/swot_category_configuration"
+        }
+      }
+    },
+
+    "evidence_intelligence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "evidence_sources",
+        "evidence_classifications",
+        "evidence_quality_dimensions",
+        "evidence_provenance_requirements"
+      ],
+      "properties": {
+        "evidence_sources": {
+          "type": "array",
+          "items": {
+            "enum": [
+              "inherited_qualification_evidence",
+              "pipeline_assessment_evidence",
+              "user_supplemented_evidence"
+            ]
+          },
+          "uniqueItems": true
+        },
+        "evidence_classifications": {
+          "type": "array",
+          "items": {
+            "enum": [
+              "verified_fact",
+              "evidence_supported_interpretation",
+              "unverified_hypothesis",
+              "conflicting_evidence",
+              "outdated_evidence"
+            ]
+          },
+          "uniqueItems": true
+        },
+        "evidence_quality_dimensions": {
+          "type": "array",
+          "items": {
+            "enum": [
+              "relevance",
+              "reliability",
+              "specificity",
+              "recency",
+              "corroboration",
+              "consistency"
+            ]
+          },
+          "uniqueItems": true
+        },
+        "evidence_provenance_requirements": {
+          "type": "array",
+          "items": {
+            "enum": [
+              "evidence_id",
+              "evidence_source",
+              "source_reference",
+              "created_at",
+              "last_verified_at",
+              "submitted_by",
+              "original_assessment_reference"
+            ]
+          },
+          "uniqueItems": true
+        }
+      }
+    },
+
+    "factor_evaluation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "evaluation_dimensions",
+        "evaluation_scale",
+        "priority_levels",
+        "priority_governance"
+      ],
+      "properties": {
+        "evaluation_dimensions": {
+          "type": "array",
+          "items": {
+            "enum": [
+              "strategic_impact",
+              "evidence_confidence",
+              "relevance",
+              "urgency",
+              "manageability",
+              "winability_influence"
+            ]
+          },
+          "uniqueItems": true
+        },
+        "evaluation_scale": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "minimum_score",
+            "maximum_score",
+            "scale_type",
+            "interpretations"
+          ],
+          "properties": {
+            "minimum_score": {
+              "const": 1
+            },
+            "maximum_score": {
+              "const": 5
+            },
+            "scale_type": {
+              "const": "ordinal"
+            },
+            "interpretations": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "1",
+                "2",
+                "3",
+                "4",
+                "5"
+              ],
+              "properties": {
+                "1": {
+                  "const": "very_low"
+                },
+                "2": {
+                  "const": "low"
+                },
+                "3": {
+                  "const": "moderate"
+                },
+                "4": {
+                  "const": "high"
+                },
+                "5": {
+                  "const": "very_high"
+                }
+              }
+            }
+          }
+        },
+        "priority_levels": {
+          "type": "array",
+          "items": {
+            "enum": [
+              "critical",
+              "high",
+              "medium",
+              "low"
+            ]
+          },
+          "uniqueItems": true
+        },
+        "priority_governance": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "determination_method",
+            "mandatory_considerations",
+            "aggregation_policy"
+          ],
+          "properties": {
+            "determination_method": {
+              "enum": [
+                "rule_based",
+                "contextual_reasoning",
+                "hybrid"
+              ]
+            },
+            "mandatory_considerations": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "aggregation_policy": {
+              "const": "no_universal_composite_score"
+            }
+          }
+        }
+      }
+    },
+
+    "intelligence_integration": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "padf_integration",
+        "risk_intelligence_integration"
+      ],
+      "properties": {
+        "padf_integration": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "enabled",
+            "mapping_method",
+            "mapping_behavior",
+            "mapping_reference_requirements"
+          ],
+          "properties": {
+            "enabled": {
+              "const": true
+            },
+            "mapping_method": {
+              "const": "contextual_many_to_many"
+            },
+            "mapping_behavior": {
+              "const": "non_automatic"
+            },
+            "mapping_reference_requirements": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "risk_intelligence_integration": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "enabled",
+            "relationship_type",
+            "cross_reference_policy",
+            "duplicate_record_policy"
+          ],
+          "properties": {
+            "enabled": {
+              "const": true
+            },
+            "relationship_type": {
+              "const": "complementary"
+            },
+            "cross_reference_policy": {
+              "const": "shared_evidence_allowed"
+            },
+            "duplicate_record_policy": {
+              "const": "avoid_unnecessary_duplication"
+            }
+          }
+        }
+      }
+    },
+
+    "evidence_gap_management": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "enabled",
+        "gap_types",
+        "request_requirements",
+        "user_input_governance",
+        "prioritization_criteria"
+      ],
+      "properties": {
+        "enabled": {
+          "const": true
+        },
+        "gap_types": {
+          "type": "array",
+          "items": {
+            "enum": [
+              "missing_evidence",
+              "insufficient_evidence",
+              "conflicting_evidence",
+              "outdated_evidence",
+              "unverified_assumption"
+            ],
+            "uniqueItems": true
+          }
+        },
+        "request_requirements": {
+          "type": "array",
+          "items": {
+            "enum": [
+              "related_factor_id",
+              "information_required",
+              "strategic_significance",
+              "suggested_questions",
+              "expected_evidence_type",
+              "priority",
+              "impact_of_missing_evidence"
+            ]
+          },
+          "uniqueItems": true
+        },
+        "user_input_governance": {
+          "type": "array",
+          "items": {
+            "enum": [
+              "preserve_source",
+              "preserve_submission_date",
+              "evaluate_before_acceptance",
+              "do_not_assume_verified",
+              "trigger_relevant_reassessment"
+            ]
+          },
+          "uniqueItems": true
+        },
+        "prioritization_criteria": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+
+    "tows_intelligence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "enabled",
+        "strategy_types",
+        "combination_rules",
+        "evaluation_requirements",
+        "prioritization_policy"
+      ],
+      "properties": {
+        "enabled": {
+          "const": true
+        },
+        "strategy_types": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "SO",
+            "WO",
+            "ST",
+            "WT"
+          ],
+          "properties": {
+            "SO": {
+              "$ref": "#/$defs/tows_strategy_definition"
+            },
+            "WO": {
+              "$ref": "#/$defs/tows_strategy_definition"
+            },
+            "ST": {
+              "$ref": "#/$defs/tows_strategy_definition"
+            },
+            "WT": {
+              "$ref": "#/$defs/tows_strategy_definition"
+            }
+          }
+        },
+        "combination_rules": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1
+        },
+        "evaluation_requirements": {
+          "type": "array",
+          "items": {
+            "enum": [
+              "strategic_relevance",
+              "evidence_support",
+              "feasibility",
+              "resource_requirements",
+              "winability_impact",
+              "execution_timeframe"
+            ]
+          },
+          "uniqueItems": true
+        },
+        "prioritization_policy": {
+          "const": "prioritize_relevant_combinations_not_exhaustive_combinations"
+        }
+      }
+    },
+
+    "winning_strategy_integration": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "enabled",
+        "integration_mode",
+        "required_strategy_fields",
+        "strategy_statuses"
+      ],
+      "properties": {
+        "enabled": {
+          "const": true
+        },
+        "integration_mode": {
+          "const": "feed_existing_winning_strategy_engine"
+        },
+        "required_strategy_fields": {
+          "type": "array",
+          "items": {
+            "enum": [
+              "strategy_id",
+              "strategy_type",
+              "strategic_objective",
+              "supporting_swot_factor_ids",
+              "supporting_evidence_ids",
+              "strategic_rationale",
+              "expected_winability_impact",
+              "required_actions",
+              "required_resources",
+              "priority",
+              "execution_timeframe",
+              "success_indicators",
+              "status"
+            ]
+          },
+          "uniqueItems": true
+        },
+        "strategy_statuses": {
+          "type": "array",
+          "items": {
+            "enum": [
+              "proposed",
+              "approved",
+              "in_progress",
+              "completed",
+              "superseded"
+            ]
+          },
+          "uniqueItems": true
+        }
+      }
+    },
+
+    "evolution_governance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "enabled",
+        "update_triggers",
+        "factor_lifecycle",
+        "historical_tracking_requirements"
+      ],
+      "properties": {
+        "enabled": {
+          "const": true
+        },
+        "update_triggers": {
+          "type": "array",
+          "items": {
+            "enum": [
+              "new_evidence",
+              "evidence_invalidated",
+              "evidence_outdated",
+              "customer_requirement_change",
+              "stakeholder_position_change",
+              "competitive_intelligence_change",
+              "decision_criteria_change",
+              "commercial_condition_change",
+              "material_padf_change",
+              "material_risk_change",
+              "user_requested_reassessment"
+            ],
+            "uniqueItems": true
+          }
+        },
+        "factor_lifecycle": {
+          "type": "array",
+          "items": {
+            "enum": [
+              "identified",
+              "evaluated",
+              "active",
+              "updated",
+              "resolved",
+              "invalidated",
+              "archived"
+            ]
+          },
+          "uniqueItems": true
+        },
+        "historical_tracking_requirements": {
+          "type": "array",
+          "items": {
+            "enum": [
+              "factor_version",
+              "previous_assessment",
+              "change_timestamp",
+              "change_reason",
+              "triggering_evidence_ids",
+              "reasoning_trace",
+              "related_strategy_changes"
+            ]
+          },
+          "uniqueItems": true
+        }
+      }
+    },
+
+    "ai_reasoning_governance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "reasoning_requirements",
+        "evidence_constraints",
+        "uncertainty_governance",
+        "traceability_requirements"
+      ],
+      "properties": {
+        "reasoning_requirements": {
+          "type": "array",
+          "items": {
+            "enum": [
+              "contextual_factor_identification",
+              "evidence_based_interpretation",
+              "internal_external_classification",
+              "strategic_significance_evaluation",
+              "cross_dimensional_reasoning",
+              "tows_strategy_generation",
+              "winning_strategy_alignment",
+              "continuous_reassessment"
+            ]
+          },
+          "uniqueItems": true
+        },
+        "evidence_constraints": {
+          "type": "array",
+          "items": {
+            "enum": [
+              "no_invented_evidence",
+              "no_unsupported_factual_claims",
+              "preserve_evidence_provenance",
+              "distinguish_fact_from_interpretation",
+              "identify_conflicting_evidence",
+              "identify_outdated_evidence"
+            ]
+          },
+          "uniqueItems": true
+        },
+        "uncertainty_governance": {
+          "type": "array",
+          "items": {
+            "enum": [
+              "expose_low_confidence_factors",
+              "retain_unverified_hypotheses_as_unverified",
+              "identify_material_uncertainty",
+              "request_additional_evidence_when_necessary"
+            ]
+          },
+          "uniqueItems": true
+        },
+        "traceability_requirements": {
+          "type": "array",
+          "items": {
+            "enum": [
+              "evidence_to_factor",
+              "factor_to_tows",
+              "tows_to_strategy",
+              "strategy_to_action",
+              "action_to_outcome"
+            ]
+          },
+          "uniqueItems": true
+        }
+      }
+    }
+  },
+
+  "$defs": {
+    "swot_configuration_layer": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "layer_id",
+        "layer_type",
+        "enabled",
+        "factor_configurations",
+        "evaluation_overrides",
+        "tows_overrides"
+      ],
+      "properties": {
+        "layer_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "layer_type": {
+          "enum": [
+            "universal_baseline",
+            "revenue_motion_override",
+            "industry_override"
+          ]
+        },
+        "enabled": {
+          "type": "boolean"
+        },
+        "factor_configurations": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/swot_factor_definition"
+          }
+        },
+        "evaluation_overrides": {
+          "type": "object"
+        },
+        "tows_overrides": {
+          "type": "object"
+        }
+      }
+    },
+
+    "configuration_override": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "override_id",
+        "target_type",
+        "target_id",
+        "enabled",
+        "override_priority",
+        "configuration"
+      ],
+      "properties": {
+        "override_id": {
+          "type": "string"
+        },
+        "target_type": {
+          "enum": [
+            "revenue_motion_family",
+            "industry"
+          ]
+        },
+        "target_id": {
+          "type": "string"
+        },
+        "enabled": {
+          "type": "boolean"
+        },
+        "override_priority": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "configuration": {
+          "$ref": "#/$defs/swot_configuration_layer"
+        }
+      }
+    },
+
+    "swot_category_configuration": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "category_id",
+        "category_name",
+        "internal_external_type",
+        "definition",
+        "factor_definitions"
+      ],
+      "properties": {
+        "category_id": {
+          "enum": [
+            "strengths",
+            "weaknesses",
+            "opportunities",
+            "threats"
+          ]
+        },
+        "category_name": {
+          "type": "string"
+        },
+        "internal_external_type": {
+          "enum": [
+            "internal",
+            "external"
+          ]
+        },
+        "definition": {
+          "type": "string"
+        },
+        "factor_definitions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/swot_factor_definition"
+          }
+        }
+      }
+    },
+
+    "swot_factor_definition": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "factor_type_id",
+        "factor_name",
+        "factor_description",
+        "factor_classification",
+        "analytical_criteria",
+        "evidence_expectations"
+      ],
+      "properties": {
+        "factor_type_id": {
+          "type": "string"
+        },
+        "factor_name": {
+          "type": "string"
+        },
+        "factor_description": {
+          "type": "string"
+        },
+        "factor_classification": {
+          "enum": [
+            "strength",
+            "weakness",
+            "opportunity",
+            "threat"
+          ]
+        },
+        "analytical_criteria": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "evidence_expectations": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "related_padf_dimensions": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "uniqueItems": true
+        }
+      }
+    },
+
+    "tows_strategy_definition": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "strategy_type",
+        "strategy_name",
+        "strategic_logic",
+        "primary_objective",
+        "required_factor_types"
+      ],
+      "properties": {
+        "strategy_type": {
+          "enum": [
+            "SO",
+            "WO",
+            "ST",
+            "WT"
+          ]
+        },
+        "strategy_name": {
+          "type": "string"
+        },
+        "strategic_logic": {
+          "type": "string"
+        },
+        "primary_objective": {
+          "type": "string"
+        },
+        "required_factor_types": {
+          "type": "array",
+          "items": {
+            "enum": [
+              "strength",
+              "weakness",
+              "opportunity",
+              "threat"
+            ]
+          },
+          "minItems": 2,
+          "maxItems": 2,
+          "uniqueItems": true
+        }
+      }
+    }
+  }
+}

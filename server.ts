@@ -60,7 +60,12 @@ app.use("/public", express.static(path.join(process.cwd(), "public")));
 
 // Explicitly serve /images directory from public/images
 app.use("/images", express.static(path.join(process.cwd(), "public/images"), {
-  maxAge: "7d"
+  maxAge: process.env.NODE_ENV === "production" ? "1h" : 0,
+  setHeaders: (res) => {
+    if (process.env.NODE_ENV !== "production") {
+      res.setHeader("Cache-Control", "no-cache, must-revalidate");
+    }
+  }
 }));
 
 // ---------------------------------------------------------

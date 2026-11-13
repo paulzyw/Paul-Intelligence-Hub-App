@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { MQLLead, MQLCampaign } from '../../types/mql';
-import { Search, Edit, LayoutGrid, ChevronRight, ChevronLeft, CheckCircle2, AlertTriangle, AlertCircle, Table } from 'lucide-react';
+import { Search, Edit, LayoutGrid, ChevronRight, ChevronLeft, CheckCircle2, AlertTriangle, AlertCircle, Table, ArrowUpRight } from 'lucide-react';
 import { MqlToSqlTable } from './MqlToSqlTable';
 import { SqlToOpportunityTable } from './SqlToOpportunityTable';
 import { PromotionDataService } from '../services/promotionDataService';
 import { OpportunityDataService } from '../services/opportunityDataService';
+import { supabase } from '@/src/lib/supabase';
 
 interface LeadCanvasProps {
   leads: MQLLead[];
@@ -44,6 +46,7 @@ export const LeadCanvas: React.FC<LeadCanvasProps> = ({ leads, campaigns, onLead
   const [sqlPromotedLeadIds, setSqlPromotedLeadIds] = useState<string[]>(() => PromotionDataService.getCachedSqlOpportunityPromotedLeadIds());
   const [oppRevenueMap, setOppRevenueMap] = useState<Record<string, number>>(() => OpportunityDataService.getCachedOpportunityEstimatedRevenuesMap());
   const [oppNameMap, setOppNameMap] = useState<Record<string, string>>(() => OpportunityDataService.getCachedOpportunityNamesMap());
+  const [oppIdByLeadMap, setOppIdByLeadMap] = useState<Record<string, string>>({});
 
   useEffect(() => {
     PromotionDataService.getPromotedLeadIds().then(ids => {
@@ -70,6 +73,20 @@ export const LeadCanvas: React.FC<LeadCanvasProps> = ({ leads, campaigns, onLead
       }).catch(err => {
         console.error('Failed to load opportunity names from Supabase:', err);
       });
+
+      Promise.all([
+        supabase.from('opportunities').select('id, mql_reference_id'),
+        supabase.from('sql_opportunity_promotions').select('lead_id, opportunity_id')
+      ]).then(([oppsRes, promosRes]) => {
+        const nextMap: Record<string, string> = {};
+        (promosRes.data || []).forEach((p: any) => {
+          if (p.lead_id && p.opportunity_id) nextMap[p.lead_id] = p.opportunity_id;
+        });
+        (oppsRes.data || []).forEach((o: any) => {
+          if (o.mql_reference_id && o.id) nextMap[o.mql_reference_id] = o.id;
+        });
+        setOppIdByLeadMap(nextMap);
+      }).catch(() => {});
     };
 
     loadOpportunityData();
@@ -461,6 +478,23 @@ export const LeadCanvas: React.FC<LeadCanvasProps> = ({ leads, campaigns, onLead
           </div>
           {getLeadTags(currentLead, type)}
         </div>
+
+        {type === 'opp' && (
+          <div className="pt-2 mt-1 border-t border-border/60 flex items-center justify-between gap-2">
+            <span className="text-[10px] font-medium text-text-secondary truncate">
+              {getOpportunityName(currentLead)}
+            </span>
+            <Link
+              to={`/product/revos/pipeline?opportunityId=${encodeURIComponent(oppIdByLeadMap[currentLead.id] || currentLead.id)}&leadId=${encodeURIComponent(currentLead.id)}&source=lead_canvas_opp`}
+              onClick={(e) => e.stopPropagation()}
+              className="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-accent/15 hover:bg-accent text-accent hover:text-black border border-accent/30 text-[10px] font-bold whitespace-nowrap shrink-0 transition-colors"
+              title="Open Pipeline Assessment Bridge"
+            >
+              <span>Assess Pipeline</span>
+              <ArrowUpRight className="w-3 h-3" />
+            </Link>
+          </div>
+        )}
       </div>
     );
   };

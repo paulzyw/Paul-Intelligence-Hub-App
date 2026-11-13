@@ -139,6 +139,10 @@ const IMPACT_CARDS = [
 // Distance (in pixels) the user must scroll for each card to transition from 0% to 100% opacity.
 export function Home() {
   const [activeAudience, setActiveAudience] = useState<AudienceKey>('individual');
+  const [heroImgSrc, setHeroImgSrc] = useState<string>(() =>
+    `/images/hero_image.webp?v=${import.meta.env.DEV ? Date.now() : '3'}`
+  );
+  const [heroImgHidden, setHeroImgHidden] = useState<boolean>(false);
   const [isDesktop, setIsDesktop] = useState(
     typeof window !== 'undefined' ? window.innerWidth >= 1024 : true
   );
@@ -314,8 +318,33 @@ export function Home() {
     <div className="flex flex-col w-full">
       {/* NEW HERO SECTION DUPLICATING SOLUTIONS HERO CONTENT (WITHOUT THREADS OR GEAR TRAIN) */}
       <section id="hero" className="relative w-full bg-bg-hero-primary pt-24 pb-20 sm:pt-28 sm:pb-24 md:pt-32 md:pb-28 overflow-hidden transition-colors duration-400">
-        {/* WebGL Gradient Waves background */}
-        <div className="absolute inset-0 z-0 opacity-100">
+        {/* Layer 0: Background image at the bottom */}
+        {!heroImgHidden && (
+          <img
+            src={heroImgSrc}
+            alt=""
+            aria-hidden="true"
+            loading="eager"
+            decoding="async"
+            onError={() => {
+              if (!heroImgSrc.startsWith('/public/images/')) {
+                setHeroImgSrc(`/public/images/hero_image.webp?v=${import.meta.env.DEV ? Date.now() : '3'}`);
+              } else {
+                setHeroImgHidden(true);
+              }
+            }}
+            className="absolute inset-0 z-0 h-full w-full object-cover object-[65%_50%] md:object-[70%_50%] lg:object-right pointer-events-none select-none"
+          />
+        )}
+
+        {/* Layer 1: bg-hero-primary left-to-right gradient opacity (100% -> 95% -> 90% -> 80% -> 20% -> 0%) */}
+        <div
+          aria-hidden="true"
+          className="absolute inset-0 z-[1] pointer-events-none bg-[linear-gradient(to_right,var(--bg-hero-primary)_0%,color-mix(in_srgb,var(--bg-hero-primary)_95%,transparent)_12.5%,color-mix(in_srgb,var(--bg-hero-primary)_90%,transparent)_25%,color-mix(in_srgb,var(--bg-hero-primary)_80%,transparent)_37.5%,color-mix(in_srgb,var(--bg-hero-primary)_20%,transparent)_50%,transparent_100%)]"
+        ></div>
+
+        {/* Layer 2: WebGL Gradient Waves */}
+        <div className="absolute inset-0 z-[2] opacity-100">
           <GradientWaves 
             horizonColor="#1b2f3e"
             waveColor="#00a3e0"
@@ -334,13 +363,14 @@ export function Home() {
         {/* Soft fade-out gradient overlay to blend waves with the rest of the dark page */}
         <div className="absolute inset-0 bg-gradient-to-t from-bg-hero-primary via-bg-hero-primary/10 to-transparent z-10 pointer-events-none"></div>
     
-        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 text-center relative z-20">
+        {/* Layer 3: Eyebrow, Headline, Supporting Script, and CTA */}
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 text-center lg:text-left relative z-20">
           <div>
             <motion.div 
               initial={{ opacity: 0, y: 8 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.35, ease: "easeOut" }}
-              className="text-xs sm:text-sm font-bold tracking-[0.14em] sm:tracking-[0.2em] uppercase text-accent mb-3 sm:mb-4"
+              className="text-xs sm:text-sm font-bold tracking-[0.14em] sm:tracking-[0.2em] uppercase text-accent mb-3 sm:mb-6"
             >
               AI-Native Revenue Operating System
             </motion.div>
@@ -349,7 +379,7 @@ export function Home() {
               initial={{ opacity: 0, y: 8 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.35, delay: 0.08, ease: "easeOut" }}
-              className="text-4xl md:text-7xl font-extrabold tracking-tight text-text-hero-primary mb-6 sm:mb-8 md:mb-10 max-w-5xl mx-auto leading-[1.18] sm:leading-[1.15] md:leading-[1.1]"
+              className="text-4xl md:text-6xl font-extrabold tracking-tight text-text-hero-primary mb-6 sm:mb-8 md:mb-10 max-w-[700px] mx-auto lg:mx-0 leading-[1.18] sm:leading-[1.15] md:leading-[1.1]"
             >
               RevOS Turns Revenue Challenges Into <br className="hidden md:block" /> 
               <span className="text-transparent bg-clip-text bg-gradient-to-r from-text-hero-primary via-accent to-text-primary bg-[length:200%_auto] animate-gradient">
@@ -361,7 +391,7 @@ export function Home() {
               initial={{ opacity: 0, y: 8 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.35, delay: 0.16, ease: "easeOut" }}
-              className="text-sm sm:text-base md:text-lg text-text-hero-secondary max-w-5xl mx-auto leading-relaxed md:leading-normal font-normal sm:font-medium mb-8 sm:mb-10 md:mb-12 px-1 sm:px-0"
+              className="text-sm sm:text-base md:text-lg text-text-hero-secondary max-w-[600px] lg:max-w-3xl mx-auto lg:mx-0 leading-relaxed md:leading-normal font-normal sm:font-medium mb-8 sm:mb-10 md:mb-12 px-1 sm:px-0"
             >
               Revenue growth becomes difficult when go-to-market priorities, lead qualification, and sales pipeline decisions are disconnected. RevOS brings structured revenue methodologies and AI-powered reasoning together to help you assess what matters, identify what is missing, and decide what to do next.
             </motion.p>
@@ -370,15 +400,23 @@ export function Home() {
               initial={{ opacity: 0, y: 8 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.3, delay: 0.24, ease: "easeOut" }}
-              className="flex flex-col sm:flex-row items-center justify-center gap-4"
+              className="inline-grid grid-cols-2 gap-3 sm:gap-4"
             >
               <Link 
                 to="/product/revos" 
-                className="group relative px-7 py-3.5 sm:px-8 sm:py-4 bg-accent text-text-hero-primary text-sm sm:text-base font-bold rounded-full overflow-hidden transition-all hover:scale-105 active:scale-95"
+                className="group relative w-full inline-flex items-center justify-center whitespace-nowrap border border-transparent px-4 min-[400px]:px-6 sm:px-8 py-[9px] sm:py-[11px] bg-accent text-text-hero-primary text-sm sm:text-base font-bold rounded-full overflow-hidden transition-all hover:scale-105 active:scale-95 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
               >
-                <div className="relative z-10 flex items-center gap-2">
-                  Explore RevOS <ArrowRight className="h-4 w-4 group-hover:translate-x-1 transition-transform" />
-                </div>
+                <span className="relative z-10 inline-flex items-center gap-2">
+                  Explore RevOS <ArrowRight className="h-4 w-4 shrink-0 group-hover:translate-x-1 transition-transform" />
+                </span>
+              </Link>
+              <Link 
+                to="/about/contact" 
+                className="group w-full inline-flex items-center justify-center whitespace-nowrap border border-text-hero-primary/25 px-4 min-[400px]:px-6 sm:px-8 py-[9px] sm:py-[11px] bg-white/5 text-text-hero-primary text-sm sm:text-base font-bold rounded-full transition-all hover:border-accent hover:text-accent hover:bg-white/10 hover:scale-105 active:scale-95 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+              >
+                <span className="relative z-10 inline-flex items-center gap-2">
+                  Book A Demo <ArrowRight className="h-4 w-4 shrink-0 group-hover:translate-x-1 transition-transform" />
+                </span>
               </Link>
             </motion.div>
           </div>

@@ -1,0 +1,1080 @@
+16:03:47.809
+System
+Build
+ Render Start 
+16:03:50.741
+Backend
+Log
+ Server restarting... 
+16:03:50.741
+Backend
+Log
+ Server stopped. 
+16:03:50.741
+Backend
+Log
+ Server started on port 3000. 
+16:03:50.741
+Backend
+Log
+ Pre-warming 1 paths...
+  
+  > react-example@0.0.0 dev
+  > tsx server.ts --port 3000 --host 0.0.0.0
+  
+  ◇ injecting env (0) from .env // tip: ⌘ suppress logs { quiet: true }
+  Starting server in DEVELOPMENT mode with Vite Middleware...
+  [RevOS Backend Active] Server running on http://localhost:3000 
+16:03:50.741
+Backend
+Log
+ Pre-warming completed. 
+16:03:50.832
+Backend
+Log
+ CONNECTED 
+16:03:53.390
+System
+Build
+ Render End 
+16:03:53.503
+App
+Debug
+ [vite] connecting... 
+16:03:53.504
+App
+Warning
+ Please ensure that the container has a non-static position, like 'relative', 'fixed', or 'absolute' to ensure scroll offset is calculated correctly. 
+16:04:16.175
+App
+Error
+ {
+  "message": "TypeError: Failed to fetch",
+  "details": "TypeError: Failed to fetch\n    at https://ais-dev-3g67bksbwsamerr2j3f5cs-368504390275.us-east1.run.app/node_modules/.vite/deps/@supabase_supabase-js.js?v=96fa48a8:473:36\n    at async MQLDataService.getGTMCampaigns (https://ais-dev-3g67bksbwsamerr2j3f5cs-368504390275.us-east1.run.app/src/apps/revos/leads/services/mqlDataService.ts:4:29)",
+  "hint": "",
+  "code": ""
+} 
+16:04:21.828
+App
+Error
+ [vite] failed to connect to websocket (Error: WebSocket closed without opened.).  
+16:04:21.858
+App
+Unhandled Rejection
+ Error: WebSocket closed without opened.
+    at WebSocket.<anonymous> (https://ais-dev-3g67bksbwsamerr2j3f5cs-368504390275.us-east1.run.app/@vite/client:454:22) 
+16:04:55.116
+App
+Log
+ DEBUG: Loaded activeResult from DB:
+  {
+  "qualification_summary": {
+    "qualification_status": "QUALIFIED",
+    "overall_score": 91,
+    "confidence_score": 91,
+    "summary": "Birty Technology has provided comprehensive evidence across all 10 qualification dimensions. The opportunity is well-defined, problem-driven, and supported by executive-level engagement. The customer has already built an ROI model and has a clear understanding of the buying process, making this a high-confidence, qualified opportunity.",
+    "primary_reason": "Birty Technology has provided comprehensive evidence across all 10 qualification dimensions. The opportunity is well-defined, problem-driven, and supported by executive-level engagement. The customer has already built an ROI model and has a clear understanding of the buying process, making this a high-confidence, qualified opportunity.",
+    "health_indicator": "Strong",
+    "opportunity_readiness": "Ready for active pursuit and commercial negotiation."
+  },
+  "dimension_assessments": [
+    {
+      "risks": "None",
+      "score": 95,
+      "assessment": "Strong",
+      "confidence": 95,
+      "ai_reasoning": "The opportunity is rooted in a specific business initiative with clear objectives and strategic alignment, confirmed by executive-level interaction.",
+      "key_evidence": "Customer has clearly defined business context, objectives, and strategic prioritization.",
+      "evidence_gaps": "None",
+      "dimension_code": "OQ01",
+      "dimension_name": "Opportunity Definition & Business Context",
+      "evidence_strength": "customer_confirmed",
+      "recommended_action": "Maintain executive alignment and monitor for any shifts in strategic priority."
+    },
+    {
+      "risks": "None",
+      "score": 95,
+      "assessment": "Strong",
+      "confidence": 95,
+      "ai_reasoning": "The customer has moved beyond generic interest to a mature understanding of the problem, its financial consequences, and the expected ROI.",
+      "key_evidence": "Customer has confirmed the business problem, quantified the financial impact of inaction, and defined relevant KPIs.",
+      "evidence_gaps": "None",
+      "dimension_code": "OQ02",
+      "dimension_name": "Business Problem & Impact Validation",
+      "evidence_strength": "customer_confirmed",
+      "recommended_action": "Use the existing ROI model to reinforce the business case during final negotiations."
+    },
+    {
+      "risks": "None",
+      "score": 90,
+      "assessment": "Strong",
+      "confidence": 90,
+      "ai_reasoning": "The solution is well-aligned with customer requirements and the existing technical environment, reducing implementation risk.",
+      "key_evidence": "Clear requirements identified, business fit confirmed, and integration considerations mapped.",
+      "evidence_gaps": "None",
+      "dimension_code": "OQ03",
+      "dimension_name": "Solution Relevance & Customer Fit",
+      "evidence_strength": "customer_confirmed",
+      "recommended_action": "Ensure technical teams are aligned on the integration plan."
+    },
+    {
+      "risks": "None",
+      "score": 90,
+      "assessment": "Strong",
+      "confidence": 90,
+      "ai_reasoning": "The customer's high level of engagement and resource allocation indicates a strong commitment to the project.",
+      "key_evidence": "Multiple contacts engaged, requirements provided, continuous information exchange, and dedicated project team assigned.",
+      "evidence_gaps": "None",
+      "dimension_code": "OQ04",
+      "dimension_name": "Customer Engagement & Commitment",
+      "evidence_strength": "customer_confirmed",
+      "recommended_action": "Continue to foster the relationship with the project team."
+    },
+    {
+      "risks": "None",
+      "score": 85,
+      "assessment": "Strong",
+      "confidence": 85,
+      "ai_reasoning": "The stakeholder map is complete, and the sales team has direct access to the economic buyer.",
+      "key_evidence": "Executive sponsorship confirmed, business stakeholders identified, and direct access to decision-makers established.",
+      "evidence_gaps": "None",
+      "dimension_code": "OQ05",
+      "dimension_name": "Stakeholder Identification & Access",
+      "evidence_strength": "customer_confirmed",
+      "recommended_action": "Continue to nurture the internal champion."
+    },
+    {
+      "risks": "None",
+      "score": 90,
+      "assessment": "Strong",
+      "confidence": 90,
+      "ai_reasoning": "The customer has a transparent and well-defined buying process, which significantly reduces the risk of unexpected delays.",
+      "key_evidence": "Decision criteria, approval workflow, and security processes are fully understood.",
+      "evidence_gaps": "None",
+      "dimension_code": "OQ06",
+      "dimension_name": "Buying Process Understanding",
+      "evidence_strength": "customer_confirmed",
+      "recommended_action": "Align sales milestones with the customer's approval workflow."
+    },
+    {
+      "risks": "None",
+      "score": 90,
+      "assessment": "Strong",
+      "confidence": 90,
+      "ai_reasoning": "The commercial path is clear, with identified funding and a mature business case.",
+      "key_evidence": "Commercial scope defined, budget identified, and ROI discussion completed.",
+      "evidence_gaps": "None",
+      "dimension_code": "OQ07",
+      "dimension_name": "Commercial Potential & Funding Path",
+      "evidence_strength": "customer_confirmed",
+      "recommended_action": "Finalize commercial terms based on the agreed business case."
+    },
+    {
+      "risks": "None",
+      "score": 90,
+      "assessment": "Strong",
+      "confidence": 90,
+      "ai_reasoning": "The customer has a clear, business-driven timeline and understands the urgency of the initiative.",
+      "key_evidence": "Operational challenge identified as a trigger, with defined milestones and clear consequences of delay.",
+      "evidence_gaps": "None",
+      "dimension_code": "OQ08",
+      "dimension_name": "Timeline & Business Urgency",
+      "evidence_strength": "customer_confirmed",
+      "recommended_action": "Monitor progress against the defined project milestones."
+    },
+    {
+      "risks": "None",
+      "score": 95,
+      "assessment": "Strong",
+      "confidence": 95,
+      "ai_reasoning": "The opportunity is rooted in a specific business initiative with clear objectives and strategic alignment, confirmed by executive-level interaction.",
+      "key_evidence": "Customer has clearly defined business context, objectives, and strategic prioritization.",
+      "evidence_gaps": "None",
+      "dimension_code": "OQ09",
+      "dimension_name": "Opportunity Advancement Evidence",
+      "evidence_strength": "customer_confirmed",
+      "recommended_action": "Maintain executive alignment and monitor for any shifts in strategic priority."
+    },
+    {
+      "risks": "None",
+      "score": 95,
+      "assessment": "Strong",
+      "confidence": 95,
+      "ai_reasoning": "The opportunity is rooted in a specific business initiative with clear objectives and strategic alignment, confirmed by executive-level interaction.",
+      "key_evidence": "Customer has clearly defined business context, objectives, and strategic prioritization.",
+      "evidence_gaps": "None",
+      "dimension_code": "OQ10",
+      "dimension_name": "Opportunity Qualification Risk Assessment",
+      "evidence_strength": "customer_confirmed",
+      "recommended_action": "Maintain executive alignment and monitor for any shifts in strategic priority."
+    }
+  ],
+  "evidence_assessments": [
+    {
+      "tags": [
+        {
+          "type": "dimension",
+          "label": "Opportunity Definition & Business Context"
+        },
+        {
+          "type": "positive",
+          "label": "POSITIVE MATCH"
+        }
+      ],
+      "user_answer": "customer has clearly defined business context and the anticipated business impact.",
+      "signal_score": 95,
+      "evidence_name": "What customer situation or business initiative triggered this opportunity discussion?",
+      "dimension_code": "OQ01",
+      "dimension_name": "Opportunity Definition & Business Context",
+      "evidence_source": "Executive Meeting",
+      "evidence_object_id": "RM01_IND01_OQ01_Q01",
+      "validation_strength": "customer_confirmed",
+      "identification_assessment": "Customer confirmed a clear business context and initiative."
+    },
+    {
+      "tags": [
+        {
+          "type": "dimension",
+          "label": "Opportunity Definition & Business Context"
+        },
+        {
+          "type": "positive",
+          "label": "POSITIVE MATCH"
+        }
+      ],
+      "user_answer": "Customer has a defined objective, scope, and expected result.",
+      "signal_score": 95,
+      "evidence_name": "How does the customer define the scope and expected outcome of this opportunity?",
+      "dimension_code": "OQ01",
+      "dimension_name": "Opportunity Definition & Business Context",
+      "evidence_source": "Executive Meeting",
+      "evidence_object_id": "RM01_IND01_OQ01_Q02",
+      "validation_strength": "customer_confirmed",
+      "identification_assessment": "Customer has a defined objective, scope, and expected result."
+    },
+    {
+      "tags": [
+        {
+          "type": "dimension",
+          "label": "Opportunity Definition & Business Context"
+        },
+        {
+          "type": "positive",
+          "label": "POSITIVE MATCH"
+        }
+      ],
+      "user_answer": "Identified business function or capability impacted.",
+      "signal_score": 90,
+      "evidence_name": "What business area, process, or capability is expected to change through this solution?",
+      "dimension_code": "OQ01",
+      "dimension_name": "Opportunity Definition & Business Context",
+      "evidence_source": "Sales Rep Interview",
+      "evidence_object_id": "RM01_IND01_OQ01_Q03",
+      "validation_strength": "customer_confirmed",
+      "identification_assessment": "Specific business function identified."
+    },
+    {
+      "tags": [
+        {
+          "type": "dimension",
+          "label": "Opportunity Definition & Business Context"
+        },
+        {
+          "type": "positive",
+          "label": "POSITIVE MATCH"
+        }
+      ],
+      "user_answer": "Customer prioritization rationale exists.",
+      "signal_score": 90,
+      "evidence_name": "Why is this opportunity important compared with other customer priorities?",
+      "dimension_code": "OQ01",
+      "dimension_name": "Opportunity Definition & Business Context",
+      "evidence_source": "Sales Rep Interview",
+      "evidence_object_id": "RM01_IND01_OQ01_Q04",
+      "validation_strength": "customer_confirmed",
+      "identification_assessment": "Customer prioritization rationale exists."
+    },
+    {
+      "tags": [
+        {
+          "type": "dimension",
+          "label": "Business Problem & Impact Validation"
+        },
+        {
+          "type": "positive",
+          "label": "POSITIVE MATCH"
+        }
+      ],
+      "user_answer": "Customer-confirmed business problem.",
+      "signal_score": 95,
+      "evidence_name": "What specific business problem is the customer trying to solve?",
+      "dimension_code": "OQ02",
+      "dimension_name": "Business Problem & Impact Validation",
+      "evidence_source": "Sales Rep Interview",
+      "evidence_object_id": "RM01_IND01_OQ02_Q01",
+      "validation_strength": "customer_confirmed",
+      "identification_assessment": "Customer-confirmed business problem."
+    },
+    {
+      "tags": [
+        {
+          "type": "dimension",
+          "label": "Business Problem & Impact Validation"
+        },
+        {
+          "type": "positive",
+          "label": "POSITIVE MATCH"
+        }
+      ],
+      "user_answer": "specific financial impact have been defined and recognized if this problem is not resolved.",
+      "signal_score": 95,
+      "evidence_name": "What happens if the customer does not solve this problem?",
+      "dimension_code": "OQ02",
+      "dimension_name": "Business Problem & Impact Validation",
+      "evidence_source": "Sales Rep Interview",
+      "evidence_object_id": "RM01_IND01_OQ02_Q02",
+      "validation_strength": "customer_confirmed",
+      "identification_assessment": "Financial impact of inaction is defined."
+    },
+    {
+      "tags": [
+        {
+          "type": "dimension",
+          "label": "Business Problem & Impact Validation"
+        },
+        {
+          "type": "positive",
+          "label": "POSITIVE MATCH"
+        }
+      ],
+      "user_answer": "Expected business impact and outcome, and relevant KPIs have been defined.",
+      "signal_score": 95,
+      "evidence_name": "What measurable business improvement does the customer expect from solving this problem?",
+      "dimension_code": "OQ02",
+      "dimension_name": "Business Problem & Impact Validation",
+      "evidence_source": "Sales Rep Interview",
+      "evidence_object_id": "RM01_IND01_OQ02_Q03",
+      "validation_strength": "customer_confirmed",
+      "identification_assessment": "Relevant KPIs have been defined."
+    },
+    {
+      "tags": [
+        {
+          "type": "dimension",
+          "label": "Business Problem & Impact Validation"
+        },
+        {
+          "type": "positive",
+          "label": "POSITIVE MATCH"
+        }
+      ],
+      "user_answer": "customer already built the ROI financial model and evaluated the business and financial impact accordingly.",
+      "signal_score": 95,
+      "evidence_name": "Has the customer quantified the business impact or ROI expectation?",
+      "dimension_code": "OQ02",
+      "dimension_name": "Business Problem & Impact Validation",
+      "evidence_source": "Sales Rep Interview",
+      "evidence_object_id": "RM01_IND01_OQ02_Q04",
+      "validation_strength": "customer_confirmed",
+      "identification_assessment": "ROI financial model is built."
+    },
+    {
+      "tags": [
+        {
+          "type": "dimension",
+          "label": "Solution Relevance & Customer Fit"
+        },
+        {
+          "type": "positive",
+          "label": "POSITIVE MATCH"
+        }
+      ],
+      "user_answer": "Clear requirements",
+      "signal_score": 90,
+      "evidence_name": "Which customer requirements or capabilities must the solution address?",
+      "dimension_code": "OQ03",
+      "dimension_name": "Solution Relevance & Customer Fit",
+      "evidence_source": "Sales Rep Interview",
+      "evidence_object_id": "RM01_IND01_OQ03_Q01",
+      "validation_strength": "customer_confirmed",
+      "identification_assessment": "Clear requirements provided."
+    },
+    {
+      "tags": [
+        {
+          "type": "dimension",
+          "label": "Solution Relevance & Customer Fit"
+        },
+        {
+          "type": "positive",
+          "label": "POSITIVE MATCH"
+        }
+      ],
+      "user_answer": "Business fit confirmed",
+      "signal_score": 90,
+      "evidence_name": "Why does the customer believe this type of solution is appropriate?",
+      "dimension_code": "OQ03",
+      "dimension_name": "Solution Relevance & Customer Fit",
+      "evidence_source": "Sales Rep Interview",
+      "evidence_object_id": "RM01_IND01_OQ03_Q02",
+      "validation_strength": "customer_confirmed",
+      "identification_assessment": "Business fit confirmed."
+    },
+    {
+      "tags": [
+        {
+          "type": "dimension",
+          "label": "Solution Relevance & Customer Fit"
+        },
+        {
+          "type": "positive",
+          "label": "POSITIVE MATCH"
+        }
+      ],
+      "user_answer": "Integration considerations identified",
+      "signal_score": 90,
+      "evidence_name": "What existing systems, processes, or constraints must the solution fit with?",
+      "dimension_code": "OQ03",
+      "dimension_name": "Solution Relevance & Customer Fit",
+      "evidence_source": "Sales Rep Interview",
+      "evidence_object_id": "RM01_IND01_OQ03_Q03",
+      "validation_strength": "customer_confirmed",
+      "identification_assessment": "Integration considerations identified."
+    },
+    {
+      "tags": [
+        {
+          "type": "dimension",
+          "label": "Customer Engagement & Commitment"
+        },
+        {
+          "type": "positive",
+          "label": "POSITIVE MATCH"
+        }
+      ],
+      "user_answer": "Multiple customer contacts engaged",
+      "signal_score": 90,
+      "evidence_name": "Who within the customer organization is actively involved in evaluating this opportunity?",
+      "dimension_code": "OQ04",
+      "dimension_name": "Customer Engagement & Commitment",
+      "evidence_source": "Sales Rep Interview",
+      "evidence_object_id": "RM01_IND01_OQ04_Q01",
+      "validation_strength": "customer_confirmed",
+      "identification_assessment": "Multiple customer contacts engaged."
+    },
+    {
+      "tags": [
+        {
+          "type": "dimension",
+          "label": "Customer Engagement & Commitment"
+        },
+        {
+          "type": "positive",
+          "label": "POSITIVE MATCH"
+        }
+      ],
+      "user_answer": "Provided requirements",
+      "signal_score": 90,
+      "evidence_name": "What actions has the customer taken to demonstrate interest in progressing the opportunity?",
+      "dimension_code": "OQ04",
+      "dimension_name": "Customer Engagement & Commitment",
+      "evidence_source": "Sales Rep Interview",
+      "evidence_object_id": "RM01_IND01_OQ04_Q02",
+      "validation_strength": "customer_confirmed",
+      "identification_assessment": "Provided requirements."
+    },
+    {
+      "tags": [
+        {
+          "type": "dimension",
+          "label": "Customer Engagement & Commitment"
+        },
+        {
+          "type": "positive",
+          "label": "POSITIVE MATCH"
+        }
+      ],
+      "user_answer": "Continuous information exchange",
+      "signal_score": 90,
+      "evidence_name": "How frequently is the customer engaging with the sales team or solution team?",
+      "dimension_code": "OQ04",
+      "dimension_name": "Customer Engagement & Commitment",
+      "evidence_source": "Sales Rep Interview",
+      "evidence_object_id": "RM01_IND01_OQ04_Q03",
+      "validation_strength": "customer_confirmed",
+      "identification_assessment": "Continuous information exchange."
+    },
+    {
+      "tags": [
+        {
+          "type": "dimension",
+          "label": "Customer Engagement & Commitment"
+        },
+        {
+          "type": "positive",
+          "label": "POSITIVE MATCH"
+        }
+      ],
+      "user_answer": "Assigned project team",
+      "signal_score": 90,
+      "evidence_name": "Has the customer allocated internal resources to evaluate or implement the solution?",
+      "dimension_code": "OQ04",
+      "dimension_name": "Customer Engagement & Commitment",
+      "evidence_source": "Sales Rep Interview",
+      "evidence_object_id": "RM01_IND01_OQ04_Q04",
+      "validation_strength": "customer_confirmed",
+      "identification_assessment": "Assigned project team."
+    },
+    {
+      "tags": [
+        {
+          "type": "dimension",
+          "label": "Stakeholder Identification & Access"
+        },
+        {
+          "type": "positive",
+          "label": "POSITIVE MATCH"
+        }
+      ],
+      "user_answer": "Executive sponsorship",
+      "signal_score": 85,
+      "evidence_name": "Who owns the business outcome that this solution is expected to improve?",
+      "dimension_code": "OQ05",
+      "dimension_name": "Stakeholder Identification & Access",
+      "evidence_source": "Sales Rep Interview",
+      "evidence_object_id": "RM01_IND01_OQ05_Q01",
+      "validation_strength": "customer_confirmed",
+      "identification_assessment": "Executive sponsorship confirmed."
+    },
+    {
+      "tags": [
+        {
+          "type": "dimension",
+          "label": "Stakeholder Identification & Access"
+        },
+        {
+          "type": "positive",
+          "label": "POSITIVE MATCH"
+        }
+      ],
+      "user_answer": "Business stakeholder",
+      "signal_score": 85,
+      "evidence_name": "Who participates in evaluating, approving, and purchasing this solution?",
+      "dimension_code": "OQ05",
+      "dimension_name": "Stakeholder Identification & Access",
+      "evidence_source": "Sales Rep Interview",
+      "evidence_object_id": "RM01_IND01_OQ05_Q02",
+      "validation_strength": "customer_confirmed",
+      "identification_assessment": "Business stakeholder identified."
+    },
+    {
+      "tags": [
+        {
+          "type": "dimension",
+          "label": "Stakeholder Identification & Access"
+        },
+        {
+          "type": "positive",
+          "label": "POSITIVE MATCH"
+        }
+      ],
+      "user_answer": "Direct executive interaction",
+      "signal_score": 90,
+      "evidence_name": "Do we have direct access to the economic buyer or final decision maker?",
+      "dimension_code": "OQ05",
+      "dimension_name": "Stakeholder Identification & Access",
+      "evidence_source": "Sales Rep Interview",
+      "evidence_object_id": "RM01_IND01_OQ05_Q03",
+      "validation_strength": "customer_confirmed",
+      "identification_assessment": "Direct executive interaction."
+    },
+    {
+      "tags": [
+        {
+          "type": "dimension",
+          "label": "Stakeholder Identification & Access"
+        },
+        {
+          "type": "neutral",
+          "label": "NEUTRAL MATCH"
+        }
+      ],
+      "user_answer": "not observed yet",
+      "signal_score": 70,
+      "evidence_name": "Who may resist adoption of the solution and why?",
+      "dimension_code": "OQ05",
+      "dimension_name": "Stakeholder Identification & Access",
+      "evidence_source": "Sales Rep Interview",
+      "evidence_object_id": "RM01_IND01_OQ05_Q04",
+      "validation_strength": "customer_confirmed",
+      "identification_assessment": "Not observed yet."
+    },
+    {
+      "tags": [
+        {
+          "type": "dimension",
+          "label": "Stakeholder Identification & Access"
+        },
+        {
+          "type": "positive",
+          "label": "POSITIVE MATCH"
+        }
+      ],
+      "user_answer": "Champion promotes internal adoption",
+      "signal_score": 85,
+      "evidence_name": "Is there an internal customer champion supporting the opportunity?",
+      "dimension_code": "OQ05",
+      "dimension_name": "Stakeholder Identification & Access",
+      "evidence_source": "Sales Rep Interview",
+      "evidence_object_id": "RM01_IND01_OQ05_Q05",
+      "validation_strength": "customer_confirmed",
+      "identification_assessment": "Champion promotes internal adoption."
+    },
+    {
+      "tags": [
+        {
+          "type": "dimension",
+          "label": "Buying Process Understanding"
+        },
+        {
+          "type": "positive",
+          "label": "POSITIVE MATCH"
+        }
+      ],
+      "user_answer": "Known decision criteria",
+      "signal_score": 90,
+      "evidence_name": "How will the customer evaluate and select the solution?",
+      "dimension_code": "OQ06",
+      "dimension_name": "Buying Process Understanding",
+      "evidence_source": "Sales Rep Interview",
+      "evidence_object_id": "RM01_IND01_OQ06_Q01",
+      "validation_strength": "customer_confirmed",
+      "identification_assessment": "Known decision criteria."
+    },
+    {
+      "tags": [
+        {
+          "type": "dimension",
+          "label": "Buying Process Understanding"
+        },
+        {
+          "type": "positive",
+          "label": "POSITIVE MATCH"
+        }
+      ],
+      "user_answer": "Clear approval workflow",
+      "signal_score": 90,
+      "evidence_name": "What approval steps are required before purchase?",
+      "dimension_code": "OQ06",
+      "dimension_name": "Buying Process Understanding",
+      "evidence_source": "Sales Rep Interview",
+      "evidence_object_id": "RM01_IND01_OQ06_Q02",
+      "validation_strength": "customer_confirmed",
+      "identification_assessment": "Clear approval workflow."
+    },
+    {
+      "tags": [
+        {
+          "type": "dimension",
+          "label": "Buying Process Understanding"
+        },
+        {
+          "type": "positive",
+          "label": "POSITIVE MATCH"
+        }
+      ],
+      "user_answer": "Security process understood",
+      "signal_score": 90,
+      "evidence_name": "What technical validation or security review is required?",
+      "dimension_code": "OQ06",
+      "dimension_name": "Buying Process Understanding",
+      "evidence_source": "Sales Rep Interview",
+      "evidence_object_id": "RM01_IND01_OQ06_Q03",
+      "validation_strength": "customer_confirmed",
+      "identification_assessment": "Security process understood."
+    },
+    {
+      "tags": [
+        {
+          "type": "dimension",
+          "label": "Buying Process Understanding"
+        },
+        {
+          "type": "positive",
+          "label": "POSITIVE MATCH"
+        }
+      ],
+      "user_answer": "nothing found stopping customer from completing the buying process",
+      "signal_score": 90,
+      "evidence_name": "What could prevent the customer from completing the buying process?",
+      "dimension_code": "OQ06",
+      "dimension_name": "Buying Process Understanding",
+      "evidence_source": "Sales Rep Interview",
+      "evidence_object_id": "RM01_IND01_OQ06_Q04",
+      "validation_strength": "customer_confirmed",
+      "identification_assessment": "No blockers found."
+    },
+    {
+      "tags": [
+        {
+          "type": "dimension",
+          "label": "Commercial Potential & Funding Path"
+        },
+        {
+          "type": "positive",
+          "label": "POSITIVE MATCH"
+        }
+      ],
+      "user_answer": "Defined scope",
+      "signal_score": 90,
+      "evidence_name": "What is the expected commercial scope of this opportunity?",
+      "dimension_code": "OQ07",
+      "dimension_name": "Commercial Potential & Funding Path",
+      "evidence_source": "Sales Rep Interview",
+      "evidence_object_id": "RM01_IND01_OQ07_Q01",
+      "validation_strength": "customer_confirmed",
+      "identification_assessment": "Defined scope."
+    },
+    {
+      "tags": [
+        {
+          "type": "dimension",
+          "label": "Commercial Potential & Funding Path"
+        },
+        {
+          "type": "positive",
+          "label": "POSITIVE MATCH"
+        }
+      ],
+      "user_answer": "Budget identified",
+      "signal_score": 90,
+      "evidence_name": "How does the customer plan to fund this initiative?",
+      "dimension_code": "OQ07",
+      "dimension_name": "Commercial Potential & Funding Path",
+      "evidence_source": "Sales Rep Interview",
+      "evidence_object_id": "RM01_IND01_OQ07_Q02",
+      "validation_strength": "customer_confirmed",
+      "identification_assessment": "Budget identified."
+    },
+    {
+      "tags": [
+        {
+          "type": "dimension",
+          "label": "Commercial Potential & Funding Path"
+        },
+        {
+          "type": "positive",
+          "label": "POSITIVE MATCH"
+        }
+      ],
+      "user_answer": "ROI discussion exists",
+      "signal_score": 90,
+      "evidence_name": "Has the customer developed or discussed a business case for investment?",
+      "dimension_code": "OQ07",
+      "dimension_name": "Commercial Potential & Funding Path",
+      "evidence_source": "Sales Rep Interview",
+      "evidence_object_id": "RM01_IND01_OQ07_Q03",
+      "validation_strength": "customer_confirmed",
+      "identification_assessment": "ROI discussion exists."
+    },
+    {
+      "tags": [
+        {
+          "type": "dimension",
+          "label": "Commercial Potential & Funding Path"
+        },
+        {
+          "type": "positive",
+          "label": "POSITIVE MATCH"
+        }
+      ],
+      "user_answer": "Risks managed",
+      "signal_score": 90,
+      "evidence_name": "What commercial factors could prevent purchase approval?",
+      "dimension_code": "OQ07",
+      "dimension_name": "Commercial Potential & Funding Path",
+      "evidence_source": "Sales Rep Interview",
+      "evidence_object_id": "RM01_IND01_OQ07_Q04",
+      "validation_strength": "customer_confirmed",
+      "identification_assessment": "Risks managed."
+    },
+    {
+      "tags": [
+        {
+          "type": "dimension",
+          "label": "Timeline & Business Urgency"
+        },
+        {
+          "type": "positive",
+          "label": "POSITIVE MATCH"
+        }
+      ],
+      "user_answer": "Operational challenge",
+      "signal_score": 90,
+      "evidence_name": "What business event or trigger is driving the customer's need to act now?",
+      "dimension_code": "OQ08",
+      "dimension_name": "Timeline & Business Urgency",
+      "evidence_source": "Sales Rep Interview",
+      "evidence_object_id": "RM01_IND01_OQ08_Q01",
+      "validation_strength": "customer_confirmed",
+      "identification_assessment": "Operational challenge."
+    },
+    {
+      "tags": [
+        {
+          "type": "dimension",
+          "label": "Timeline & Business Urgency"
+        },
+        {
+          "type": "positive",
+          "label": "POSITIVE MATCH"
+        }
+      ],
+      "user_answer": "Defined project milestone",
+      "signal_score": 90,
+      "evidence_name": "When does the customer expect to make a decision and begin implementation?",
+      "dimension_code": "OQ08",
+      "dimension_name": "Timeline & Business Urgency",
+      "evidence_source": "Sales Rep Interview",
+      "evidence_object_id": "RM01_IND01_OQ08_Q02",
+      "validation_strength": "customer_confirmed",
+      "identification_assessment": "Defined project milestone."
+    },
+    {
+      "tags": [
+        {
+          "type": "dimension",
+          "label": "Timeline & Business Urgency"
+        },
+        {
+          "type": "positive",
+          "label": "POSITIVE MATCH"
+        }
+      ],
+      "user_answer": "Business impact from delay",
+      "signal_score": 90,
+      "evidence_name": "What happens if the customer delays this initiative?",
+      "dimension_code": "OQ08",
+      "dimension_name": "Timeline & Business Urgency",
+      "evidence_source": "Sales Rep Interview",
+      "evidence_object_id": "RM01_IND01_OQ08_Q03",
+      "validation_strength": "customer_confirmed",
+      "identification_assessment": "Business impact from delay."
+    },
+    {
+      "tags": [
+        {
+          "type": "dimension",
+          "label": "Timeline & Business Urgency"
+        },
+        {
+          "type": "positive",
+          "label": "POSITIVE MATCH"
+        }
+      ],
+      "user_answer": "Approval timing understood",
+      "signal_score": 90,
+      "evidence_name": "Is the customer's timeline aligned with internal approval and implementation readiness?",
+      "dimension_code": "OQ08",
+      "dimension_name": "Timeline & Business Urgency",
+      "evidence_source": "Sales Rep Interview",
+      "evidence_object_id": "RM01_IND01_OQ08_Q04",
+      "validation_strength": "customer_confirmed",
+      "identification_assessment": "Approval timing understood."
+    },
+    {
+      "tags": [
+        {
+          "type": "dimension",
+          "label": "Opportunity Advancement Evidence"
+        },
+        {
+          "type": "positive",
+          "label": "POSITIVE MATCH"
+        }
+      ],
+      "user_answer": "Technical validation",
+      "signal_score": 95,
+      "evidence_name": "What concrete actions has the customer completed during the evaluation process?",
+      "dimension_code": "OQ09",
+      "dimension_name": "Opportunity Advancement Evidence",
+      "evidence_source": "Sales Rep Interview",
+      "evidence_object_id": "RM01_IND01_OQ09_Q01",
+      "validation_strength": "customer_confirmed",
+      "identification_assessment": "Technical validation."
+    },
+    {
+      "tags": [
+        {
+          "type": "dimension",
+          "label": "Opportunity Advancement Evidence"
+        },
+        {
+          "type": "positive",
+          "label": "POSITIVE MATCH"
+        }
+      ],
+      "user_answer": "Defined next action",
+      "signal_score": 95,
+      "evidence_name": "What milestone must be achieved next to move the opportunity forward?",
+      "dimension_code": "OQ09",
+      "dimension_name": "Opportunity Advancement Evidence",
+      "evidence_source": "Sales Rep Interview",
+      "evidence_object_id": "RM01_IND01_OQ09_Q02",
+      "validation_strength": "customer_confirmed",
+      "identification_assessment": "Defined next action."
+    },
+    {
+      "tags": [
+        {
+          "type": "dimension",
+          "label": "Opportunity Advancement Evidence"
+        },
+        {
+          "type": "positive",
+          "label": "POSITIVE MATCH"
+        }
+      ],
+      "user_answer": "Requirements shared",
+      "signal_score": 95,
+      "evidence_name": "Has the customer shared internal information required to progress the opportunity?",
+      "dimension_code": "OQ09",
+      "dimension_name": "Opportunity Advancement Evidence",
+      "evidence_source": "Sales Rep Interview",
+      "evidence_object_id": "RM01_IND01_OQ09_Q03",
+      "validation_strength": "customer_confirmed",
+      "identification_assessment": "Requirements shared."
+    },
+    {
+      "tags": [
+        {
+          "type": "dimension",
+          "label": "Opportunity Advancement Evidence"
+        },
+        {
+          "type": "positive",
+          "label": "POSITIVE MATCH"
+        }
+      ],
+      "user_answer": "Executive attention",
+      "signal_score": 95,
+      "evidence_name": "What evidence shows that this opportunity is becoming a customer priority?",
+      "dimension_code": "OQ09",
+      "dimension_name": "Opportunity Advancement Evidence",
+      "evidence_source": "Sales Rep Interview",
+      "evidence_object_id": "RM01_IND01_OQ09_Q04",
+      "validation_strength": "customer_confirmed",
+      "identification_assessment": "Executive attention."
+    },
+    {
+      "tags": [
+        {
+          "type": "dimension",
+          "label": "Opportunity Qualification Risk Assessment"
+        },
+        {
+          "type": "positive",
+          "label": "POSITIVE MATCH"
+        }
+      ],
+      "user_answer": "Risks identified",
+      "signal_score": 90,
+      "evidence_name": "What are the biggest risks that could prevent this opportunity from closing?",
+      "dimension_code": "OQ10",
+      "dimension_name": "Opportunity Qualification Risk Assessment",
+      "evidence_source": "Sales Rep Interview",
+      "evidence_object_id": "RM01_IND01_OQ10_Q01",
+      "validation_strength": "customer_confirmed",
+      "identification_assessment": "Risks identified."
+    },
+    {
+      "tags": [
+        {
+          "type": "dimension",
+          "label": "Opportunity Qualification Risk Assessment"
+        },
+        {
+          "type": "positive",
+          "label": "POSITIVE MATCH"
+        }
+      ],
+      "user_answer": "Differentiation strategy exists",
+      "signal_score": 90,
+      "evidence_name": "Are there alternative solutions, competitors, or internal options being considered?",
+      "dimension_code": "OQ10",
+      "dimension_name": "Opportunity Qualification Risk Assessment",
+      "evidence_source": "Sales Rep Interview",
+      "evidence_object_id": "RM01_IND01_OQ10_Q02",
+      "validation_strength": "customer_confirmed",
+      "identification_assessment": "Differentiation strategy exists."
+    },
+    {
+      "tags": [
+        {
+          "type": "dimension",
+          "label": "Opportunity Qualification Risk Assessment"
+        },
+        {
+          "type": "positive",
+          "label": "POSITIVE MATCH"
+        }
+      ],
+      "user_answer": "Objections actively managed",
+      "signal_score": 90,
+      "evidence_name": "What customer concerns or objections have been identified?",
+      "dimension_code": "OQ10",
+      "dimension_name": "Opportunity Qualification Risk Assessment",
+      "evidence_source": "Sales Rep Interview",
+      "evidence_object_id": "RM01_IND01_OQ10_Q03",
+      "validation_strength": "customer_confirmed",
+      "identification_assessment": "Objections actively managed."
+    },
+    {
+      "tags": [
+        {
+          "type": "dimension",
+          "label": "Opportunity Qualification Risk Assessment"
+        },
+        {
+          "type": "positive",
+          "label": "POSITIVE MATCH"
+        }
+      ],
+      "user_answer": "Assumptions validated",
+      "signal_score": 90,
+      "evidence_name": "What assumptions must remain true for this opportunity to succeed?",
+      "dimension_code": "OQ10",
+      "dimension_name": "Opportunity Qualification Risk Assessment",
+      "evidence_source": "Sales Rep Interview",
+      "evidence_object_id": "RM01_IND01_OQ10_Q04",
+      "validation_strength": "customer_confirmed",
+      "identification_assessment": "Assumptions validated."
+    }
+  ],
+  "risk_analysis": [
+    {
+      "risks": [
+        "No critical risks identified."
+      ],
+      "category": "None",
+      "severity": "Low"
+    }
+  ],
+  "recommendations": [
+    {
+      "action": "Proceed to final contract negotiation and closure.",
+      "status": "Active",
+      "priority": "High",
+      "expected_impact": "Successful deal closure.",
+      "related_dimension": "OQ09"
+    }
+  ],
+  "explainability": {
+    "decision_summary": "Birty Technology has provided comprehensive evidence across all 10 qualification dimensions. The opportunity is well-defined, problem-driven, and supported by executive-level engagement. The customer has already built an ROI model and has a clear understanding of the buying process, making this a high-confidence, qualified opportunity."
+  },
+  "opportunity_promotion_recommendation": {
+    "decision": "QUALIFIED",
+    "should_promote": true,
+    "recommendation_rationale": "The opportunity meets all qualification criteria with high confidence and strong evidence across all dimensions."
+  }
+} 

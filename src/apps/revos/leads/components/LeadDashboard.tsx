@@ -57,6 +57,7 @@ export const LeadDashboard: React.FC<LeadDashboardProps> = ({
   const [oppResultsMap, setOppResultsMap] = useState<Record<string, any>>({});
 
   useEffect(() => {
+    let isMounted = true;
     const loadPromotions = async () => {
       try {
         const [
@@ -83,6 +84,7 @@ export const LeadDashboard: React.FC<LeadDashboardProps> = ({
             }
           })()
         ]);
+        if (!isMounted) return;
         setMqlPromotions(mqlPromos || []);
         setOppPromotions(oppPromos || []);
         if (revMap) setOppRevenueMap(revMap);
@@ -128,13 +130,22 @@ export const LeadDashboard: React.FC<LeadDashboardProps> = ({
           await Promise.all(
             allOppList.map(async (opp: SQLOpportunity) => {
               const oppId = opp.id;
+              const isVirtual = oppId.startsWith('virtual_opp_');
               try {
-                const [sqlRes, fData, sess, oppRes] = await Promise.all([
-                  SQLDataService.getSavedQualificationResult(oppId).catch(() => null),
-                  OpportunityDataService.getOpportunityFormData(oppId).catch(() => null),
-                  OpportunityDataService.getSessionByOpportunity(oppId).catch(() => null),
-                  OpportunityDataService.getSavedQualificationResult(oppId).catch(() => null)
-                ]);
+                let sess: any = null;
+                let sqlRes: any = null;
+                let fData: any = null;
+                let oppRes: any = null;
+
+                if (!isVirtual) {
+                  [sqlRes, fData, sess] = await Promise.all([
+                    SQLDataService.getSavedQualificationResult(oppId).catch(() => null),
+                    OpportunityDataService.getOpportunityFormData(oppId).catch(() => null),
+                    OpportunityDataService.getSessionByOpportunity(oppId).catch(() => null)
+                  ]);
+                  oppRes = await OpportunityDataService.getSavedQualificationResult(oppId, sess?.id).catch(() => null);
+                }
+
                 if (sqlRes) sqlResMap[oppId] = sqlRes;
                 if (fData) fRecords[oppId] = fData;
                 if (sess) sessMap[oppId] = sess;
@@ -153,6 +164,7 @@ export const LeadDashboard: React.FC<LeadDashboardProps> = ({
               } catch (e) {}
             })
           );
+          if (!isMounted) return;
           setSqlResultsMap(sqlResMap);
           setOppFormDataMap(fRecords);
           setOppSessionsMap(sessMap);
@@ -178,6 +190,7 @@ export const LeadDashboard: React.FC<LeadDashboardProps> = ({
     }
 
     return () => {
+      isMounted = false;
       if (typeof window !== 'undefined') {
         window.removeEventListener('lead_promoted_to_sql', handleUpdate);
         window.removeEventListener('sql_qualification_updated', handleUpdate);

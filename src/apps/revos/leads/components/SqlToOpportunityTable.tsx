@@ -200,22 +200,20 @@ export const SqlToOpportunityTable: React.FC<SqlToOpportunityTableProps> = ({
         await Promise.all(
           oppList.map(async (opp) => {
             const oppId = opp.id;
+            if (oppId.startsWith('virtual_opp_')) return;
             try {
               if (!fetchedSessions[oppId]) {
                 const sess = await OpportunityDataService.getSessionByOpportunity(oppId);
                 if (sess) fetchedSessions[oppId] = sess;
               }
 
-              // 1. Opportunity Form data (company_name, opportunity_name, owner, stage, revenue, etc.)
-              const fData = await OpportunityDataService.getOpportunityFormData(oppId);
+              const [fData, hData, qRes] = await Promise.all([
+                OpportunityDataService.getOpportunityFormData(oppId),
+                OpportunityDataService.getSqlHandoverData(oppId),
+                OpportunityDataService.getSavedQualificationResult(oppId, fetchedSessions[oppId]?.id)
+              ]);
               if (fData) formRecords[oppId] = fData;
-
-              // 2. Handover details (for static context Cat A / Business Segment)
-              const hData = await OpportunityDataService.getSqlHandoverData(oppId);
               if (hData) handovers[oppId] = hData;
-
-              // 3. Qualification result (score, status, readiness)
-              const qRes = await OpportunityDataService.getSavedQualificationResult(oppId, fetchedSessions[oppId]?.id);
               if (qRes) qResults[oppId] = qRes;
             } catch (err) {
               console.warn(`Error loading details for opp ${oppId}:`, err);

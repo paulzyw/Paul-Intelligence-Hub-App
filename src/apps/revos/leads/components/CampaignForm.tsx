@@ -34,13 +34,20 @@ export const CampaignForm: React.FC<CampaignFormProps> = ({ selectedCampaign, on
   const [icpExpanded, setIcpExpanded] = useState(false);
 
   useEffect(() => {
+    let mounted = true;
     const list = MQLConfigService.getIndustries();
     setIndustries(list);
     
     // Load GTM Campaigns
     MQLDataService.getGTMCampaigns().then(data => {
-      setGtmCampaigns(data || []);
+      if (mounted) {
+        setGtmCampaigns(data || []);
+      }
     });
+
+    return () => {
+      mounted = false;
+    };
   }, []);
 
   useEffect(() => {

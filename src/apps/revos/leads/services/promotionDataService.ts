@@ -12,6 +12,9 @@ export interface MQLSQLPromotion {
 let memoryPromotedLeadIds: string[] | null = null;
 let memorySqlOpportunityPromotedLeadIds: string[] | null = null;
 
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const isValidUuid = (id?: string | null): id is string => typeof id === 'string' && UUID_REGEX.test(id);
+
 export class PromotionDataService {
   /**
    * Synchronous cached getters for instant (0ms) render on component mount
@@ -97,7 +100,7 @@ export class PromotionDataService {
    * Check if a specific lead ID is promoted in Supabase.
    */
   static async isLeadPromoted(leadId: string): Promise<boolean> {
-    if (!leadId) return false;
+    if (!isValidUuid(leadId)) return false;
     try {
       const { data, error } = await supabase
         .from('mql_sql_promotions')
@@ -288,7 +291,7 @@ export class PromotionDataService {
 
     try {
       // 1. Try querying by lead_id
-      if (leadId) {
+      if (isValidUuid(leadId)) {
         const { data, error } = await supabase
           .from('sql_opportunity_promotions')
           .select('id, status')
@@ -305,7 +308,7 @@ export class PromotionDataService {
       }
 
       // 2. Try querying by opportunity_id
-      if (opportunityId) {
+      if (isValidUuid(opportunityId)) {
         const { data, error } = await supabase
           .from('sql_opportunity_promotions')
           .select('id, status, lead_id')
@@ -339,6 +342,10 @@ export class PromotionDataService {
   static async resolveLeadIdForOpportunity(opportunityId: string, fallbackLeadId?: string): Promise<string | null> {
     if (fallbackLeadId) return fallbackLeadId;
     if (!opportunityId) return null;
+    if (opportunityId.startsWith('virtual_opp_')) {
+      return opportunityId.replace('virtual_opp_', '') || null;
+    }
+    if (!isValidUuid(opportunityId)) return null;
 
     try {
       // 1. Check opportunities.mql_reference_id
@@ -453,6 +460,8 @@ export class PromotionDataService {
       return true;
     }
 
+    if (!isValidUuid(opportunityId)) return false;
+
     try {
       const { data, error } = await supabase
         .from('opportunity_promotions')
@@ -495,18 +504,20 @@ export class PromotionDataService {
   static async getOpportunityPromotion(opportunityId: string): Promise<any | null> {
     if (!opportunityId) return null;
 
-    try {
-      const { data, error } = await supabase
-        .from('opportunity_promotions')
-        .select('*')
-        .eq('opportunity_id', opportunityId)
-        .maybeSingle();
+    if (isValidUuid(opportunityId)) {
+      try {
+        const { data, error } = await supabase
+          .from('opportunity_promotions')
+          .select('*')
+          .eq('opportunity_id', opportunityId)
+          .maybeSingle();
 
-      if (!error && data) {
-        return data;
+        if (!error && data) {
+          return data;
+        }
+      } catch (err) {
+        console.warn('opportunity_promotions query:', err);
       }
-    } catch (err) {
-      console.warn('opportunity_promotions query:', err);
     }
 
     // Fallback to local storage

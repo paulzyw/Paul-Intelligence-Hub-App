@@ -1,6 +1,9 @@
 import { supabase } from '@/src/lib/supabase';
 import { SQLOpportunity, SQLAssessment, SQLEvidenceRecord, SQLDimensionResult, SQLRecommendation } from '../../types/sql';
 
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const isValidUuid = (id?: string | null): id is string => typeof id === 'string' && UUID_REGEX.test(id);
+
 export class SQLDataService {
   // Opportunity management
   static async getOpportunities() {
@@ -16,6 +19,7 @@ export class SQLDataService {
   }
 
   static async getOpportunityByMqlId(mqlId: string) {
+    if (!isValidUuid(mqlId)) return null;
     const { data, error } = await supabase
       .from('opportunities')
       .select('*')
@@ -30,6 +34,9 @@ export class SQLDataService {
   }
 
   static async getOpportunity(id: string) {
+    if (!isValidUuid(id)) {
+      throw new Error(`Invalid opportunity UUID: ${id}`);
+    }
     const { data, error } = await supabase
       .from('opportunities')
       .select('*')
@@ -110,6 +117,7 @@ export class SQLDataService {
   }
 
   static async getSavedQualificationResult(opportunityId: string) {
+    if (!isValidUuid(opportunityId)) return null;
     const assessment = await this.getAssessmentByOpportunity(opportunityId);
     if (!assessment) return null;
     
@@ -125,6 +133,7 @@ export class SQLDataService {
   }
 
   static async getAssessmentByOpportunity(opportunityId: string) {
+    if (!isValidUuid(opportunityId)) return null;
     const { data, error } = await supabase
       .from('sql_assessments')
       .select('*')
