@@ -370,7 +370,7 @@ export function Home() {
               initial={{ opacity: 0, y: 8 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.35, ease: "easeOut" }}
-              className="text-xs sm:text-sm font-bold tracking-[0.14em] sm:tracking-[0.2em] uppercase text-accent mb-3 sm:mb-6"
+              className="text-xs sm:text-sm font-bold tracking-[0.14em] sm:tracking-[0.2em] uppercase text-accent mb-5 sm:mb-7"
             >
               AI-Native Revenue Operating System
             </motion.div>
