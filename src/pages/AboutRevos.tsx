@@ -1,6 +1,7 @@
 import React, { useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'motion/react';
+import Threads from '../components/Threads';
 import { 
   ArrowRight, 
   Target, 
@@ -104,6 +105,18 @@ export function AboutRevos() {
         {/* Subtle background structural grid */}
         <div className="absolute inset-0 opacity-15 bg-[linear-gradient(to_right,#80808015_1px,transparent_1px),linear-gradient(to_bottom,#80808015_1px,transparent_1px)] bg-[size:32px_32px] pointer-events-none" />
         <div className="absolute inset-0 bg-gradient-to-t from-bg-hero-primary via-transparent to-transparent pointer-events-none" />
+
+              {/* Animated Background Element centered vertically behind the paragraph */}
+              <div className="absolute left-1/2 -translate-x-1/2 top-1/2 -translate-y-1/2 w-screen h-[500px] md:h-[600px] z-0 pointer-events-none overflow-hidden">
+                <Threads 
+                  amplitude={1.2}                // Controls wave wave movement height
+                  distance={0.1}                 // Adjusts spacing/spread between fiber lines
+                  enableMouseInteraction={true}  // Set to true so lines warp near cursor
+                />
+                {/* Subtle dark gradient overlay to ensure text contrast and legibility */}
+                {/*<div className="absolute inset-0 bg-gradient-to-b from-bg-primary/20 via-transparent to-bg-primary/40 pointer-events-none" />*/}
+              </div>
+
 
         <div className="max-w-5xl mx-auto relative z-10 text-center space-y-6 sm:space-y-8">
           {/* Eyebrow */}

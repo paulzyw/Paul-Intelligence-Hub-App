@@ -193,6 +193,10 @@ const renderMatrixIcon = (value: string) => {
 
 export function ProductOverviewRevos() {
   const [activeTab, setActiveTab] = useState<'differences' | 'comparisons'>('differences');
+  const [heroImgSrc, setHeroImgSrc] = useState<string>(() =>
+    `/images/hero_image_ai.webp?v=${import.meta.env.DEV ? Date.now() : '1'}`
+  );
+  const [heroImgHidden, setHeroImgHidden] = useState<boolean>(false);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const [isScrolled, setIsScrolled] = useState(false);
   const [scrollProgress, setScrollProgress] = useState(0);
@@ -286,19 +290,48 @@ export function ProductOverviewRevos() {
   return (
     <div className="bg-bg-primary min-h-screen selection:bg-accent selection:text-black">
       {/* SECTION 1: Hero Section */}
-      <section className="relative pt-32 pb-20 overflow-hidden">
+      <section className="relative z-20 bg-bg-hero-primary pt-32 pb-0">
+        {/* Background Layers clipped strictly to the Hero Section bounds */}
+        <div className="absolute inset-0 overflow-hidden pointer-events-none">
+          {/* Layer 0: Hero background image at the bottom */}
+          {!heroImgHidden && (
+            <img
+              src={heroImgSrc}
+              alt=""
+              aria-hidden="true"
+              loading="eager"
+              decoding="async"
+              onError={() => {
+                if (!heroImgSrc.startsWith('/public/images/')) {
+                  setHeroImgSrc(`/public/images/hero_image_ai.webp?v=${import.meta.env.DEV ? Date.now() : '1'}`);
+                } else {
+                  setHeroImgHidden(true);
+                }
+              }}
+              className="absolute inset-0 z-0 h-full w-full object-cover object-[70%_50%] lg:object-right pointer-events-none select-none"
+            />
+          )}
+
+          {/* Layer 1: bg-hero-primary gradient from left (100% at 0% -> 90% at 60% -> 0% at 100%) */}
+          <div
+            aria-hidden="true"
+            className="absolute inset-0 z-[1] pointer-events-none bg-[linear-gradient(to_right,var(--bg-hero-primary)_0%,color-mix(in_srgb,var(--bg-hero-primary)_85%,transparent)_40%,color-mix(in_srgb,var(--bg-hero-primary)_0%,transparent)_100%)]"
+          />
+        </div>
+
         <div className="mx-auto max-w-7xl px-6 lg:px-8 text-center relative z-10">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6 }}
+            className="relative z-30 text-left"
           >
             <h2 className="text-sm font-bold tracking-[0.2em] uppercase text-accent mb-4">
               Intelligence System
             </h2>
-            <h1 className="text-4xl md:text-7xl font-extrabold tracking-tight text-text-primary mb-6 max-w-4xl mx-auto leading-[1.1]">
+            <h1 className="text-4xl md:text-6xl font-extrabold tracking-tight text-text-hero-primary mb-6 max-w-3xl leading-[1.1]">
               AI-Native Revenue Intelligence for <br className="hidden md:block" /> 
-              <span className="text-transparent bg-clip-text bg-gradient-to-r from-text-primary via-accent to-text-primary bg-[length:200%_auto] animate-gradient">
+              <span className="text-transparent bg-clip-text bg-gradient-to-r from-text-hero-primary via-accent to-text-hero-primary bg-[length:200%_auto] animate-gradient">
                 Complex B2B Growth
               </span>
             </h1>
@@ -306,22 +339,22 @@ export function ProductOverviewRevos() {
             {/* Paragraph with background Threads animation positioned relative to it */}
             <div className="relative mb-10">
               {/* Animated Background Element centered vertically behind the paragraph */}
-              <div className="absolute left-1/2 -translate-x-1/2 top-1/2 -translate-y-1/2 w-screen h-[500px] md:h-[600px] z-0 pointer-events-none overflow-hidden">
+              {/*<div className="absolute left-1/2 -translate-x-1/2 top-1/2 -translate-y-1/2 w-screen h-[500px] md:h-[600px] z-0 pointer-events-none overflow-hidden">
                 <Threads 
                   amplitude={1.2}                // Controls wave wave movement height
                   distance={0.1}                 // Adjusts spacing/spread between fiber lines
                   enableMouseInteraction={true}  // Set to true so lines warp near cursor
-                />
+                />*/}
                 {/* Subtle dark gradient overlay to ensure text contrast and legibility */}
-                <div className="absolute inset-0 bg-gradient-to-b from-bg-primary/20 via-transparent to-bg-primary/40 pointer-events-none" />
-              </div>
+                {/*<div className="absolute inset-0 bg-gradient-to-b from-bg-primary/20 via-transparent to-bg-primary/40 pointer-events-none" />
+              </div>*/}
               
-              <p className="relative z-10 text-lg md:text-xl text-text-secondary max-w-2xl mx-auto leading-relaxed font-medium">
+              <p className="relative z-10 text-lg md:text-xl text-text-hero-secondary max-w-2xl leading-relaxed font-medium">
                 RevOS transforms go-to-market strategy, qualification intelligence, and enterprise opportunity execution into one adaptive intelligence system.
               </p>
             </div>
 
-            <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-start gap-4">
               <Link 
                 to="/product/revos" 
                 className="group relative px-8 py-4 bg-accent text-black font-bold rounded-full overflow-hidden transition-all hover:scale-105 active:scale-95"
@@ -333,23 +366,24 @@ export function ProductOverviewRevos() {
             </div>
           </motion.div>
 
-          {/* Intelligence Visual: The 7-Layer Stack Preview */}
-          <motion.div 
-            initial={{ opacity: 0, scale: 0.95 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ delay: 0.3, duration: 0.8 }}
-            className="mt-16 relative mx-auto max-w-6xl px-4 lg:px-0"
-          >
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 p-4 rounded-[1.2rem] border border-border bg-bg-surface/30 backdrop-blur-3xl ring-1 ring-white/10 shadow-2xl relative overflow-hidden">
+          {/* Intelligence Visual: The 7-Layer Stack Preview straddling the Hero/Challenges boundary */}
+          <div className="relative z-20 -mt-32 sm:-mt-24 md:-mt-12 translate-y-1/2 pointer-events-none">
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ delay: 0.3, duration: 0.8 }}
+              className="pointer-events-auto relative mx-auto max-w-6xl px-4 lg:px-0"
+            >
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 p-4 rounded-[1.2rem] border border-border bg-bg-hero-surface/30 backdrop-blur-3xl ring-1 ring-white/10 shadow-2xl relative overflow-hidden">
               <div className="absolute inset-0 bg-gradient-to-tr from-accent/5 via-transparent to-blue-500/5 pointer-events-none" />
               
               {/* Layer 1-2: Strategic Intelligence */}
-              <div className="p-6 rounded-2xl bg-bg-primary/50 border border-border/50 hover:border-accent/40 transition-all group backdrop-blur-md">
+              <div className="p-6 rounded-2xl bg-bg-hero-primary/50 border border-border/50 hover:border-accent/40 transition-all group backdrop-blur-md">
                 <div className="flex items-center gap-2 mb-4 text-accent">
                   <Brain className="h-4 w-4" />
                   <span className="text-[10px] font-bold tracking-widest uppercase">Layer 01-02</span>
                 </div>
-                <h4 className="text-sm font-bold text-text-primary mb-2">Cognitive Structuring</h4>
+                <h4 className="text-sm font-bold text-text-hero-primary mb-2">Cognitive Structuring</h4>
                 <div className="space-y-1">
                   <div className="h-1 w-full bg-border rounded-full overflow-hidden">
                     <motion.div 
@@ -358,17 +392,17 @@ export function ProductOverviewRevos() {
                       className="h-full w-1/2 bg-accent/40" 
                     />
                   </div>
-                  <p className="text-[10px] text-text-secondary leading-tight italic">Normalizing raw GTM inputs into structured logic objects...</p>
+                  <p className="text-[10px] text-text-hero-secondary leading-tight italic">Normalizing raw GTM inputs into structured logic objects...</p>
                 </div>
               </div>
 
               {/* Layer 3: Execution Intelligence */}
-              <div className="p-6 rounded-2xl bg-bg-primary/50 border border-border/50 hover:border-accent/40 transition-all group backdrop-blur-md">
+              <div className="p-6 rounded-2xl bg-bg-hero-primary/50 border border-border/50 hover:border-accent/40 transition-all group backdrop-blur-md">
                 <div className="flex items-center gap-2 mb-4 text-blue-400">
                   <Workflow className="h-4 w-4" />
                   <span className="text-[10px] font-bold tracking-widest uppercase">Layer 03</span>
                 </div>
-                <h4 className="text-sm font-bold text-text-primary mb-2">Live Execution</h4>
+                <h4 className="text-sm font-bold text-text-hero-primary mb-2">Live Execution</h4>
                 <div className="flex gap-1 items-end h-6">
                   {[40, 70, 45, 90, 60].map((h, i) => (
                     <motion.div 
@@ -380,16 +414,16 @@ export function ProductOverviewRevos() {
                     />
                   ))}
                 </div>
-                <p className="text-[10px] text-text-secondary leading-tight mt-2 italic">Tracking commercial momentum across unified workstreams.</p>
+                <p className="text-[10px] text-text-hero-secondary leading-tight mt-2 italic">Tracking commercial momentum across unified workstreams.</p>
               </div>
 
               {/* Layer 4-5: Pattern Recognition */}
-              <div className="p-6 rounded-2xl bg-bg-primary/50 border border-border/50 hover:border-accent/40 transition-all group backdrop-blur-md">
+              <div className="p-6 rounded-2xl bg-bg-hero-primary/50 border border-border/50 hover:border-accent/40 transition-all group backdrop-blur-md">
                 <div className="flex items-center gap-2 mb-4 text-emerald-400">
                   <Network className="h-4 w-4" />
                   <span className="text-[10px] font-bold tracking-widest uppercase">Layer 04-05</span>
                 </div>
-                <h4 className="text-sm font-bold text-text-primary mb-2">Pattern Attribution</h4>
+                <h4 className="text-sm font-bold text-text-hero-primary mb-2">Pattern Attribution</h4>
                 <div className="relative h-6 flex items-center justify-center">
                   <div className="absolute inset-x-0 h-px bg-emerald-500/20" />
                   <div className="flex justify-between w-full relative">
@@ -398,21 +432,21 @@ export function ProductOverviewRevos() {
                     ))}
                   </div>
                 </div>
-                <p className="text-[10px] text-text-secondary leading-tight mt-2 italic">Connecting business outcomes to strategic success patterns.</p>
+                <p className="text-[10px] text-text-hero-secondary leading-tight mt-2 italic">Connecting business outcomes to strategic success patterns.</p>
               </div>
 
               {/* Layer 6-7: Adaptive Recommendations */}
-              <div className="p-6 rounded-2xl bg-bg-primary/50 border border-border/50 hover:border-accent/40 transition-all group backdrop-blur-md">
+              <div className="p-6 rounded-2xl bg-bg-hero-primary/50 border border-border/50 hover:border-accent/40 transition-all group backdrop-blur-md">
                 <div className="flex items-center gap-2 mb-4 text-purple-400">
                   <Zap className="h-4 w-4" />
                   <span className="text-[10px] font-bold tracking-widest uppercase">Layer 06-07</span>
                 </div>
-                <h4 className="text-sm font-bold text-text-primary mb-2">Strategic Feedback</h4>
+                <h4 className="text-sm font-bold text-text-hero-primary mb-2">Strategic Feedback</h4>
                 <div className="flex items-center gap-2">
                   <CheckCircle2 className="h-3 w-3 text-accent" />
                   <span className="text-[9px] font-medium text-accent uppercase tracking-tighter">Optimization Ready</span>
                 </div>
-                <p className="text-[10px] text-text-secondary leading-tight mt-2 italic">Proactive intelligence delivery for commercial decision makers.</p>
+                <p className="text-[10px] text-text-hero-secondary leading-tight mt-2 italic">Proactive intelligence delivery for commercial decision makers.</p>
               </div>
             </div>
 
@@ -431,12 +465,13 @@ export function ProductOverviewRevos() {
                 <span className="text-[10px] tracking-[0.2em] font-bold uppercase">Pattern Node: Optimized</span>
               </div>
             </div>
-          </motion.div>
+            </motion.div>
+          </div>
         </div>
       </section>
 
       {/* SECTION 2: Challenges */}
-      <section className="py-24 bg-bg-surface/30 border-y border-border">
+      <section className="relative z-10 pt-96 sm:pt-80 md:pt-64 lg:pt-52 pb-24 bg-bg-surface/30 border-y border-border">
         <div className="mx-auto max-w-7xl px-6 lg:px-8">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
             <div>
