@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useMemo } from 'react';
-import { Link, useSearchParams } from 'react-router-dom';
+import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import {
   ArrowLeft,
   Building2,
@@ -8,24 +8,27 @@ import {
   DollarSign,
   User,
   Layers,
-  ShieldCheck,
   AlertCircle,
   RefreshCw,
   ChevronDown,
   ChevronUp,
   CheckCircle2,
   GitBranch,
-  Target
+  Target,
+  X
 } from 'lucide-react';
 import {
   PipelineOpportunity,
   PipelineInheritance,
-  PipelineAssessment
+  PipelineAssessment,
+  PipelineOpportunityHandoverDetail
 } from '../../types/pipeline';
 import { PipelineDataService } from '../services/PipelineDataService';
 import { PipelineConfigService, ActiveFactorResolutionResult } from '../services/PipelineConfigService';
 import { PipelineAssessmentForm } from './PipelineAssessmentForm';
 import { PipelineIntelligenceWorkspace } from './PipelineIntelligenceWorkspace';
+import { OpportunityHandoverDetail } from './OpportunityHandoverDetail';
+import { PipelineForm } from './PipelineForm';
 
 export interface OpportunityToPipelineProps {
   opportunityIdOverride?: string;
@@ -38,6 +41,7 @@ export const OpportunityToPipeline: React.FC<OpportunityToPipelineProps> = ({
   leadIdOverride,
   onAssessmentReady
 }) => {
+  const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const opportunityId = opportunityIdOverride || searchParams.get('opportunityId') || '';
   const leadId = leadIdOverride || searchParams.get('leadId') || undefined;
@@ -47,6 +51,9 @@ export const OpportunityToPipeline: React.FC<OpportunityToPipelineProps> = ({
   const [error, setError] = useState<string | null>(null);
   const [pipelineOpp, setPipelineOpp] = useState<PipelineOpportunity | null>(null);
   const [inheritance, setInheritance] = useState<PipelineInheritance | null>(null);
+  const [handoverDetail, setHandoverDetail] = useState<PipelineOpportunityHandoverDetail | null>(null);
+  const [syncingHandover, setSyncingHandover] = useState(false);
+  const [revalidatingHandover, setRevalidatingHandover] = useState(false);
   const [isNewRecord, setIsNewRecord] = useState(false);
 
   const [swotResolution, setSwotResolution] = useState<ActiveFactorResolutionResult | null>(null);
@@ -54,8 +61,46 @@ export const OpportunityToPipeline: React.FC<OpportunityToPipelineProps> = ({
   const [lastRunSummary, setLastRunSummary] = useState<any>(null);
   const [showWorkspace, setShowWorkspace] = useState(false);
 
-  const [inheritanceExpanded, setInheritanceExpanded] = useState(true);
+  const [swotExpanded, setSwotExpanded] = useState(false);
   const [swotLayerTab, setSwotLayerTab] = useState<'all' | 'universal_baseline' | 'revenue_motion_override' | 'industry_override'>('all');
+  const [assessmentFormOpen, setAssessmentFormOpen] = useState(false);
+  const assessmentFormRef = useRef<HTMLDivElement>(null);
+  const rootContainerRef = useRef<HTMLDivElement>(null);
+  const prevLoadingRef = useRef<boolean>(true);
+
+  const scrollToPageTop = useCallback(() => {
+    if (typeof window === 'undefined') return;
+    window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
+    document.documentElement.scrollTop = 0;
+    document.body.scrollTop = 0;
+
+    const scrollMain = rootContainerRef.current?.closest('main') || document.querySelector('main');
+    if (scrollMain) {
+      scrollMain.scrollTop = 0;
+    }
+
+    let parent: HTMLElement | null = rootContainerRef.current?.parentElement || null;
+    while (parent) {
+      if (parent.scrollTop > 0) {
+        parent.scrollTop = 0;
+      }
+      parent = parent.parentElement;
+    }
+  }, []);
+
+  useEffect(() => {
+    setAssessmentFormOpen(false);
+    scrollToPageTop();
+  }, [opportunityId, leadId, scrollToPageTop]);
+
+  useEffect(() => {
+    if (prevLoadingRef.current && !loading) {
+      const raf = requestAnimationFrame(() => scrollToPageTop());
+      prevLoadingRef.current = loading;
+      return () => cancelAnimationFrame(raf);
+    }
+    prevLoadingRef.current = loading;
+  }, [loading, scrollToPageTop]);
 
   useEffect(() => {
     let mounted = true;
@@ -86,9 +131,23 @@ export const OpportunityToPipeline: React.FC<OpportunityToPipelineProps> = ({
         );
         setSwotResolution(swot);
 
-        // 3. Check for existing completed Pipeline Assessment
-        const latest = await PipelineDataService.getLatestAssessment(opportunity.pipeline_id);
+        // 3. Hydrate Dedicated & Isolated Opportunity Handover Detail (PADIF v1.0) & Existing Evidence Check
+        const [handoverRes, latest, existingEvidence] = await Promise.all([
+          PipelineDataService.getOrSyncOpportunityHandoverDetail(opportunity, inh).catch((e) => {
+            console.warn('Opportunity Handover hydration warning:', e);
+            return null;
+          }),
+          PipelineDataService.getLatestAssessment(opportunity.pipeline_id),
+          PipelineDataService.listEvidence(opportunity.pipeline_id).catch(() => [])
+        ]);
+
         if (!mounted) return;
+        if (handoverRes) setHandoverDetail(handoverRes);
+
+        // Auto-open Pipeline Assessment Form if any saved evidence exists in Supabase under this pipeline
+        setAssessmentFormOpen(Array.isArray(existingEvidence) && existingEvidence.length > 0);
+
+        // 4. Check for existing completed Pipeline Assessment
         if (latest?.assessment) {
           setLatestAssessment(latest.assessment);
           setShowWorkspace(true);
@@ -113,16 +172,41 @@ export const OpportunityToPipeline: React.FC<OpportunityToPipelineProps> = ({
     };
   }, [opportunityId, leadId]);
 
+  const handleSyncHandover = async () => {
+    if (!pipelineOpp) return;
+    setSyncingHandover(true);
+    try {
+      const updated = await PipelineDataService.getOrSyncOpportunityHandoverDetail(
+        pipelineOpp,
+        inheritance,
+        true
+      );
+      setHandoverDetail(updated);
+    } finally {
+      setSyncingHandover(false);
+    }
+  };
+
+  const handleRevalidateHandover = async () => {
+    if (!pipelineOpp) return;
+    setRevalidatingHandover(true);
+    try {
+      const updated = await PipelineDataService.revalidateOpportunityHandover(
+        pipelineOpp.pipeline_id
+      );
+      if (updated) {
+        setHandoverDetail(updated);
+      }
+    } finally {
+      setRevalidatingHandover(false);
+    }
+  };
+
   const displayedSwotFactors = useMemo(() => {
     if (!swotResolution) return [];
     if (swotLayerTab === 'all') return swotResolution.active16Factors;
     return swotResolution.active16Factors.filter((f) => f.layer === swotLayerTab);
   }, [swotResolution, swotLayerTab]);
-
-  const inheritedOq = (inheritance?.inherited_payload as any)?.opportunity_qualification || {};
-  const inheritedLead = (inheritance?.inherited_payload as any)?.upstream_lead || {};
-  const inheritedNotes = (inheritance?.inherited_payload as any)?.handover_notes || '';
-  const inheritedRisks: any[] = Array.isArray(inheritedOq.risks) ? inheritedOq.risks : [];
 
   if (!opportunityId && !leadId) {
     return (
@@ -154,7 +238,7 @@ export const OpportunityToPipeline: React.FC<OpportunityToPipelineProps> = ({
 
   if (loading) {
     return (
-      <div className="p-10 flex flex-col items-center justify-center min-h-[55vh] space-y-3">
+      <div ref={rootContainerRef} className="p-10 flex flex-col items-center justify-center min-h-[55vh] space-y-3">
         <RefreshCw className="h-7 w-7 text-accent animate-spin" />
         <p className="text-xs font-mono text-text-secondary uppercase tracking-wider">
           Hydrating PADIF v1.0 Upstream Inheritance & SWOT Matrix...
@@ -213,18 +297,10 @@ export const OpportunityToPipeline: React.FC<OpportunityToPipelineProps> = ({
   }
 
   return (
-    <div className="p-4 sm:p-6 md:p-8 space-y-6 max-w-7xl mx-auto">
+    <div ref={rootContainerRef} className="p-4 sm:p-6 md:p-8 space-y-6 max-w-7xl mx-auto">
       {/* Top Breadcrumb & Isolated Route Context */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-border/70">
         <div className="flex items-center gap-3 flex-wrap">
-          <Link
-            to="/product/revos/leads"
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-bg-surface border border-border text-xs font-medium text-text-secondary hover:text-text-primary hover:border-accent/40 transition-colors whitespace-nowrap"
-          >
-            <ArrowLeft className="h-3.5 w-3.5" />
-            <span>Lead Canvas</span>
-          </Link>
-
           <div className="flex items-center gap-2 text-xs text-text-secondary">
             <Link to="/product/revos/pipeline" className="hover:text-text-primary transition-colors">
               Pipeline Assessment
@@ -244,65 +320,76 @@ export const OpportunityToPipeline: React.FC<OpportunityToPipelineProps> = ({
       </div>
 
       {/* Commercial Opportunity Identity Strip */}
-      <div className="bg-bg-surface border border-border rounded-2xl p-5 sm:p-6 space-y-5">
-        <div className="flex flex-col lg:flex-row lg:items-start justify-between gap-4">
-          <div className="space-y-1">
-            <div className="flex items-center gap-2 text-xs text-text-secondary">
-              <Building2 className="h-3.5 w-3.5 text-accent" />
-              <span className="font-semibold text-text-primary">{pipelineOpp.customer_name}</span>
-              <span aria-hidden="true">·</span>
-              <span className="font-mono">{pipelineOpp.pipeline_id}</span>
+      <div className="bg-bg-surface border border-border rounded-2xl p-5 sm:p-6 space-y-4">
+        <div className="flex items-start justify-between gap-4">
+          <div className="flex-1 min-w-0 flex flex-col lg:flex-row lg:items-start justify-between gap-4">
+            <div className="space-y-1 min-w-0">
+              <div className="flex items-center gap-2 text-xs text-text-secondary">
+                <Building2 className="h-3.5 w-3.5 text-accent shrink-0" />
+                <span className="font-semibold text-text-primary">{pipelineOpp.customer_name}</span>
+              </div>
+              <h1 className="text-2xl font-bold text-text-primary tracking-tight">
+                {pipelineOpp.opportunity_name}
+              </h1>
             </div>
-            <h1 className="text-2xl font-bold text-text-primary tracking-tight">
-              {pipelineOpp.opportunity_name}
-            </h1>
-            <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-text-secondary pt-1">
-              <span>{swotResolution?.industryName || pipelineOpp.industry_name}</span>
-              <span aria-hidden="true">·</span>
-              <span>{swotResolution?.revenueMotionName || pipelineOpp.revenue_motion_name}</span>
-              <span aria-hidden="true">·</span>
-              <span>Stage: {pipelineOpp.sales_stage}</span>
+
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 lg:gap-6 bg-bg-primary p-4 rounded-xl border border-border/80 shrink-0">
+              <div>
+                <div className="text-[11px] text-text-secondary flex items-center gap-1">
+                  <DollarSign className="h-3 w-3" />
+                  Deal Value
+                </div>
+                <div className="text-sm font-bold font-mono tabular-nums text-text-primary mt-0.5">
+                  {formattedDealValue}
+                </div>
+              </div>
+              <div>
+                <div className="text-[11px] text-text-secondary flex items-center gap-1">
+                  <User className="h-3 w-3" />
+                  Owner
+                </div>
+                <div className="text-sm font-semibold text-text-primary mt-0.5 truncate max-w-[140px]">
+                  {pipelineOpp.opportunity_owner}
+                </div>
+              </div>
+              <div>
+                <div className="text-[11px] text-text-secondary flex items-center gap-1">
+                  <Calendar className="h-3 w-3" />
+                  Target Close
+                </div>
+                <div className="text-sm font-mono tabular-nums text-text-primary mt-0.5">
+                  {pipelineOpp.expected_close_date || 'Not Set'}
+                </div>
+              </div>
+              <div>
+                <div className="text-[11px] text-text-secondary flex items-center gap-1">
+                  <Briefcase className="h-3 w-3" />
+                  Pipeline Stage
+                </div>
+                <div className="text-sm font-semibold text-accent mt-0.5 truncate max-w-[140px]">
+                  {pipelineOpp.pipeline_stage}
+                </div>
+              </div>
             </div>
           </div>
 
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 lg:gap-6 bg-bg-primary p-4 rounded-xl border border-border/80 shrink-0">
-            <div>
-              <div className="text-[11px] text-text-secondary flex items-center gap-1">
-                <DollarSign className="h-3 w-3" />
-                Deal Value
-              </div>
-              <div className="text-sm font-bold font-mono tabular-nums text-text-primary mt-0.5">
-                {formattedDealValue}
-              </div>
-            </div>
-            <div>
-              <div className="text-[11px] text-text-secondary flex items-center gap-1">
-                <User className="h-3 w-3" />
-                Owner
-              </div>
-              <div className="text-sm font-semibold text-text-primary mt-0.5 truncate max-w-[140px]">
-                {pipelineOpp.opportunity_owner}
-              </div>
-            </div>
-            <div>
-              <div className="text-[11px] text-text-secondary flex items-center gap-1">
-                <Calendar className="h-3 w-3" />
-                Target Close
-              </div>
-              <div className="text-sm font-mono tabular-nums text-text-primary mt-0.5">
-                {pipelineOpp.expected_close_date || 'Not Set'}
-              </div>
-            </div>
-            <div>
-              <div className="text-[11px] text-text-secondary flex items-center gap-1">
-                <Briefcase className="h-3 w-3" />
-                Pipeline Stage
-              </div>
-              <div className="text-sm font-semibold text-accent mt-0.5 truncate max-w-[140px]">
-                {pipelineOpp.pipeline_stage}
-              </div>
-            </div>
-          </div>
+          <button
+            type="button"
+            onClick={() => navigate('/product/revos/pipeline')}
+            className="p-2 rounded-xl bg-bg-primary border border-border text-text-secondary hover:text-text-primary hover:border-accent/50 transition-colors cursor-pointer shrink-0"
+            title="Close and return to Pipeline Canvas"
+            aria-label="Close and return to Pipeline Canvas"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-text-secondary">
+          <span>{swotResolution?.industryName || pipelineOpp.industry_name}</span>
+          <span aria-hidden="true">·</span>
+          <span>{swotResolution?.revenueMotionName || pipelineOpp.revenue_motion_name}</span>
+          <span aria-hidden="true">·</span>
+          <span>Opportunity Stage: {pipelineOpp.sales_stage}</span>
         </div>
 
         {/* Latest Assessment Outcome Banner (if previously evaluated or just executed) */}
@@ -340,151 +427,198 @@ export const OpportunityToPipeline: React.FC<OpportunityToPipelineProps> = ({
         )}
       </div>
 
-      {/* PADIF v1.0 Upstream Inheritance & 16 Active SWOT Matrix */}
-      <div className="bg-bg-surface border border-border rounded-2xl overflow-hidden">
-        <button
-          type="button"
-          onClick={() => setInheritanceExpanded((prev) => !prev)}
-          className="w-full px-5 sm:px-6 py-4 flex items-center justify-between gap-4 text-left hover:bg-bg-primary/40 transition-colors cursor-pointer"
-        >
-          <div className="flex items-center gap-3">
-            <GitBranch className="h-4 w-4 text-accent shrink-0" />
-            <div>
-              <h2 className="text-sm font-bold text-text-primary">
-                PADIF v1.0 Upstream Inheritance & 16 Active SWOT Factors
-              </h2>
-              <p className="text-xs text-text-secondary">
-                Inherited Opportunity Qualification baseline ({inheritance?.qualification_decision || 'QUALIFIED'} ·{' '}
-                {inheritance?.qualification_score ?? 82}/100) + Canonical {swotResolution?.canonicalRevenueMotionId} &{' '}
-                {swotResolution?.canonicalIndustryId}
-              </p>
-            </div>
-          </div>
-          {inheritanceExpanded ? (
-            <ChevronUp className="h-4 w-4 text-text-secondary shrink-0" />
-          ) : (
-            <ChevronDown className="h-4 w-4 text-text-secondary shrink-0" />
-          )}
-        </button>
+      {/* Opportunity Handover Detail (PADIF v1.0 — Dedicated & Isolated Persistence) */}
+      <OpportunityHandoverDetail
+        opportunity={pipelineOpp}
+        inheritance={inheritance}
+        handoverDetail={handoverDetail}
+        syncing={syncingHandover}
+        revalidating={revalidatingHandover}
+        onSyncUpstream={handleSyncHandover}
+        onRevalidateHandover={handleRevalidateHandover}
+      />
 
-        {inheritanceExpanded && (
-          <div className="px-5 sm:px-6 pb-6 pt-2 border-t border-border/60 space-y-5">
-            {/* Upstream PADIF Summary Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="p-4 bg-bg-primary rounded-xl border border-border/70 space-y-1.5">
-                <div className="text-xs font-semibold text-text-primary flex items-center gap-1.5">
-                  <ShieldCheck className="h-3.5 w-3.5 text-accent" />
-                  Qualification Continuity
-                </div>
-                <div className="text-xs text-text-secondary space-y-1 font-mono tabular-nums">
-                  <div>Decision: {inheritance?.qualification_decision || 'QUALIFIED'}</div>
-                  <div>QIP Score: {inheritance?.qualification_score ?? '--'}/100</div>
-                  <div>Confidence: {inheritance?.qualification_confidence ?? '--'}%</div>
-                </div>
-              </div>
-
-              <div className="p-4 bg-bg-primary rounded-xl border border-border/70 space-y-1.5">
-                <div className="text-xs font-semibold text-text-primary flex items-center gap-1.5">
-                  <Layers className="h-3.5 w-3.5 text-accent" />
-                  Canonical Classification
-                </div>
-                <div className="text-xs text-text-secondary space-y-1">
-                  <div className="font-mono truncate">{swotResolution?.canonicalRevenueMotionId}</div>
-                  <div className="font-mono truncate">{swotResolution?.canonicalIndustryId}</div>
-                  <div>
-                    Lead Ref:{' '}
-                    <span className="font-mono">{inheritedLead.contact_name || pipelineOpp.lead_id || 'Direct'}</span>
-                  </div>
-                </div>
-              </div>
-
-              <div className="p-4 bg-bg-primary rounded-xl border border-border/70 space-y-1.5">
-                <div className="text-xs font-semibold text-text-primary">Upstream Handover & Risks</div>
-                <p className="text-xs text-text-secondary leading-relaxed line-clamp-3">
-                  {inheritedNotes ||
-                    inheritedOq.explanation ||
-                    (inheritedRisks.length > 0
-                      ? `${inheritedRisks.length} upstream qualification risk(s) carried into Pipeline Assessment context.`
-                      : 'Validated Opportunity Qualification context inherited under PADIF v1.0.')}
+      {/* Active 16 SWOT Factor Matrix (8 Universal + 4 Motion + 4 Industry) */}
+      {swotResolution && (
+        <div className="bg-bg-surface border border-border rounded-2xl">
+          <button
+            type="button"
+            onClick={() => setSwotExpanded((prev) => !prev)}
+            className={`w-full px-5 sm:px-6 py-4 flex items-center justify-between gap-4 text-left hover:bg-bg-primary/40 transition-colors cursor-pointer ${
+              swotExpanded ? 'rounded-t-2xl' : 'rounded-2xl'
+            }`}
+          >
+            <div className="flex items-center gap-3">
+              <GitBranch className="h-4 w-4 text-accent shrink-0" />
+              <div>
+                <h2 className="text-sm font-bold text-text-primary">
+                  SWOT Factor Matrix ({swotResolution.universalFactors.length} Universal +{' '}
+                  {swotResolution.revenueMotionFactors.length} Motion +{' '}
+                  {swotResolution.industryFactors.length} Industry)
+                </h2>
+                <p className="text-xs text-text-secondary">
+                  Canonical {swotResolution.canonicalRevenueMotionId} &amp; {swotResolution.canonicalIndustryId}
                 </p>
               </div>
             </div>
+            {swotExpanded ? (
+              <ChevronUp className="h-4 w-4 text-text-secondary shrink-0" />
+            ) : (
+              <ChevronDown className="h-4 w-4 text-text-secondary shrink-0" />
+            )}
+          </button>
 
-            {/* 16 Active SWOT Factors Layer Selector & Grid */}
-            {swotResolution && (
-              <div className="space-y-3">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                  <div className="text-xs font-semibold text-text-primary">
-                    Active 16 SWOT Factor Matrix ({swotResolution.universalFactors.length} Universal +{' '}
-                    {swotResolution.revenueMotionFactors.length} Motion +{' '}
-                    {swotResolution.industryFactors.length} Industry)
-                  </div>
-                  <div className="flex items-center gap-1 p-1 bg-bg-primary border border-border rounded-lg self-start sm:self-auto">
-                    {[
-                      { key: 'all', label: `All (${swotResolution.active16Factors.length})` },
-                      { key: 'universal_baseline', label: 'Universal (8)' },
-                      { key: 'revenue_motion_override', label: 'Motion (4)' },
-                      { key: 'industry_override', label: 'Industry (4)' }
-                    ].map((tab) => (
-                      <button
-                        key={tab.key}
-                        type="button"
-                        onClick={() => setSwotLayerTab(tab.key as any)}
-                        className={`px-2.5 py-1 text-[11px] font-medium rounded-md transition-colors whitespace-nowrap cursor-pointer ${
-                          swotLayerTab === tab.key
-                            ? 'bg-accent text-black font-semibold'
-                            : 'text-text-secondary hover:text-text-primary'
-                        }`}
-                      >
-                        {tab.label}
-                      </button>
-                    ))}
-                  </div>
+          {swotExpanded && (
+            <div className="px-5 sm:px-6 pb-6 pt-2 border-t border-border/60 space-y-3">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                <div className="text-xs font-semibold text-text-primary">
+                  Active 16 SWOT Factor Matrix ({swotResolution.universalFactors.length} Universal +{' '}
+                  {swotResolution.revenueMotionFactors.length} Motion +{' '}
+                  {swotResolution.industryFactors.length} Industry)
                 </div>
+                <div className="flex items-center gap-1 p-1 bg-bg-primary border border-border rounded-lg self-start sm:self-auto">
+                  {[
+                    { key: 'all', label: `All (${swotResolution.active16Factors.length})` },
+                    { key: 'universal_baseline', label: 'Universal (8)' },
+                    { key: 'revenue_motion_override', label: 'Motion (4)' },
+                    { key: 'industry_override', label: 'Industry (4)' }
+                  ].map((tab) => (
+                    <button
+                      key={tab.key}
+                      type="button"
+                      onClick={() => setSwotLayerTab(tab.key as any)}
+                      className={`px-2.5 py-1 text-[11px] font-medium rounded-md transition-colors whitespace-nowrap cursor-pointer ${
+                        swotLayerTab === tab.key
+                          ? 'bg-accent text-black font-semibold'
+                          : 'text-text-secondary hover:text-text-primary'
+                      }`}
+                    >
+                      {tab.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-                  {displayedSwotFactors.map((factor) => {
-                    const clsColor =
-                      factor.factor_classification === 'strength'
-                        ? 'text-emerald-400'
-                        : factor.factor_classification === 'weakness'
-                          ? 'text-amber-400'
-                          : factor.factor_classification === 'opportunity'
-                            ? 'text-sky-400'
-                            : 'text-red-400';
-                    return (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                {displayedSwotFactors.map((factor, idx) => {
+                  const clsColor =
+                    factor.factor_classification === 'strength'
+                      ? 'text-emerald-400'
+                      : factor.factor_classification === 'weakness'
+                        ? 'text-amber-400'
+                        : factor.factor_classification === 'opportunity'
+                          ? 'text-sky-400'
+                          : 'text-red-400';
+
+                  const smAlign = idx % 2 === 0 ? 'sm:left-0 sm:right-auto' : 'sm:right-0 sm:left-auto';
+                  const lgAlign =
+                    idx % 4 === 0
+                      ? 'lg:left-0 lg:right-auto lg:translate-x-0'
+                      : idx % 4 === 3
+                        ? 'lg:right-0 lg:left-auto lg:translate-x-0'
+                        : 'lg:left-1/2 lg:right-auto lg:-translate-x-1/2';
+
+                  return (
+                    <div
+                      key={factor.factor_type_id}
+                      className="relative group p-3 bg-bg-primary border border-border/70 rounded-xl space-y-1 hover:border-accent/40 transition-colors"
+                    >
+                      <div className="flex items-center justify-between gap-2 text-[10px] font-mono">
+                        <span className={`uppercase font-bold ${clsColor}`}>
+                          {factor.factor_classification}
+                        </span>
+                        <span className="text-text-secondary truncate">{factor.factor_type_id}</span>
+                      </div>
+                      <div className="text-xs font-semibold text-text-primary leading-snug line-clamp-1">
+                        {factor.factor_name}
+                      </div>
+                      <p className="text-[11px] text-text-secondary leading-relaxed line-clamp-2">
+                        {factor.factor_description}
+                      </p>
+
+                      {/* Hover Tooltip showing full untruncated factor card text */}
                       <div
-                        key={factor.factor_type_id}
-                        className="p-3 bg-bg-primary border border-border/70 rounded-xl space-y-1"
+                        role="tooltip"
+                        className={`pointer-events-none absolute bottom-full mb-2 left-0 right-0 sm:w-80 ${smAlign} ${lgAlign} p-3.5 bg-bg-surface border border-border rounded-xl shadow-2xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-150 z-30 space-y-1.5`}
                       >
                         <div className="flex items-center justify-between gap-2 text-[10px] font-mono">
                           <span className={`uppercase font-bold ${clsColor}`}>
                             {factor.factor_classification}
                           </span>
-                          <span className="text-text-secondary truncate">{factor.factor_type_id}</span>
+                          <span className="text-text-secondary break-all text-right">
+                            {factor.factor_type_id}
+                          </span>
                         </div>
-                        <div className="text-xs font-semibold text-text-primary leading-snug line-clamp-1">
+                        <div className="text-xs font-semibold text-text-primary leading-snug">
                           {factor.factor_name}
                         </div>
-                        <p className="text-[11px] text-text-secondary leading-relaxed line-clamp-2">
+                        <p className="text-[11px] text-text-secondary leading-relaxed">
                           {factor.factor_description}
                         </p>
                       </div>
-                    );
-                  })}
-                </div>
+                    </div>
+                  );
+                })}
               </div>
-            )}
-          </div>
-        )}
-      </div>
+            </div>
+          )}
+        </div>
+      )}
 
-      {/* Stage 5 Core Deliverable: Pipeline Assessment Evidence Collection Form */}
-      <PipelineAssessmentForm
+      {/* Pipeline Form (After Active 16 SWOT Factor Matrix — Supabase Persistence) */}
+      <PipelineForm
         opportunity={pipelineOpp}
-        inheritance={inheritance}
-        onAssessmentComplete={handleAssessmentComplete}
+        handoverDetail={handoverDetail}
+        onUpdate={(updatedOpp, savedForm) => {
+          setPipelineOpp(updatedOpp);
+          setHandoverDetail((prev) => {
+            if (!prev || !prev.canonical_classification) return prev;
+            return {
+              ...prev,
+              canonical_classification: {
+                ...prev.canonical_classification,
+                opportunity_identity: {
+                  ...prev.canonical_classification.opportunity_identity,
+                  account_name: savedForm.company_name,
+                  opportunity_name: savedForm.opportunity_name,
+                  opportunity_owner: savedForm.opportunity_owner
+                },
+                commercial_context: {
+                  ...prev.canonical_classification.commercial_context,
+                  estimated_value: savedForm.deal_value,
+                  currency: updatedOpp.currency,
+                  expected_close_date:
+                    savedForm.expected_close_date ||
+                    prev.canonical_classification.commercial_context.expected_close_date
+                },
+                lifecycle_context: {
+                  ...prev.canonical_classification.lifecycle_context,
+                  current_opportunity_stage: savedForm.opportunity_stage,
+                  pipeline_stage: savedForm.pipeline_stage
+                }
+              },
+              updated_at: new Date().toISOString()
+            };
+          });
+        }}
+        onStartAssessment={() => {
+          setAssessmentFormOpen(true);
+          setTimeout(() => {
+            assessmentFormRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          }, 100);
+        }}
       />
+
+      {/* Stage 5 Core Deliverable: Pipeline Assessment Evidence Collection Form (Opened only after clicking Start Assessment) */}
+      {assessmentFormOpen && (
+        <div ref={assessmentFormRef}>
+          <PipelineAssessmentForm
+            opportunity={pipelineOpp}
+            inheritance={inheritance}
+            onAssessmentComplete={handleAssessmentComplete}
+          />
+        </div>
+      )}
     </div>
   );
 };

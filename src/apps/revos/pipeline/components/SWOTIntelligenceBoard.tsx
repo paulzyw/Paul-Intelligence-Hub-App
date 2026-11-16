@@ -401,11 +401,11 @@ export const SWOTIntelligenceBoard: React.FC<SWOTIntelligenceBoardProps> = ({
                 </p>
               ) : (
                 <div className="space-y-2">
-                  {(selectedFactor.supporting_evidence_ids || []).map((id) => {
+                  {(selectedFactor.supporting_evidence_ids || []).map((id, idx) => {
                     const ev = evidenceMap.get(id);
                     return (
                       <div
-                        key={id}
+                        key={`${id}-${idx}`}
                         className="p-3 bg-bg-primary border border-border/70 rounded-xl space-y-1"
                       >
                         <div className="flex items-center justify-between text-[11px] font-mono text-emerald-400">
@@ -434,11 +434,11 @@ export const SWOTIntelligenceBoard: React.FC<SWOTIntelligenceBoardProps> = ({
                   </span>
                 </div>
                 <div className="space-y-2">
-                  {(selectedFactor.contradicting_evidence_ids || []).map((id) => {
+                  {(selectedFactor.contradicting_evidence_ids || []).map((id, idx) => {
                     const ev = evidenceMap.get(id);
                     return (
                       <div
-                        key={id}
+                        key={`${id}-${idx}`}
                         className="p-3 bg-bg-primary border border-red-500/30 rounded-xl space-y-1"
                       >
                         <div className="text-[11px] font-mono text-red-400">

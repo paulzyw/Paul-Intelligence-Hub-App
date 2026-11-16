@@ -322,9 +322,9 @@ export const PADFDimensionHealthView: React.FC<PADFDimensionHealthViewProps> = (
               </div>
             ) : (
               <div className="space-y-2 max-h-56 overflow-y-auto pr-1">
-                {selectedDimension.matchingEvidence.map((ev) => (
+                {selectedDimension.matchingEvidence.map((ev, idx) => (
                   <div
-                    key={ev.evidence_instance_id}
+                    key={`${ev.evidence_instance_id}-${idx}`}
                     className="p-3 bg-bg-primary border border-border/70 rounded-xl space-y-1.5"
                   >
                     <div className="flex items-center justify-between gap-2 text-[11px] font-mono">

@@ -9,7 +9,6 @@ import {
   ChevronDown,
   Save,
   Bot,
-  ShieldCheck,
   Check,
   Info,
   TrendingUp,
@@ -42,17 +41,6 @@ interface FormEntryState {
   notes: string;
 }
 
-interface ValidationResultState {
-  status: 'VALIDATED' | 'NEEDS_ATTENTION';
-  ready_for_assessment: boolean;
-  populated_count: number;
-  total_questions: number;
-  unconfirmed_count: number;
-  missing_mandatory_dimensions: string[];
-  dimension_coverage: Record<string, { answered: number; total: number; status: string }>;
-  ai_validation_verdict: string;
-}
-
 export const PipelineAssessmentForm: React.FC<PipelineAssessmentFormProps> = ({
   opportunity,
   inheritance,
@@ -80,13 +68,38 @@ export const PipelineAssessmentForm: React.FC<PipelineAssessmentFormProps> = ({
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [validating, setValidating] = useState(false);
   const [runningAssessment, setRunningAssessment] = useState(false);
 
   const [saveSuccess, setSaveSuccess] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
-  const [validationResult, setValidationResult] = useState<ValidationResultState | null>(null);
   const [activeTooltipId, setActiveTooltipId] = useState<string | null>(null);
+  const [tooltipLayout, setTooltipLayout] = useState<{
+    leftOffset: number;
+    width: number;
+    placeBelow: boolean;
+  }>({ leftOffset: 0, width: 352, placeBelow: false });
+
+  const openTooltip = (evId: string, triggerEl: HTMLElement | null) => {
+    if (triggerEl && typeof window !== 'undefined') {
+      const rect = triggerEl.getBoundingClientRect();
+      const vw = document.documentElement.clientWidth || window.innerWidth;
+      const vh = document.documentElement.clientHeight || window.innerHeight;
+      const desiredWidth = vw >= 640 ? 384 : 320;
+      const width = Math.min(desiredWidth, vw - 24);
+      const idealLeft = rect.left + rect.width / 2 - width / 2;
+      const clampedLeft = Math.max(12, Math.min(idealLeft, vw - width - 12));
+      const spaceAbove = rect.top;
+      const spaceBelow = vh - rect.bottom;
+      const placeBelow = spaceAbove < 280 && spaceBelow > spaceAbove;
+
+      setTooltipLayout({
+        leftOffset: Math.round(clampedLeft - rect.left),
+        width,
+        placeBelow
+      });
+    }
+    setActiveTooltipId(evId);
+  };
 
   const industryLabel = opportunity.industry_name || 'Enterprise Software';
   const motionLabel = opportunity.revenue_motion_name || 'Digital Solution Selling';
@@ -144,74 +157,20 @@ export const PipelineAssessmentForm: React.FC<PipelineAssessmentFormProps> = ({
     };
   }, [opportunity.pipeline_id, motionLabel, industryLabel]);
 
-  // Helper: Generate contextualized Suggested Answer options from Backend + JSON Knowledge Base
+  // Helper: Generate contextualized Suggested Answer options exclusively from static JSON Knowledge Base & Industry Config
   const getSuggestedOptions = (questionObj: any): Array<{ label: string; text: string; confidence: number; confirmed: boolean }> => {
-    const backendSuggestions: string[] = Array.isArray(questionObj.suggestedAnswers) ? questionObj.suggestedAnswers : [];
+    const preSynthesized = Array.isArray(questionObj?.suggestedAnswers) &&
+      questionObj.suggestedAnswers.length > 0 &&
+      typeof questionObj.suggestedAnswers[0] === 'object'
+      ? questionObj.suggestedAnswers
+      : PipelineConfigService.synthesizeSuggestedAnswers(questionObj, motionLabel, industryLabel);
 
-    if (backendSuggestions.length > 0) {
-      return backendSuggestions.map((text, idx) => {
-        const tierLabel = idx === 0 ? 'Strong Verified' : idx === 1 ? 'Substantiated' : idx === 2 ? 'Partial / Pending' : 'Risk / Gap';
-        const confidence = idx === 0 ? 95 : idx === 1 ? 82 : idx === 2 ? 60 : 35;
-        return {
-          label: `${tierLabel} — ${text.length > 82 ? text.slice(0, 79) + '...' : text}`,
-          text,
-          confidence,
-          confirmed: idx <= 1
-        };
-      });
-    }
-
-    // Contextual fallback derived directly from KB Phase 3 indicators + Industry + Revenue Motion
-    const strongIndicators: string[] = Array.isArray(questionObj.strongEvidenceIndicators)
-      ? questionObj.strongEvidenceIndicators
-      : Array.isArray(questionObj.positiveSignals)
-        ? questionObj.positiveSignals
-        : [];
-    const weakIndicators: string[] = Array.isArray(questionObj.weakEvidenceIndicators)
-      ? questionObj.weakEvidenceIndicators
-      : Array.isArray(questionObj.negativeSignals)
-        ? questionObj.negativeSignals
-        : [];
-
-    const options: Array<{ label: string; text: string; confidence: number; confirmed: boolean }> = [];
-
-    if (strongIndicators[0]) {
-      const text = `[${industryLabel} / ${motionLabel}] Confirmed directly with customer stakeholders: ${strongIndicators[0]}${strongIndicators[1] ? ` ${strongIndicators[1]}` : ''}`;
-      options.push({
-        label: `Strong Verified — ${strongIndicators[0]}`,
-        text,
-        confidence: 92,
-        confirmed: true
-      });
-    }
-
-    if (strongIndicators[1]) {
-      const text = `Substantiated during ${motionLabel} discovery: ${strongIndicators[1]}`;
-      options.push({
-        label: `Substantiated — ${strongIndicators[1]}`,
-        text,
-        confidence: 80,
-        confirmed: true
-      });
-    }
-
-    options.push({
-      label: `Partial / Pending Verification — ${questionObj.evidenceName} partially observed`,
-      text: `Initial signals observed for ${questionObj.evidenceName} within ${industryLabel} context, awaiting formal customer documentation or executive verification.`,
-      confidence: 60,
-      confirmed: false
-    });
-
-    if (weakIndicators[0]) {
-      options.push({
-        label: `Gap / Risk — ${weakIndicators[0]}`,
-        text: `Gap identified: ${weakIndicators[0]} Requires targeted discovery action to remediate risk in ${questionObj.evidenceName}.`,
-        confidence: 35,
-        confirmed: false
-      });
-    }
-
-    return options;
+    return preSynthesized.map((opt: any) => ({
+      label: opt.label,
+      text: opt.text,
+      confidence: Number(opt.confidence ?? 80),
+      confirmed: Boolean(opt.confirmed)
+    }));
   };
 
   // Compute completion metrics across PA1–PA8
@@ -266,10 +225,6 @@ export const PipelineAssessmentForm: React.FC<PipelineAssessmentFormProps> = ({
         }
       };
     });
-    // Clear stale validation banner when user edits
-    if (validationResult) {
-      setValidationResult(null);
-    }
   };
 
   // Build normalized payload of populated evidence items
@@ -319,7 +274,7 @@ export const PipelineAssessmentForm: React.FC<PipelineAssessmentFormProps> = ({
     try {
       const res = await PipelineDataService.submitEvidenceBatch(opportunity.pipeline_id, payload);
       if (showBanner) {
-        setSaveSuccess(`Saved ${res.evidence_count} evidence items to Pipeline Assessment ledger.`);
+        setSaveSuccess(`Saved ${res.evidence_count} evidence items to Supabase database.`);
         setTimeout(() => setSaveSuccess(null), 4500);
       }
       if (onEvidenceSaved) {
@@ -328,26 +283,10 @@ export const PipelineAssessmentForm: React.FC<PipelineAssessmentFormProps> = ({
       return payload;
     } catch (err: any) {
       console.error('Error saving pipeline evidence:', err);
-      setActionError(err.message || 'Failed to save evidence answers.');
+      setActionError(err.message || 'Failed to save evidence answers to Supabase.');
       return null;
     } finally {
       setSaving(false);
-    }
-  };
-
-  const handleValidateAnswers = async () => {
-    const payload = buildPopulatedEvidencePayload();
-    setValidating(true);
-    setActionError(null);
-
-    try {
-      const result = await PipelineDataService.validateEvidence(opportunity.pipeline_id, payload);
-      setValidationResult(result);
-    } catch (err: any) {
-      console.error('Failed to validate evidence:', err);
-      setActionError(err.message || 'Evidence validation failed.');
-    } finally {
-      setValidating(false);
     }
   };
 
@@ -549,42 +488,6 @@ export const PipelineAssessmentForm: React.FC<PipelineAssessmentFormProps> = ({
         </div>
       )}
 
-      {/* Validation Verdict Banner */}
-      {validationResult && (
-        <div
-          className={`p-4 rounded-xl border text-xs space-y-2.5 ${
-            validationResult.ready_for_assessment
-              ? 'bg-emerald-500/10 border-emerald-500/30 text-text-primary'
-              : 'bg-amber-500/10 border-amber-500/30 text-text-primary'
-          }`}
-        >
-          <div className="flex items-center justify-between gap-3 flex-wrap">
-            <div className="flex items-center gap-2 font-semibold">
-              <ShieldCheck
-                className={`h-4 w-4 shrink-0 ${
-                  validationResult.ready_for_assessment ? 'text-emerald-400' : 'text-amber-400'
-                }`}
-              />
-              <span>
-                Evidence Validation: {validationResult.ready_for_assessment ? 'Ready for Assessment' : 'Needs Attention'}
-              </span>
-            </div>
-            <div className="text-text-secondary font-mono tabular-nums">
-              {validationResult.populated_count}/{validationResult.total_questions} Populated ·{' '}
-              {validationResult.unconfirmed_count} Unconfirmed
-            </div>
-          </div>
-
-          <p className="text-text-secondary leading-relaxed">{validationResult.ai_validation_verdict}</p>
-
-          {validationResult.missing_mandatory_dimensions.length > 0 && (
-            <div className="text-amber-400 font-medium">
-              Missing mandatory coverage: {validationResult.missing_mandatory_dimensions.join(', ')}
-            </div>
-          )}
-        </div>
-      )}
-
       {/* Evidence Objects Grid */}
       {loading ? (
         <div className="flex flex-col items-center justify-center py-16 text-text-secondary space-y-3">
@@ -615,9 +518,6 @@ export const PipelineAssessmentForm: React.FC<PipelineAssessmentFormProps> = ({
             const isPopulated = Boolean(entry.evidence_statement?.trim());
             const isTooltipOpen = activeTooltipId === evId;
             const suggestedOptions = getSuggestedOptions(q);
-            const swotFactors: string[] = Array.isArray(q.swotMappings)
-              ? q.swotMappings.map((m: any) => m.factorId).slice(0, 3)
-              : [];
 
             return (
               <motion.div
@@ -636,24 +536,18 @@ export const PipelineAssessmentForm: React.FC<PipelineAssessmentFormProps> = ({
                   <div className="flex items-start justify-between gap-3">
                     <div className="space-y-1.5 flex-1 min-w-0">
                       <div className="flex items-center gap-2 text-[11px] text-text-secondary flex-wrap">
-                        <span className="font-mono font-semibold text-text-primary">{evId}</span>
-                        <span aria-hidden="true">·</span>
                         <span>{String(q.evidenceCategory || 'EVIDENCE').replace(/_/g, ' ')}</span>
-                        {swotFactors.length > 0 && (
-                          <>
-                            <span aria-hidden="true">·</span>
-                            <span className="font-mono text-accent truncate max-w-[190px]" title={swotFactors.join(', ')}>
-                              SWOT: {swotFactors.join(', ')}
-                            </span>
-                          </>
-                        )}
 
                         {/* Guidance Popover Button */}
                         <div className="relative inline-block">
                           <button
                             type="button"
-                            onClick={() => setActiveTooltipId(isTooltipOpen ? null : evId)}
-                            onMouseEnter={() => setActiveTooltipId(evId)}
+                            onClick={(e) =>
+                              isTooltipOpen
+                                ? setActiveTooltipId(null)
+                                : openTooltip(evId, e.currentTarget)
+                            }
+                            onMouseEnter={(e) => openTooltip(evId, e.currentTarget)}
                             onMouseLeave={() => setActiveTooltipId(null)}
                             className="p-1 text-text-secondary hover:text-accent transition-colors cursor-help rounded-md hover:bg-bg-surface"
                             aria-label="Inspect KB definition and validation guidance"
@@ -664,10 +558,16 @@ export const PipelineAssessmentForm: React.FC<PipelineAssessmentFormProps> = ({
                           <AnimatePresence>
                             {isTooltipOpen && (
                               <motion.div
-                                initial={{ opacity: 0, y: -4, scale: 0.98 }}
+                                initial={{ opacity: 0, y: tooltipLayout.placeBelow ? 4 : -4, scale: 0.98 }}
                                 animate={{ opacity: 1, y: 0, scale: 1 }}
-                                exit={{ opacity: 0, y: -4, scale: 0.98 }}
-                                className="absolute left-1/2 -translate-x-1/2 bottom-full mb-2 w-80 sm:w-96 max-w-[calc(100vw-2rem)] p-4 bg-bg-surface border border-border rounded-xl shadow-2xl z-50 text-xs space-y-2.5 pointer-events-auto"
+                                exit={{ opacity: 0, y: tooltipLayout.placeBelow ? 4 : -4, scale: 0.98 }}
+                                style={{
+                                  left: `${tooltipLayout.leftOffset}px`,
+                                  width: `${tooltipLayout.width}px`
+                                }}
+                                className={`absolute ${
+                                  tooltipLayout.placeBelow ? 'top-full mt-2' : 'bottom-full mb-2'
+                                } max-w-[calc(100vw-1.5rem)] max-h-[70vh] overflow-y-auto p-4 bg-bg-surface border border-border rounded-xl shadow-2xl z-50 text-xs space-y-2.5 pointer-events-auto`}
                               >
                                 <div className="flex items-center justify-between border-b border-border/70 pb-2">
                                   <span className="font-semibold text-accent flex items-center gap-1.5">
@@ -722,9 +622,6 @@ export const PipelineAssessmentForm: React.FC<PipelineAssessmentFormProps> = ({
                       <h4 className="text-sm font-semibold text-text-primary leading-snug">
                         {q.question || q.evidenceName}
                       </h4>
-                      <p className="text-xs text-text-secondary leading-relaxed line-clamp-2">
-                        {q.evidenceName && q.question !== q.evidenceName ? `${q.evidenceName}: ${q.definition}` : q.definition}
-                      </p>
                     </div>
 
                     {isPopulated && (
@@ -851,32 +748,22 @@ export const PipelineAssessmentForm: React.FC<PipelineAssessmentFormProps> = ({
           )}
         </div>
 
-        <div className="flex flex-wrap items-center gap-3 w-full md:w-auto">
+        <div className="flex flex-nowrap items-center gap-3 w-full md:w-auto shrink-0">
           <button
             type="button"
             onClick={() => handleSaveEvidence(true)}
-            disabled={saving || validating || runningAssessment}
-            className="flex-1 sm:flex-none px-4 py-2.5 bg-bg-surface hover:bg-bg-surface/80 text-text-primary border border-border font-semibold text-xs rounded-xl transition-colors flex items-center justify-center gap-2 whitespace-nowrap cursor-pointer disabled:opacity-50"
+            disabled={saving || runningAssessment}
+            className="flex-1 md:flex-none px-5 py-2.5 bg-bg-surface hover:bg-bg-surface/80 text-text-primary border border-border font-semibold text-xs rounded-xl transition-colors flex items-center justify-center gap-2 whitespace-nowrap cursor-pointer disabled:opacity-50 shrink-0"
           >
             {saving ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
-            <span>{saving ? 'Saving...' : 'Save Evidence'}</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={handleValidateAnswers}
-            disabled={saving || validating || runningAssessment}
-            className="flex-1 sm:flex-none px-4 py-2.5 bg-accent/15 hover:bg-accent/25 text-accent border border-accent/35 font-semibold text-xs rounded-xl transition-colors flex items-center justify-center gap-2 whitespace-nowrap cursor-pointer disabled:opacity-50"
-          >
-            {validating ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : <ShieldCheck className="h-3.5 w-3.5" />}
-            <span>{validating ? 'Validating...' : 'Validate Answers'}</span>
+            <span>{saving ? 'Saving...' : 'Save'}</span>
           </button>
 
           <button
             type="button"
             onClick={handleRunAssessment}
-            disabled={saving || validating || runningAssessment}
-            className="flex-1 sm:flex-none px-5 py-2.5 bg-accent hover:bg-accent-hover text-black font-bold text-xs rounded-xl transition-colors flex items-center justify-center gap-2 whitespace-nowrap cursor-pointer disabled:opacity-50"
+            disabled={saving || runningAssessment}
+            className="flex-1 md:flex-none px-5 py-2.5 bg-accent hover:bg-accent-hover text-black font-bold text-xs rounded-xl transition-colors flex items-center justify-center gap-2 whitespace-nowrap cursor-pointer disabled:opacity-50 shrink-0"
           >
             {runningAssessment ? (
               <RefreshCw className="h-3.5 w-3.5 animate-spin" />

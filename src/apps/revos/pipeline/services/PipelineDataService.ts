@@ -12,7 +12,14 @@ import {
   PipelineStrategy,
   PipelineAction,
   RuntimeRelationshipType,
-  RuntimePolarityType
+  RuntimePolarityType,
+  PipelineOpportunityHandoverDetail,
+  PADIFEvidenceProvenanceItem,
+  PADIFDimensionMappingItem,
+  OpportunityHandoverQualificationContinuity,
+  OpportunityHandoverCanonicalClassification,
+  OpportunityHandoverUpstreamRisks,
+  PipelineFormRecord
 } from '../../types/pipeline';
 import { PipelineConfigService } from './PipelineConfigService';
 
@@ -20,6 +27,15 @@ const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12
 const isValidUuid = (id?: string | null): id is string => typeof id === 'string' && UUID_REGEX.test(id);
 
 export class PipelineDataService {
+  private static pendingGetOrCreate = new Map<
+    string,
+    Promise<{
+      opportunity: PipelineOpportunity;
+      inheritance: PipelineInheritance;
+      isNew: boolean;
+    }>
+  >();
+
   /**
    * 1. Retrieve or Initialize Pipeline Opportunity from Upstream Opportunity Record
    * Implements PADIF v1.0 (Pipeline Assessment Data Inheritance Framework)
@@ -38,6 +54,28 @@ export class PipelineDataService {
 
     const rawPrimary = opportunityOrLeadId || leadIdHint || '';
     const primaryId = rawPrimary.startsWith('virtual_opp_') ? rawPrimary.replace('virtual_opp_', '') : rawPrimary;
+    const inflightKey = `${primaryId}::${leadIdHint || ''}`;
+
+    const existingPromise = this.pendingGetOrCreate.get(inflightKey);
+    if (existingPromise) {
+      return existingPromise;
+    }
+
+    const runPromise = this.executeGetOrCreatePipelineOpportunity(primaryId, leadIdHint).finally(() => {
+      this.pendingGetOrCreate.delete(inflightKey);
+    });
+    this.pendingGetOrCreate.set(inflightKey, runPromise);
+    return runPromise;
+  }
+
+  private static async executeGetOrCreatePipelineOpportunity(
+    primaryId: string,
+    leadIdHint?: string
+  ): Promise<{
+    opportunity: PipelineOpportunity;
+    inheritance: PipelineInheritance;
+    isNew: boolean;
+  }> {
 
     // 1. Check if pipeline_opportunities already has this record by pipeline_id, opportunity_id, or lead_id
     let existingPipe: any = null;
@@ -506,6 +544,9 @@ export class PipelineDataService {
     updates: {
       pipeline_stage?: string;
       sales_stage?: string;
+      customer_name?: string;
+      opportunity_name?: string;
+      deal_value?: number;
       lifecycle_status?: PipelineOpportunity['lifecycle_status'];
       closure_outcome?: {
         outcome: 'CLOSED_WON' | 'CLOSED_LOST' | 'ACTIVE';
@@ -534,6 +575,9 @@ export class PipelineDataService {
 
     if (updates.pipeline_stage !== undefined) payload.pipeline_stage = updates.pipeline_stage;
     if (updates.sales_stage !== undefined) payload.sales_stage = updates.sales_stage;
+    if (updates.customer_name !== undefined) payload.customer_name = updates.customer_name;
+    if (updates.opportunity_name !== undefined) payload.opportunity_name = updates.opportunity_name;
+    if (updates.deal_value !== undefined) payload.deal_value = updates.deal_value;
     if (updates.lifecycle_status !== undefined) payload.lifecycle_status = updates.lifecycle_status;
 
     const { data, error } = await supabase
@@ -601,7 +645,7 @@ export class PipelineDataService {
   }
 
   /**
-   * 8. Query Evidence Questions (Backend KB via Edge Function + Local Static Registry Merge)
+   * 8. Query Evidence Questions (Pure Static Frontend JSON Layers + Supabase existing_evidence)
    */
   static async queryEvidenceQuestions(
     pipelineId?: string,
@@ -612,62 +656,53 @@ export class PipelineDataService {
     grouped_questions: Record<string, any[]>;
     existing_evidence: PipelineEvidence[];
   }> {
-    let remoteData: any = null;
-    try {
-      const { data, error } = await supabase.functions.invoke('pipeline-assessment', {
-        body: {
-          action: 'query-evidence-questions',
-          pipeline_id: pipelineId,
-          pipeline_opportunity_id: pipelineId,
-          revenue_motion: revenueMotion,
-          industry: industry
-        }
-      });
-      if (!error && data) {
-        remoteData = data;
-      }
-    } catch (err) {
-      console.warn('Edge function query-evidence-questions fallback to local registry:', err);
-    }
-
-    const existingEvidence = pipelineId
-      ? (remoteData?.existing_evidence?.length ? remoteData.existing_evidence : await this.listEvidence(pipelineId))
-      : [];
-
+    const existingEvidence = pipelineId ? await this.listEvidence(pipelineId) : [];
     const canonicalDims = PipelineConfigService.getCanonicalPADFDimensions();
     const kbGrouped = PipelineConfigService.getEvidenceObjectsByPADF();
-    const remoteGrouped: Record<string, any[]> = remoteData?.grouped_questions || {};
 
-    // Merge remote suggested answers / questions cleanly with full KB Phase 3 definitions
-    const mergedGrouped: Record<string, any[]> = {};
+    const staticGrouped: Record<string, any[]> = {};
     canonicalDims.forEach(dim => {
       const kbItems = kbGrouped[dim.id] || [];
-      const remoteItems = remoteGrouped[dim.id] || [];
-      const remoteById = new Map<string, any>();
-      remoteItems.forEach((r: any) => {
-        if (r?.id || r?.evidenceId) {
-          remoteById.set(r.id || r.evidenceId, r);
-        }
-      });
-
-      mergedGrouped[dim.id] = kbItems.map((kbObj: any) => {
+      staticGrouped[dim.id] = kbItems.map((kbObj: any) => {
         const evId = kbObj.evidenceId;
-        const r = remoteById.get(evId) || {};
+        const contextualSignals = PipelineConfigService.getContextualEvidenceSignalsForObject(
+          kbObj,
+          revenueMotion,
+          industry
+        );
+        const synthesizedAnswers = PipelineConfigService.synthesizeSuggestedAnswers(
+          kbObj,
+          revenueMotion,
+          industry
+        );
+
+        const positiveSignals = [
+          ...(Array.isArray(kbObj.strongEvidenceIndicators) ? kbObj.strongEvidenceIndicators : []),
+          ...contextualSignals.motionHighValueSignals,
+          ...contextualSignals.industryValidationRequirements
+        ];
+        const negativeSignals = [
+          ...(Array.isArray(kbObj.weakEvidenceIndicators) ? kbObj.weakEvidenceIndicators : []),
+          ...contextualSignals.motionWeakSignals,
+          ...contextualSignals.industryNegativeSignals
+        ];
+
         return {
           ...kbObj,
           id: evId,
           dimension: dim.id,
-          question: r.question || kbObj.validationQuestions?.[0] || kbObj.definition,
-          positiveSignals: r.positiveSignals || kbObj.strongEvidenceIndicators || [],
-          negativeSignals: r.negativeSignals || kbObj.weakEvidenceIndicators || [],
-          suggestedAnswers: r.suggestedAnswers || []
+          question: kbObj.validationQuestions?.[0] || kbObj.definition,
+          positiveSignals: [...new Set(positiveSignals)],
+          negativeSignals: [...new Set(negativeSignals)],
+          contextualSignals,
+          suggestedAnswers: synthesizedAnswers
         };
       });
     });
 
     return {
       dimensions: canonicalDims,
-      grouped_questions: mergedGrouped,
+      grouped_questions: staticGrouped,
       existing_evidence: existingEvidence
     };
   }
@@ -687,9 +722,10 @@ export class PipelineDataService {
       .eq('pipeline_id', pipelineId)
       .maybeSingle();
 
-    const preserveStage =
-      preOpp?.pipeline_stage === 'Discovery & Solutioning' ||
-      preOpp?.pipeline_stage === 'Proposal & Negotiation';
+    const preserveStage = Boolean(
+      preOpp?.pipeline_stage &&
+        preOpp.pipeline_stage !== 'Active Assessment'
+    );
 
     try {
       const { data, error } = await supabase.functions.invoke('pipeline-assessment', {
@@ -1143,6 +1179,1033 @@ export class PipelineDataService {
       updatedRiskCount,
       updatedActionCount,
       unconfirmedEvidenceCount
+    };
+  }
+
+  /**
+   * 16. Isolated Opportunity Handover Detail (PADIF v1.0) Persistence & Read-Only Upstream Hydration
+   * Reads upstream Opportunity Qualification records strictly read-only and persists the
+   * Opportunity Handover Detail payload exclusively inside `pipeline_opportunity_handover_details`.
+   */
+  static async getOpportunityHandoverDetail(
+    pipelineId: string
+  ): Promise<PipelineOpportunityHandoverDetail | null> {
+    if (!pipelineId) return null;
+
+    try {
+      const { data, error } = await supabase
+        .from('pipeline_opportunity_handover_details')
+        .select('*')
+        .eq('pipeline_id', pipelineId)
+        .maybeSingle();
+
+      if (!error && data) {
+        return {
+          ...(data as PipelineOpportunityHandoverDetail),
+          persisted_in_db: true
+        };
+      }
+    } catch (e) {
+      console.warn('pipeline_opportunity_handover_details read note:', e);
+    }
+
+    if (typeof window !== 'undefined') {
+      try {
+        const cached = localStorage.getItem(`pipeline_handover_detail_${pipelineId}`);
+        if (cached) {
+          return {
+            ...(JSON.parse(cached) as PipelineOpportunityHandoverDetail),
+            persisted_in_db: false
+          };
+        }
+      } catch {}
+    }
+
+    return null;
+  }
+
+  static async getOrSyncOpportunityHandoverDetail(
+    opportunity: PipelineOpportunity,
+    inheritance?: PipelineInheritance | null,
+    forceRefresh = false
+  ): Promise<PipelineOpportunityHandoverDetail> {
+    const existing = await this.getOpportunityHandoverDetail(opportunity.pipeline_id);
+    const isObservedSupportingMode =
+      (existing?.padif_package as any)?.evidence_source_mode === 'observed_supporting_evidence';
+    if (
+      existing &&
+      !forceRefresh &&
+      isObservedSupportingMode &&
+      existing.qualification_continuity &&
+      existing.canonical_classification &&
+      existing.upstream_handover_risks
+    ) {
+      return existing;
+    }
+
+    const oppId =
+      opportunity.opportunity_id ||
+      inheritance?.opportunity_id ||
+      (opportunity.metadata as any)?.original_opportunity_id ||
+      '';
+    const leadId =
+      opportunity.lead_id ||
+      inheritance?.lead_id ||
+      (opportunity.metadata as any)?.original_lead_id ||
+      '';
+
+    const emptySingle = Promise.resolve({ data: null });
+    const emptyList = Promise.resolve({ data: [] });
+
+    // Read upstream Opportunity Qualification intelligence strictly read-only
+    const [oppRes, formRes, sessionRes, handoverRes, historyRes, leadRes] =
+      await Promise.all([
+        isValidUuid(oppId)
+          ? supabase.from('opportunities').select('*').eq('id', oppId).maybeSingle()
+          : emptySingle,
+        isValidUuid(oppId)
+          ? supabase.from('opportunity_form_records').select('*').eq('opportunity_id', oppId).maybeSingle()
+          : emptySingle,
+        isValidUuid(oppId)
+          ? supabase
+              .from('opportunity_qualification_sessions')
+              .select('*')
+              .eq('opportunity_id', oppId)
+              .order('created_at', { ascending: false })
+              .limit(1)
+              .maybeSingle()
+          : emptySingle,
+        isValidUuid(oppId)
+          ? supabase
+              .from('opportunity_sql_handover_details')
+              .select('*')
+              .eq('opportunity_id', oppId)
+              .maybeSingle()
+          : emptySingle,
+        isValidUuid(oppId)
+          ? supabase
+              .from('opportunity_qualification_history')
+              .select('*')
+              .eq('opportunity_id', oppId)
+              .order('created_at', { ascending: false })
+              .limit(10)
+          : emptyList,
+        isValidUuid(leadId)
+          ? supabase.from('mql_leads').select('*').eq('id', leadId).maybeSingle()
+          : emptySingle
+      ]);
+
+    const upstreamOpp: any = oppRes.data || {};
+    const formRecord: any = formRes.data || {};
+    const session: any = sessionRes.data || {};
+    const sqlHandover: any = handoverRes.data || {};
+    const leadRow: any = leadRes.data || {};
+    let oqResult: any = null;
+
+    if (session?.id && isValidUuid(session.id)) {
+      const { data: resBySession } = await supabase
+        .from('opportunity_qualification_results')
+        .select('*')
+        .eq('session_id', session.id)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (resBySession) oqResult = resBySession;
+    }
+
+    if (!oqResult && typeof window !== 'undefined' && oppId) {
+      try {
+        const cachedOq = localStorage.getItem(`oq_result_${oppId}`);
+        if (cachedOq) {
+          oqResult = JSON.parse(cachedOq);
+        }
+      } catch {}
+    }
+
+    const inhPayload = (inheritance?.inherited_payload || {}) as any;
+    const inhOq = inhPayload.opportunity_qualification || {};
+    const inhLead = inhPayload.upstream_lead || {};
+    const sqlQip = session?.sql_inheritance_data || sqlHandover?.sql_qip_package || inhPayload.sql_qip_package || {};
+
+    let oppDesc: any = {};
+    if (upstreamOpp?.description && typeof upstreamOpp.description === 'string' && upstreamOpp.description.trim().startsWith('{')) {
+      try {
+        oppDesc = JSON.parse(upstreamOpp.description);
+      } catch {}
+    }
+
+    // --- Build Section 1: Qualification Continuity (I3 + I4) ---
+    const finalDecisionSum = oqResult?.final_decision?.qualification_summary || {};
+    const rawDimList: any[] = Array.isArray(oqResult?.dimension_results)
+      ? oqResult.dimension_results
+      : Array.isArray(inhOq.dimension_results)
+        ? inhOq.dimension_results
+        : [];
+
+    const qDecision =
+      oqResult?.qualification_status ||
+      finalDecisionSum.qualification_status ||
+      session?.qualification_status ||
+      inheritance?.qualification_decision ||
+      inhOq.qualification_status ||
+      'QUALIFIED';
+
+    const qScore = Number(
+      oqResult?.overall_score ??
+        finalDecisionSum.overall_score ??
+        session?.overall_score ??
+        inheritance?.qualification_score ??
+        inhOq.overall_score ??
+        82
+    );
+
+    const qConfidence = Number(
+      oqResult?.confidence_score ??
+        finalDecisionSum.confidence_score ??
+        session?.confidence_score ??
+        inheritance?.qualification_confidence ??
+        inhOq.confidence_score ??
+        85
+    );
+
+    const qDate =
+      oqResult?.created_at ||
+      session?.updated_at ||
+      inheritance?.inherited_at ||
+      opportunity.created_at ||
+      new Date().toISOString();
+
+    const lifecycleState: PipelineOpportunityHandoverDetail['handover_lifecycle_state'] =
+      existing?.handover_lifecycle_state === 'REVALIDATED' || inheritance?.validation_status === 'VALIDATED' && existing?.revalidated_at
+        ? 'REVALIDATED'
+        : 'INHERITED';
+
+    const oqDimensionResults = rawDimList.map((d: any, idx: number) => ({
+      dimension_code: d.dimension_code || d.code || `OQ-D${idx + 1}`,
+      dimension_name: d.dimension_name || d.name || `Qualification Dimension ${idx + 1}`,
+      score: Number(d.score ?? 75),
+      confidence: Number(d.confidence ?? qConfidence),
+      assessment: d.assessment || d.status || (Number(d.score ?? 75) >= 75 ? 'Strong' : 'Moderate'),
+      evidence_strength: d.evidence_strength || 'Direct Evidence',
+      ai_reasoning: d.ai_reasoning || d.assessment_summary || d.summary || 'Evaluated in Opportunity Qualification.',
+      key_evidence: d.key_evidence || '',
+      evidence_gaps: d.evidence_gaps || ''
+    }));
+
+    const qHistory = ((historyRes.data || []) as any[]).map((h: any) => ({
+      event: h.event_name || 'Opportunity Qualification Evaluation',
+      date: h.created_at ? new Date(h.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'Recorded',
+      status: h.qualification_status || qDecision,
+      score: Number(h.score ?? qScore),
+      confidence: `${Number(h.confidence ?? qConfidence)}%`,
+      user: h.user_name || opportunity.opportunity_owner || 'Sales Representative'
+    }));
+
+    const qualificationContinuity: OpportunityHandoverQualificationContinuity = {
+      qualification_decision: qDecision,
+      qualification_score: qScore,
+      qualification_confidence: qConfidence,
+      qualification_date: qDate,
+      qualified_by: 'RevOS Opportunity Qualification Engine',
+      qualification_model_version:
+        oqResult?.configuration_versions?.rules_version ||
+        oqResult?.configuration_versions?.qualification_rules_version ||
+        'OQ Rules v3.0',
+      framework_version: 'PADIF_v1.0',
+      lifecycle_state: existing?.handover_lifecycle_state || 'INHERITED',
+      health_indicator: finalDecisionSum.health_indicator || (qScore >= 75 ? 'Strong' : 'Moderate'),
+      opportunity_readiness: finalDecisionSum.opportunity_readiness || 'Pipeline Ready',
+      narrative_summary:
+        oqResult?.qualification_explanation ||
+        finalDecisionSum.summary ||
+        inhOq.explanation ||
+        sqlQip?.sql_summary?.narrative_summary ||
+        'Validated Opportunity Qualification state inherited under PADIF v1.0 as baseline intelligence for Pipeline Assessment.',
+      primary_reason:
+        finalDecisionSum.primary_reason ||
+        inhPayload.handover_notes ||
+        formRecord?.strategic_note ||
+        'Qualification thresholds satisfied across commercial legitimacy, stakeholder commitment, and solution fit.',
+      promotion_recommendation:
+        oqResult?.final_decision?.opportunity_promotion_recommendation || {
+          should_promote: true,
+          decision: 'YES',
+          recommendation_rationale:
+            'Opportunity passed upstream qualification gate and initialized its Pipeline Assessment Baseline Snapshot.'
+        },
+      oq_dimension_results: oqDimensionResults,
+      non_inherited_truths: [
+        'Prior win probability is NOT inherited — calculated fresh by PADF v1.1',
+        'Current pipeline health & closeability must be verified with new pipeline evidence',
+        'Upstream AI rationale is contextual intelligence (I3), never ground-truth evidence',
+        'Qualification scores & decisions remain historically immutable in OQ'
+      ],
+      qualification_history: qHistory
+    };
+
+    // --- Build Section 2: Canonical Classification (I1 Context + PADIF -> PADF Mapping) ---
+    const contacts: Array<{ name: string; title?: string; role?: string }> = [];
+    if (leadRow?.first_name || inhLead?.contact_name) {
+      contacts.push({
+        name: leadRow?.first_name
+          ? `${leadRow.first_name} ${leadRow.last_name || ''}`.trim()
+          : inhLead.contact_name,
+        title: leadRow?.job_title || inhLead?.job_title || 'Primary Stakeholder',
+        role: 'Lead Origin Contact'
+      });
+    }
+    const sqlContacts = sqlHandover?.stakeholder_context?.known_contacts || sqlQip?.stakeholder_context?.known_contacts;
+    if (Array.isArray(sqlContacts)) {
+      sqlContacts.forEach((c: any) => {
+        if (c?.name && !contacts.some((x) => x.name === c.name)) {
+          contacts.push({ name: c.name, title: c.title, role: c.influence });
+        }
+      });
+    }
+
+    const matchOqDims = (keywords: string[]) =>
+      oqDimensionResults.filter((d) =>
+        keywords.some((k) => `${d.dimension_name} ${d.dimension_code}`.toLowerCase().includes(k))
+      );
+
+    const padfDefinitions: Array<{
+      code: string;
+      name: string;
+      scope: string;
+      keywords: string[];
+    }> = [
+      {
+        code: 'PA1',
+        name: 'Customer Value & Urgency',
+        scope: 'Business problem, pain, quantified impact, strategic initiative & urgency',
+        keywords: ['problem', 'pain', 'value', 'metric', 'urgency']
+      },
+      {
+        code: 'PA2',
+        name: 'Buying Center & Influence',
+        scope: 'Known stakeholders, economic buyer, champion & committee engagement',
+        keywords: ['stakeholder', 'champion', 'buyer', 'alignment']
+      },
+      {
+        code: 'PA3',
+        name: 'Buying Process & Decision Control',
+        scope: 'Decision criteria, procurement milestones, paper process & timeline',
+        keywords: ['process', 'criteria', 'buying', 'governance']
+      },
+      {
+        code: 'PA4',
+        name: 'Solution & Value Proposition',
+        scope: 'Customer requirements, solution fit & technical integration context',
+        keywords: ['solution', 'fit', 'technical', 'scope']
+      },
+      {
+        code: 'PA5',
+        name: 'Competitive Position',
+        scope: 'Competitors, incumbent baseline, differentiation & status quo friction',
+        keywords: ['compet', 'different', 'position']
+      },
+      {
+        code: 'PA6',
+        name: 'Commercial & Deal Structure',
+        scope: 'Budget envelope, deal value, ROI case & procurement structure',
+        keywords: ['commercial', 'budget', 'value', 'roi']
+      },
+      {
+        code: 'PA7',
+        name: 'Sales Execution & Deal Readiness',
+        scope: 'Qualification activities, workshops, POC readiness & multi-threading',
+        keywords: ['readiness', 'execution', 'solution', 'engagement']
+      },
+      {
+        code: 'PA8',
+        name: 'Momentum, Risk & Closeability',
+        scope: 'Qualification confidence, risk exposure, timeline & closeability blockers',
+        keywords: ['momentum', 'risk', 'timeline', 'close']
+      }
+    ];
+
+    const padfDimensionMapping: PADIFDimensionMappingItem[] = padfDefinitions.map((def) => {
+      const matched = matchOqDims(def.keywords);
+      const signals: string[] = matched.map(
+        (m) => `${m.dimension_code} (${m.score}/100): ${m.ai_reasoning}`
+      );
+      if (def.code === 'PA1' && sqlHandover?.business_context?.business_problem && signals.length === 0) {
+        signals.push(sqlHandover.business_context.business_problem);
+      }
+      if (def.code === 'PA6' && opportunity.deal_value > 0 && signals.length === 0) {
+        signals.push(`Estimated commercial value: ${opportunity.currency || 'USD'} $${opportunity.deal_value.toLocaleString('en-US')}`);
+      }
+      return {
+        padf_code: def.code,
+        padf_dimension_name: def.name,
+        padif_mapping_scope: def.scope,
+        inherited_baseline_signals:
+          signals.length > 0
+            ? signals.slice(0, 2)
+            : ['Baseline metadata mapped; capture current Pipeline Assessment evidence to score.'],
+        upstream_source_dimensions: matched.map((m) => m.dimension_code),
+        baseline_status:
+          matched.length > 0
+            ? 'Inherited Baseline'
+            : signals.length > 0
+              ? 'Partial Signal'
+              : 'Requires Verification'
+      };
+    });
+
+    const canonicalClassification: OpportunityHandoverCanonicalClassification = {
+      opportunity_identity: {
+        opportunity_id: oppId || opportunity.pipeline_id,
+        pipeline_id: opportunity.pipeline_id,
+        opportunity_name: opportunity.opportunity_name,
+        account_name: opportunity.customer_name,
+        contacts,
+        opportunity_owner:
+          formRecord?.opportunity_owner || oppDesc?.opportunity_owner || opportunity.opportunity_owner || 'Senior Enterprise AE',
+        creation_date: upstreamOpp?.created_at || opportunity.created_at || new Date().toISOString(),
+        qualification_date: qDate
+      },
+      commercial_context: {
+        canonical_revenue_motion_id: opportunity.revenue_motion_id,
+        revenue_motion_name: opportunity.revenue_motion_name,
+        canonical_industry_id: opportunity.industry_id,
+        industry_name: opportunity.industry_name,
+        geography_region:
+          leadRow?.location || sqlHandover?.customer_context?.location || sqlQip?.customer_context?.location || 'North America',
+        estimated_value: opportunity.deal_value || 0,
+        currency: opportunity.currency || 'USD',
+        expected_close_date:
+          formRecord?.expected_close_date || oppDesc?.expected_close_date || opportunity.expected_close_date || 'Not Set'
+      },
+      lifecycle_context: {
+        current_opportunity_stage: formRecord?.opportunity_stage || opportunity.sales_stage || 'Validated Opportunity',
+        pipeline_stage: formRecord?.pipeline_stage || opportunity.pipeline_stage || 'Qualification',
+        source_system: opportunity.source_system || 'RevOS_Opportunity_Qualification',
+        lead_origin: leadId || 'Direct',
+        sql_origin: sqlHandover?.id || session?.id || 'SQL_Handover'
+      },
+      configuration_context: {
+        revenue_motion_config_id: opportunity.revenue_motion_id,
+        industry_config_id: opportunity.industry_id,
+        qualification_framework_version: qualificationContinuity.qualification_model_version,
+        assessment_framework_version: 'PADF_v1.1',
+        inheritance_framework_version: 'PADIF_v1.0'
+      },
+      padf_dimension_mapping: padfDimensionMapping
+    };
+
+    // --- Build Section 3: Upstream Handover & Risks (I2 Observed Supporting Evidence from OQ Result + Risks + Gaps + Actions) ---
+    const nowMs = Date.now();
+    const rawEvAudits: any[] = Array.isArray(oqResult?.final_decision?.evidence_assessments)
+      ? oqResult.final_decision.evidence_assessments
+      : Array.isArray(oqResult?.evidence_assessments)
+        ? oqResult.evidence_assessments
+        : [];
+
+    const observedSupportingItems = rawEvAudits
+      .filter((ev: any) => {
+        const score = typeof ev.signal_score === 'number' ? ev.signal_score : 50;
+        const hasPositiveTag =
+          Array.isArray(ev.tags) && ev.tags.some((t: any) => t.type === 'positive');
+        return ev.matched_type === 'positive' || score >= 75 || hasPositiveTag;
+      })
+      .slice(0, 6);
+
+    const validatedEvidence: PADIFEvidenceProvenanceItem[] = observedSupportingItems.map(
+      (ev: any, idx: number) => {
+        const dimCode =
+          ev.dimension_code ||
+          (typeof ev.evidence_object_id === 'string' && ev.evidence_object_id.includes('_OQ')
+            ? ev.evidence_object_id.split('_').find((part: string) => part.startsWith('OQ'))
+            : 'OQ01') ||
+          'OQ01';
+        const score = typeof ev.signal_score === 'number' ? ev.signal_score : 80;
+        const freshnessDays = Math.max(
+          0,
+          Math.floor((nowMs - new Date(qDate).getTime()) / (1000 * 60 * 60 * 24))
+        );
+        return {
+          evidence_id: ev.evidence_object_id || ev.evidence_id || `EV0${idx + 1}`,
+          evidence_type: 'Observed Supporting Evidence',
+          dimension_code: dimCode,
+          question_text:
+            ev.evidence_name || ev.question_text || ev.question || 'Qualification Evidence Finding',
+          evidence_value:
+            ev.identification_assessment ||
+            ev.ai_reasoning ||
+            ev.explanation ||
+            'Semantic alignment validated against target indicators.',
+          source_module: 'Opportunity Qualification (Observed Supporting Evidence)',
+          source_assessment: session?.id || 'OQ Assessment',
+          source_user:
+            ev.evidence_source || canonicalClassification.opportunity_identity.opportunity_owner,
+          captured_at: qDate,
+          validated_at: qDate,
+          confidence: score >= 75 ? 'High' : 'Medium',
+          evidence_status:
+            existing?.handover_lifecycle_state === 'REVALIDATED' ? 'Revalidated' : 'Validated',
+          freshness_days: freshnessDays
+        };
+      }
+    );
+
+    const rawRisks: any[] = Array.isArray(oqResult?.risks)
+      ? oqResult.risks
+      : Array.isArray(inhOq.risks)
+        ? inhOq.risks
+        : [];
+    const normalizedRisks: Array<{
+      category: string;
+      risk_name: string;
+      severity: string;
+      description: string;
+    }> = [];
+
+    rawRisks.forEach((r: any) => {
+      if (Array.isArray(r.risks) && r.risks.length > 0) {
+        r.risks.forEach((desc: string) => {
+          normalizedRisks.push({
+            category: r.category || 'Qualification Risk',
+            risk_name: r.risk_name || r.category || 'Upstream Qualification Risk',
+            severity: r.severity || 'Medium',
+            description: desc
+          });
+        });
+      } else {
+        normalizedRisks.push({
+          category: r.category || 'Qualification Risk',
+          risk_name: r.risk_name || r.category || 'Upstream Qualification Risk',
+          severity: r.severity || 'Medium',
+          description: r.risk_description || r.description || r.risk || 'Risk identified during Opportunity Qualification.'
+        });
+      }
+    });
+
+    const evidenceGaps: string[] = [];
+    oqDimensionResults.forEach((d) => {
+      if (d.evidence_gaps && String(d.evidence_gaps).trim() && !String(d.evidence_gaps).toLowerCase().includes('none')) {
+        evidenceGaps.push(`${d.dimension_code}: ${d.evidence_gaps}`);
+      }
+    });
+    const handoverGaps = sqlHandover?.qualification_risks?.missing_information;
+    if (Array.isArray(handoverGaps)) {
+      handoverGaps.forEach((g: string) => {
+        if (g && !evidenceGaps.includes(g)) evidenceGaps.push(g);
+      });
+    }
+
+    const confidenceLimitations: string[] = Array.isArray(sqlHandover?.qualification_risks?.confidence_limitations)
+      ? sqlHandover.qualification_risks.confidence_limitations
+      : [
+          'Inherited qualification evidence acts as baseline until confirmed in live Pipeline Assessment interactions.',
+          'Deal execution & competitive risks require current buyer validation.'
+        ];
+
+    const rawActions: any[] = Array.isArray(oqResult?.recommended_actions)
+      ? oqResult.recommended_actions
+      : Array.isArray(inhOq.recommended_actions)
+        ? inhOq.recommended_actions
+        : [];
+    const recommendedActions = rawActions.map((rc: any) => ({
+      priority: rc.priority || 'High',
+      action: rc.action || rc.recommendation || 'Verify stakeholder buying process & decision governance',
+      related_dimension: rc.related_dimension || rc.dimension_id || 'Buying Process & Governance',
+      expected_impact: rc.expected_impact || rc.reason || rc.focus || 'Reduce late-stage deal slippage and strengthen winability.'
+    }));
+
+    const upstreamHandoverRisks: OpportunityHandoverUpstreamRisks = {
+      validated_evidence: validatedEvidence,
+      evidence_strength_summary:
+        validatedEvidence.length > 0
+          ? `${validatedEvidence.length} Observed Supporting Evidence item(s) inherited from Opportunity Qualification Result.`
+          : 'No significant positive evidence observed yet in Opportunity Qualification Result.',
+      qualification_risks: normalizedRisks,
+      evidence_gaps: evidenceGaps,
+      confidence_limitations: confidenceLimitations,
+      recommended_actions: recommendedActions,
+      handover_notes:
+        formRecord?.strategic_note ||
+        sqlHandover?.editable_fields?.strategic_note ||
+        inhPayload.handover_notes ||
+        'Strategic handover context captured during Opportunity Qualification promotion.',
+      inheritance_priority_order: [
+        '1. Current Verified Pipeline Evidence',
+        '2. Recent Pipeline Assessment Evidence',
+        '3. Inherited Opportunity Qualification Evidence',
+        '4. Historical / SQL Evidence',
+        '5. Upstream AI Interpretation (Contextual Only)',
+        '6. Assumption / Unknown'
+      ]
+    };
+
+    const record: PipelineOpportunityHandoverDetail = {
+      pipeline_id: opportunity.pipeline_id,
+      opportunity_id: oppId || undefined,
+      lead_id: leadId || undefined,
+      source_session_id: session?.id || undefined,
+      source_result_id: oqResult?.id || undefined,
+      source_module: 'RevOS_Opportunity_Qualification',
+      framework_version: 'PADIF_v1.0',
+      handover_lifecycle_state: lifecycleState,
+      qualification_continuity: qualificationContinuity,
+      canonical_classification: canonicalClassification,
+      upstream_handover_risks: upstreamHandoverRisks,
+      padif_package: {
+        framework: 'Pipeline_Assessment_Data_Inheritance_Framework_v1.0',
+        evidence_source_mode: 'observed_supporting_evidence',
+        generated_at: new Date().toISOString(),
+        classes: {
+          I1_opportunity_context: canonicalClassification,
+          I2_validated_evidence: upstreamHandoverRisks.validated_evidence,
+          I3_qualification_intelligence: {
+            narrative_summary: qualificationContinuity.narrative_summary,
+            oq_dimension_results: qualificationContinuity.oq_dimension_results,
+            risks: upstreamHandoverRisks.qualification_risks,
+            recommended_actions: upstreamHandoverRisks.recommended_actions
+          },
+          I4_qualification_state: {
+            decision: qualificationContinuity.qualification_decision,
+            score: qualificationContinuity.qualification_score,
+            confidence: qualificationContinuity.qualification_confidence,
+            date: qualificationContinuity.qualification_date,
+            model_version: qualificationContinuity.qualification_model_version
+          }
+        }
+      },
+      owner_notes: existing?.owner_notes || upstreamHandoverRisks.handover_notes,
+      inherited_at: existing?.inherited_at || new Date().toISOString(),
+      revalidated_at: existing?.revalidated_at,
+      updated_at: new Date().toISOString()
+    };
+
+    // Cache locally for immediate reactivity
+    if (typeof window !== 'undefined') {
+      try {
+        localStorage.setItem(`pipeline_handover_detail_${opportunity.pipeline_id}`, JSON.stringify(record));
+      } catch {}
+    }
+
+    // Persist to dedicated isolated Supabase table: public.pipeline_opportunity_handover_details
+    try {
+      const dbPayload = {
+        pipeline_id: record.pipeline_id,
+        opportunity_id: record.opportunity_id || null,
+        lead_id: record.lead_id || null,
+        source_session_id: record.source_session_id || null,
+        source_result_id: record.source_result_id || null,
+        source_module: record.source_module,
+        framework_version: record.framework_version,
+        handover_lifecycle_state: record.handover_lifecycle_state,
+        qualification_continuity: record.qualification_continuity,
+        canonical_classification: record.canonical_classification,
+        upstream_handover_risks: record.upstream_handover_risks,
+        padif_package: record.padif_package,
+        owner_notes: record.owner_notes || '',
+        inherited_at: record.inherited_at,
+        revalidated_at: record.revalidated_at || null,
+        updated_at: record.updated_at
+      };
+
+      const { data: savedRow, error: upsertErr } = await supabase
+        .from('pipeline_opportunity_handover_details')
+        .upsert(dbPayload, { onConflict: 'pipeline_id' })
+        .select()
+        .maybeSingle();
+
+      if (!upsertErr && savedRow) {
+        return {
+          ...(savedRow as PipelineOpportunityHandoverDetail),
+          persisted_in_db: true
+        };
+      }
+      if (upsertErr) {
+        console.warn(
+          'pipeline_opportunity_handover_details upsert note (run 20261116_pipeline_opportunity_handover.sql in Supabase):',
+          upsertErr.message
+        );
+      }
+    } catch (e) {
+      console.warn('pipeline_opportunity_handover_details persistence note:', e);
+    }
+
+    return {
+      ...record,
+      persisted_in_db: false
+    };
+  }
+
+  static async revalidateOpportunityHandover(
+    pipelineId: string,
+    notes?: string
+  ): Promise<PipelineOpportunityHandoverDetail | null> {
+    if (!pipelineId) return null;
+    const nowIso = new Date().toISOString();
+
+    const existing = await this.getOpportunityHandoverDetail(pipelineId);
+    if (existing) {
+      const updated: PipelineOpportunityHandoverDetail = {
+        ...existing,
+        handover_lifecycle_state: 'REVALIDATED',
+        revalidated_at: nowIso,
+        owner_notes: notes ?? existing.owner_notes,
+        qualification_continuity: {
+          ...existing.qualification_continuity,
+          lifecycle_state: 'REVALIDATED'
+        },
+        upstream_handover_risks: {
+          ...existing.upstream_handover_risks,
+          validated_evidence: (existing.upstream_handover_risks?.validated_evidence || []).map((ev) => ({
+            ...ev,
+            evidence_status: 'Revalidated',
+            validated_at: nowIso,
+            freshness_days: 0
+          }))
+        },
+        updated_at: nowIso
+      };
+
+      if (typeof window !== 'undefined') {
+        try {
+          localStorage.setItem(`pipeline_handover_detail_${pipelineId}`, JSON.stringify(updated));
+        } catch {}
+      }
+
+      try {
+        const { data, error } = await supabase
+          .from('pipeline_opportunity_handover_details')
+          .update({
+            handover_lifecycle_state: 'REVALIDATED',
+            revalidated_at: nowIso,
+            owner_notes: updated.owner_notes || '',
+            qualification_continuity: updated.qualification_continuity,
+            upstream_handover_risks: updated.upstream_handover_risks,
+            updated_at: nowIso
+          })
+          .eq('pipeline_id', pipelineId)
+          .select()
+          .maybeSingle();
+
+        // Also keep pipeline_inheritance validation_status synchronized
+        await this.revalidateInheritance(`INH_${pipelineId}`, 'VALIDATED', notes);
+
+        if (!error && data) {
+          return {
+            ...(data as PipelineOpportunityHandoverDetail),
+            persisted_in_db: true
+          };
+        }
+      } catch (e) {
+        console.warn('revalidateOpportunityHandover db note:', e);
+      }
+
+      return updated;
+    }
+
+    return null;
+  }
+
+  /**
+   * 13. Pipeline Form Persistence (Supabase Only — Dedicated public.pipeline_form_records + pipeline_opportunities sync)
+   */
+  static async getPipelineFormData(
+    opportunity: PipelineOpportunity,
+    handoverDetail?: PipelineOpportunityHandoverDetail | null
+  ): Promise<PipelineFormRecord> {
+    const oppId =
+      opportunity.opportunity_id ||
+      (opportunity.metadata as any)?.original_opportunity_id ||
+      '';
+    const leadId =
+      opportunity.lead_id ||
+      (opportunity.metadata as any)?.original_lead_id ||
+      '';
+
+    const currencyCodeToSymbol = (code?: string): string => {
+      const c = String(code || '').toUpperCase();
+      if (c === 'EUR' || c.startsWith('€')) return '€';
+      if (c === 'GBP' || c.startsWith('£')) return '£';
+      if (c === 'JPY' || c === 'CNY' || c.startsWith('¥')) return '¥';
+      return '$';
+    };
+
+    const normalizeDateStr = (val?: string | null): string => {
+      if (!val || val === 'Not Set') return '';
+      const trimmed = String(val).trim();
+      if (/^\d{4}-\d{2}-\d{2}/.test(trimmed)) return trimmed.slice(0, 10);
+      const parsed = new Date(trimmed);
+      return isNaN(parsed.getTime()) ? '' : parsed.toISOString().slice(0, 10);
+    };
+
+    // 1. Check dedicated pipeline_form_records table in Supabase first
+    const { data: existingForm, error: formErr } = await supabase
+      .from('pipeline_form_records')
+      .select('*')
+      .eq('pipeline_id', opportunity.pipeline_id)
+      .maybeSingle();
+
+    if (!formErr && existingForm) {
+      const revNum =
+        typeof existingForm.deal_value === 'number'
+          ? existingForm.deal_value
+          : parseFloat(String(existingForm.estimated_revenue || '0').replace(/[^0-9.]/g, '')) || 0;
+      return {
+        ...(existingForm as PipelineFormRecord),
+        currency_symbol: existingForm.currency_symbol || currencyCodeToSymbol(existingForm.estimated_revenue),
+        deal_value: revNum,
+        expected_close_date: normalizeDateStr(existingForm.expected_close_date)
+      };
+    }
+
+    // 2. Otherwise inherit initial baseline from Opportunity Qualification / SQL Qualification (read-only)
+    const emptyRes = Promise.resolve({ data: null });
+    const [oppFormRes, sqlHandoverRes] = await Promise.all([
+      isValidUuid(oppId)
+        ? supabase.from('opportunity_form_records').select('*').eq('opportunity_id', oppId).maybeSingle()
+        : emptyRes,
+      isValidUuid(oppId)
+        ? supabase.from('opportunity_sql_handover_details').select('*').eq('opportunity_id', oppId).maybeSingle()
+        : emptyRes
+    ]);
+
+    const upstreamForm: any = oppFormRes.data || {};
+    const sqlEditable: any = (sqlHandoverRes.data as any)?.editable_fields || {};
+    const cc = handoverDetail?.canonical_classification;
+
+    const rawEstimated =
+      upstreamForm.estimated_revenue ||
+      sqlEditable.estimated_revenue ||
+      '';
+    const dealValue =
+      Number(
+        cc?.commercial_context?.estimated_value ??
+          opportunity.deal_value ??
+          (rawEstimated ? parseFloat(String(rawEstimated).replace(/[^0-9.]/g, '')) : 0)
+      ) || 0;
+
+    const currencySymbol =
+      rawEstimated && /^[€£¥$]/.test(String(rawEstimated).trim())
+        ? String(rawEstimated).trim().charAt(0)
+        : currencyCodeToSymbol(cc?.commercial_context?.currency || opportunity.currency);
+
+    const formattedRevenue = `${currencySymbol}${new Intl.NumberFormat('en-US').format(dealValue)}`;
+
+    return {
+      pipeline_id: opportunity.pipeline_id,
+      opportunity_id: oppId || undefined,
+      lead_id: leadId || undefined,
+      company_name:
+        cc?.opportunity_identity?.account_name ||
+        opportunity.customer_name ||
+        upstreamForm.company_name ||
+        sqlEditable.company_name ||
+        '',
+      opportunity_name:
+        cc?.opportunity_identity?.opportunity_name ||
+        opportunity.opportunity_name ||
+        upstreamForm.opportunity_name ||
+        sqlEditable.opportunity_name ||
+        '',
+      opportunity_owner:
+        cc?.opportunity_identity?.opportunity_owner ||
+        opportunity.opportunity_owner ||
+        upstreamForm.opportunity_owner ||
+        sqlEditable.opportunity_owner ||
+        'Senior Enterprise AE',
+      opportunity_stage:
+        upstreamForm.opportunity_stage ||
+        cc?.lifecycle_context?.current_opportunity_stage ||
+        opportunity.sales_stage ||
+        sqlEditable.opportunity_stage ||
+        'Emerging Opportunity',
+      estimated_revenue: formattedRevenue,
+      currency_symbol: currencySymbol,
+      deal_value: dealValue,
+      pipeline_stage:
+        upstreamForm.pipeline_stage ||
+        cc?.lifecycle_context?.pipeline_stage ||
+        opportunity.pipeline_stage ||
+        sqlEditable.pipeline_stage ||
+        'Qualification',
+      expected_close_date: normalizeDateStr(
+        cc?.commercial_context?.expected_close_date ||
+          opportunity.expected_close_date ||
+          upstreamForm.expected_close_date ||
+          sqlEditable.expected_close_date
+      ),
+      industry:
+        cc?.commercial_context?.industry_name ||
+        opportunity.industry_name ||
+        upstreamForm.industry ||
+        'Enterprise Software',
+      revenue_motion:
+        cc?.commercial_context?.revenue_motion_name ||
+        opportunity.revenue_motion_name ||
+        upstreamForm.revenue_motion ||
+        'Digital Solution Selling',
+      form_status: 'Saved'
+    };
+  }
+
+  static async savePipelineFormData(
+    opportunity: PipelineOpportunity,
+    formInput: {
+      company_name: string;
+      opportunity_name: string;
+      opportunity_owner: string;
+      opportunity_stage: string;
+      estimated_revenue: string;
+      currency_symbol: string;
+      deal_value: number;
+      pipeline_stage: string;
+      expected_close_date: string;
+      industry: string;
+      revenue_motion: string;
+      form_status: 'Draft' | 'Saved';
+    }
+  ): Promise<{
+    formRecord: PipelineFormRecord;
+    updatedOpportunity: PipelineOpportunity;
+  }> {
+    const nowIso = new Date().toISOString();
+    const oppId =
+      opportunity.opportunity_id ||
+      (opportunity.metadata as any)?.original_opportunity_id ||
+      null;
+    const leadId =
+      opportunity.lead_id ||
+      (opportunity.metadata as any)?.original_lead_id ||
+      null;
+
+    const dbFormPayload = {
+      pipeline_id: opportunity.pipeline_id,
+      opportunity_id: oppId,
+      lead_id: leadId,
+      company_name: formInput.company_name,
+      opportunity_name: formInput.opportunity_name,
+      opportunity_owner: formInput.opportunity_owner,
+      opportunity_stage: formInput.opportunity_stage,
+      estimated_revenue: formInput.estimated_revenue,
+      currency_symbol: formInput.currency_symbol,
+      deal_value: formInput.deal_value,
+      pipeline_stage: formInput.pipeline_stage,
+      expected_close_date: formInput.expected_close_date || null,
+      industry: formInput.industry,
+      revenue_motion: formInput.revenue_motion,
+      form_status: formInput.form_status,
+      updated_at: nowIso
+    };
+
+    // 1. Upsert into dedicated Supabase table public.pipeline_form_records
+    const { data: savedForm, error: formError } = await supabase
+      .from('pipeline_form_records')
+      .upsert(dbFormPayload, { onConflict: 'pipeline_id' })
+      .select()
+      .single();
+
+    if (formError) {
+      throw new Error(
+        `Failed to save Pipeline Form to Supabase (ensure migration 20261117_pipeline_form_records.sql has been executed): ${formError.message}`
+      );
+    }
+
+    // 2. Synchronize isolated pipeline_opportunities row in Supabase
+    const symbolToCurrency = (sym: string): string => {
+      if (sym === '€') return 'EUR';
+      if (sym === '£') return 'GBP';
+      if (sym === '¥') return 'CNY';
+      return 'USD';
+    };
+    const nextLifecycle: PipelineOpportunity['lifecycle_status'] =
+      formInput.pipeline_stage === 'Closed Won'
+        ? 'CLOSED_WON'
+        : formInput.pipeline_stage === 'Closed Lost'
+          ? 'CLOSED_LOST'
+          : 'ACTIVE';
+
+    const oppUpdatePayload: Record<string, unknown> = {
+      customer_name: formInput.company_name,
+      opportunity_name: formInput.opportunity_name,
+      opportunity_owner: formInput.opportunity_owner,
+      sales_stage: formInput.opportunity_stage,
+      deal_value: formInput.deal_value,
+      currency: symbolToCurrency(formInput.currency_symbol),
+      pipeline_stage: formInput.pipeline_stage,
+      expected_close_date: formInput.expected_close_date || null,
+      lifecycle_status: nextLifecycle,
+      updated_at: nowIso
+    };
+
+    const { data: updatedOppRow, error: oppUpdateError } = await supabase
+      .from('pipeline_opportunities')
+      .update(oppUpdatePayload)
+      .eq('pipeline_id', opportunity.pipeline_id)
+      .select()
+      .maybeSingle();
+
+    if (oppUpdateError) {
+      console.warn('pipeline_opportunities sync warning:', oppUpdateError.message);
+    }
+
+    // 3. Synchronize canonical summary fields inside pipeline_opportunity_handover_details if present
+    try {
+      const { data: existingHandover } = await supabase
+        .from('pipeline_opportunity_handover_details')
+        .select('canonical_classification')
+        .eq('pipeline_id', opportunity.pipeline_id)
+        .maybeSingle();
+
+      if (existingHandover?.canonical_classification) {
+        const cc = existingHandover.canonical_classification as OpportunityHandoverCanonicalClassification;
+        const updatedClassification: OpportunityHandoverCanonicalClassification = {
+          ...cc,
+          opportunity_identity: {
+            ...cc.opportunity_identity,
+            account_name: formInput.company_name,
+            opportunity_name: formInput.opportunity_name,
+            opportunity_owner: formInput.opportunity_owner
+          },
+          commercial_context: {
+            ...cc.commercial_context,
+            estimated_value: formInput.deal_value,
+            currency: symbolToCurrency(formInput.currency_symbol),
+            expected_close_date: formInput.expected_close_date || cc.commercial_context.expected_close_date
+          },
+          lifecycle_context: {
+            ...cc.lifecycle_context,
+            current_opportunity_stage: formInput.opportunity_stage,
+            pipeline_stage: formInput.pipeline_stage
+          }
+        };
+
+        await supabase
+          .from('pipeline_opportunity_handover_details')
+          .update({
+            canonical_classification: updatedClassification,
+            updated_at: nowIso
+          })
+          .eq('pipeline_id', opportunity.pipeline_id);
+      }
+    } catch (syncErr) {
+      console.warn('Handover canonical classification sync warning:', syncErr);
+    }
+
+    const updatedOpportunity: PipelineOpportunity = (updatedOppRow as PipelineOpportunity) || {
+      ...opportunity,
+      customer_name: formInput.company_name,
+      opportunity_name: formInput.opportunity_name,
+      opportunity_owner: formInput.opportunity_owner,
+      sales_stage: formInput.opportunity_stage,
+      deal_value: formInput.deal_value,
+      currency: symbolToCurrency(formInput.currency_symbol),
+      pipeline_stage: formInput.pipeline_stage,
+      expected_close_date: formInput.expected_close_date || opportunity.expected_close_date,
+      lifecycle_status: nextLifecycle,
+      updated_at: nowIso
+    };
+
+    return {
+      formRecord: savedForm as PipelineFormRecord,
+      updatedOpportunity
     };
   }
 }

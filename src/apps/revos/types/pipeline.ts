@@ -286,3 +286,171 @@ export interface PipelineAssessmentSnapshot {
   };
   created_at?: string;
 }
+
+export interface PADIFEvidenceProvenanceItem {
+  evidence_id: string;
+  evidence_type: string;
+  dimension_code: string;
+  question_text: string;
+  evidence_value: string;
+  source_module: string;
+  source_assessment: string;
+  source_user: string;
+  captured_at: string;
+  validated_at: string;
+  confidence: string;
+  evidence_status: 'Validated' | 'INHERITED' | 'Revalidated' | 'Superseded';
+  freshness_days: number;
+}
+
+export interface PADIFDimensionMappingItem {
+  padf_code: string;
+  padf_dimension_name: string;
+  padif_mapping_scope: string;
+  inherited_baseline_signals: string[];
+  upstream_source_dimensions: string[];
+  baseline_status: 'Inherited Baseline' | 'Partial Signal' | 'Requires Verification';
+}
+
+export interface OpportunityHandoverQualificationContinuity {
+  qualification_decision: string;
+  qualification_score: number;
+  qualification_confidence: number;
+  qualification_date: string;
+  qualified_by: string;
+  qualification_model_version: string;
+  framework_version: string;
+  lifecycle_state: 'INHERITED' | 'REVALIDATED' | 'SUPERSEDED' | 'INVALIDATED';
+  health_indicator: string;
+  opportunity_readiness: string;
+  narrative_summary: string;
+  primary_reason: string;
+  promotion_recommendation?: {
+    should_promote: boolean;
+    decision: string;
+    recommendation_rationale: string;
+  };
+  oq_dimension_results: Array<{
+    dimension_code: string;
+    dimension_name: string;
+    score: number;
+    confidence: number;
+    assessment: string;
+    evidence_strength: string;
+    ai_reasoning: string;
+    key_evidence?: string;
+    evidence_gaps?: string;
+  }>;
+  non_inherited_truths: string[];
+  qualification_history: Array<{
+    event: string;
+    date: string;
+    status: string;
+    score: number;
+    confidence: string;
+    user: string;
+  }>;
+}
+
+export interface OpportunityHandoverCanonicalClassification {
+  opportunity_identity: {
+    opportunity_id: string;
+    pipeline_id: string;
+    opportunity_name: string;
+    account_name: string;
+    contacts: Array<{ name: string; title?: string; role?: string }>;
+    opportunity_owner: string;
+    creation_date: string;
+    qualification_date: string;
+  };
+  commercial_context: {
+    canonical_revenue_motion_id: string;
+    revenue_motion_name: string;
+    canonical_industry_id: string;
+    industry_name: string;
+    geography_region: string;
+    estimated_value: number;
+    currency: string;
+    expected_close_date: string;
+  };
+  lifecycle_context: {
+    current_opportunity_stage: string;
+    pipeline_stage: string;
+    source_system: string;
+    lead_origin: string;
+    sql_origin: string;
+  };
+  configuration_context: {
+    revenue_motion_config_id: string;
+    industry_config_id: string;
+    qualification_framework_version: string;
+    assessment_framework_version: string;
+    inheritance_framework_version: string;
+  };
+  padf_dimension_mapping: PADIFDimensionMappingItem[];
+}
+
+export interface OpportunityHandoverUpstreamRisks {
+  validated_evidence: PADIFEvidenceProvenanceItem[];
+  evidence_strength_summary: string;
+  qualification_risks: Array<{
+    category: string;
+    risk_name: string;
+    severity: string;
+    description: string;
+  }>;
+  evidence_gaps: string[];
+  confidence_limitations: string[];
+  recommended_actions: Array<{
+    priority: string;
+    action: string;
+    related_dimension: string;
+    expected_impact: string;
+  }>;
+  handover_notes: string;
+  inheritance_priority_order: string[];
+}
+
+export interface PipelineOpportunityHandoverDetail {
+  id?: string;
+  pipeline_id: string;
+  opportunity_id?: string;
+  lead_id?: string;
+  source_session_id?: string;
+  source_result_id?: string;
+  source_module: string;
+  framework_version: string;
+  handover_lifecycle_state: 'INHERITED' | 'REVALIDATED' | 'SUPERSEDED' | 'INVALIDATED';
+  qualification_continuity: OpportunityHandoverQualificationContinuity;
+  canonical_classification: OpportunityHandoverCanonicalClassification;
+  upstream_handover_risks: OpportunityHandoverUpstreamRisks;
+  padif_package: Record<string, unknown>;
+  owner_notes?: string;
+  inherited_at?: string;
+  revalidated_at?: string;
+  created_at?: string;
+  updated_at?: string;
+  persisted_in_db?: boolean;
+}
+
+export interface PipelineFormRecord {
+  id?: string;
+  pipeline_id: string;
+  opportunity_id?: string;
+  lead_id?: string;
+  company_name: string;
+  opportunity_name: string;
+  opportunity_owner: string;
+  opportunity_stage: string;
+  estimated_revenue: string;
+  currency_symbol: string;
+  deal_value: number;
+  pipeline_stage: string;
+  expected_close_date: string;
+  industry: string;
+  revenue_motion: string;
+  form_status?: 'Draft' | 'Saved';
+  created_at?: string;
+  updated_at?: string;
+}
+

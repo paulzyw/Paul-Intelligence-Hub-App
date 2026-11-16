@@ -138,6 +138,7 @@ export class PipelineConfigService {
     if (lower.includes('epc') || lower.includes('procurement & construction')) return { canonicalId: 'IND_EPC_EP_Projects', name: 'EPC / EP Projects' };
     if (lower.includes('procurement')) return { canonicalId: 'IND_Enterprise_Procurement', name: 'Enterprise Procurement' };
     if (lower.includes('solution selling')) return { canonicalId: 'IND_Solution_Selling_Organizations', name: 'Solution-Selling Organizations' };
+    if (lower.includes('other')) return { canonicalId: 'IND_Other_Solutions', name: 'Other Solutions' };
 
     return { canonicalId: 'IND_Enterprise_Software', name: 'Enterprise Software' };
   }
@@ -455,6 +456,256 @@ export class PipelineConfigService {
         { sourceId: 'ES07', sourceName: 'External Intelligence', reliabilityLevel: 'MEDIUM', description: 'Market, competitor, industry, or partner intelligence.' }
       ]
     );
+  }
+
+  // 9d. Resolve Phase 4 Revenue Motion Evidence Intelligence from static KB JSON
+  static getPhase4MotionIntelligence(revenueMotionInput?: string): any {
+    const canonicalMotion = this.normalizeRevenueMotionId(revenueMotionInput);
+    const p4 = this.evidenceKb?.pipelineEvidenceKnowledgeBasePhase4?.revenueMotionEvidenceIntelligence || {};
+    const motionKeyMap: Record<CanonicalRevenueMotionId, string> = {
+      RM01_Digital_Solution_Selling: 'digitalSolutionSelling',
+      RM02_Professional_Solution_Services: 'professionalSolutionServices',
+      RM03_Digital_Transformation_OT: 'digitalTransformationAndOT',
+      RM04_Engineering_Project_Solutions: 'engineeringAndProjectSolutions',
+      RM05_Project_Procurement: 'projectAndProcurement',
+      RM06_Generic_Solution_Selling: 'genericSolutionSelling'
+    };
+    const key = motionKeyMap[canonicalMotion] || 'digitalSolutionSelling';
+    return p4[key] || p4.digitalSolutionSelling || null;
+  }
+
+  // 9e. Resolve Phase 5 Industry Evidence Intelligence from static KB JSON
+  static getPhase5IndustryIntelligence(industryInput?: string): any {
+    const { name: canonicalName } = this.normalizeIndustryId(industryInput);
+    const p5 = this.evidenceKb?.pipelineEvidenceKnowledgeBasePhase5?.industryEvidenceIntelligence || {};
+    const norm = (v?: string) => String(v || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+    const target = norm(canonicalName);
+
+    for (const motionGroup of Object.values<any>(p5)) {
+      const profiles = motionGroup?.industryProfiles || {};
+      for (const profile of Object.values<any>(profiles)) {
+        if (norm(profile?.industryName) === target) {
+          return profile;
+        }
+      }
+    }
+    return p5?.digitalSolutionSelling?.industryProfiles?.enterpriseSoftware || null;
+  }
+
+  // 9f. Resolve Industry PADF Dimension Behavior from Pipeline_industry_configuration_JSON_v1.1.json
+  static getIndustryDimensionBehavior(shortCode: string, industryInput?: string): {
+    assessmentFocus: string[];
+    strongIndicators: string[];
+    weakIndicators: string[];
+  } {
+    const { canonicalId } = this.normalizeIndustryId(industryInput);
+    const configs: any[] = this.industryConfig?.padfDimensionBehaviorConfigurations || [];
+    const matched = configs.find((c: any) => c.industryId === canonicalId) || configs[0];
+    const dimCfg = matched?.dimensionConfigurations?.[shortCode] || {};
+    return {
+      assessmentFocus: Array.isArray(dimCfg.assessmentFocus) ? dimCfg.assessmentFocus : [],
+      strongIndicators: Array.isArray(dimCfg.strongIndicators) ? dimCfg.strongIndicators : [],
+      weakIndicators: Array.isArray(dimCfg.weakIndicators) ? dimCfg.weakIndicators : []
+    };
+  }
+
+  // 9g. Extract Contextual Signals across KB Phases 3, 4, 5 & Industry Configuration JSON for an Evidence Object
+  static getContextualEvidenceSignalsForObject(
+    evObj: any,
+    revenueMotionInput?: string,
+    industryInput?: string
+  ): {
+    industryName: string;
+    revenueMotionName: string;
+    motionHighValueSignals: string[];
+    motionWeakSignals: string[];
+    industryValidationRequirements: string[];
+    industryPositiveSignals: string[];
+    industryNegativeSignals: string[];
+    industryDimStrongIndicators: string[];
+    industryDimWeakIndicators: string[];
+    industryDimFocus: string[];
+    minimumCoverageLevel: string;
+    freshnessRequirement: string;
+  } {
+    const canonicalMotion = this.normalizeRevenueMotionId(revenueMotionInput);
+    const { name: industryName } = this.normalizeIndustryId(industryInput);
+    const motionFamily = this.industryConfig?.revenueMotionFamilies?.find((rm: any) => rm.id === canonicalMotion);
+    const revenueMotionName = motionFamily?.name || revenueMotionInput || canonicalMotion;
+
+    const shortCode = String(evObj?.primaryPADFDimension || 'PA1').slice(0, 3).toUpperCase();
+    const p4Motion = this.getPhase4MotionIntelligence(revenueMotionInput);
+    const p5Industry = this.getPhase5IndustryIntelligence(industryInput);
+    const indDimBehavior = this.getIndustryDimensionBehavior(shortCode, industryInput);
+    const dimExpectation = this.getDimensionExpectation(shortCode, revenueMotionInput, industryInput);
+
+    // Map PADF shortCode (PA1..PA8) to Phase 4 / Phase 5 domain bucket keys
+    const p4CategoryPriority: Record<string, string[]> = {
+      PA1: ['businessValueEvidence', 'businessOutcomeEvidence', 'customerNeedEvidence', 'strategicAlignmentEvidence'],
+      PA2: ['executiveSponsorshipEvidence', 'relationshipEvidence', 'stakeholderCoverageEvidence'],
+      PA3: ['decisionProcessEvidence', 'procurementProcessEvidence'],
+      PA4: ['solutionFitEvidence', 'architectureEvidence', 'technicalComplianceEvidence', 'deliveryCapabilityEvidence', 'scopeEvidence', 'specificationEvidence', 'operationalReadinessEvidence'],
+      PA5: ['competitiveEvidence', 'competitivePositionEvidence', 'competitiveIntelligenceEvidence'],
+      PA6: ['commercialEvidence', 'commercialCompetitivenessEvidence', 'commercialPositionEvidence', 'commercialAlignmentEvidence', 'valueRealizationEvidence'],
+      PA7: ['executionCapabilityEvidence', 'deliveryCapabilityEvidence', 'operationalReadinessEvidence', 'qualificationEvidence'],
+      PA8: ['scheduleEvidence', 'riskEvidence', 'decisionProcessEvidence']
+    };
+
+    const p5CategoryPriority: Record<string, string[]> = {
+      PA1: ['businessValueEvidence', 'problemDefinitionEvidence', 'customerNeedEvidence', 'strategicAlignmentEvidence', 'lifecycleValueEvidence'],
+      PA2: ['executiveSponsorshipEvidence', 'stakeholderEvidence', 'epcStakeholderEvidence', 'stakeholderInfluenceEvidence', 'stakeholderCoverageEvidence', 'adoptionEvidence', 'trustEvidence'],
+      PA3: ['decisionProcessEvidence', 'governanceEvidence', 'tenderProcessEvidence', 'evaluationCriteriaEvidence'],
+      PA4: ['solutionFitEvidence', 'technicalValidationEvidence', 'architectureEvidence', 'implementationEvidence', 'useCaseEvidence', 'dataReadinessEvidence', 'pilotEvidence', 'migrationEvidence', 'securityComplianceEvidence', 'methodologyEvidence', 'deliveryCapabilityEvidence', 'scopeEvidence', 'integrationCapabilityEvidence', 'operationalCapabilityEvidence', 'transformationRoadmapEvidence', 'otItAlignmentEvidence', 'technicalComplianceEvidence', 'performanceEvidence', 'cybersecurityEvidence', 'operationalImpactEvidence'],
+      PA5: ['differentiationEvidence', 'supplierQualificationEvidence', 'solutionFitEvidence'],
+      PA6: ['commercialEvidence', 'cloudEconomicsEvidence', 'projectFundingEvidence', 'contractualEvidence', 'slaEvidence'],
+      PA7: ['deliveryCapabilityEvidence', 'resourceEvidence', 'transitionEvidence', 'implementationEvidence'],
+      PA8: ['scheduleEvidence', 'dependencyEvidence', 'changeReadinessEvidence', 'customerContextEvidence', 'assumptionValidationEvidence']
+    };
+
+    const p4Intel = p4Motion?.evidenceIntelligence || {};
+    const motionHighValueSignals: string[] = [];
+    const motionWeakSignals: string[] = [];
+    (p4CategoryPriority[shortCode] || []).forEach((bucketKey) => {
+      const bucket = p4Intel[bucketKey];
+      if (bucket) {
+        if (Array.isArray(bucket.highValueSignals)) motionHighValueSignals.push(...bucket.highValueSignals);
+        if (Array.isArray(bucket.weakSignals)) motionWeakSignals.push(...bucket.weakSignals);
+      }
+    });
+
+    const p5Overrides = p5Industry?.evidenceOverrides || {};
+    const industryValidationRequirements: string[] = [];
+    (p5CategoryPriority[shortCode] || []).forEach((bucketKey) => {
+      const bucket = p5Overrides[bucketKey];
+      if (bucket && Array.isArray(bucket.validationRequirements)) {
+        industryValidationRequirements.push(...bucket.validationRequirements);
+      }
+    });
+
+    const p5Signals = p5Industry?.industrySpecificEvidenceSignals || {};
+    const industryPositiveSignals: string[] = Array.isArray(p5Signals.positiveSignals) ? p5Signals.positiveSignals : [];
+    const industryNegativeSignals: string[] = Array.isArray(p5Signals.negativeSignals) ? p5Signals.negativeSignals : [];
+
+    return {
+      industryName,
+      revenueMotionName,
+      motionHighValueSignals: [...new Set(motionHighValueSignals)],
+      motionWeakSignals: [...new Set(motionWeakSignals)],
+      industryValidationRequirements: [...new Set(industryValidationRequirements)],
+      industryPositiveSignals,
+      industryNegativeSignals,
+      industryDimStrongIndicators: indDimBehavior.strongIndicators,
+      industryDimWeakIndicators: indDimBehavior.weakIndicators,
+      industryDimFocus: indDimBehavior.assessmentFocus,
+      minimumCoverageLevel: dimExpectation.minimumCoverageLevel,
+      freshnessRequirement: dimExpectation.freshnessRequirement
+    };
+  }
+
+  // 9h. Pure Static JSON 4-Tier Suggested Answers Synthesizer
+  // Exclusively derives from Pipeline_evidence_knowledge_base_v1.1.json (Phases 3, 4, 5) + Pipeline_industry_configuration_JSON_v1.1.json
+  static synthesizeSuggestedAnswers(
+    evObj: any,
+    revenueMotionInput?: string,
+    industryInput?: string
+  ): Array<{
+    tier: 'Strong Verified' | 'Substantiated' | 'Partial / Pending' | 'Gap / Risk';
+    label: string;
+    text: string;
+    confidence: number;
+    confirmed: boolean;
+  }> {
+    const strongIndicators: string[] = Array.isArray(evObj?.strongEvidenceIndicators) ? evObj.strongEvidenceIndicators : [];
+    const weakIndicators: string[] = Array.isArray(evObj?.weakEvidenceIndicators) ? evObj.weakEvidenceIndicators : [];
+    const evidenceName = String(evObj?.evidenceName || evObj?.evidenceId || 'Evidence Point');
+
+    const ctx = this.getContextualEvidenceSignalsForObject(evObj, revenueMotionInput, industryInput);
+    const evIndexMatch = String(evObj?.evidenceId || '').match(/_(\d+)$/);
+    const offset = evIndexMatch ? Math.max(0, (parseInt(evIndexMatch[1], 10) - 1)) : 0;
+
+    const pickOffset = (arr: string[], shift = 0): string | undefined => {
+      if (!arr || arr.length === 0) return undefined;
+      return arr[(offset + shift) % arr.length];
+    };
+
+    const trimPunctuation = (s: string) => s.trim().replace(/[.]+$/, '');
+    const options: Array<{
+      tier: 'Strong Verified' | 'Substantiated' | 'Partial / Pending' | 'Gap / Risk';
+      label: string;
+      text: string;
+      confidence: number;
+      confirmed: boolean;
+    }> = [];
+
+    const p3Strong1 = strongIndicators[0] || `${evidenceName} confirmed with customer`;
+    const p3Strong2 = strongIndicators[1] || strongIndicators[0];
+    const p4StrongSignal = pickOffset(ctx.motionHighValueSignals, 0);
+    const p5ValReq1 = pickOffset(ctx.industryValidationRequirements, 0);
+    const p5ValReq2 = pickOffset(ctx.industryValidationRequirements, 1);
+    const p5PosSignal = pickOffset(ctx.industryPositiveSignals, 0) || pickOffset(ctx.industryDimStrongIndicators, 0);
+    const indFocus = pickOffset(ctx.industryDimFocus, 0);
+
+    // Tier 1: Strong Verified (Phase 3 strong[0] + Phase 4 Revenue Motion signal + Phase 5 Industry validation requirement)
+    const strongParts = [`[${ctx.industryName} · ${ctx.revenueMotionName}] ${trimPunctuation(p3Strong1)}.`];
+    if (p4StrongSignal && !p3Strong1.toLowerCase().includes(p4StrongSignal.toLowerCase())) {
+      strongParts.push(`Motion signal verified: ${trimPunctuation(p4StrongSignal)}.`);
+    }
+    if (p5ValReq1 && !p3Strong1.toLowerCase().includes(p5ValReq1.toLowerCase())) {
+      strongParts.push(`Industry requirement met: ${trimPunctuation(p5ValReq1)}.`);
+    }
+    options.push({
+      tier: 'Strong Verified',
+      label: `Strong Verified — ${p3Strong1}`,
+      text: strongParts.join(' '),
+      confidence: 95,
+      confirmed: true
+    });
+
+    // Tier 2: Substantiated (Phase 3 strong[1] + Phase 5 Industry validation/positive signal + Industry PADF focus)
+    const subParts = [`Substantiated in ${ctx.revenueMotionName}: ${trimPunctuation(p3Strong2)}.`];
+    const subContext = p5ValReq2 || p5PosSignal || indFocus;
+    if (subContext && !p3Strong2.toLowerCase().includes(subContext.toLowerCase())) {
+      subParts.push(`${ctx.industryName} context aligned (${trimPunctuation(subContext)}).`);
+    }
+    options.push({
+      tier: 'Substantiated',
+      label: `Substantiated — ${p3Strong2}`,
+      text: subParts.join(' '),
+      confidence: 82,
+      confirmed: true
+    });
+
+    // Tier 3: Partial / Pending Verification (Phase 5 validation requirement + Industry Config EvidenceExpectation)
+    const pendingReq = p5ValReq1 || indFocus || evidenceName;
+    const partialText = `Initial signals observed for ${evidenceName} (${ctx.industryName}), but formal verification for "${trimPunctuation(pendingReq)}" remains pending against ${ctx.minimumCoverageLevel} coverage / ${ctx.freshnessRequirement} freshness expectations.`;
+    options.push({
+      tier: 'Partial / Pending',
+      label: `Partial / Pending — ${evidenceName} awaiting verification`,
+      text: partialText,
+      confidence: 60,
+      confirmed: false
+    });
+
+    // Tier 4: Gap / Risk (Phase 3 weak[0] + Phase 4 weak signal + Phase 5 negative signal / Industry PADF weak indicator)
+    const p3Weak = weakIndicators[0] || `${evidenceName} not yet substantiated by customer`;
+    const p4WeakSignal = pickOffset(ctx.motionWeakSignals, 0);
+    const p5NegSignal = pickOffset(ctx.industryNegativeSignals, 0) || pickOffset(ctx.industryDimWeakIndicators, 0);
+    const gapParts = [`Gap identified in ${evidenceName}: ${trimPunctuation(p3Weak)}.`];
+    if (p4WeakSignal && !p3Weak.toLowerCase().includes(p4WeakSignal.toLowerCase())) {
+      gapParts.push(`Motion risk signal: ${trimPunctuation(p4WeakSignal)}.`);
+    }
+    if (p5NegSignal && !p3Weak.toLowerCase().includes(p5NegSignal.toLowerCase())) {
+      gapParts.push(`${ctx.industryName} risk: ${trimPunctuation(p5NegSignal)}.`);
+    }
+    options.push({
+      tier: 'Gap / Risk',
+      label: `Gap / Risk — ${p3Weak}`,
+      text: gapParts.join(' '),
+      confidence: 35,
+      confirmed: false
+    });
+
+    return options;
   }
 
   // 10. Full Configuration Verification

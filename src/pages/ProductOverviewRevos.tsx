@@ -315,7 +315,7 @@ export function ProductOverviewRevos() {
           {/* Layer 1: bg-hero-primary gradient from left (100% at 0% -> 90% at 60% -> 0% at 100%) */}
           <div
             aria-hidden="true"
-            className="absolute inset-0 z-[1] pointer-events-none bg-[linear-gradient(to_right,var(--bg-hero-primary)_0%,color-mix(in_srgb,var(--bg-hero-primary)_85%,transparent)_40%,color-mix(in_srgb,var(--bg-hero-primary)_0%,transparent)_100%)]"
+            className="absolute inset-0 z-[1] pointer-events-none bg-[linear-gradient(to_right,var(--bg-hero-primary)_5%,color-mix(in_srgb,var(--bg-hero-primary)_85%,transparent)_40%,color-mix(in_srgb,var(--bg-hero-primary)_0%,transparent)_100%)]"
           />
         </div>
 
@@ -374,7 +374,7 @@ export function ProductOverviewRevos() {
               transition={{ delay: 0.3, duration: 0.8 }}
               className="pointer-events-auto relative mx-auto max-w-6xl px-4 lg:px-0"
             >
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 p-4 rounded-[1.2rem] border border-border bg-bg-hero-surface/30 backdrop-blur-3xl ring-1 ring-white/10 shadow-2xl relative overflow-hidden">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 p-4 rounded-[1.2rem] border-border-hero-color bg-bg-hero-surface/60 backdrop-blur-3xl ring-1 ring-white/10 shadow-2xl relative overflow-hidden">
               <div className="absolute inset-0 bg-gradient-to-tr from-accent/5 via-transparent to-blue-500/5 pointer-events-none" />
               
               {/* Layer 1-2: Strategic Intelligence */}
