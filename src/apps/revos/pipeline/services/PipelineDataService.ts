@@ -954,6 +954,73 @@ export class PipelineDataService {
   }
 
   /**
+   * 12b. Save / Persist Full Assessment Result & Create Audit Snapshot in Supabase
+   */
+  static async saveAssessmentResult(
+    pipelineId: string,
+    assessmentId: string,
+    payload: {
+      executive_summary?: PipelineAssessment['executive_summary'];
+      raw_reasoning_output?: PipelineAssessment['raw_reasoning_output'];
+      pipeline_health?: PipelineAssessment['pipeline_health'];
+      base_winability?: number;
+      risk_adjusted_winability?: number;
+      assessment_confidence?: number;
+    }
+  ): Promise<PipelineAssessment | null> {
+    if (!pipelineId || !assessmentId) return null;
+
+    try {
+      const { data, error } = await supabase.functions.invoke('pipeline-assessment', {
+        body: {
+          action: 'save-assessment-result',
+          pipeline_id: pipelineId,
+          assessment_id: assessmentId,
+          executive_summary: payload.executive_summary,
+          raw_reasoning_output: payload.raw_reasoning_output
+        }
+      });
+      if (!error && data?.assessment) {
+        return data.assessment as PipelineAssessment;
+      }
+    } catch (err) {
+      console.warn('Edge function save-assessment-result unavailable, persisting directly to Supabase:', err);
+    }
+
+    const nowIso = new Date().toISOString();
+    const updateBody: Record<string, unknown> = {
+      updated_at: nowIso
+    };
+    if (payload.executive_summary) updateBody.executive_summary = payload.executive_summary;
+    if (payload.raw_reasoning_output) updateBody.raw_reasoning_output = payload.raw_reasoning_output;
+
+    const { data: updatedAssessment, error: updError } = await supabase
+      .from('pipeline_assessments')
+      .update(updateBody)
+      .eq('assessment_id', assessmentId)
+      .select()
+      .maybeSingle();
+
+    if (updError) {
+      console.error('Error saving assessment result to Supabase:', updError);
+      throw updError;
+    }
+
+    if (updatedAssessment) {
+      await supabase.from('pipeline_assessment_snapshots').insert({
+        snapshot_id: `SNAP_${assessmentId}_SAVED_${Date.now()}`,
+        pipeline_id: pipelineId,
+        assessment_id: assessmentId,
+        snapshot_sequence: (updatedAssessment as PipelineAssessment).assessment_sequence || 1,
+        snapshot_timestamp: nowIso,
+        full_snapshot_payload: { assessment: updatedAssessment }
+      });
+    }
+
+    return (updatedAssessment as PipelineAssessment) || null;
+  }
+
+  /**
    * 13. Stage 7: Revalidate Upstream PADIF Inheritance Record
    */
   static async revalidateInheritance(

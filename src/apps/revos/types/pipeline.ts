@@ -137,6 +137,106 @@ export interface PipelineEvidenceRelationship {
   created_at?: string;
 }
 
+export type PipelineHealthIndicator = 'Strong' | 'Moderate' | 'Weak' | 'Critical';
+
+export interface PipelineWhyAssessmentChain {
+  evidence: string;
+  interpretation: string;
+  assessment: string;
+  business_implication: string;
+}
+
+export interface PipelineExecutiveSummary {
+  overall_assessment?: string;
+  qualification_continuity_summary?: string;
+  primary_reason?: string;
+  current_strengths?: string[];
+  key_constraints?: string[];
+  key_risks?: string[];
+  evidence_gaps?: string[];
+  priority_actions?: string[];
+  why_this_assessment?: PipelineWhyAssessmentChain;
+  longitudinal_trend?: string;
+  reasoning_duration_ms?: number;
+}
+
+export interface PipelinePADFDimensionAudit {
+  dimension_code: string;
+  dimension_name: string;
+  score: number;
+  confidence: number;
+  assessment: string;
+  evidence_strength: string;
+  short_interpretation?: string;
+  strengths: string[];
+  weaknesses: string[];
+  contradictory_qualifying_evidence?: string[];
+  related_swot_factors?: string[];
+  evidence_gaps?: string[];
+  business_impact?: string;
+  risks?: string[];
+  ai_reasoning?: string;
+  improvement_direction?: string;
+  recommended_actions?: string[];
+  historical_score?: number;
+  score_delta?: number;
+}
+
+export interface PipelineQuestionSignalAudit {
+  evidence_instance_id?: string;
+  evidence_object_id: string;
+  evidence_name: string;
+  question_text?: string;
+  dimension_code: string;
+  dimension_name?: string;
+  signal_score: number;
+  matched_type: 'positive' | 'negative' | 'neutral';
+  identification_assessment: string;
+  evidence_statement: string;
+  evidence_type: string;
+  source_type: string;
+  verification_status: string;
+  evidence_quality: string;
+  evidence_confidence: number;
+  customer_confirmed?: boolean;
+  mapping_relevance: 'DIRECT' | 'SUPPORTING' | 'INDIRECT' | string;
+  runtime_relationship: RuntimeRelationshipType | string;
+  runtime_polarity: RuntimePolarityType | string;
+  linked_swot_factors: string[];
+  linked_padf_dimensions: string[];
+  tags?: Array<{
+    label: string;
+    type: 'positive' | 'negative' | 'neutral' | 'dimension';
+  }>;
+}
+
+export interface PipelineObservedEvidenceItem {
+  evidence_object_id?: string;
+  title: string;
+  dimension_code?: string;
+  source_type?: string;
+  verification_status?: string;
+  finding_summary: string;
+}
+
+export interface PipelineAICognitiveReasoning {
+  decision_summary: string;
+  dimensional_diagnostics?: Array<{
+    dimension_code: string;
+    dimension_name: string;
+    diagnostic: string;
+  }>;
+}
+
+export interface PipelineRecommendedActionItem {
+  priority: 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW' | string;
+  action: string;
+  related_dimension: string;
+  expected_impact: string;
+  owner?: string;
+  timeframe?: string;
+}
+
 export interface PipelineAssessment {
   id?: string;
   assessment_id: string;
@@ -153,15 +253,18 @@ export interface PipelineAssessment {
   rules_version: string;
   reasoning_prompt_version: string;
   model_identifier: string;
-  raw_reasoning_output?: Record<string, unknown>;
-  executive_summary?: {
-    overall_assessment?: string;
-    current_strengths?: string[];
-    key_constraints?: string[];
-    key_risks?: string[];
-    evidence_gaps?: string[];
-    priority_actions?: string[];
+  raw_reasoning_output?: {
+    primary_reason?: string;
+    health_indicator?: PipelineHealthIndicator;
+    executive_summary_v2?: PipelineExecutiveSummary;
+    padf_dimension_narratives?: PipelinePADFDimensionAudit[];
+    evidence_assessments?: PipelineQuestionSignalAudit[];
+    observed_supporting_evidence?: PipelineObservedEvidenceItem[];
+    ai_cognitive_reasoning?: PipelineAICognitiveReasoning;
+    recommended_next_actions?: PipelineRecommendedActionItem[];
+    [key: string]: unknown;
   };
+  executive_summary?: PipelineExecutiveSummary;
   created_by?: string;
   completed_at?: string;
   created_at?: string;

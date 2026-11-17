@@ -1,4 +1,6 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
+import { createPortal } from 'react-dom';
+import { motion, AnimatePresence } from 'motion/react';
 import {
   Search,
   Layers,
@@ -73,6 +75,24 @@ export const SWOTIntelligenceBoard: React.FC<SWOTIntelligenceBoardProps> = ({
   >('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedFactor, setSelectedFactor] = useState<PipelineSWOTResult | null>(null);
+
+  // Lock background scroll & support ESC key while SWOT Diagnostic Toolkit Modal is open
+  useEffect(() => {
+    if (!selectedFactor) return;
+    const originalOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setSelectedFactor(null);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.body.style.overflow = originalOverflow;
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [selectedFactor]);
 
   // Merge active 16 resolution baseline in case any factor didn't return in swotResults
   const resolvedBaseline = useMemo(
@@ -316,199 +336,243 @@ export const SWOTIntelligenceBoard: React.FC<SWOTIntelligenceBoardProps> = ({
         })}
       </div>
 
-      {/* Factor Evaluation & Evidence Drawer */}
-      {selectedFactor && (
-        <div className="fixed inset-0 z-50 bg-black/70 flex justify-end">
-          <div className="w-full max-w-xl bg-bg-surface border-l border-border h-full overflow-y-auto p-6 space-y-6">
-            <div className="flex items-start justify-between gap-4 pb-4 border-b border-border">
-              <div className="space-y-1">
-                <div className="text-xs font-mono text-accent">
-                  {selectedFactor.factor_id} · {layerLabel(selectedFactor.factor_layer)} ·{' '}
-                  {selectedFactor.factor_type.toUpperCase()}
-                </div>
-                <h3 className="text-lg font-bold text-text-primary">{selectedFactor.factor_name}</h3>
-              </div>
-              <button
-                type="button"
-                onClick={() => setSelectedFactor(null)}
-                className="p-2 rounded-xl bg-bg-primary border border-border text-text-secondary hover:text-text-primary cursor-pointer"
-                aria-label="Close factor detail drawer"
+      {/* Portal Diagnostic Toolkit Modal for Clicked SWOT Factor */}
+      {typeof document !== 'undefined' &&
+        createPortal(
+          <AnimatePresence>
+            {selectedFactor && (
+              <div
+                className="fixed inset-0 z-[99999] flex items-center justify-center p-4 sm:p-6 bg-black/75 backdrop-blur-xs"
+                onClick={(e) => {
+                  if (e.target === e.currentTarget) setSelectedFactor(null);
+                }}
               >
-                <X className="h-4 w-4" />
-              </button>
-            </div>
+                <motion.div
+                  initial={{ scale: 0.95, opacity: 0, y: 10 }}
+                  animate={{ scale: 1, opacity: 1, y: 0 }}
+                  exit={{ scale: 0.95, opacity: 0, y: 10 }}
+                  transition={{ duration: 0.18, ease: 'easeOut' }}
+                  className="bg-bg-surface border border-border/80 rounded-2xl max-w-2xl w-full max-h-[82vh] p-6 sm:p-7 shadow-2xl relative flex flex-col my-auto"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  {/* Modal Header */}
+                  <div className="flex items-start justify-between border-b border-border/60 pb-4 shrink-0 gap-4">
+                    <div className="space-y-1 min-w-0">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="text-[10px] font-mono font-black uppercase px-2 py-0.5 rounded bg-accent/20 text-accent border border-accent/30">
+                          {selectedFactor.factor_type}
+                        </span>
+                        <span className="text-[10px] font-mono text-text-secondary">
+                          {selectedFactor.factor_id} · {layerLabel(selectedFactor.factor_layer)}
+                        </span>
+                        <span className={`text-[10px] font-mono font-bold ${stateLabel(selectedFactor.assessment_state).color}`}>
+                          · {stateLabel(selectedFactor.assessment_state).text}
+                        </span>
+                      </div>
+                      <h3 className="text-lg font-black text-text-primary tracking-tight">
+                        {selectedFactor.factor_name}
+                      </h3>
+                    </div>
 
-            {/* 6 Ordinal Evaluation Axes (1-5 Scale) */}
-            <div className="space-y-3">
-              <div className="text-xs font-semibold text-text-primary">
-                Six-Axis Ordinal Assessment (1–5 Scale)
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                {[
-                  { label: 'Strategic Impact', val: selectedFactor.strategic_impact },
-                  { label: 'Evidence Confidence', val: selectedFactor.evidence_confidence },
-                  { label: 'Relevance', val: selectedFactor.relevance },
-                  { label: 'Urgency', val: selectedFactor.urgency },
-                  { label: 'Manageability', val: selectedFactor.manageability },
-                  { label: 'Winability Influence', val: selectedFactor.winability_influence }
-                ].map((axis) => (
-                  <div
-                    key={axis.label}
-                    className="p-3 bg-bg-primary border border-border/70 rounded-xl space-y-1.5"
-                  >
-                    <div className="flex items-center justify-between text-xs">
-                      <span className="text-text-secondary">{axis.label}</span>
-                      <span className="font-mono font-bold tabular-nums text-text-primary">
-                        {axis.val}/5
-                      </span>
-                    </div>
-                    <div className="flex gap-1">
-                      {[1, 2, 3, 4, 5].map((n) => (
-                        <div
-                          key={n}
-                          className={`h-1.5 flex-1 rounded-full ${
-                            n <= axis.val ? 'bg-accent' : 'bg-border/60'
-                          }`}
-                        />
-                      ))}
-                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setSelectedFactor(null)}
+                      className="p-1.5 rounded-lg border border-border text-text-secondary hover:text-text-primary hover:bg-bg-primary transition-all cursor-pointer shrink-0"
+                      aria-label="Close SWOT factor toolkit"
+                      title="Close Toolkit"
+                    >
+                      <X className="w-5 h-5" />
+                    </button>
                   </div>
-                ))}
-              </div>
-            </div>
 
-            {/* Evaluation Rationale */}
-            {selectedFactor.evaluation_rationale && (
-              <div className="space-y-1.5">
-                <div className="text-xs font-semibold text-text-primary">Gemini Factor Rationale</div>
-                <p className="text-xs text-text-secondary leading-relaxed bg-bg-primary border border-border/70 rounded-xl p-3.5">
-                  {selectedFactor.evaluation_rationale}
-                </p>
-              </div>
-            )}
+                  {/* Scrollable Compact Toolkit Body */}
+                  <div className="flex-1 overflow-y-auto space-y-4 pr-1.5 mt-4">
+                    {/* Six-Axis Ordinal Assessment (Compact 3-Column Grid) */}
+                    <div className="space-y-2">
+                      <div className="text-[10px] font-mono font-bold uppercase tracking-widest text-text-secondary">
+                        Six-Axis Ordinal Assessment (1–5 Scale)
+                      </div>
+                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
+                        {[
+                          { label: 'Strategic Impact', val: selectedFactor.strategic_impact },
+                          { label: 'Evidence Confidence', val: selectedFactor.evidence_confidence },
+                          { label: 'Relevance', val: selectedFactor.relevance },
+                          { label: 'Urgency', val: selectedFactor.urgency },
+                          { label: 'Manageability', val: selectedFactor.manageability },
+                          { label: 'Winability Influence', val: selectedFactor.winability_influence }
+                        ].map((axis) => (
+                          <div
+                            key={axis.label}
+                            className="p-2.5 bg-bg-primary rounded-xl border border-border/40 space-y-1.5"
+                          >
+                            <div className="flex items-center justify-between text-[11px] gap-1">
+                              <span className="text-text-secondary truncate">{axis.label}</span>
+                              <span className="font-mono font-bold tabular-nums text-text-primary shrink-0">
+                                {axis.val}/5
+                              </span>
+                            </div>
+                            <div className="flex gap-1">
+                              {[1, 2, 3, 4, 5].map((n) => (
+                                <div
+                                  key={n}
+                                  className={`h-1 flex-1 rounded-full ${
+                                    n <= axis.val ? 'bg-accent' : 'bg-border/60'
+                                  }`}
+                                />
+                              ))}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
 
-            {/* Supporting & Contradicting Evidence */}
-            <div className="space-y-2.5">
-              <div className="text-xs font-semibold text-text-primary flex items-center gap-1.5">
-                <FileText className="h-3.5 w-3.5 text-emerald-400" />
-                <span>
-                  Supporting Evidence ({selectedFactor.supporting_evidence_ids?.length || 0})
-                </span>
-              </div>
-              {(selectedFactor.supporting_evidence_ids || []).length === 0 ? (
-                <p className="text-xs text-text-secondary italic">
-                  No direct supporting evidence records linked yet.
-                </p>
-              ) : (
-                <div className="space-y-2">
-                  {(selectedFactor.supporting_evidence_ids || []).map((id, idx) => {
-                    const ev = evidenceMap.get(id);
-                    return (
-                      <div
-                        key={`${id}-${idx}`}
-                        className="p-3 bg-bg-primary border border-border/70 rounded-xl space-y-1"
-                      >
-                        <div className="flex items-center justify-between text-[11px] font-mono text-emerald-400">
-                          <span className="inline-flex items-center gap-1">
-                            <CheckCircle2 className="h-3 w-3" />
-                            {ev?.evidence_object_id || id}
-                          </span>
-                          {ev && <span>KB Conf: {ev.evidence_confidence}%</span>}
+                    {/* Gemini Factor Rationale */}
+                    {selectedFactor.evaluation_rationale && (
+                      <div className="p-3.5 rounded-xl bg-bg-primary/70 border border-border/40 space-y-1">
+                        <div className="text-[10px] font-mono font-bold uppercase tracking-wider text-accent">
+                          AI Explanation &amp; Factor Rationale
                         </div>
                         <p className="text-xs text-text-primary leading-relaxed">
-                          {ev?.evidence_statement || `Linked evidence ID: ${id}`}
+                          {selectedFactor.evaluation_rationale}
                         </p>
                       </div>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
+                    )}
 
-            {(selectedFactor.contradicting_evidence_ids || []).length > 0 && (
-              <div className="space-y-2.5">
-                <div className="text-xs font-semibold text-red-400 flex items-center gap-1.5">
-                  <ShieldAlert className="h-3.5 w-3.5" />
-                  <span>
-                    Contradicting Evidence ({selectedFactor.contradicting_evidence_ids?.length})
-                  </span>
-                </div>
-                <div className="space-y-2">
-                  {(selectedFactor.contradicting_evidence_ids || []).map((id, idx) => {
-                    const ev = evidenceMap.get(id);
-                    return (
-                      <div
-                        key={`${id}-${idx}`}
-                        className="p-3 bg-bg-primary border border-red-500/30 rounded-xl space-y-1"
-                      >
-                        <div className="text-[11px] font-mono text-red-400">
-                          {ev?.evidence_object_id || id}
-                        </div>
-                        <p className="text-xs text-text-primary leading-relaxed">
-                          {ev?.evidence_statement || `Contradicting record: ${id}`}
-                        </p>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
-
-            {/* Runtime Evidence Relationships & Approved KB Mappings */}
-            {selectedRuntimeRelationships.length > 0 && (
-              <div className="space-y-2">
-                <div className="text-xs font-semibold text-text-primary">
-                  Runtime Evidence Relationships ({selectedRuntimeRelationships.length})
-                </div>
-                <div className="space-y-1.5">
-                  {selectedRuntimeRelationships.map((rel) => {
-                    const ev = evidenceMap.get(rel.evidence_instance_id);
-                    return (
-                      <div
-                        key={rel.relationship_id}
-                        className="text-[11px] bg-bg-primary border border-border/70 rounded-xl px-3 py-2 space-y-1"
-                      >
-                        <div className="flex items-center justify-between font-mono">
-                          <span className="text-accent font-semibold">
-                            {ev?.evidence_object_id || rel.evidence_instance_id}
-                          </span>
-                          <span className="text-text-secondary">
-                            {rel.mapping_relevance} · {rel.runtime_relationship} ({rel.runtime_polarity})
+                    {/* Supporting & Contradicting Evidence */}
+                    <div className="grid grid-cols-1 gap-3">
+                      <div className="p-3.5 rounded-xl bg-bg-primary/70 border border-border/40 space-y-2">
+                        <div className="text-[10px] font-mono font-bold uppercase tracking-wider text-emerald-400 flex items-center gap-1.5">
+                          <FileText className="h-3.5 w-3.5" />
+                          <span>
+                            Supporting Evidence ({selectedFactor.supporting_evidence_ids?.length || 0})
                           </span>
                         </div>
-                        {ev?.evidence_statement && (
-                          <p className="text-xs text-text-primary line-clamp-2">{ev.evidence_statement}</p>
+                        {(selectedFactor.supporting_evidence_ids || []).length === 0 ? (
+                          <p className="text-xs text-text-secondary italic">
+                            No direct supporting evidence records linked yet.
+                          </p>
+                        ) : (
+                          <div className="space-y-1.5">
+                            {(selectedFactor.supporting_evidence_ids || []).map((id, idx) => {
+                              const ev = evidenceMap.get(id);
+                              return (
+                                <div
+                                  key={`${id}-${idx}`}
+                                  className="p-2.5 bg-bg-surface/60 border border-border/50 rounded-lg space-y-0.5"
+                                >
+                                  <div className="flex items-center justify-between text-[10px] font-mono text-emerald-400">
+                                    <span className="inline-flex items-center gap-1">
+                                      <CheckCircle2 className="h-3 w-3" />
+                                      {ev?.evidence_object_id || id}
+                                    </span>
+                                    {ev && <span>Confidence: {ev.evidence_confidence}%</span>}
+                                  </div>
+                                  <p className="text-xs text-text-primary leading-relaxed">
+                                    {ev?.evidence_statement || `Linked evidence ID: ${id}`}
+                                  </p>
+                                </div>
+                              );
+                            })}
+                          </div>
                         )}
                       </div>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
 
-            {selectedApprovedMappings.length > 0 && (
-              <div className="space-y-2">
-                <div className="text-xs font-semibold text-text-primary">
-                  Approved KB Evidence Mappings ({selectedApprovedMappings.length})
-                </div>
-                <div className="space-y-1.5">
-                  {selectedApprovedMappings.map((m) => (
-                    <div
-                      key={m.mappingId}
-                      className="text-[11px] font-mono text-text-secondary bg-bg-primary border border-border/60 rounded-lg px-3 py-2 flex items-center justify-between"
-                    >
-                      <span>{m.evidenceObjectId}</span>
-                      <span>
-                        {m.mappingStrength} · {m.evidenceRole}
-                      </span>
+                      {(selectedFactor.contradicting_evidence_ids || []).length > 0 && (
+                        <div className="p-3.5 rounded-xl bg-bg-primary/70 border border-red-500/25 space-y-2">
+                          <div className="text-[10px] font-mono font-bold uppercase tracking-wider text-red-400 flex items-center gap-1.5">
+                            <ShieldAlert className="h-3.5 w-3.5" />
+                            <span>
+                              Contradicting Evidence ({selectedFactor.contradicting_evidence_ids?.length})
+                            </span>
+                          </div>
+                          <div className="space-y-1.5">
+                            {(selectedFactor.contradicting_evidence_ids || []).map((id, idx) => {
+                              const ev = evidenceMap.get(id);
+                              return (
+                                <div
+                                  key={`${id}-${idx}`}
+                                  className="p-2.5 bg-bg-surface/60 border border-red-500/25 rounded-lg space-y-0.5"
+                                >
+                                  <div className="text-[10px] font-mono text-red-400">
+                                    {ev?.evidence_object_id || id}
+                                  </div>
+                                  <p className="text-xs text-text-primary leading-relaxed">
+                                    {ev?.evidence_statement || `Contradicting record: ${id}`}
+                                  </p>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )}
                     </div>
-                  ))}
-                </div>
+
+                    {/* Compact Runtime Evidence Relationships & Approved KB Mappings */}
+                    {(selectedRuntimeRelationships.length > 0 || selectedApprovedMappings.length > 0) && (
+                      <div className="p-3.5 rounded-xl bg-bg-primary/70 border border-border/40 space-y-2.5">
+                        {selectedRuntimeRelationships.length > 0 && (
+                          <div className="space-y-1.5">
+                            <div className="text-[10px] font-mono font-bold uppercase tracking-wider text-text-secondary">
+                              Runtime Evidence Relationships ({selectedRuntimeRelationships.length})
+                            </div>
+                            <div className="flex flex-wrap gap-1.5">
+                              {selectedRuntimeRelationships.map((rel) => {
+                                const ev = evidenceMap.get(rel.evidence_instance_id);
+                                return (
+                                  <span
+                                    key={rel.relationship_id}
+                                    className="px-2 py-1 rounded-md bg-bg-surface border border-border text-[10px] font-mono text-text-secondary"
+                                    title={ev?.evidence_statement || ''}
+                                  >
+                                    <strong className="text-accent">{ev?.evidence_object_id || rel.evidence_instance_id}</strong>{' '}
+                                    · {rel.runtime_relationship} ({rel.runtime_polarity})
+                                  </span>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        )}
+
+                        {selectedApprovedMappings.length > 0 && (
+                          <div className="space-y-1.5">
+                            <div className="text-[10px] font-mono font-bold uppercase tracking-wider text-text-secondary">
+                              Approved KB Evidence Mappings ({selectedApprovedMappings.length})
+                            </div>
+                            <div className="flex flex-wrap gap-1.5">
+                              {selectedApprovedMappings.map((m) => (
+                                <span
+                                  key={m.mappingId}
+                                  className="px-2 py-1 rounded-md bg-bg-surface border border-border text-[10px] font-mono text-text-secondary"
+                                >
+                                  {m.evidenceObjectId} · {m.mappingStrength}
+                                </span>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Modal Footer */}
+                  <div className="flex items-center justify-between gap-3 pt-4 mt-2 border-t border-border/40 shrink-0">
+                    <span className="text-[11px] font-mono uppercase text-text-secondary">
+                      Priority: <strong className="text-text-primary">{selectedFactor.priority_level}</strong>
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setSelectedFactor(null)}
+                      className="px-5 py-2 bg-accent hover:bg-accent-hover text-black font-black uppercase text-xs rounded-xl transition-all cursor-pointer"
+                    >
+                      Close
+                    </button>
+                  </div>
+                </motion.div>
               </div>
             )}
-          </div>
-        </div>
-      )}
+          </AnimatePresence>,
+          document.body
+        )}
     </div>
   );
 };

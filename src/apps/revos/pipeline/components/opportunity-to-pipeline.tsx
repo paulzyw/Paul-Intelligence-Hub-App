@@ -21,7 +21,8 @@ import {
   PipelineOpportunity,
   PipelineInheritance,
   PipelineAssessment,
-  PipelineOpportunityHandoverDetail
+  PipelineOpportunityHandoverDetail,
+  PADFDimensionId
 } from '../../types/pipeline';
 import { PipelineDataService } from '../services/PipelineDataService';
 import { PipelineConfigService, ActiveFactorResolutionResult } from '../services/PipelineConfigService';
@@ -64,7 +65,9 @@ export const OpportunityToPipeline: React.FC<OpportunityToPipelineProps> = ({
   const [swotExpanded, setSwotExpanded] = useState(false);
   const [swotLayerTab, setSwotLayerTab] = useState<'all' | 'universal_baseline' | 'revenue_motion_override' | 'industry_override'>('all');
   const [assessmentFormOpen, setAssessmentFormOpen] = useState(false);
+  const [targetEvidenceDimension, setTargetEvidenceDimension] = useState<PADFDimensionId | undefined>(undefined);
   const assessmentFormRef = useRef<HTMLDivElement>(null);
+  const assessmentResultRef = useRef<HTMLDivElement>(null);
   const rootContainerRef = useRef<HTMLDivElement>(null);
   const prevLoadingRef = useRef<boolean>(true);
 
@@ -144,8 +147,10 @@ export const OpportunityToPipeline: React.FC<OpportunityToPipelineProps> = ({
         if (!mounted) return;
         if (handoverRes) setHandoverDetail(handoverRes);
 
-        // Auto-open Pipeline Assessment Form if any saved evidence exists in Supabase under this pipeline
-        setAssessmentFormOpen(Array.isArray(existingEvidence) && existingEvidence.length > 0);
+        // Auto-open Pipeline Assessment Form if any saved evidence or assessment exists in Supabase under this pipeline
+        setAssessmentFormOpen(
+          (Array.isArray(existingEvidence) && existingEvidence.length > 0) || Boolean(latest?.assessment)
+        );
 
         // 4. Check for existing completed Pipeline Assessment
         if (latest?.assessment) {
@@ -279,22 +284,13 @@ export const OpportunityToPipeline: React.FC<OpportunityToPipelineProps> = ({
       setLatestAssessment(result.assessment);
     }
     setShowWorkspace(true);
+    setTimeout(() => {
+      assessmentResultRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 100);
     if (onAssessmentReady && pipelineOpp) {
       onAssessmentReady(result, pipelineOpp);
     }
   };
-
-  // Stage 6 Full Intelligence Workspace (when assessment exists & user didn't stay in intake)
-  if (showWorkspace && (latestAssessment || lastRunSummary)) {
-    return (
-      <PipelineIntelligenceWorkspace
-        opportunity={pipelineOpp}
-        inheritance={inheritance}
-        sourceChannel={sourceChannel}
-        onOpportunityUpdated={(updated) => setPipelineOpp(updated)}
-      />
-    );
-  }
 
   return (
     <div ref={rootContainerRef} className="p-4 sm:p-6 md:p-8 space-y-6 max-w-7xl mx-auto">
@@ -615,7 +611,36 @@ export const OpportunityToPipeline: React.FC<OpportunityToPipelineProps> = ({
           <PipelineAssessmentForm
             opportunity={pipelineOpp}
             inheritance={inheritance}
+            initialDimension={targetEvidenceDimension}
             onAssessmentComplete={handleAssessmentComplete}
+          />
+        </div>
+      )}
+
+      {/* Stage 6 Assessment Result Workspace (Displayed below Pipeline Assessment Form after Run Assessment or when stored in Supabase) */}
+      {showWorkspace && (latestAssessment || lastRunSummary) && (
+        <div ref={assessmentResultRef} className="pt-2">
+          <PipelineIntelligenceWorkspace
+            embedded
+            opportunity={pipelineOpp}
+            inheritance={inheritance}
+            sourceChannel={sourceChannel}
+            initialResult={lastRunSummary}
+            onOpportunityUpdated={(updated) => setPipelineOpp(updated)}
+            onRequestEditDimensionEvidence={(dimId) => {
+              setAssessmentFormOpen(true);
+              setTargetEvidenceDimension(dimId);
+              setTimeout(() => {
+                assessmentFormRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+              }, 80);
+            }}
+            onTriggerReassessment={() => {
+              setAssessmentFormOpen(true);
+              setTargetEvidenceDimension(undefined);
+              setTimeout(() => {
+                assessmentFormRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+              }, 80);
+            }}
           />
         </div>
       )}

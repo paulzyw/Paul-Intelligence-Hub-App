@@ -1101,11 +1101,21 @@ export function calculateDeterministicAssessment(
           itemScore = 25;
         }
 
+        const srcVal = String(rec.source_type || rec.source || '');
+        const kbConf = typeof rec.evidence_confidence === 'number' ? rec.evidence_confidence : null;
+        if (kbConf !== null) {
+          // Blend content indicator score with user-provided Knowledge Base validation confidence
+          itemScore = Math.round(itemScore * 0.55 + kbConf * 0.45);
+        }
+
         // Customer confirmed bonus / assumption penalty
-        const srcVal = rec.source_type || rec.source || '';
         if (rec.customer_confirmed === true) {
           itemScore = Math.min(100, itemScore + 8);
-        } else if (srcVal === 'Seller Assumption' || srcVal === 'Sales Representative Input') {
+        } else if (
+          srcVal === 'Seller Assumption' ||
+          srcVal === 'Sales Representative Input' ||
+          srcVal.includes('ES06')
+        ) {
           itemScore = Math.max(15, itemScore - 12);
         }
 
@@ -1124,6 +1134,21 @@ export function calculateDeterministicAssessment(
       }
     }
 
+    const avgDimConf = recs.length > 0
+      ? Math.round(
+          recs.reduce((acc: number, r: any) => acc + Number(r.evidence_confidence ?? (r.customer_confirmed ? 82 : 60)), 0) /
+          recs.length
+        )
+      : 35;
+    const confirmedInDim = recs.filter((r: any) => Boolean(r.customer_confirmed)).length;
+    const evidenceStrengthLabel = recs.length === 0
+      ? 'Unverified'
+      : confirmedInDim >= Math.ceil(recs.length / 2)
+        ? 'Customer Confirmed'
+        : avgDimConf >= 70
+          ? 'Direct Evidence'
+          : 'Sales Rep Inferred';
+
     const weightedScore = Math.round(score * dim.weight * 100) / 100;
     baseWinabilitySum += score * dim.weight;
     totalWeight += dim.weight;
@@ -1132,6 +1157,9 @@ export function calculateDeterministicAssessment(
       dimension_code: dim.code,
       dimension_name: dim.name,
       score,
+      confidence: avgDimConf,
+      evidence_strength: evidenceStrengthLabel,
+      evidence_count: recs.length,
       weight: dim.weight,
       weighted_score: weightedScore,
       business_impact: `${dim.name} directly influences pipeline execution confidence.`,
@@ -1214,15 +1242,40 @@ export function calculateDeterministicAssessment(
   riskPenalty = Math.min(45, riskPenalty);
   const riskAdjustedWinability = Math.max(0, Math.min(100, baseWinability - riskPenalty));
 
+  // Numeric assessment confidence combining completeness (48 objects), KB validation confidence, and confirmation rate
+  const totalObjects = Object.keys(EVIDENCE_OBJECTS_REGISTRY).length || 48;
+  const populatedCount = evidenceRecords.filter((r: any) => String(r.evidence_statement || r.content || '').trim().length > 0).length;
+  const coveragePct = Math.min(100, Math.round((populatedCount / totalObjects) * 100));
+  const avgEvidenceConf = populatedCount > 0
+    ? Math.round(evidenceRecords.reduce((acc: number, r: any) => acc + Number(r.evidence_confidence ?? 70), 0) / evidenceRecords.length)
+    : 40;
+  const confirmedRatio = populatedCount > 0
+    ? Math.round((evidenceRecords.filter((r: any) => Boolean(r.customer_confirmed)).length / populatedCount) * 100)
+    : 0;
+  const numericConfidence = Math.max(20, Math.min(98, Math.round(coveragePct * 0.45 + avgEvidenceConf * 0.35 + confirmedRatio * 0.20)));
+
+  const critCount = formalRisks.filter((r: any) => String(r.severity).toLowerCase() === 'critical').length;
+  const minDimScore = dimensionResults.length > 0 ? Math.min(...dimensionResults.map((d: any) => d.score)) : 0;
+
   let healthStatus = 'Moderate';
-  if (riskAdjustedWinability >= 75) healthStatus = 'Strong';
-  else if (riskAdjustedWinability >= 55) healthStatus = 'Moderate';
-  else if (riskAdjustedWinability >= 35) healthStatus = 'At Risk';
-  else healthStatus = 'Critical Blocker';
+  let healthIndicator = 'Moderate';
+  if (critCount >= 2 || minDimScore < 30 || riskAdjustedWinability < 35) {
+    healthStatus = 'Critical Blocker';
+    healthIndicator = 'Critical';
+  } else if (riskAdjustedWinability < 55) {
+    healthStatus = 'At Risk';
+    healthIndicator = 'Weak';
+  } else if (riskAdjustedWinability >= 75 && numericConfidence >= 65 && critCount === 0) {
+    healthStatus = 'Strong';
+    healthIndicator = 'Strong';
+  } else {
+    healthStatus = 'Moderate';
+    healthIndicator = 'Moderate';
+  }
 
   let confidenceLevel = 'High';
-  if (evidenceRecords.length < 10) confidenceLevel = 'Low';
-  else if (evidenceRecords.length < 24) confidenceLevel = 'Moderate';
+  if (numericConfidence < 50) confidenceLevel = 'Low';
+  else if (numericConfidence < 75) confidenceLevel = 'Moderate';
 
   return {
     dimensionResults,
@@ -1230,7 +1283,9 @@ export function calculateDeterministicAssessment(
     riskPenalty,
     riskAdjustedWinability,
     healthStatus,
+    healthIndicator,
     confidenceLevel,
+    numericConfidence,
     formalRisks
   };
 }
@@ -1568,8 +1623,31 @@ ${records.slice(0, 20).map((r: any) => `- [${r.evidence_object_id}] Confirmed=${
       const industry = pipelineOpp.industry_id || pipelineOpp.industry_name || 'IND_SaaS_Software';
       const active16SWOTFactors = resolveActive16SWOTFactors(revMotion, industry);
 
-      // 5. Run Deterministic Scoring
+      // 5. Run Deterministic Scoring + Fetch Prior Relationships & Assessments
       const deterministic = calculateDeterministicAssessment(evidenceRecords || [], inheritance || {});
+      const { data: relationshipRows } = await supabase
+        .from('pipeline_evidence_relationships')
+        .select('*')
+        .eq('pipeline_id', effectivePipeId);
+
+      // Fetch previous assessment sequence + PADF results for historical movement calculation
+      const { data: prevAssessList } = await supabase
+        .from('pipeline_assessments')
+        .select('assessment_id, assessment_sequence')
+        .eq('pipeline_id', effectivePipeId)
+        .order('assessment_sequence', { ascending: false })
+        .limit(1);
+
+      let prevPadfByDim: Record<string, number> = {};
+      if (prevAssessList?.[0]?.assessment_id) {
+        const { data: prevPadf } = await supabase
+          .from('pipeline_padf_results')
+          .select('dimension_id, dimension_score')
+          .eq('assessment_id', prevAssessList[0].assessment_id);
+        (prevPadf || []).forEach((p: any) => {
+          prevPadfByDim[p.dimension_id] = p.dimension_score;
+        });
+      }
 
       // 6. Format Gemini Prompt using Gemini Pipeline Reasoning System Prompt v1.1
       const systemInstruction = `You are the Pipeline Assessment Intelligence Engine of RevOS.
@@ -1582,23 +1660,27 @@ IMPORTANT GOVERNANCE BOUNDARIES:
    - Base Winability: ${deterministic.baseWinability}/100
    - Risk Penalty: ${deterministic.riskPenalty}
    - Risk-Adjusted Winability: ${deterministic.riskAdjustedWinability}/100
-   - Pipeline Health Status: ${deterministic.healthStatus}
-   - Confidence Level: ${deterministic.confidenceLevel}
+   - Pipeline Health Status: ${deterministic.healthStatus} (Indicator: ${deterministic.healthIndicator})
+   - Assessment Confidence: ${deterministic.numericConfidence}% (${deterministic.confidenceLevel})
    You MUST PRESERVE these deterministic scores and explain their strategic drivers. You MUST NOT recalculate or override these numbers.
-2. Active SWOT Factors: Exactly 16 factors are active (8 Universal Baseline + 4 Revenue Motion + 4 Industry). Evaluate each of the 16 factors using ordinal scales (1 to 5) for:
-   - strategic_impact (1-5)
-   - evidence_confidence (1-5)
-   - relevance (1-5)
-   - urgency (1-5)
-   - manageability (1-5)
-   - winability_influence (1-5)
-3. Synthesize TOWS Strategic Intelligence:
-   - Generate relevant, high-impact TOWS strategy combinations (SO, WO, ST, WT) connecting validated SWOT factors and evidence.
-4. Actionable Prioritized Recommendations:
-   - Categorize recommendations into: 'CRITICAL', 'HIGH', 'MEDIUM'.
-   - Avoid generic advice; provide concrete, consultative, enterprise-grade recommendations.`;
+2. Evidence Source & Validation Strength Rigor:
+   Evaluate EVERY submitted evidence answer rigorously considering BOTH the statement content AND its source reliability (source_type), verification status, validation strength (evidence_confidence %), and customer confirmation flag (customer_confirmed). Customer Executive Conversation / Customer Documentation with high confirmation supports positive signals; Seller Assumptions or unconfirmed answers with low confidence qualify or highlight gaps.
+3. Executive Summary Must Answer All 5 Business Questions:
+   - Likelihood to become Closed Won (executive_summary)
+   - Primary Reason (primary_reason) and Why This Assessment causal chain (why_this_assessment: evidence -> interpretation -> assessment -> business_implication)
+   - Supporting vs contradicting/qualifying evidence across all 8 PADF dimensions
+   - Formal risks & evidence gaps
+   - Prioritized actions (priority_actions + recommended_next_actions)
+4. Active SWOT Factors: Exactly 16 factors are active (8 Universal Baseline + 4 Revenue Motion + 4 Industry). Evaluate each using ordinal scales (1 to 5).
+5. Synthesize TOWS Strategic Intelligence (SO, WO, ST, WT) and concrete enterprise-grade recommendations ('CRITICAL', 'HIGH', 'MEDIUM').`;
 
       const inheritedPayload: any = inheritance?.inherited_payload || {};
+      const relByInstance: Record<string, any[]> = {};
+      (relationshipRows || []).forEach((rel: any) => {
+        if (!relByInstance[rel.evidence_instance_id]) relByInstance[rel.evidence_instance_id] = [];
+        relByInstance[rel.evidence_instance_id].push(rel);
+      });
+
       const prompt = `
 === PIPELINE OPPORTUNITY CONTEXT ===
 - Opportunity Name: ${pipelineOpp.opportunity_name}
@@ -1613,24 +1695,31 @@ IMPORTANT GOVERNANCE BOUNDARIES:
 - Qualification Decision: ${inheritance?.qualification_decision || 'QUALIFIED'}
 - Qualification Score (QIP): ${inheritance?.qualification_score ?? 78}/100
 - Inherited Confidence: ${inheritance?.qualification_confidence ?? 75}%
-- Inherited Payload Summary: ${JSON.stringify(inheritedPayload).slice(0, 2500)}
+- Inherited Payload Summary: ${JSON.stringify(inheritedPayload).slice(0, 2000)}
 
 === DETERMINISTIC PADF DIMENSION SCORES (AUTHORITATIVE) ===
-${deterministic.dimensionResults.map(d => `- [${d.dimension_code}] ${d.dimension_name}: Score ${d.score}/100 (Weight: ${d.weight * 100}%, Weighted: ${d.weighted_score})`).join('\n')}
+${deterministic.dimensionResults.map(d => `- [${d.dimension_code}] ${d.dimension_name}: Score ${d.score}/100 | Conf: ${d.confidence}% | Strength: ${d.evidence_strength} | Weight: ${Math.round(d.weight * 100)}%`).join('\n')}
 
 - Base Winability: ${deterministic.baseWinability}/100
 - Formal Risk Penalty: -${deterministic.riskPenalty} points
 - Risk-Adjusted Winability: ${deterministic.riskAdjustedWinability}/100
-- Pipeline Health: ${deterministic.healthStatus}
+- Pipeline Health: ${deterministic.healthStatus} (${deterministic.healthIndicator})
+- Assessment Confidence: ${deterministic.numericConfidence}% (${deterministic.confidenceLevel})
 
 === COLLECTED PIPELINE EVIDENCE INSTANCES (${evidenceRecords?.length || 0} ITEMS) ===
 ${(evidenceRecords || []).map(ev => {
   const def = EVIDENCE_OBJECTS_REGISTRY[ev.evidence_object_id];
+  const rels = relByInstance[ev.evidence_instance_id] || [];
+  const swotTargets = [...new Set(rels.map((r: any) => r.target_factor_id).filter(Boolean))];
   return `
 - Evidence Object: [${ev.evidence_object_id}] ${def?.name || ev.evidence_object_id} (Dim: ${ev.metadata?.dimension_code || def?.dimension || ''})
   Question: "${def?.question || ''}"
-  Customer Confirmed: ${ev.customer_confirmed ? 'YES' : 'NO'} | Source: ${ev.source_type || 'Sales Rep'} | Confidence: ${ev.evidence_confidence}%
-  Actual User Finding / Answer: "${ev.evidence_statement}"
+  Positive Indicators: ${(def?.positiveSignals || []).join('; ') || 'Verified customer commitment / concrete proof'}
+  Negative Indicators: ${(def?.negativeSignals || []).join('; ') || 'Unverified assumption / missing stakeholder proof'}
+  Evidence Type: ${ev.evidence_type || 'customer_statement'} | Source: ${ev.source_type || 'Sales Representative Input'}
+  Verification: ${ev.verification_status || (ev.customer_confirmed ? 'VERIFIED' : 'UNVERIFIED')} | Quality: ${ev.evidence_quality || 'MEDIUM'} | Validation Strength / Confidence: ${ev.evidence_confidence}% | Customer Confirmed: ${ev.customer_confirmed ? 'YES' : 'NO'}
+  SWOT Factor Links: ${swotTargets.join(', ') || 'PADF Direct'}
+  User Evidence Statement: "${ev.evidence_statement}"
 `;
 }).join('\n')}
 
@@ -1638,28 +1727,43 @@ ${(evidenceRecords || []).map(ev => {
 ${active16SWOTFactors.map(f => `- [${f.id}] (${f.classification} - ${f.layer}): ${f.name} (Category: ${f.category})`).join('\n')}
 
 === REASONING TASK ===
-1. Provide an Executive Assessment Summary explaining why the opportunity has its current Winability (${deterministic.riskAdjustedWinability}%), the primary positive momentum drivers, and the critical constraints holding it back.
-2. Evaluate all 16 active SWOT factors with 1-5 ordinal scales, an executive interpretation, business impact, and uncertainty notes.
-3. Formulate 4-6 high-impact TOWS Strategies (SO, WO, ST, WT) directly tying back to the active SWOT factor IDs and evidence.
-4. Formalize Risk Intelligence items with specific mitigation steps.
-5. Generate 4-6 Prioritized Action Recommendations (CRITICAL, HIGH, MEDIUM).
-6. Detail material Evidence Gaps and Longitudinal Guidance.`;
+1. Generate primary_reason (1-2 sharp sentences summarizing the core winability driver/constraint), executive_summary (overall assessment answering likelihood to close won), and why_this_assessment causal 4-step chain (evidence, interpretation, assessment, business_implication).
+2. Populate positive_drivers, critical_constraints, priority_actions (top 3-5 actions), and evidence_gaps.
+3. Produce padf_dimension_narratives for ALL 8 dimensions (PA1..PA8), including short_interpretation, strengths, weaknesses, contradictory_qualifying_evidence, related_swot_factors, evidence_gaps, risks, ai_reasoning, business_impact, improvement_direction, and recommended_actions.
+4. Produce evidence_assessments evaluating EVERY submitted evidence object above against its Positive/Negative Indicators, Evidence Source reliability, and Validation Strength / Confidence. For each item specify signal_score (0-100), matched_type ('positive'|'negative'|'neutral'), mapping_relevance ('DIRECT'|'SUPPORTING'|'INDIRECT'), runtime_relationship ('SUPPORTS'|'CONTRADICTS'|'QUALIFIES'|'CONTEXTUALIZES'|'GAP_SIGNAL'|'CHANGE_SIGNAL'), runtime_polarity ('POSITIVE'|'NEGATIVE'|'MIXED'|'NEUTRAL'|'UNDETERMINED'), linked_swot_factors, linked_padf_dimensions, and a precise 2-3 sentence "identification_assessment" evaluating the user's actual User Evidence Statement, source credibility, and validation strength (NEVER return a single word like "Verified" or status label).
+5. Produce observed_supporting_evidence selecting up to 6 strongest positive supporting evidence findings from the submitted evidence objects above. For each item include evidence_object_id, title, dimension_code (e.g., PA1..PA8), source_type, verification_status, and "finding_summary": a concrete 2-3 sentence Gemini reasoning explaining WHY this observed evidence credibly substantiates deal strength, how its source and validation confidence support reliability, and how it reinforces PADF winability and SWOT positioning (NEVER output only "Verified" or a brief status tag).
+6. Evaluate all 16 active SWOT factors with 1-5 ordinal scales.
+7. Formulate 4-6 high-impact TOWS Strategies (SO, WO, ST, WT), formal Risks, ai_cognitive_reasoning_summary, and actions.`;
 
       const response = await ai.models.generateContent({
         model: 'gemini-3.1-flash-lite',
         contents: prompt,
         config: {
           temperature: 0.1,
+          maxOutputTokens: 16384,
           systemInstruction,
           responseMimeType: "application/json",
           responseSchema: {
             type: Type.OBJECT,
             properties: {
+              primary_reason: { type: Type.STRING },
               executive_summary: { type: Type.STRING },
               qualification_continuity_summary: { type: Type.STRING },
+              why_this_assessment: {
+                type: Type.OBJECT,
+                properties: {
+                  evidence: { type: Type.STRING },
+                  interpretation: { type: Type.STRING },
+                  assessment: { type: Type.STRING },
+                  business_implication: { type: Type.STRING }
+                },
+                required: ["evidence", "interpretation", "assessment", "business_implication"]
+              },
               positive_drivers: { type: Type.ARRAY, items: { type: Type.STRING } },
               critical_constraints: { type: Type.ARRAY, items: { type: Type.STRING } },
+              priority_actions: { type: Type.ARRAY, items: { type: Type.STRING } },
               longitudinal_trend: { type: Type.STRING },
+              ai_cognitive_reasoning_summary: { type: Type.STRING },
               swot_evaluations: {
                 type: Type.ARRAY,
                 items: {
@@ -1695,13 +1799,63 @@ ${active16SWOTFactors.map(f => `- [${f.id}] (${f.classification} - ${f.layer}): 
                   properties: {
                     dimension_code: { type: Type.STRING },
                     dimension_name: { type: Type.STRING },
+                    short_interpretation: { type: Type.STRING },
                     strengths: { type: Type.ARRAY, items: { type: Type.STRING } },
                     weaknesses: { type: Type.ARRAY, items: { type: Type.STRING } },
-                    uncertainties: { type: Type.ARRAY, items: { type: Type.STRING } },
+                    contradictory_qualifying_evidence: { type: Type.ARRAY, items: { type: Type.STRING } },
+                    related_swot_factors: { type: Type.ARRAY, items: { type: Type.STRING } },
+                    evidence_gaps: { type: Type.ARRAY, items: { type: Type.STRING } },
+                    risks: { type: Type.ARRAY, items: { type: Type.STRING } },
+                    ai_reasoning: { type: Type.STRING },
                     business_impact: { type: Type.STRING },
-                    improvement_direction: { type: Type.STRING }
+                    improvement_direction: { type: Type.STRING },
+                    recommended_actions: { type: Type.ARRAY, items: { type: Type.STRING } }
                   },
-                  required: ["dimension_code", "dimension_name", "strengths", "weaknesses", "uncertainties", "business_impact", "improvement_direction"]
+                  required: [
+                    "dimension_code", "dimension_name", "short_interpretation",
+                    "strengths", "weaknesses", "contradictory_qualifying_evidence",
+                    "related_swot_factors", "evidence_gaps", "risks", "ai_reasoning",
+                    "business_impact", "improvement_direction", "recommended_actions"
+                  ]
+                }
+              },
+              evidence_assessments: {
+                type: Type.ARRAY,
+                items: {
+                  type: Type.OBJECT,
+                  properties: {
+                    evidence_object_id: { type: Type.STRING },
+                    signal_score: { type: Type.INTEGER },
+                    matched_type: { type: Type.STRING },
+                    identification_assessment: { type: Type.STRING },
+                    mapping_relevance: { type: Type.STRING },
+                    runtime_relationship: { type: Type.STRING },
+                    runtime_polarity: { type: Type.STRING },
+                    linked_swot_factors: { type: Type.ARRAY, items: { type: Type.STRING } },
+                    linked_padf_dimensions: { type: Type.ARRAY, items: { type: Type.STRING } }
+                  },
+                  required: [
+                    "evidence_object_id", "signal_score", "matched_type",
+                    "identification_assessment", "mapping_relevance",
+                    "runtime_relationship", "runtime_polarity"
+                  ]
+                }
+              },
+              observed_supporting_evidence: {
+                type: Type.ARRAY,
+                items: {
+                  type: Type.OBJECT,
+                  properties: {
+                    evidence_object_id: { type: Type.STRING },
+                    title: { type: Type.STRING },
+                    dimension_code: { type: Type.STRING },
+                    source_type: { type: Type.STRING },
+                    verification_status: { type: Type.STRING },
+                    finding_summary: { type: Type.STRING }
+                  },
+                  required: [
+                    "evidence_object_id", "title", "dimension_code", "finding_summary"
+                  ]
                 }
               },
               tows_strategies: {
@@ -1751,6 +1905,8 @@ ${active16SWOTFactors.map(f => `- [${f.id}] (${f.classification} - ${f.layer}): 
                     action_title: { type: Type.STRING },
                     action_description: { type: Type.STRING },
                     priority: { type: Type.STRING },
+                    related_dimension: { type: Type.STRING },
+                    expected_impact: { type: Type.STRING },
                     owner_role: { type: Type.STRING },
                     timeframe: { type: Type.STRING },
                     success_criteria: { type: Type.STRING },
@@ -1774,9 +1930,11 @@ ${active16SWOTFactors.map(f => `- [${f.id}] (${f.classification} - ${f.layer}): 
               }
             },
             required: [
-              "executive_summary", "qualification_continuity_summary", "positive_drivers",
-              "critical_constraints", "longitudinal_trend", "swot_evaluations",
-              "padf_dimension_narratives", "tows_strategies", "risks", "actions"
+              "primary_reason", "executive_summary", "qualification_continuity_summary",
+              "why_this_assessment", "positive_drivers", "critical_constraints",
+              "priority_actions", "longitudinal_trend", "ai_cognitive_reasoning_summary",
+              "swot_evaluations", "padf_dimension_narratives", "evidence_assessments",
+              "observed_supporting_evidence", "tows_strategies", "risks", "actions"
             ]
           }
         }
@@ -1786,14 +1944,7 @@ ${active16SWOTFactors.map(f => `- [${f.id}] (${f.classification} - ${f.layer}): 
       const executionDurationMs = Date.now() - startTime;
 
       // 7. Determine assessment_sequence & create assessment_id matching SQL schema
-      const { data: previousAssessments } = await supabase
-        .from('pipeline_assessments')
-        .select('assessment_sequence')
-        .eq('pipeline_id', effectivePipeId)
-        .order('assessment_sequence', { ascending: false })
-        .limit(1);
-
-      const nextSequence = (previousAssessments?.[0]?.assessment_sequence || 0) + 1;
+      const nextSequence = (prevAssessList?.[0]?.assessment_sequence || 0) + 1;
       const assessmentId = `ASSESS_${effectivePipeId}_v${nextSequence}_${Date.now()}`;
       const mappedHealth = deterministic.healthStatus === 'Strong'
         ? 'STRONG'
@@ -1802,16 +1953,223 @@ ${active16SWOTFactors.map(f => `- [${f.id}] (${f.classification} - ${f.layer}): 
           : deterministic.healthStatus === 'At Risk'
             ? 'AT_RISK'
             : 'CRITICAL';
-      const numericConfidence = deterministic.confidenceLevel === 'High' ? 90 : deterministic.confidenceLevel === 'Moderate' ? 70 : 45;
+      const numericConfidence = deterministic.numericConfidence;
+
+      // Hydrate deterministic + AI evidence signal audits cleanly so every submitted evidence record has full provenance
+      const aiAuditMap = new Map<string, any>();
+      (aiResult.evidence_assessments || []).forEach((ea: any) => {
+        if (ea?.evidence_object_id) aiAuditMap.set(ea.evidence_object_id, ea);
+      });
+
+      const isSubstantiveAuditText = (val?: string) => {
+        const cleaned = String(val || '').trim();
+        if (cleaned.length < 24) return false;
+        return !/^(verified|unverified|confirmed|supported|supports|positive|negative|neutral|n\/a)\.?$/i.test(cleaned);
+      };
+
+      const hydratedEvidenceAssessments = (evidenceRecords || []).map((ev: any) => {
+        const def = EVIDENCE_OBJECTS_REGISTRY[ev.evidence_object_id] || {};
+        const aiEv = aiAuditMap.get(ev.evidence_object_id) || {};
+        const rels = relByInstance[ev.evidence_instance_id] || [];
+
+        const rawDim = ev.metadata?.dimension_code || def?.dimension || 'PA1_Customer_Value_and_Urgency';
+        const canonDim = CANONICAL_PADF_DIMENSIONS.find(
+          d => d.code === rawDim || d.shortCode === rawDim || String(rawDim).includes(d.shortCode)
+        ) || CANONICAL_PADF_DIMENSIONS[0];
+
+        const kbConf = Number(ev.evidence_confidence ?? 70);
+        const computedSignal = typeof aiEv.signal_score === 'number'
+          ? Math.max(0, Math.min(100, Math.round(aiEv.signal_score)))
+          : Math.max(15, Math.min(98, ev.customer_confirmed ? Math.max(kbConf, 78) : kbConf));
+
+        const matchedType = (aiEv.matched_type || '').toLowerCase() === 'positive' || computedSignal >= 70
+          ? 'positive'
+          : (aiEv.matched_type || '').toLowerCase() === 'negative' || computedSignal < 45
+            ? 'negative'
+            : 'neutral';
+
+        const swotFromRels = [...new Set(rels.map((r: any) => r.target_factor_id).filter(Boolean))];
+        const swotFromAi = Array.isArray(aiEv.linked_swot_factors) ? aiEv.linked_swot_factors : [];
+        const linkedSwotFactors = [...new Set([...swotFromRels, ...swotFromAi])];
+
+        const dimsFromRels = [...new Set(rels.map((r: any) => r.target_dimension_id).filter(Boolean))];
+        const dimsFromAi = Array.isArray(aiEv.linked_padf_dimensions) ? aiEv.linked_padf_dimensions : [];
+        const linkedPadfDims = [...new Set([canonDim.code, ...dimsFromRels, ...dimsFromAi])];
+
+        const defaultRel = rels[0]?.runtime_relationship || (matchedType === 'positive' ? 'SUPPORTS' : matchedType === 'negative' ? 'GAP_SIGNAL' : 'QUALIFIES');
+        const defaultPol = rels[0]?.runtime_polarity || (matchedType === 'positive' ? 'POSITIVE' : matchedType === 'negative' ? 'NEGATIVE' : 'MIXED');
+        const defaultRelevance = rels[0]?.mapping_relevance || 'DIRECT';
+
+        const sourceLabel = ev.source_type || 'Customer Meeting Notes';
+        const rawAiText = aiEv.identification_assessment || aiEv.ai_reasoning;
+        const stmtSnippet = String(ev.evidence_statement || '').trim().slice(0, 180);
+        const synthesizedFallback = stmtSnippet
+          ? `Submitted ${ev.customer_confirmed ? 'customer-confirmed' : 'unconfirmed'} evidence ("${stmtSnippet}${String(ev.evidence_statement || '').length > 180 ? '...' : ''}") from ${sourceLabel} (${kbConf}% confidence) ${matchedType === 'positive' ? 'actively substantiates' : matchedType === 'negative' ? 'exposes risk/gaps in' : 'partially informs'} ${canonDim.name}.`
+          : `Evaluated ${ev.customer_confirmed ? 'customer-confirmed' : 'unconfirmed'} evidence (${sourceLabel}, ${kbConf}% confidence) against ${canonDim.name} requirements.`;
+
+        return {
+          evidence_instance_id: ev.evidence_instance_id,
+          evidence_object_id: ev.evidence_object_id,
+          evidence_name: def?.name || ev.evidence_object_id,
+          question_text: def?.question || '',
+          dimension_code: canonDim.shortCode,
+          dimension_name: canonDim.name,
+          signal_score: computedSignal,
+          matched_type: matchedType,
+          identification_assessment: isSubstantiveAuditText(rawAiText) ? String(rawAiText).trim() : synthesizedFallback,
+          evidence_statement: ev.evidence_statement || '',
+          evidence_type: ev.evidence_type || 'customer_statement',
+          source_type: sourceLabel,
+          verification_status: ev.verification_status || (ev.customer_confirmed ? 'VERIFIED' : 'UNVERIFIED'),
+          evidence_quality: ev.evidence_quality || (kbConf >= 80 ? 'HIGH' : kbConf >= 55 ? 'MEDIUM' : 'LOW'),
+          evidence_confidence: kbConf,
+          customer_confirmed: Boolean(ev.customer_confirmed),
+          mapping_relevance: aiEv.mapping_relevance || defaultRelevance,
+          runtime_relationship: aiEv.runtime_relationship || defaultRel,
+          runtime_polarity: aiEv.runtime_polarity || defaultPol,
+          linked_swot_factors: linkedSwotFactors,
+          linked_padf_dimensions: linkedPadfDims
+        };
+      });
+
+      const auditByObjId = new Map<string, any>();
+      hydratedEvidenceAssessments.forEach((h: any) => auditByObjId.set(h.evidence_object_id, h));
+
+      const aiObservedSupporting = Array.isArray(aiResult.observed_supporting_evidence)
+        ? aiResult.observed_supporting_evidence
+        : [];
+
+      const observedSupportingEvidence = (aiObservedSupporting.length > 0
+        ? aiObservedSupporting.slice(0, 6).map((item: any) => {
+            const matchedAudit = auditByObjId.get(item.evidence_object_id);
+            const dimNarrative = (aiResult.padf_dimension_narratives || []).find(
+              (n: any) =>
+                n.dimension_code === (item.dimension_code || matchedAudit?.dimension_code) ||
+                String(n.dimension_code || '').startsWith(String(item.dimension_code || matchedAudit?.dimension_code || '').slice(0, 3))
+            );
+            const rawFinding = item.finding_summary;
+            const substantiveFinding = isSubstantiveAuditText(rawFinding)
+              ? String(rawFinding).trim()
+              : isSubstantiveAuditText(matchedAudit?.identification_assessment)
+                ? matchedAudit.identification_assessment
+                : dimNarrative?.ai_reasoning ||
+                  dimNarrative?.short_interpretation ||
+                  `Substantiated positive evidence for ${item.title || matchedAudit?.evidence_name || item.evidence_object_id}.`;
+
+            return {
+              evidence_object_id: item.evidence_object_id,
+              title: item.title || matchedAudit?.evidence_name || item.evidence_object_id,
+              dimension_code: item.dimension_code || matchedAudit?.dimension_code || '',
+              source_type: item.source_type || matchedAudit?.source_type || 'Customer Meeting Notes',
+              verification_status: item.verification_status || matchedAudit?.verification_status || 'VERIFIED',
+              finding_summary: substantiveFinding
+            };
+          })
+        : hydratedEvidenceAssessments
+            .filter((e: any) => e.matched_type === 'positive' || e.signal_score >= 70)
+            .slice(0, 6)
+            .map((e: any) => ({
+              evidence_object_id: e.evidence_object_id,
+              title: e.evidence_name,
+              dimension_code: e.dimension_code,
+              source_type: e.source_type,
+              verification_status: e.verification_status,
+              finding_summary: e.identification_assessment
+            })));
+
+      const enrichedPadfNarratives = deterministic.dimensionResults.map(d => {
+        const aiNarrative = (aiResult.padf_dimension_narratives || []).find(
+          (n: any) => n.dimension_code === d.dimension_code || d.dimension_code.includes(n.dimension_code) || String(n.dimension_code).startsWith(d.dimension_code.slice(0, 3))
+        );
+        const state = d.score >= 75 ? 'STRONG' : d.score >= 60 ? 'HEALTHY' : d.score >= 45 ? 'MODERATE' : 'VULNERABLE';
+        const assessLabel = d.score >= 75 ? 'Strong' : d.score >= 55 ? 'Moderate' : d.score >= 35 ? 'Weak' : 'Critical';
+        const prevScore = prevPadfByDim[d.dimension_code];
+        return {
+          dimension_code: d.dimension_code,
+          dimension_name: d.dimension_name,
+          score: d.score,
+          confidence: d.confidence,
+          assessment: assessLabel,
+          assessment_state: state,
+          evidence_strength: d.evidence_strength,
+          short_interpretation: aiNarrative?.short_interpretation || d.business_impact,
+          strengths: aiNarrative?.strengths || [],
+          weaknesses: aiNarrative?.weaknesses || [],
+          contradictory_qualifying_evidence: aiNarrative?.contradictory_qualifying_evidence || [],
+          related_swot_factors: aiNarrative?.related_swot_factors || [],
+          evidence_gaps: aiNarrative?.evidence_gaps || [],
+          risks: aiNarrative?.risks || [],
+          ai_reasoning: aiNarrative?.ai_reasoning || aiNarrative?.short_interpretation || d.business_impact,
+          business_impact: aiNarrative?.business_impact || d.business_impact,
+          improvement_direction: aiNarrative?.improvement_direction || d.improvement_direction,
+          recommended_actions: aiNarrative?.recommended_actions || (aiNarrative?.improvement_direction ? [aiNarrative.improvement_direction] : []),
+          historical_score: typeof prevScore === 'number' ? prevScore : undefined,
+          score_delta: typeof prevScore === 'number' ? d.score - prevScore : undefined
+        };
+      });
+
+      const formalRisksCombined = [
+        ...deterministic.formalRisks,
+        ...((aiResult.risks || []).filter((ar: any) => !deterministic.formalRisks.some((dr: any) => dr.risk_id === ar.risk_id)))
+      ];
+
+      const keyRisksSummary = formalRisksCombined
+        .slice(0, 6)
+        .map((r: any) => `${r.risk_title || r.risk_id} (${String(r.severity || 'MEDIUM').toUpperCase()}): ${r.trigger_description || r.business_impact || ''}`.trim());
+
+      const priorityActionsList: string[] = Array.isArray(aiResult.priority_actions) && aiResult.priority_actions.length > 0
+        ? aiResult.priority_actions
+        : (aiResult.actions || []).slice(0, 4).map((a: any) => a.action_title ? `${a.action_title}: ${a.action_description}` : a.action_description);
+
+      const recommendedNextActions = (aiResult.actions || []).map((a: any) => ({
+        priority: String(a.priority || 'HIGH').toUpperCase().includes('CRIT')
+          ? 'CRITICAL'
+          : String(a.priority || 'HIGH').toUpperCase().includes('MED')
+            ? 'MEDIUM'
+            : 'HIGH',
+        action: a.action_title ? `${a.action_title} — ${a.action_description}` : a.action_description,
+        related_dimension: a.related_dimension || 'Pipeline Governance',
+        expected_impact: a.expected_impact || a.success_criteria || 'Strengthen winability and reduce execution risk.',
+        owner: a.owner_role || 'Account Executive',
+        timeframe: a.timeframe || 'Immediate'
+      }));
 
       const executiveSummaryPayload = {
         overall_assessment: aiResult.executive_summary,
         qualification_continuity_summary: aiResult.qualification_continuity_summary,
+        primary_reason: aiResult.primary_reason || aiResult.executive_summary,
         current_strengths: aiResult.positive_drivers || [],
         key_constraints: aiResult.critical_constraints || [],
-        longitudinal_trend: aiResult.longitudinal_trend || 'Improving',
+        key_risks: keyRisksSummary,
         evidence_gaps: (aiResult.evidence_gaps || []).map((g: any) => `${g.affected_dimension}: ${g.description}`),
+        priority_actions: priorityActionsList,
+        why_this_assessment: aiResult.why_this_assessment || {
+          evidence: `Evaluated ${evidenceRecords?.length || 0} deal evidence records across PA1–PA8.`,
+          interpretation: aiResult.executive_summary || '',
+          assessment: `${deterministic.riskAdjustedWinability}% Risk-Adjusted Winability (${deterministic.healthStatus}).`,
+          business_implication: priorityActionsList[0] || 'Execute targeted validation to protect closing velocity.'
+        },
+        longitudinal_trend: aiResult.longitudinal_trend || 'Initial Baseline Established',
         reasoning_duration_ms: executionDurationMs
+      };
+
+      const enrichedRawReasoningOutput = {
+        ...aiResult,
+        primary_reason: aiResult.primary_reason || aiResult.executive_summary,
+        health_indicator: deterministic.healthIndicator,
+        executive_summary_v2: executiveSummaryPayload,
+        padf_dimension_narratives: enrichedPadfNarratives,
+        evidence_assessments: hydratedEvidenceAssessments,
+        observed_supporting_evidence: observedSupportingEvidence,
+        ai_cognitive_reasoning: {
+          decision_summary: aiResult.ai_cognitive_reasoning_summary || aiResult.executive_summary,
+          dimensional_diagnostics: enrichedPadfNarratives.map((pn: any) => ({
+            dimension_code: pn.dimension_code,
+            dimension_name: pn.dimension_name,
+            diagnostic: pn.ai_reasoning || pn.short_interpretation
+          }))
+        },
+        recommended_next_actions: recommendedNextActions
       };
 
       const { data: assessmentRecord, error: assessInsertError } = await supabase
@@ -1831,7 +2189,7 @@ ${active16SWOTFactors.map(f => `- [${f.id}] (${f.classification} - ${f.layer}): 
           rules_version: 'v1.1',
           reasoning_prompt_version: 'v1.1',
           model_identifier: 'gemini-3.1-flash-lite',
-          raw_reasoning_output: aiResult,
+          raw_reasoning_output: enrichedRawReasoningOutput,
           executive_summary: executiveSummaryPayload,
           created_by: 'Pipeline Assessment Engine',
           completed_at: new Date().toISOString()
@@ -1842,26 +2200,22 @@ ${active16SWOTFactors.map(f => `- [${f.id}] (${f.classification} - ${f.layer}): 
       if (assessInsertError) throw assessInsertError;
 
       // 8. Insert PADF Dimension Results (matching pipeline_padf_results SQL columns)
-      const padfRows = deterministic.dimensionResults.map(d => {
-        const aiNarrative = aiResult.padf_dimension_narratives?.find(
-          (n: any) => n.dimension_code === d.dimension_code || d.dimension_code.includes(n.dimension_code)
-        );
-        const state = d.score >= 75 ? 'STRONG' : d.score >= 60 ? 'HEALTHY' : d.score >= 45 ? 'MODERATE' : 'VULNERABLE';
-        return {
-          assessment_id: assessmentId,
-          pipeline_id: effectivePipeId,
-          dimension_id: d.dimension_code,
-          dimension_name: d.dimension_name,
-          dimension_score: d.score,
-          assessment_state: state,
-          evidence_coverage: (evidenceRecords || []).some((e: any) => e.metadata?.dimension_code === d.dimension_code) ? 'COMPLETE' : 'PARTIAL',
-          key_strengths: aiNarrative?.strengths || [],
-          key_weaknesses: aiNarrative?.weaknesses || [],
-          evidence_references: [],
-          business_implications: aiNarrative?.business_impact || d.business_impact,
-          recommended_actions: aiNarrative?.improvement_direction ? [aiNarrative.improvement_direction] : []
-        };
-      });
+      const padfRows = enrichedPadfNarratives.map((pn: any) => ({
+        assessment_id: assessmentId,
+        pipeline_id: effectivePipeId,
+        dimension_id: pn.dimension_code,
+        dimension_name: pn.dimension_name,
+        dimension_score: pn.score,
+        assessment_state: pn.assessment_state,
+        evidence_coverage: (evidenceRecords || []).some((e: any) => e.metadata?.dimension_code === pn.dimension_code || e.metadata?.dimension_code === pn.dimension_code.slice(0, 3)) ? 'COMPLETE' : 'PARTIAL',
+        key_strengths: pn.strengths || [],
+        key_weaknesses: pn.weaknesses || [],
+        evidence_references: hydratedEvidenceAssessments
+          .filter((ea: any) => pn.dimension_code.startsWith(ea.dimension_code))
+          .map((ea: any) => ea.evidence_object_id),
+        business_implications: pn.business_impact || pn.short_interpretation,
+        recommended_actions: pn.recommended_actions || []
+      }));
 
       await supabase.from('pipeline_padf_results').insert(padfRows);
 
@@ -1892,25 +2246,7 @@ ${active16SWOTFactors.map(f => `- [${f.id}] (${f.classification} - ${f.layer}): 
       }
 
       // 10. Insert Formal Risks (matching pipeline_risks SQL columns)
-      const allRisks = [...deterministic.formalRisks];
-      if (Array.isArray(aiResult.risks)) {
-        aiResult.risks.forEach((ar: any) => {
-          if (!allRisks.some(r => r.risk_id === ar.risk_id)) {
-            allRisks.push({
-              risk_id: ar.risk_id,
-              risk_title: ar.risk_title,
-              category: ar.category || 'Pipeline Risk',
-              severity: (ar.severity || 'MEDIUM').toUpperCase(),
-              trigger_description: ar.trigger_description || '',
-              business_impact: ar.business_impact || '',
-              mitigation_strategy: ar.mitigation_strategy || '',
-              status: 'ACTIVE'
-            });
-          }
-        });
-      }
-
-      const riskRows = allRisks.map((r, idx) => ({
+      const riskRows = formalRisksCombined.map((r: any, idx: number) => ({
         risk_instance_id: `RISK_${assessmentId}_${idx + 1}`,
         assessment_id: assessmentId,
         pipeline_id: effectivePipeId,
@@ -1985,6 +2321,8 @@ ${active16SWOTFactors.map(f => `- [${f.id}] (${f.classification} - ${f.layer}): 
             risk_penalty: deterministic.riskPenalty,
             risk_adjusted_winability: deterministic.riskAdjustedWinability,
             pipeline_health: mappedHealth,
+            health_indicator: deterministic.healthIndicator,
+            assessment_confidence: numericConfidence,
             confidence_level: deterministic.confidenceLevel
           },
           updated_at: new Date().toISOString()
@@ -2021,6 +2359,8 @@ ${active16SWOTFactors.map(f => `- [${f.id}] (${f.classification} - ${f.layer}): 
         risk_penalty: deterministic.riskPenalty,
         risk_adjusted_winability: deterministic.riskAdjustedWinability,
         pipeline_health: mappedHealth,
+        health_indicator: deterministic.healthIndicator,
+        assessment_confidence: numericConfidence,
         confidence_level: deterministic.confidenceLevel,
         assessment: assessmentRecord,
         padf_results: padfRows,
@@ -2028,6 +2368,8 @@ ${active16SWOTFactors.map(f => `- [${f.id}] (${f.classification} - ${f.layer}): 
         risks: riskRows,
         strategies: stratRows,
         actions: actionRows,
+        evidence: evidenceRecords || [],
+        evidence_relationships: relationshipRows || [],
         evidence_gaps: aiResult.evidence_gaps || []
       }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
@@ -2035,7 +2377,7 @@ ${active16SWOTFactors.map(f => `- [${f.id}] (${f.classification} - ${f.layer}): 
     }
 
     // -----------------------------------------------------------------------
-    // ACTION 5: RETRIEVE LATEST ASSESSMENT
+    // ACTION 5: RETRIEVE LATEST ASSESSMENT (WITH FULL LINEAGE)
     // -----------------------------------------------------------------------
     if (action === 'retrieve-assessment') {
       const { pipeline_id, pipeline_opportunity_id, assessment_id } = body;
@@ -2067,13 +2409,16 @@ ${active16SWOTFactors.map(f => `- [${f.id}] (${f.classification} - ${f.layer}): 
 
       const currentAssessmentId = assessmentData.assessment_id;
 
-      // Parallel fetch sub-tables
-      const [padfRes, swotRes, risksRes, strategiesRes, actionsRes] = await Promise.all([
+      // Parallel fetch sub-tables & evidence lineage
+      const [padfRes, swotRes, risksRes, strategiesRes, actionsRes, evRes, relRes, snapRes] = await Promise.all([
         supabase.from('pipeline_padf_results').select('*').eq('assessment_id', currentAssessmentId),
         supabase.from('pipeline_swot_results').select('*').eq('assessment_id', currentAssessmentId),
         supabase.from('pipeline_risks').select('*').eq('assessment_id', currentAssessmentId),
         supabase.from('pipeline_strategies').select('*').eq('assessment_id', currentAssessmentId),
-        supabase.from('pipeline_actions').select('*').eq('pipeline_id', assessmentData.pipeline_id)
+        supabase.from('pipeline_actions').select('*').eq('pipeline_id', assessmentData.pipeline_id),
+        supabase.from('pipeline_evidence').select('*').eq('pipeline_id', assessmentData.pipeline_id),
+        supabase.from('pipeline_evidence_relationships').select('*').eq('pipeline_id', assessmentData.pipeline_id),
+        supabase.from('pipeline_assessment_snapshots').select('*').eq('pipeline_id', assessmentData.pipeline_id).order('snapshot_sequence', { ascending: true })
       ]);
 
       return new Response(JSON.stringify({
@@ -2082,8 +2427,48 @@ ${active16SWOTFactors.map(f => `- [${f.id}] (${f.classification} - ${f.layer}): 
         swot_results: swotRes.data || [],
         risks: risksRes.data || [],
         strategies: strategiesRes.data || [],
-        actions: actionsRes.data || []
+        actions: actionsRes.data || [],
+        evidence: evRes.data || [],
+        evidence_relationships: relRes.data || [],
+        snapshots: snapRes.data || []
       }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
+
+    // -----------------------------------------------------------------------
+    // ACTION 5b: SAVE / PERSIST USER-VERIFIED ASSESSMENT RESULT SNAPSHOT
+    // -----------------------------------------------------------------------
+    if (action === 'save-assessment-result') {
+      const { pipeline_id, assessment_id, executive_summary, raw_reasoning_output } = body;
+      if (!pipeline_id || !assessment_id) {
+        throw new Error('pipeline_id and assessment_id are required.');
+      }
+      const nowIso = new Date().toISOString();
+
+      const { data: updatedAssessment, error: updErr } = await supabase
+        .from('pipeline_assessments')
+        .update({
+          ...(executive_summary ? { executive_summary } : {}),
+          ...(raw_reasoning_output ? { raw_reasoning_output } : {}),
+          updated_at: nowIso
+        })
+        .eq('assessment_id', assessment_id)
+        .select()
+        .single();
+
+      if (updErr) throw updErr;
+
+      await supabase.from('pipeline_assessment_snapshots').insert({
+        snapshot_id: `SNAP_${assessment_id}_SAVED_${Date.now()}`,
+        pipeline_id,
+        assessment_id,
+        snapshot_sequence: updatedAssessment?.assessment_sequence || 1,
+        snapshot_timestamp: nowIso,
+        full_snapshot_payload: { assessment: updatedAssessment }
+      });
+
+      return new Response(JSON.stringify({ status: 'success', assessment: updatedAssessment }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       });
     }

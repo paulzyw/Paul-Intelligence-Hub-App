@@ -4,6 +4,7 @@ import rulesRaw from '../../../../config/Pipeline_Assessment_Rules_v1.1.json';
 import { 
   CanonicalRevenueMotionId, 
   PADFDimensionId, 
+  PipelineHealthIndicator,
   SWOTCategory 
 } from '../../types/pipeline';
 
@@ -708,7 +709,158 @@ export class PipelineConfigService {
     return options;
   }
 
-  // 10. Full Configuration Verification
+  // 10. Dynamic Pipeline Assessment Rules Configuration & Status Resolution
+  // Reads directly from Pipeline_Assessment_Rules_v1.1.json
+  static getAssessmentRulesConfig(): {
+    version: string;
+    winabilityLevels: Array<{ level: string; label: string; minScore: number; maxScore: number; action: string }>;
+    pipelineHealthLevels: Array<{ level: string; label: string; minScore: number; maxScore: number; action: string }>;
+    radarThresholds: { critical: number; moderate: number; healthy: number };
+    consistencyRulesCount: number;
+  } {
+    const phase6 = this.rules?.pipelineAssessmentRules?.phase6_winabilityAndHealthCalculation ||
+      Object.values<any>(this.rules?.pipelineAssessmentRules || {}).find(
+        (v: any) => Array.isArray(v?.winabilityClassificationRules) || Array.isArray(v?.pipelineHealthClassificationRules)
+      ) || {};
+
+    const wRules: any[] = Array.isArray(phase6.winabilityClassificationRules) ? phase6.winabilityClassificationRules : [];
+    const hRules: any[] = Array.isArray(phase6.pipelineHealthClassificationRules) ? phase6.pipelineHealthClassificationRules : [];
+    const consistencyRules: any[] = Array.isArray(phase6.pipelineAssessmentConsistencyRules) ? phase6.pipelineAssessmentConsistencyRules : [];
+
+    const winabilityLevels = wRules
+      .filter((r: any) => r?.output?.winabilityLevel)
+      .map((r: any) => {
+        const lvl = String(r.output.winabilityLevel);
+        if (lvl === 'high') {
+          return { level: lvl, label: 'High Winability', minScore: 75, maxScore: 100, action: r.action || '' };
+        }
+        if (lvl === 'moderate') {
+          return { level: lvl, label: 'Moderate Winability', minScore: 55, maxScore: 74, action: r.action || '' };
+        }
+        return { level: lvl, label: 'Low Winability', minScore: 0, maxScore: 54, action: r.action || '' };
+      });
+
+    const pipelineHealthLevels = hRules
+      .filter((r: any) => r?.output?.pipelineHealthLevel)
+      .map((r: any) => {
+        const lvl = String(r.output.pipelineHealthLevel);
+        if (lvl === 'healthy') {
+          return { level: lvl, label: 'HEALTHY', minScore: 75, maxScore: 100, action: r.action || '' };
+        }
+        if (lvl === 'at_risk') {
+          return { level: lvl, label: 'AT_RISK', minScore: 55, maxScore: 74, action: r.action || '' };
+        }
+        return { level: lvl, label: 'CRITICAL', minScore: 0, maxScore: 54, action: r.action || '' };
+      });
+
+    return {
+      version: this.rules?.pipelineAssessmentRules?.metadata?.version || '1.1',
+      winabilityLevels:
+        winabilityLevels.length > 0
+          ? winabilityLevels
+          : [
+              { level: 'high', label: 'High Winability', minScore: 75, maxScore: 100, action: 'Classify high winability.' },
+              { level: 'moderate', label: 'Moderate Winability', minScore: 55, maxScore: 74, action: 'Classify moderate winability.' },
+              { level: 'low', label: 'Low Winability', minScore: 0, maxScore: 54, action: 'Classify low winability.' }
+            ],
+      pipelineHealthLevels:
+        pipelineHealthLevels.length > 0
+          ? pipelineHealthLevels
+          : [
+              { level: 'healthy', label: 'HEALTHY', minScore: 75, maxScore: 100, action: 'Classify healthy pipeline.' },
+              { level: 'at_risk', label: 'AT_RISK', minScore: 55, maxScore: 74, action: 'Classify at risk pipeline.' },
+              { level: 'unhealthy', label: 'CRITICAL', minScore: 0, maxScore: 54, action: 'Classify unhealthy pipeline.' }
+            ],
+      radarThresholds: {
+        critical: 35,
+        moderate: 55,
+        healthy: 75
+      },
+      consistencyRulesCount: consistencyRules.length
+    };
+  }
+
+  static resolvePipelineAssessmentClassifications(params: {
+    riskAdjustedWinability: number;
+    baseWinability?: number;
+    assessmentConfidence: number;
+    pipelineHealth?: string;
+    criticalRisksCount?: number;
+    padfScores?: number[];
+  }): {
+    healthIndicator: PipelineHealthIndicator;
+    pipelineHealthLabel: string;
+    winabilityLabel: string;
+    confidenceLabel: 'High' | 'Moderate' | 'Low';
+    hasCriticalOverride: boolean;
+  } {
+    const cfg = this.getAssessmentRulesConfig();
+    const score = Number(params.riskAdjustedWinability || 0);
+    const conf = Number(params.assessmentConfidence || 0);
+    const critRisks = Number(params.criticalRisksCount || 0);
+    const minPadf = Array.isArray(params.padfScores) && params.padfScores.length > 0
+      ? Math.min(...params.padfScores)
+      : score;
+
+    const hasCriticalOverride = critRisks >= 2 || minPadf < 30;
+    const rawHealthUpper = String(params.pipelineHealth || '').toUpperCase();
+
+    let healthIndicator: PipelineHealthIndicator = 'Moderate';
+    if (hasCriticalOverride || rawHealthUpper === 'CRITICAL' || score < cfg.radarThresholds.critical) {
+      healthIndicator = 'Critical';
+    } else if (rawHealthUpper === 'AT_RISK' || score < cfg.radarThresholds.moderate) {
+      healthIndicator = 'Weak';
+    } else if (
+      (rawHealthUpper === 'STRONG' || rawHealthUpper === 'HEALTHY' || score >= cfg.radarThresholds.healthy) &&
+      conf >= 65 &&
+      critRisks === 0
+    ) {
+      healthIndicator = 'Strong';
+    } else {
+      healthIndicator = 'Moderate';
+    }
+
+    const matchedWinRule =
+      cfg.winabilityLevels.find((w) => score >= w.minScore && score <= w.maxScore) ||
+      cfg.winabilityLevels[cfg.winabilityLevels.length - 1];
+
+    const matchedHealthRule =
+      cfg.pipelineHealthLevels.find((h) => score >= h.minScore && score <= h.maxScore) ||
+      cfg.pipelineHealthLevels[cfg.pipelineHealthLevels.length - 1];
+
+    const pipelineHealthLabel =
+      rawHealthUpper || matchedHealthRule?.label || 'MODERATE';
+
+    const confidenceLabel: 'High' | 'Moderate' | 'Low' =
+      conf >= 75 ? 'High' : conf >= 50 ? 'Moderate' : 'Low';
+
+    return {
+      healthIndicator,
+      pipelineHealthLabel,
+      winabilityLabel: matchedWinRule?.label || 'Moderate Winability',
+      confidenceLabel,
+      hasCriticalOverride
+    };
+  }
+
+  static resolveDimensionAssessmentMeta(score: number): {
+    label: PipelineHealthIndicator;
+    dbState: 'STRONG' | 'HEALTHY' | 'MODERATE' | 'VULNERABLE';
+  } {
+    const cfg = this.getAssessmentRulesConfig();
+    if (score >= cfg.radarThresholds.healthy) {
+      return { label: 'Strong', dbState: 'STRONG' };
+    }
+    if (score >= cfg.radarThresholds.moderate) {
+      return { label: 'Moderate', dbState: 'MODERATE' };
+    }
+    if (score >= cfg.radarThresholds.critical) {
+      return { label: 'Weak', dbState: 'VULNERABLE' };
+    }
+    return { label: 'Critical', dbState: 'VULNERABLE' };
+  }
+
+  // 11. Full Configuration Verification
   static getFrameworkVersions() {
     return {
       industry_configuration_version: this.industryConfig?.frameworkMetadata?.frameworkVersion || '1.1',
