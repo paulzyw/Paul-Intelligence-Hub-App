@@ -1508,11 +1508,10 @@ serve(async (req: Request) => {
 
       if (insertError) throw insertError;
 
-      // Update pipeline_opportunity stage/updated_at
+      // Update pipeline_opportunity updated_at without overwriting commercial pipeline_stage
       await supabase
         .from('pipeline_opportunities')
         .update({
-          pipeline_stage: 'Evidence Populated',
           updated_at: new Date().toISOString()
         })
         .eq('pipeline_id', effectivePipeId);
@@ -1659,20 +1658,29 @@ ${records.slice(0, 20).map((r: any) => `- [${r.evidence_object_id}] Confirmed=${
         .select('*')
         .eq('pipeline_id', effectivePipeId);
 
-      // Fetch previous assessment sequence + PADF results for historical movement calculation
+      // Fetch previous assessments to enforce 1 consolidated assessment per calendar day and compute prior-day PADF deltas
+      const todayDateKey = new Date().toISOString().slice(0, 10);
       const { data: prevAssessList } = await supabase
         .from('pipeline_assessments')
-        .select('assessment_id, assessment_sequence')
+        .select('assessment_id, assessment_sequence, completed_at, created_at')
         .eq('pipeline_id', effectivePipeId)
-        .order('assessment_sequence', { ascending: false })
-        .limit(1);
+        .order('assessment_sequence', { ascending: false });
+
+      const sameDayAssessments = (prevAssessList || []).filter((a: any) => {
+        const dKey = String(a.completed_at || a.created_at || '').slice(0, 10);
+        return dKey === todayDateKey;
+      });
+      const priorDayAssessments = (prevAssessList || []).filter((a: any) => {
+        const dKey = String(a.completed_at || a.created_at || '').slice(0, 10);
+        return dKey !== todayDateKey;
+      });
 
       let prevPadfByDim: Record<string, number> = {};
-      if (prevAssessList?.[0]?.assessment_id) {
+      if (priorDayAssessments[0]?.assessment_id) {
         const { data: prevPadf } = await supabase
           .from('pipeline_padf_results')
           .select('dimension_id, dimension_score')
-          .eq('assessment_id', prevAssessList[0].assessment_id);
+          .eq('assessment_id', priorDayAssessments[0].assessment_id);
         (prevPadf || []).forEach((p: any) => {
           prevPadfByDim[p.dimension_id] = p.dimension_score;
         });
@@ -2067,8 +2075,8 @@ ${idx + 1}. ID: ${ev.evidence_object_id} | Title: ${def?.name || ev.evidence_obj
       const aiResult = JSON.parse(response.text || '{}');
       const executionDurationMs = Date.now() - startTime;
 
-      // 7. Determine assessment_sequence & create assessment_id matching SQL schema
-      const nextSequence = (prevAssessList?.[0]?.assessment_sequence || 0) + 1;
+      // 7. Determine daily assessment_sequence & create assessment_id matching SQL schema
+      const nextSequence = (priorDayAssessments[0]?.assessment_sequence || 0) + 1;
       const assessmentId = `ASSESS_${effectivePipeId}_v${nextSequence}_${Date.now()}`;
       const mappedHealth = deterministic.healthStatus === 'Strong'
         ? 'STRONG'
@@ -2365,6 +2373,331 @@ ${idx + 1}. ID: ${ev.evidence_object_id} | Title: ${def?.name || ev.evidence_obj
         reasoning_duration_ms: executionDurationMs
       };
 
+      // 6b. Dedicated Winning Strategy Engine Synthesis (Call C: fed by Evidence -> SWOT -> PADF/Risks -> TOWS)
+      const swotById = new Map<string, any>();
+      (aiResult.swot_evaluations || []).forEach((s: any) => {
+        if (s?.swot_factor_id) swotById.set(s.swot_factor_id, s);
+      });
+      const riskById = new Map<string, any>();
+      formalRisksCombined.forEach((r: any) => {
+        if (r?.risk_id) riskById.set(r.risk_id, r);
+      });
+      const towsById = new Map<string, any>();
+      (aiResult.tows_strategies || []).forEach((ts: any) => {
+        if (ts?.strategy_id) towsById.set(ts.strategy_id, ts);
+      });
+
+      const weakAndKeyDims = [...enrichedPadfNarratives].sort((a: any, b: any) => a.score - b.score);
+      const priorityEvidenceItems = [...hydratedEvidenceAssessments]
+        .sort((a: any, b: any) => a.signal_score - b.signal_score)
+        .slice(0, 14)
+        .concat(
+          [...hydratedEvidenceAssessments]
+            .sort((a: any, b: any) => b.signal_score - a.signal_score)
+            .slice(0, 8)
+        );
+      const uniquePriorityEvidenceMap = new Map<string, any>();
+      priorityEvidenceItems.forEach((ev: any) => {
+        if (ev?.evidence_object_id && !uniquePriorityEvidenceMap.has(ev.evidence_object_id)) {
+          uniquePriorityEvidenceMap.set(ev.evidence_object_id, ev);
+        }
+      });
+      const conciseEvidenceContext = Array.from(uniquePriorityEvidenceMap.values());
+
+      const winningStrategyPrompt = `
+You are the RevOS Winning Strategy Engine executing Rules Phase 8 for a specific B2B pipeline opportunity.
+
+=== OPPORTUNITY & COMPETITIVE CONTEXT ===
+- Customer: ${pipelineOpp.customer_name}
+- Opportunity: ${pipelineOpp.opportunity_name}
+- Industry: ${industry} | Revenue Motion: ${revMotion}
+- Deal Value: ${pipelineOpp.currency || 'USD'} ${pipelineOpp.deal_value?.toLocaleString() || '0'} | Target Close: ${pipelineOpp.expected_close_date || 'Unscheduled'} | Pipeline Stage: ${pipelineOpp.pipeline_stage || 'Active Assessment'}
+- Base Winability: ${deterministic.baseWinability}% | Formal Risk Penalty: -${deterministic.riskPenalty} pts | Risk-Adjusted Winability: ${deterministic.riskAdjustedWinability}% | Health: ${deterministic.healthStatus} | Confidence: ${deterministic.numericConfidence}%
+- Executive Assessment Thesis: ${aiResult.primary_reason || aiResult.executive_summary}
+
+=== PADF DIMENSION SCORES & WEAKNESSES (WEAKEST FIRST) ===
+${weakAndKeyDims.map((d: any) => `- [${d.dimension_code}] ${d.dimension_name}: Score ${d.score}/100 (Conf ${d.confidence}%) | Impact: ${d.business_impact} | Weaknesses: ${(d.weaknesses || []).join('; ') || 'None'} | Gaps: ${(d.evidence_gaps || []).join('; ') || 'None'}`).join('\n')}
+
+=== FORMAL RISKS ===
+${formalRisksCombined.map((r: any) => `- [${r.risk_id}] ${r.risk_title} (Severity: ${r.severity}, Category: ${r.category}): Trigger="${r.trigger_description}" | Impact="${r.business_impact}" | Mitigation="${r.mitigation_strategy}"`).join('\n') || 'No formal critical risks triggered.'}
+
+=== ACTIVE EVALUATED SWOT FACTORS ===
+${(aiResult.swot_evaluations || []).map((s: any) => `- [${s.swot_factor_id}] (${String(s.classification || '').toUpperCase()}) ${s.factor_name}: Impact=${s.strategic_impact}/5, Urgency=${s.urgency}/5, Manageability=${s.manageability}/5 | ${s.interpretation}`).join('\n')}
+
+=== TOWS STRATEGIC COMBINATIONS (ENRICHMENT INPUTS) ===
+${(aiResult.tows_strategies || []).map((ts: any) => `- [${ts.strategy_id}] (${ts.tows_type}) ${ts.title}: Objective="${ts.strategic_objective}" | Rationale="${ts.strategic_rationale}" | SWOT IDs=[${(ts.contributing_swot_factor_ids || []).join(', ')}] | Evidence IDs=[${(ts.supporting_evidence_ids || []).join(', ')}] | Priority=${ts.priority}`).join('\n')}
+
+=== KEY EVIDENCE SIGNALS (GAPS + ANCHOR STRENGTHS) ===
+${conciseEvidenceContext.map((ev: any) => `- [${ev.evidence_object_id}] ${ev.evidence_name} (${ev.dimension_code}, Signal: ${ev.signal_score}/100, Confirmed: ${ev.customer_confirmed ? 'YES' : 'NO'}): Statement="${String(ev.evidence_statement || '').slice(0, 180)}" | Audit="${ev.identification_assessment}"`).join('\n')}
+
+=== STRICT WINNING STRATEGY RULES ===
+1. PRODUCE 4 TO 5 OPPORTUNITY-SPECIFIC WINNING STRATEGIES addressing both the PROBABILITY of winning and the QUALITY of winning (margin, executive alignment, delivery certainty, competitive defense).
+2. EXPLICITLY FORBID GENERIC ADVICE: Never emit vague platitudes such as "Improve customer relationships", "Understand customer needs", "Differentiate the solution", "Engage stakeholders", or "Build rapport". Every field must reference actual facts, gaps, stakeholders, commercial terms, or competitive realities of "${pipelineOpp.customer_name} - ${pipelineOpp.opportunity_name}".
+3. FULL CAUSAL LINEAGE: Connect Evidence -> SWOT Factor -> PADF / Risk Implication -> TOWS Strategic Combination (where applicable, or "NONE" if purely direct risk mitigation) -> Strategic Objective -> Winning Strategy -> Execution Actions.
+4. ANSWER ALL 8 MANDATORY QUESTIONS per strategy:
+   - Q1 (strategic_objective): Clear, deal-specific strategic objective.
+   - Q2 (condition_to_change): Exact commercial, stakeholder, competitive, technical, or proof condition that must change.
+   - Q3 (why_condition_important): Why changing that condition materially alters deal fate for this buyer/timeline.
+   - Q4 (supporting_evidence_ids): Exact evidence_object_ids from the evidence list above substantiating this strategy.
+   - Q5 (recommended_actions): 2-4 concrete, role-owned actions the sales organization should execute.
+   - Q6 (dependencies): Specific internal/customer resources, executive sponsors, legal/security reviewers, or prerequisites involved.
+   - Q7 (expected_evidence_of_improvement): Concrete customer-observable exit proof showing the condition improved.
+   - Q8 (probability_and_quality_influence + expected_impact): STRICTLY DIRECTIONAL language explaining how win probability and deal quality improve. DO NOT invent uncomputed percentage forecasts (e.g., never write "+18% win rate"). You may only reference existing deterministic metrics (${deterministic.riskAdjustedWinability}% risk-adjusted vs ${deterministic.baseWinability}% base, -${deterministic.riskPenalty} pt risk penalty) qualitatively/directionally.`;
+
+      let generatedWinningSummary: any = null;
+      let generatedWinningStrategies: any[] = [];
+
+      try {
+        const wsResp = await ai.models.generateContent({
+          model: 'gemini-3.1-flash-lite',
+          contents: winningStrategyPrompt,
+          config: {
+            temperature: 0.15,
+            maxOutputTokens: 16384,
+            systemInstruction: 'You are an elite B2B enterprise deal strategist synthesizing actionable, evidence-grounded Winning Strategies. Output valid JSON strictly adhering to the schema with directional-only expected impact and zero generic filler.',
+            responseMimeType: "application/json",
+            responseSchema: {
+              type: Type.OBJECT,
+              properties: {
+                winning_strategy_summary: {
+                  type: Type.OBJECT,
+                  properties: {
+                    customer_objectives_and_outcomes: { type: Type.STRING },
+                    opportunity_business_conditions: { type: Type.STRING },
+                    competitive_circumstances: { type: Type.STRING },
+                    primary_winning_thesis: { type: Type.STRING },
+                    top_strategy_id: { type: Type.STRING },
+                    winability_context_note: { type: Type.STRING }
+                  },
+                  required: [
+                    "customer_objectives_and_outcomes",
+                    "opportunity_business_conditions",
+                    "competitive_circumstances",
+                    "primary_winning_thesis",
+                    "top_strategy_id",
+                    "winability_context_note"
+                  ]
+                },
+                winning_strategies: {
+                  type: Type.ARRAY,
+                  items: {
+                    type: Type.OBJECT,
+                    properties: {
+                      strategy_id: { type: Type.STRING },
+                      title: { type: Type.STRING },
+                      strategic_objective: { type: Type.STRING },
+                      condition_to_change: { type: Type.STRING },
+                      why_condition_important: { type: Type.STRING },
+                      tows_category: { type: Type.STRING },
+                      linked_tows_strategy_ids: { type: Type.ARRAY, items: { type: Type.STRING } },
+                      linked_padf_dimensions: { type: Type.ARRAY, items: { type: Type.STRING } },
+                      supporting_swot_factor_ids: { type: Type.ARRAY, items: { type: Type.STRING } },
+                      supporting_evidence_ids: { type: Type.ARRAY, items: { type: Type.STRING } },
+                      related_risk_ids: { type: Type.ARRAY, items: { type: Type.STRING } },
+                      strategic_rationale: { type: Type.STRING },
+                      expected_impact: { type: Type.STRING },
+                      probability_and_quality_influence: { type: Type.STRING },
+                      feasibility: { type: Type.STRING },
+                      feasibility_notes: { type: Type.STRING },
+                      dependencies: { type: Type.ARRAY, items: { type: Type.STRING } },
+                      priority: { type: Type.STRING },
+                      recommended_actions: {
+                        type: Type.ARRAY,
+                        items: {
+                          type: Type.OBJECT,
+                          properties: {
+                            action_title: { type: Type.STRING },
+                            action_description: { type: Type.STRING },
+                            owner_role: { type: Type.STRING },
+                            timeframe: { type: Type.STRING },
+                            expected_outcome: { type: Type.STRING }
+                          },
+                          required: ["action_title", "action_description", "owner_role", "timeframe", "expected_outcome"]
+                        }
+                      },
+                      expected_evidence_of_improvement: { type: Type.ARRAY, items: { type: Type.STRING } },
+                      causal_chain: {
+                        type: Type.OBJECT,
+                        properties: {
+                          assessment_weakness_or_threat: { type: Type.STRING },
+                          evidence_and_business_implication: { type: Type.STRING },
+                          strategic_objective: { type: Type.STRING },
+                          tows_response: { type: Type.STRING },
+                          existing_risk_and_winability_context: { type: Type.STRING },
+                          recommended_action: { type: Type.STRING },
+                          expected_evidence_of_improvement: { type: Type.STRING }
+                        },
+                        required: [
+                          "assessment_weakness_or_threat",
+                          "evidence_and_business_implication",
+                          "strategic_objective",
+                          "tows_response",
+                          "existing_risk_and_winability_context",
+                          "recommended_action",
+                          "expected_evidence_of_improvement"
+                        ]
+                      }
+                    },
+                    required: [
+                      "strategy_id", "title", "strategic_objective", "condition_to_change",
+                      "why_condition_important", "tows_category", "supporting_swot_factor_ids",
+                      "supporting_evidence_ids", "related_risk_ids", "strategic_rationale",
+                      "expected_impact", "probability_and_quality_influence", "feasibility",
+                      "dependencies", "priority", "recommended_actions",
+                      "expected_evidence_of_improvement", "causal_chain"
+                    ]
+                  }
+                }
+              },
+              required: ["winning_strategy_summary", "winning_strategies"]
+            }
+          }
+        });
+        const wsParsed = JSON.parse(wsResp.text || '{}');
+        if (wsParsed?.winning_strategy_summary) {
+          generatedWinningSummary = wsParsed.winning_strategy_summary;
+        }
+        if (Array.isArray(wsParsed?.winning_strategies)) {
+          generatedWinningStrategies = wsParsed.winning_strategies;
+        }
+      } catch (_wsErr) {
+        // Fallback synthesis below handles resilience if Gemini call encounters transient failure
+      }
+
+      // Normalize & hydrate authoritative SWOT / Evidence / Risk metadata on Winning Strategies
+      const normalizedWinningStrategies = (generatedWinningStrategies.length > 0
+        ? generatedWinningStrategies
+        : (aiResult.tows_strategies || []).slice(0, 4).map((ts: any, idx: number) => {
+            const weakDim = weakAndKeyDims[idx] || weakAndKeyDims[0];
+            const linkedRisk = formalRisksCombined[idx] || formalRisksCombined[0];
+            return {
+              strategy_id: `WS_${idx + 1}`,
+              title: ts.title || `Address ${weakDim?.dimension_name || 'Deal Constraint'}`,
+              strategic_objective: ts.strategic_objective || `Resolve ${weakDim?.dimension_name} constraint for ${pipelineOpp.customer_name}`,
+              condition_to_change: (weakDim?.weaknesses || [])[0] || `Unvalidated buyer commitment inside ${weakDim?.dimension_name}`,
+              why_condition_important: weakDim?.business_impact || `Directly governs closing certainty ahead of ${pipelineOpp.expected_close_date || 'target close'}.`,
+              tows_category: ['SO', 'WO', 'ST', 'WT'].includes(ts.tows_type) ? ts.tows_type : 'NONE',
+              linked_tows_strategy_ids: ts.strategy_id ? [ts.strategy_id] : [],
+              linked_padf_dimensions: weakDim ? [weakDim.dimension_code] : [],
+              supporting_swot_factor_ids: ts.contributing_swot_factor_ids || [],
+              supporting_evidence_ids: ts.supporting_evidence_ids || [],
+              related_risk_ids: linkedRisk ? [linkedRisk.risk_id] : [],
+              strategic_rationale: ts.strategic_rationale || aiResult.executive_summary,
+              expected_impact: ts.expected_winability_impact || 'Directionally strengthens risk-adjusted winability and deal progression.',
+              probability_and_quality_influence: 'Directionally reduces execution uncertainty while safeguarding commercial scope and margin integrity.',
+              feasibility: 'MODERATE',
+              feasibility_notes: ts.feasibility_considerations || 'Requires coordinated AE and executive sponsor execution.',
+              dependencies: [ts.feasibility_considerations || 'Account Executive, Solution Engineering, and Customer Executive Sponsor availability'],
+              priority: ts.priority || 'HIGH',
+              recommended_actions: (weakDim?.recommended_actions || priorityActionsList.slice(0, 2)).map((act: string, aIdx: number) => ({
+                action_title: `Execution Step ${aIdx + 1}`,
+                action_description: act,
+                owner_role: 'Account Executive',
+                timeframe: ts.execution_timeframe || '14 Days',
+                expected_outcome: 'Verified customer milestone documented in pipeline evidence.'
+              })),
+              expected_evidence_of_improvement: [
+                `Customer-confirmed update logged inside ${weakDim?.dimension_name || 'target PADF dimension'}.`,
+                linkedRisk ? `Active mitigation milestone recorded against ${linkedRisk.risk_title}.` : 'Confirmed buyer decision checkpoint documented.'
+              ],
+              causal_chain: {
+                assessment_weakness_or_threat: (weakDim?.weaknesses || [])[0] || `${weakDim?.dimension_name} scored ${weakDim?.score}/100`,
+                evidence_and_business_implication: weakDim?.business_impact || aiResult.executive_summary,
+                strategic_objective: ts.strategic_objective || ts.title,
+                tows_response: `${ts.tows_type}: ${ts.title}`,
+                existing_risk_and_winability_context: `Base Winability ${deterministic.baseWinability}% adjusted to ${deterministic.riskAdjustedWinability}% (${deterministic.healthStatus})${linkedRisk ? `; linked to ${linkedRisk.risk_title}` : ''}.`,
+                recommended_action: (weakDim?.recommended_actions || priorityActionsList)[0] || ts.strategic_rationale,
+                expected_evidence_of_improvement: `Verified buyer confirmation upgrading ${weakDim?.dimension_code || 'PADF'} evidence quality.`
+              }
+            };
+          })
+      ).map((ws: any, idx: number) => {
+        const rawTows = String(ws.tows_category || '').toUpperCase();
+        const normalizedTows = ['SO', 'WO', 'ST', 'WT'].includes(rawTows) ? rawTows : 'NONE';
+        const swotObjects = (Array.isArray(ws.supporting_swot_factor_ids) ? ws.supporting_swot_factor_ids : [])
+          .map((fid: string) => {
+            const matched = swotById.get(fid);
+            return matched
+              ? {
+                  factor_id: matched.swot_factor_id,
+                  factor_name: matched.factor_name,
+                  classification: matched.classification
+                }
+              : { factor_id: fid, factor_name: fid };
+          });
+        const evObjects = (Array.isArray(ws.supporting_evidence_ids) ? ws.supporting_evidence_ids : [])
+          .map((eid: string) => {
+            const matched = auditByObjId.get(eid);
+            return matched
+              ? {
+                  evidence_object_id: matched.evidence_object_id,
+                  title: matched.evidence_name,
+                  dimension_code: matched.dimension_code,
+                  signal_score: matched.signal_score,
+                  evidence_snippet: String(matched.evidence_statement || '').slice(0, 160)
+                }
+              : { evidence_object_id: eid, title: eid };
+          });
+        const riskObjects = (Array.isArray(ws.related_risk_ids) ? ws.related_risk_ids : [])
+          .map((rid: string) => {
+            const matched = riskById.get(rid);
+            return matched
+              ? {
+                  risk_id: matched.risk_id,
+                  risk_title: matched.risk_title,
+                  severity: matched.severity
+                }
+              : { risk_id: rid, risk_title: rid };
+          });
+
+        const rawPrio = String(ws.priority || 'HIGH').toUpperCase();
+        const normPrio = rawPrio.includes('CRIT') ? 'CRITICAL' : rawPrio.includes('MED') ? 'MEDIUM' : rawPrio.includes('LOW') ? 'LOW' : 'HIGH';
+        const rawFeas = String(ws.feasibility || 'MODERATE').toUpperCase();
+        const normFeas = rawFeas.includes('HIGH') ? 'HIGH' : rawFeas.includes('CHAL') || rawFeas.includes('LOW') ? 'CHALLENGING' : 'MODERATE';
+
+        return {
+          strategy_id: ws.strategy_id || `WS_${idx + 1}`,
+          title: ws.title || `Winning Strategy ${idx + 1}`,
+          strategic_objective: ws.strategic_objective || '',
+          condition_to_change: ws.condition_to_change || '',
+          why_condition_important: ws.why_condition_important || '',
+          tows_category: normalizedTows,
+          linked_tows_strategy_ids: Array.isArray(ws.linked_tows_strategy_ids) ? ws.linked_tows_strategy_ids : [],
+          linked_padf_dimensions: Array.isArray(ws.linked_padf_dimensions) ? ws.linked_padf_dimensions : [],
+          supporting_swot_factors: swotObjects,
+          supporting_evidence: evObjects,
+          related_formal_risks: riskObjects,
+          strategic_rationale: ws.strategic_rationale || '',
+          expected_impact: ws.expected_impact || 'Directionally improves closing confidence and deal quality.',
+          probability_and_quality_influence: ws.probability_and_quality_influence || ws.expected_impact || 'Directionally improves both win probability and commercial deal quality.',
+          feasibility: normFeas,
+          feasibility_notes: ws.feasibility_notes || '',
+          dependencies: Array.isArray(ws.dependencies) ? ws.dependencies : [],
+          priority: normPrio,
+          recommended_actions: Array.isArray(ws.recommended_actions) ? ws.recommended_actions : [],
+          expected_evidence_of_improvement: Array.isArray(ws.expected_evidence_of_improvement) ? ws.expected_evidence_of_improvement : [],
+          execution_status: 'PROPOSED',
+          causal_chain: ws.causal_chain || {
+            assessment_weakness_or_threat: ws.condition_to_change || '',
+            evidence_and_business_implication: ws.why_condition_important || '',
+            strategic_objective: ws.strategic_objective || '',
+            tows_response: normalizedTows !== 'NONE' ? `${normalizedTows} strategic response` : 'Direct risk & gap response',
+            existing_risk_and_winability_context: `${deterministic.riskAdjustedWinability}% Risk-Adjusted Winability (${deterministic.healthStatus})`,
+            recommended_action: ws.recommended_actions?.[0]?.action_title || '',
+            expected_evidence_of_improvement: ws.expected_evidence_of_improvement?.[0] || ''
+          }
+        };
+      });
+
+      const finalWinningSummary = generatedWinningSummary || {
+        customer_objectives_and_outcomes: `${pipelineOpp.customer_name} is evaluating ${pipelineOpp.opportunity_name} to address documented operational and business priorities.`,
+        opportunity_business_conditions: `Stage: ${pipelineOpp.pipeline_stage || 'Active Assessment'} · Deal Value: ${pipelineOpp.currency || 'USD'} ${pipelineOpp.deal_value?.toLocaleString() || '0'} · Target Close: ${pipelineOpp.expected_close_date || 'Unscheduled'}.`,
+        competitive_circumstances: (weakAndKeyDims.find((d: any) => d.dimension_code.startsWith('PA5'))?.short_interpretation) || 'Competitive differentiation requires explicit buyer validation against status quo and alternatives.',
+        primary_winning_thesis: aiResult.primary_reason || aiResult.executive_summary,
+        top_strategy_id: normalizedWinningStrategies[0]?.strategy_id || 'WS_1',
+        winability_context_note: `Base Winability ${deterministic.baseWinability}% with -${deterministic.riskPenalty} pt risk adjustment yielding ${deterministic.riskAdjustedWinability}% Risk-Adjusted Winability (${deterministic.healthStatus}).`
+      };
+
       const enrichedRawReasoningOutput = {
         ...aiResult,
         primary_reason: aiResult.primary_reason || aiResult.executive_summary,
@@ -2373,6 +2706,8 @@ ${idx + 1}. ID: ${ev.evidence_object_id} | Title: ${def?.name || ev.evidence_obj
         padf_dimension_narratives: enrichedPadfNarratives,
         evidence_assessments: hydratedEvidenceAssessments,
         observed_supporting_evidence: observedSupportingEvidence,
+        winning_strategy_summary: finalWinningSummary,
+        winning_strategies: normalizedWinningStrategies,
         ai_cognitive_reasoning: {
           decision_summary: aiResult.ai_cognitive_reasoning_summary || aiResult.executive_summary,
           dimensional_diagnostics: enrichedPadfNarratives.map((pn: any) => ({
@@ -2383,6 +2718,31 @@ ${idx + 1}. ID: ${ev.evidence_object_id} | Title: ${def?.name || ev.evidence_obj
         },
         recommended_next_actions: recommendedNextActions
       };
+
+      // Remove earlier same-day assessment rows (ON DELETE CASCADE cleans same-day PADF/SWOT/Risks/Strategies/Snapshots)
+      if (sameDayAssessments.length > 0) {
+        const sameDayIds = sameDayAssessments.map((a: any) => a.assessment_id).filter(Boolean);
+        for (const oldId of sameDayIds) {
+          await supabase
+            .from('pipeline_actions')
+            .delete()
+            .eq('pipeline_id', effectivePipeId)
+            .eq('action_status', 'NOT_STARTED')
+            .like('action_id', `ACT_${oldId}_%`);
+        }
+        await supabase
+          .from('pipeline_assessments')
+          .delete()
+          .in('assessment_id', sameDayIds);
+      }
+
+      // Ensure at most 1 snapshot exists for today's date (cleans up any legacy same-day snapshots)
+      await supabase
+        .from('pipeline_assessment_snapshots')
+        .delete()
+        .eq('pipeline_id', effectivePipeId)
+        .gte('snapshot_timestamp', `${todayDateKey}T00:00:00.000Z`)
+        .lte('snapshot_timestamp', `${todayDateKey}T23:59:59.999Z`);
 
       const { data: assessmentRecord, error: assessInsertError } = await supabase
         .from('pipeline_assessments')
@@ -2521,11 +2881,10 @@ ${idx + 1}. ID: ${ev.evidence_object_id} | Title: ${def?.name || ev.evidence_obj
         await supabase.from('pipeline_actions').insert(actionRows);
       }
 
-      // 13. Update Pipeline Opportunity Master Table (storing metrics cleanly in metadata + stage)
+      // 13. Update Pipeline Opportunity Master Table (storing metrics cleanly in metadata without overwriting commercial pipeline_stage)
       await supabase
         .from('pipeline_opportunities')
         .update({
-          pipeline_stage: 'Assessment Completed',
           metadata: {
             ...(pipelineOpp.metadata || {}),
             latest_assessment_id: assessmentId,
@@ -2541,25 +2900,40 @@ ${idx + 1}. ID: ${ev.evidence_object_id} | Title: ${def?.name || ev.evidence_obj
         })
         .eq('pipeline_id', effectivePipeId);
 
-      // 14. Create Snapshot (matching pipeline_assessment_snapshots SQL columns)
+      // 14. Create Trimmed Snapshot (core assessment trajectory + 8 PADF scores only for Supabase storage savings)
+      const trimmedSnapshotPayload = {
+        assessment: {
+          assessment_id: assessmentRecord.assessment_id,
+          pipeline_id: assessmentRecord.pipeline_id,
+          assessment_sequence: assessmentRecord.assessment_sequence,
+          assessment_status: assessmentRecord.assessment_status,
+          trigger_type: assessmentRecord.trigger_type,
+          base_winability: assessmentRecord.base_winability,
+          risk_adjusted_winability: assessmentRecord.risk_adjusted_winability,
+          pipeline_health: assessmentRecord.pipeline_health,
+          assessment_confidence: assessmentRecord.assessment_confidence,
+          configuration_version: assessmentRecord.configuration_version,
+          evidence_kb_version: assessmentRecord.evidence_kb_version,
+          rules_version: assessmentRecord.rules_version,
+          reasoning_prompt_version: assessmentRecord.reasoning_prompt_version,
+          completed_at: assessmentRecord.completed_at,
+          updated_at: assessmentRecord.updated_at
+        },
+        padf_results: padfRows.map((pr: any) => ({
+          dimension_id: pr.dimension_id,
+          dimension_name: pr.dimension_name,
+          dimension_score: pr.dimension_score,
+          assessment_state: pr.assessment_state
+        }))
+      };
+
       await supabase.from('pipeline_assessment_snapshots').insert({
         snapshot_id: `SNAP_${assessmentId}`,
         assessment_id: assessmentId,
         pipeline_id: effectivePipeId,
         snapshot_sequence: nextSequence,
         snapshot_timestamp: new Date().toISOString(),
-        full_snapshot_payload: {
-          opportunity: pipelineOpp,
-          inheritance,
-          evidence: evidenceRecords || [],
-          assessment: assessmentRecord,
-          padf_results: padfRows,
-          swot_results: swotRows,
-          risks: riskRows,
-          strategies: stratRows,
-          actions: actionRows,
-          evidence_gaps: aiResult.evidence_gaps || []
-        }
+        full_snapshot_payload: trimmedSnapshotPayload
       });
 
       return new Response(JSON.stringify({
@@ -2649,7 +3023,7 @@ ${idx + 1}. ID: ${ev.evidence_object_id} | Title: ${def?.name || ev.evidence_obj
     }
 
     // -----------------------------------------------------------------------
-    // ACTION 5b: SAVE / PERSIST USER-VERIFIED ASSESSMENT RESULT SNAPSHOT
+    // ACTION 5b: SAVE / PERSIST USER-VERIFIED ASSESSMENT RESULT SNAPSHOT (IN-PLACE)
     // -----------------------------------------------------------------------
     if (action === 'save-assessment-result') {
       const { pipeline_id, assessment_id, executive_summary, raw_reasoning_output } = body;
@@ -2671,14 +3045,80 @@ ${idx + 1}. ID: ${ev.evidence_object_id} | Title: ${def?.name || ev.evidence_obj
 
       if (updErr) throw updErr;
 
-      await supabase.from('pipeline_assessment_snapshots').insert({
-        snapshot_id: `SNAP_${assessment_id}_SAVED_${Date.now()}`,
-        pipeline_id,
-        assessment_id,
-        snapshot_sequence: updatedAssessment?.assessment_sequence || 1,
-        snapshot_timestamp: nowIso,
-        full_snapshot_payload: { assessment: updatedAssessment }
-      });
+      // Update the existing snapshot row for this assessment in place (no duplicate ticks or bloated JSONB)
+      const { data: existingSnaps } = await supabase
+        .from('pipeline_assessment_snapshots')
+        .select('*')
+        .eq('assessment_id', assessment_id)
+        .order('created_at', { ascending: true });
+
+      const primarySnap = (existingSnaps || []).find(
+        (s: any) => Array.isArray(s.full_snapshot_payload?.padf_results) && s.full_snapshot_payload.padf_results.length > 0
+      ) || existingSnaps?.[0];
+
+      const { data: currentPadfRows } = primarySnap?.full_snapshot_payload?.padf_results?.length
+        ? { data: primarySnap.full_snapshot_payload.padf_results }
+        : await supabase
+            .from('pipeline_padf_results')
+            .select('dimension_id, dimension_name, dimension_score, assessment_state')
+            .eq('assessment_id', assessment_id);
+
+      const trimmedAssessmentSummary = {
+        assessment_id: updatedAssessment.assessment_id,
+        pipeline_id: updatedAssessment.pipeline_id,
+        assessment_sequence: updatedAssessment.assessment_sequence,
+        assessment_status: updatedAssessment.assessment_status,
+        trigger_type: updatedAssessment.trigger_type,
+        base_winability: updatedAssessment.base_winability,
+        risk_adjusted_winability: updatedAssessment.risk_adjusted_winability,
+        pipeline_health: updatedAssessment.pipeline_health,
+        assessment_confidence: updatedAssessment.assessment_confidence,
+        configuration_version: updatedAssessment.configuration_version,
+        evidence_kb_version: updatedAssessment.evidence_kb_version,
+        rules_version: updatedAssessment.rules_version,
+        reasoning_prompt_version: updatedAssessment.reasoning_prompt_version,
+        completed_at: updatedAssessment.completed_at,
+        updated_at: nowIso
+      };
+
+      const trimmedPayload = {
+        assessment: trimmedAssessmentSummary,
+        padf_results: (currentPadfRows || []).map((pr: any) => ({
+          dimension_id: pr.dimension_id,
+          dimension_name: pr.dimension_name,
+          dimension_score: pr.dimension_score,
+          assessment_state: pr.assessment_state
+        }))
+      };
+
+      if (primarySnap) {
+        await supabase
+          .from('pipeline_assessment_snapshots')
+          .update({
+            snapshot_timestamp: nowIso,
+            full_snapshot_payload: trimmedPayload
+          })
+          .eq('snapshot_id', primarySnap.snapshot_id);
+
+        const extraSnapIds = (existingSnaps || [])
+          .filter((s: any) => s.snapshot_id !== primarySnap.snapshot_id)
+          .map((s: any) => s.snapshot_id);
+        if (extraSnapIds.length > 0) {
+          await supabase
+            .from('pipeline_assessment_snapshots')
+            .delete()
+            .in('snapshot_id', extraSnapIds);
+        }
+      } else {
+        await supabase.from('pipeline_assessment_snapshots').insert({
+          snapshot_id: `SNAP_${assessment_id}`,
+          pipeline_id,
+          assessment_id,
+          snapshot_sequence: updatedAssessment?.assessment_sequence || 1,
+          snapshot_timestamp: nowIso,
+          full_snapshot_payload: trimmedPayload
+        });
+      }
 
       return new Response(JSON.stringify({ status: 'success', assessment: updatedAssessment }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
@@ -2686,7 +3126,7 @@ ${idx + 1}. ID: ${ev.evidence_object_id} | Title: ${def?.name || ev.evidence_obj
     }
 
     // -----------------------------------------------------------------------
-    // ACTION 6: CREATE ASSESSMENT SNAPSHOT
+    // ACTION 6: CREATE ASSESSMENT SNAPSHOT (TRIMMED & DEDUPLICATED)
     // -----------------------------------------------------------------------
     if (action === 'create-assessment-snapshot') {
       const { pipeline_id, pipeline_opportunity_id, assessment_id } = body;
@@ -2697,23 +3137,56 @@ ${idx + 1}. ID: ${ev.evidence_object_id} | Title: ${def?.name || ev.evidence_obj
 
       const pipelineOpp = await resolvePipelineOpportunity(targetId);
       const effectivePipeId = pipelineOpp?.pipeline_id || targetId;
+      const nowIso = new Date().toISOString();
 
-      const { data: assessment } = await supabase
-        .from('pipeline_assessments')
-        .select('*')
-        .eq('assessment_id', assessment_id)
-        .single();
+      const [{ data: assessment }, { data: padfList }] = await Promise.all([
+        supabase
+          .from('pipeline_assessments')
+          .select('*')
+          .eq('assessment_id', assessment_id)
+          .single(),
+        supabase
+          .from('pipeline_padf_results')
+          .select('dimension_id, dimension_name, dimension_score, assessment_state')
+          .eq('assessment_id', assessment_id)
+      ]);
+
+      const trimmedPayload = {
+        assessment: assessment ? {
+          assessment_id: assessment.assessment_id,
+          pipeline_id: assessment.pipeline_id,
+          assessment_sequence: assessment.assessment_sequence,
+          assessment_status: assessment.assessment_status,
+          trigger_type: assessment.trigger_type,
+          base_winability: assessment.base_winability,
+          risk_adjusted_winability: assessment.risk_adjusted_winability,
+          pipeline_health: assessment.pipeline_health,
+          assessment_confidence: assessment.assessment_confidence,
+          configuration_version: assessment.configuration_version,
+          evidence_kb_version: assessment.evidence_kb_version,
+          rules_version: assessment.rules_version,
+          reasoning_prompt_version: assessment.reasoning_prompt_version,
+          completed_at: assessment.completed_at,
+          updated_at: assessment.updated_at
+        } : {},
+        padf_results: (padfList || []).map((pr: any) => ({
+          dimension_id: pr.dimension_id,
+          dimension_name: pr.dimension_name,
+          dimension_score: pr.dimension_score,
+          assessment_state: pr.assessment_state
+        }))
+      };
 
       const { data: snapshot, error: snapError } = await supabase
         .from('pipeline_assessment_snapshots')
-        .insert({
-          snapshot_id: `SNAP_${assessment_id}_${Date.now()}`,
+        .upsert({
+          snapshot_id: `SNAP_${assessment_id}`,
           pipeline_id: effectivePipeId,
           assessment_id,
-          snapshot_sequence: (assessment?.assessment_sequence || 1),
-          snapshot_timestamp: new Date().toISOString(),
-          full_snapshot_payload: { assessment }
-        })
+          snapshot_sequence: assessment?.assessment_sequence || 1,
+          snapshot_timestamp: nowIso,
+          full_snapshot_payload: trimmedPayload
+        }, { onConflict: 'snapshot_id' })
         .select()
         .single();
 

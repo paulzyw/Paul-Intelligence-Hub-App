@@ -18,7 +18,8 @@ import {
   Award,
   XCircle,
   X,
-  ShieldCheck
+  ShieldCheck,
+  Target
 } from 'lucide-react';
 import {
   PipelineOpportunity,
@@ -40,15 +41,17 @@ import { PADFDimensionHealthView } from './PADFDimensionHealthView';
 import { SWOTIntelligenceBoard } from './SWOTIntelligenceBoard';
 import { RiskIntelligenceRegister } from './RiskIntelligenceRegister';
 import { TOWSStrategyCanvas } from './TOWSStrategyCanvas';
-import { PipelineEvolutionTimeline } from './PipelineEvolutionTimeline';
+import { PipelineEvolutionTimeline, consolidateDailySnapshots } from './PipelineEvolutionTimeline';
 import { PipelineAssessmentForm } from './PipelineAssessmentForm';
 import { PipelineGovernanceAuditPanel } from './PipelineGovernanceAuditPanel';
+import { WinningStrategyView } from './WinningStrategyView';
 
 export type WorkspaceTabKey =
   | 'overview'
   | 'swot'
   | 'risks'
   | 'tows'
+  | 'winning_strategy'
   | 'evolution'
   | 'governance'
   | 'evidence';
@@ -88,6 +91,8 @@ export const PipelineIntelligenceWorkspace: React.FC<PipelineIntelligenceWorkspa
   const [targetEvidenceDimension, setTargetEvidenceDimension] = useState<PADFDimensionId | undefined>(undefined);
   const [loadingData, setLoadingData] = useState(!initialResult?.assessment);
   const workspaceRootRef = useRef<HTMLDivElement>(null);
+  const tabsContainerRef = useRef<HTMLDivElement>(null);
+  const tabButtonRefs = useRef<Record<string, HTMLButtonElement | null>>({});
 
   const [assessment, setAssessment] = useState<PipelineAssessment | null>(initialResult?.assessment ?? null);
   const [padfResults, setPadfResults] = useState<PipelinePADFResult[]>(initialResult?.padf_results ?? []);
@@ -281,15 +286,89 @@ export const PipelineIntelligenceWorkspace: React.FC<PipelineIntelligenceWorkspa
           ? opportunity.pipeline_stage
           : 'Active Assessment';
 
+  const winningStrategyCount = Array.isArray(assessment?.raw_reasoning_output?.winning_strategies)
+    ? assessment!.raw_reasoning_output!.winning_strategies.length
+    : 0;
+
   const workspaceTabs = [
     { key: 'overview', label: 'Assessment Result', icon: Sparkles },
     { key: 'swot', label: 'SWOT Intelligence (16)', icon: Grid2X2 },
     { key: 'risks', label: `Risk Register (${risks.length})`, icon: ShieldAlert },
     { key: 'tows', label: `TOWS & Actions (${strategies.length})`, icon: Compass },
-    { key: 'evolution', label: `Evolution Timeline (${snapshots.length})`, icon: History },
+    {
+      key: 'winning_strategy',
+      label: winningStrategyCount > 0 ? `Winning Strategy (${winningStrategyCount})` : 'Winning Strategy',
+      icon: Target
+    },
+    { key: 'evolution', label: `Evolution Timeline (${consolidateDailySnapshots(snapshots).length})`, icon: History },
     { key: 'governance', label: 'Governance & Audit', icon: ShieldCheck },
     ...(embedded ? [] : [{ key: 'evidence', label: `Evidence Intake (${evidence.length}/48)`, icon: FileText }])
   ];
+
+  // Auto-advance horizontal navbar when active tab sits at the last visible position (or off-edge)
+  useEffect(() => {
+    const container = tabsContainerRef.current;
+    const activeEl = tabButtonRefs.current[activeTab];
+    if (!container || !activeEl) return;
+
+    const containerWidth = container.clientWidth;
+    const maxScrollLeft = container.scrollWidth - containerWidth;
+    if (maxScrollLeft <= 0) return;
+
+    const containerRect = container.getBoundingClientRect();
+    const activeRect = activeEl.getBoundingClientRect();
+    const currentScroll = container.scrollLeft;
+
+    const activeRelLeft = activeRect.left - containerRect.left + currentScroll;
+    const activeRelRight = activeRect.right - containerRect.left + currentScroll;
+    const visibleRight = currentScroll + containerWidth;
+
+    const activeIdx = workspaceTabs.findIndex((t) => t.key === activeTab);
+    const nextEl =
+      activeIdx >= 0 && activeIdx < workspaceTabs.length - 1
+        ? tabButtonRefs.current[workspaceTabs[activeIdx + 1].key]
+        : null;
+    const prevEl =
+      activeIdx > 0 ? tabButtonRefs.current[workspaceTabs[activeIdx - 1].key] : null;
+
+    const nextRelRight = nextEl
+      ? nextEl.getBoundingClientRect().right - containerRect.left + currentScroll
+      : activeRelRight;
+
+    const isAtOrNearRightEdge = activeRelRight >= visibleRight - 48;
+    const nextTabHiddenOrClipped = nextEl ? nextRelRight > visibleRight - 8 : false;
+
+    if (isAtOrNearRightEdge || nextTabHiddenOrClipped) {
+      const revealNextScroll = nextRelRight - containerWidth + 24;
+      const comfortShiftScroll = activeRelLeft - Math.round(containerWidth * 0.25);
+      const targetScroll = Math.max(
+        currentScroll,
+        Math.min(maxScrollLeft, Math.max(revealNextScroll, comfortShiftScroll))
+      );
+      if (Math.abs(targetScroll - currentScroll) > 4) {
+        container.scrollTo({ left: targetScroll, behavior: 'smooth' });
+      }
+      return;
+    }
+
+    if (prevEl) {
+      const prevRelLeft = prevEl.getBoundingClientRect().left - containerRect.left + currentScroll;
+      const isAtOrNearLeftEdge = activeRelLeft <= currentScroll + 48;
+      const prevTabHiddenOrClipped = prevRelLeft < currentScroll + 8;
+
+      if (isAtOrNearLeftEdge || prevTabHiddenOrClipped) {
+        const revealPrevScroll = prevRelLeft - 24;
+        const comfortShiftBackScroll = activeRelRight - Math.round(containerWidth * 0.75);
+        const targetScroll = Math.max(
+          0,
+          Math.min(currentScroll, Math.min(revealPrevScroll, comfortShiftBackScroll))
+        );
+        if (Math.abs(targetScroll - currentScroll) > 4) {
+          container.scrollTo({ left: targetScroll, behavior: 'smooth' });
+        }
+      }
+    }
+  }, [activeTab, embedded, strategies.length, risks.length, snapshots.length, evidence.length, winningStrategyCount]);
 
   return (
     <div
@@ -560,22 +639,28 @@ export const PipelineIntelligenceWorkspace: React.FC<PipelineIntelligenceWorkspa
       )}
 
       {/* Multi-Tab Intelligence Workspace Navigation */}
-      <div className="flex items-center gap-1.5 overflow-x-auto pb-1 border-b border-border/70">
+      <div
+        ref={tabsContainerRef}
+        className="flex overflow-x-auto border-b border-border/70 pb-2 gap-1.5 [&::-webkit-scrollbar]:h-1.5 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-border/60 [&::-webkit-scrollbar-thumb]:rounded-full"
+      >
         {workspaceTabs.map((tab) => {
           const Icon = tab.icon;
           const active = activeTab === tab.key;
           return (
             <button
               key={tab.key}
+              ref={(el) => {
+                tabButtonRefs.current[tab.key] = el;
+              }}
               type="button"
               onClick={() => setActiveTab(tab.key as WorkspaceTabKey)}
-              className={`inline-flex items-center gap-2 px-3.5 py-2.5 rounded-t-xl text-xs font-semibold transition-colors whitespace-nowrap shrink-0 cursor-pointer border-b-2 ${
+              className={`flex items-center gap-2 px-3.5 py-2 rounded-t-xl text-xs font-semibold transition-all whitespace-nowrap shrink-0 cursor-pointer select-none ${
                 active
-                  ? 'border-accent text-text-primary bg-bg-surface'
-                  : 'border-transparent text-text-secondary hover:text-text-primary'
+                  ? 'bg-bg-surface text-accent border-b-2 border-accent'
+                  : 'text-text-secondary hover:text-text-primary hover:bg-bg-surface/50'
               }`}
             >
-              <Icon className={`h-3.5 w-3.5 ${active ? 'text-accent' : ''}`} />
+              <Icon className="h-3.5 w-3.5 shrink-0" />
               <span>{tab.label}</span>
             </button>
           );
@@ -733,6 +818,29 @@ export const PipelineIntelligenceWorkspace: React.FC<PipelineIntelligenceWorkspa
               prev.map((a) => (a.action_id === updated.action_id ? updated : a))
             )
           }
+        />
+      ) : activeTab === 'winning_strategy' ? (
+        <WinningStrategyView
+          opportunity={opportunity}
+          assessment={assessment}
+          padfResults={padfResults}
+          swotResults={swotResults}
+          risks={risks}
+          towsStrategies={strategies}
+          evidence={evidence}
+          onAssessmentUpdated={async (updatedAssessment) => {
+            setAssessment(updatedAssessment);
+            const snapList = await PipelineDataService.getAssessmentSnapshots(opportunity.pipeline_id);
+            setSnapshots(snapList);
+          }}
+          onTriggerReassessment={() => {
+            if (embedded && onTriggerReassessment) {
+              onTriggerReassessment();
+              return;
+            }
+            setTargetEvidenceDimension(undefined);
+            setActiveTab('evidence');
+          }}
         />
       ) : (
         <PipelineEvolutionTimeline snapshots={snapshots} />

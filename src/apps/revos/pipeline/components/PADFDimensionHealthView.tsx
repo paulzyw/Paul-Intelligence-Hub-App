@@ -134,11 +134,14 @@ export const PADFDimensionHealthView: React.FC<PADFDimensionHealthViewProps> = (
     const currentSeq = assessment?.assessment_sequence;
     const priorSnap = [...snapshots]
       .reverse()
-      .find((s) =>
-        currentSeq
-          ? s.snapshot_sequence < currentSeq && Array.isArray(s.full_snapshot_payload?.padf_results)
-          : Array.isArray(s.full_snapshot_payload?.padf_results)
-      );
+      .find((s) => {
+        const hasPadf =
+          Array.isArray(s.full_snapshot_payload?.padf_results) &&
+          s.full_snapshot_payload.padf_results.length > 0;
+        if (!hasPadf) return false;
+        if (assessment?.assessment_id && s.assessment_id === assessment.assessment_id) return false;
+        return currentSeq ? s.snapshot_sequence < currentSeq : true;
+      });
     const prevPadf = priorSnap?.full_snapshot_payload?.padf_results || [];
     prevPadf.forEach((p: PipelinePADFResult) => {
       const norm = PipelineConfigService.normalizePADFDimensionId(p.dimension_id);
@@ -1098,9 +1101,9 @@ export const PADFDimensionHealthView: React.FC<PADFDimensionHealthViewProps> = (
               Executive Summary
             </h3>
           </div>
-          <span className="text-[11px] font-mono text-text-secondary">
+          {/*<span className="text-[11px] font-mono text-text-secondary">
             {assessment?.model_identifier || 'gemini-3.1-flash-lite'} · Rules v{rulesConfig.version}
-          </span>
+          </span>*/}
         </div>
 
         <div className="divide-y divide-border/60">

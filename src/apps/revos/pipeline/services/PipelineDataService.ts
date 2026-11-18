@@ -19,12 +19,20 @@ import {
   OpportunityHandoverQualificationContinuity,
   OpportunityHandoverCanonicalClassification,
   OpportunityHandoverUpstreamRisks,
-  PipelineFormRecord
+  PipelineFormRecord,
+  PipelineWinningStrategy,
+  WinningStrategyExecutionStatus
 } from '../../types/pipeline';
 import { PipelineConfigService } from './PipelineConfigService';
 
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const isValidUuid = (id?: string | null): id is string => typeof id === 'string' && UUID_REGEX.test(id);
+
+const ASSESSMENT_STAGE_PLACEHOLDERS = new Set([
+  'Assessment Completed',
+  'Evidence Populated',
+  'Active Assessment'
+]);
 
 export class PipelineDataService {
   private static pendingGetOrCreate = new Map<
@@ -35,6 +43,91 @@ export class PipelineDataService {
       isNew: boolean;
     }>
   >();
+
+  private static async resolveCommercialPipelineStage(pipeRow: any): Promise<any> {
+    if (!pipeRow) return pipeRow;
+    const currentStage = String(pipeRow.pipeline_stage || '').trim();
+    if (currentStage && !ASSESSMENT_STAGE_PLACEHOLDERS.has(currentStage)) {
+      return pipeRow;
+    }
+
+    const isRealStage = (val?: string | null): val is string =>
+      typeof val === 'string' &&
+      val.trim().length > 0 &&
+      !ASSESSMENT_STAGE_PLACEHOLDERS.has(val.trim());
+
+    let recoveredStage: string | null = null;
+
+    try {
+      const { data: pipeForm } = await supabase
+        .from('pipeline_form_records')
+        .select('pipeline_stage')
+        .eq('pipeline_id', pipeRow.pipeline_id)
+        .maybeSingle();
+      if (isRealStage(pipeForm?.pipeline_stage)) {
+        recoveredStage = pipeForm.pipeline_stage.trim();
+      }
+    } catch (_e) {}
+
+    if (!recoveredStage) {
+      try {
+        const { data: handoverRow } = await supabase
+          .from('pipeline_opportunity_handover_details')
+          .select('canonical_classification')
+          .eq('pipeline_id', pipeRow.pipeline_id)
+          .maybeSingle();
+        const handoverStage = (handoverRow as any)?.canonical_classification?.lifecycle_context
+          ?.pipeline_stage;
+        if (isRealStage(handoverStage)) {
+          recoveredStage = handoverStage.trim();
+        }
+      } catch (_e) {}
+    }
+
+    const oppId =
+      pipeRow.opportunity_id || (pipeRow.metadata as any)?.original_opportunity_id || '';
+    if (!recoveredStage && isValidUuid(oppId)) {
+      try {
+        const [{ data: oppForm }, { data: oppRow }] = await Promise.all([
+          supabase
+            .from('opportunity_form_records')
+            .select('pipeline_stage')
+            .eq('opportunity_id', oppId)
+            .maybeSingle(),
+          supabase.from('opportunities').select('description').eq('id', oppId).maybeSingle()
+        ]);
+        if (isRealStage(oppForm?.pipeline_stage)) {
+          recoveredStage = oppForm.pipeline_stage.trim();
+        } else if (
+          oppRow?.description &&
+          typeof oppRow.description === 'string' &&
+          oppRow.description.trim().startsWith('{')
+        ) {
+          const parsed = JSON.parse(oppRow.description);
+          if (isRealStage(parsed?.pipeline_stage)) {
+            recoveredStage = parsed.pipeline_stage.trim();
+          }
+        }
+      } catch (_e) {}
+    }
+
+    if (!recoveredStage) {
+      return pipeRow;
+    }
+
+    // Heal pipeline_opportunities.pipeline_stage in Supabase so DB reflects the real commercial stage
+    try {
+      await supabase
+        .from('pipeline_opportunities')
+        .update({ pipeline_stage: recoveredStage, updated_at: new Date().toISOString() })
+        .eq('pipeline_id', pipeRow.pipeline_id);
+    } catch (_e) {}
+
+    return {
+      ...pipeRow,
+      pipeline_stage: recoveredStage
+    };
+  }
 
   /**
    * 1. Retrieve or Initialize Pipeline Opportunity from Upstream Opportunity Record
@@ -98,14 +191,17 @@ export class PipelineDataService {
     }
 
     if (existingPipe) {
-      const { data: inheritance } = await supabase
-        .from('pipeline_inheritance')
-        .select('*')
-        .eq('pipeline_id', existingPipe.pipeline_id)
-        .maybeSingle();
+      const [healedPipe, { data: inheritance }] = await Promise.all([
+        this.resolveCommercialPipelineStage(existingPipe),
+        supabase
+          .from('pipeline_inheritance')
+          .select('*')
+          .eq('pipeline_id', existingPipe.pipeline_id)
+          .maybeSingle()
+      ]);
 
       return {
-        opportunity: existingPipe as PipelineOpportunity,
+        opportunity: healedPipe as PipelineOpportunity,
         inheritance: inheritance as PipelineInheritance,
         isNew: false
       };
@@ -157,14 +253,17 @@ export class PipelineDataService {
 
     if (dedupeMatches && dedupeMatches.length > 0) {
       const matchedPipe = dedupeMatches[0];
-      const { data: matchedInh } = await supabase
-        .from('pipeline_inheritance')
-        .select('*')
-        .eq('pipeline_id', matchedPipe.pipeline_id)
-        .maybeSingle();
+      const [healedPipe, { data: matchedInh }] = await Promise.all([
+        this.resolveCommercialPipelineStage(matchedPipe),
+        supabase
+          .from('pipeline_inheritance')
+          .select('*')
+          .eq('pipeline_id', matchedPipe.pipeline_id)
+          .maybeSingle()
+      ]);
 
       return {
-        opportunity: matchedPipe as PipelineOpportunity,
+        opportunity: healedPipe as PipelineOpportunity,
         inheritance: matchedInh as PipelineInheritance,
         isNew: false
       };
@@ -269,7 +368,7 @@ export class PipelineDataService {
       deal_value: dealValue,
       currency: 'USD',
       sales_stage: formRecord.opportunity_stage || oppDesc?.opportunity_stage || 'Discovery & Solutioning',
-      pipeline_stage: formRecord.pipeline_stage || 'Active Assessment',
+      pipeline_stage: formRecord.pipeline_stage || oppDesc?.pipeline_stage || 'Qualification',
       forecast_category: 'Pipeline',
       expected_close_date: formRecord.expected_close_date || oppDesc?.expected_close_date || undefined,
       opportunity_owner: formRecord.opportunity_owner || oppDesc?.opportunity_owner || oppDb?.owner_id || 'Senior Enterprise AE',
@@ -645,6 +744,37 @@ export class PipelineDataService {
   }
 
   /**
+   * 7e. Update Winning Strategy Execution Status inside Assessment raw_reasoning_output
+   */
+  static async updateWinningStrategyStatus(
+    pipelineId: string,
+    assessment: PipelineAssessment,
+    strategyId: string,
+    status: WinningStrategyExecutionStatus
+  ): Promise<PipelineAssessment | null> {
+    if (!pipelineId || !assessment?.assessment_id) return null;
+    const currentList: PipelineWinningStrategy[] = Array.isArray(
+      assessment.raw_reasoning_output?.winning_strategies
+    )
+      ? (assessment.raw_reasoning_output!.winning_strategies as PipelineWinningStrategy[])
+      : [];
+
+    const updatedList = currentList.map((ws) =>
+      ws.strategy_id === strategyId ? { ...ws, execution_status: status } : ws
+    );
+
+    const updatedRaw = {
+      ...(assessment.raw_reasoning_output || {}),
+      winning_strategies: updatedList
+    };
+
+    return this.saveAssessmentResult(pipelineId, assessment.assessment_id, {
+      executive_summary: assessment.executive_summary,
+      raw_reasoning_output: updatedRaw
+    });
+  }
+
+  /**
    * 8. Query Evidence Questions (Pure Static Frontend JSON Layers + Supabase existing_evidence)
    */
   static async queryEvidenceQuestions(
@@ -914,11 +1044,10 @@ export class PipelineDataService {
     });
     if (error) throw error;
 
-    // Preserve advanced Kanban stage so reassessment does not regress Discovery / Proposal deals
+    // Preserve any real commercial Pipeline Stage so evidence intake / reassessment never overwrites it
     if (
-      preOpp &&
-      (preOpp.pipeline_stage === 'Discovery & Solutioning' ||
-        preOpp.pipeline_stage === 'Proposal & Negotiation')
+      preOpp?.pipeline_stage &&
+      !ASSESSMENT_STAGE_PLACEHOLDERS.has(preOpp.pipeline_stage)
     ) {
       await supabase
         .from('pipeline_opportunities')
@@ -1007,14 +1136,83 @@ export class PipelineDataService {
     }
 
     if (updatedAssessment) {
-      await supabase.from('pipeline_assessment_snapshots').insert({
-        snapshot_id: `SNAP_${assessmentId}_SAVED_${Date.now()}`,
-        pipeline_id: pipelineId,
-        assessment_id: assessmentId,
-        snapshot_sequence: (updatedAssessment as PipelineAssessment).assessment_sequence || 1,
-        snapshot_timestamp: nowIso,
-        full_snapshot_payload: { assessment: updatedAssessment }
-      });
+      const typedAssessment = updatedAssessment as PipelineAssessment;
+      const { data: existingSnaps } = await supabase
+        .from('pipeline_assessment_snapshots')
+        .select('*')
+        .eq('assessment_id', assessmentId)
+        .order('created_at', { ascending: true });
+
+      const primarySnap =
+        (existingSnaps || []).find(
+          (s: any) =>
+            Array.isArray(s.full_snapshot_payload?.padf_results) &&
+            s.full_snapshot_payload.padf_results.length > 0
+        ) || existingSnaps?.[0];
+
+      let currentPadfRows: any[] = primarySnap?.full_snapshot_payload?.padf_results || [];
+      if (currentPadfRows.length === 0) {
+        const { data: dbPadfRows } = await supabase
+          .from('pipeline_padf_results')
+          .select('dimension_id, dimension_name, dimension_score, assessment_state')
+          .eq('assessment_id', assessmentId);
+        currentPadfRows = dbPadfRows || [];
+      }
+
+      const trimmedPayload = {
+        assessment: {
+          assessment_id: typedAssessment.assessment_id,
+          pipeline_id: typedAssessment.pipeline_id,
+          assessment_sequence: typedAssessment.assessment_sequence,
+          assessment_status: typedAssessment.assessment_status,
+          trigger_type: typedAssessment.trigger_type,
+          base_winability: typedAssessment.base_winability,
+          risk_adjusted_winability: typedAssessment.risk_adjusted_winability,
+          pipeline_health: typedAssessment.pipeline_health,
+          assessment_confidence: typedAssessment.assessment_confidence,
+          configuration_version: typedAssessment.configuration_version,
+          evidence_kb_version: typedAssessment.evidence_kb_version,
+          rules_version: typedAssessment.rules_version,
+          reasoning_prompt_version: typedAssessment.reasoning_prompt_version,
+          completed_at: typedAssessment.completed_at,
+          updated_at: nowIso
+        },
+        padf_results: currentPadfRows.map((pr: any) => ({
+          dimension_id: pr.dimension_id,
+          dimension_name: pr.dimension_name,
+          dimension_score: pr.dimension_score,
+          assessment_state: pr.assessment_state
+        }))
+      };
+
+      if (primarySnap) {
+        await supabase
+          .from('pipeline_assessment_snapshots')
+          .update({
+            snapshot_timestamp: nowIso,
+            full_snapshot_payload: trimmedPayload
+          })
+          .eq('snapshot_id', primarySnap.snapshot_id);
+
+        const extraSnapIds = (existingSnaps || [])
+          .filter((s: any) => s.snapshot_id !== primarySnap.snapshot_id)
+          .map((s: any) => s.snapshot_id);
+        if (extraSnapIds.length > 0) {
+          await supabase
+            .from('pipeline_assessment_snapshots')
+            .delete()
+            .in('snapshot_id', extraSnapIds);
+        }
+      } else {
+        await supabase.from('pipeline_assessment_snapshots').insert({
+          snapshot_id: `SNAP_${assessmentId}`,
+          pipeline_id: pipelineId,
+          assessment_id: assessmentId,
+          snapshot_sequence: typedAssessment.assessment_sequence || 1,
+          snapshot_timestamp: nowIso,
+          full_snapshot_payload: trimmedPayload
+        });
+      }
     }
 
     return (updatedAssessment as PipelineAssessment) || null;

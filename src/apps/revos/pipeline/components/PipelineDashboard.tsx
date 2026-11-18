@@ -24,47 +24,47 @@ import {
   AlertTriangle
 } from 'lucide-react';
 import { supabase } from '../../../../lib/supabase';
-import { PipelineOpportunity, PipelineAssessment } from '../../types/pipeline';
-import { PipelineDataService } from '../services/PipelineDataService';
-
-interface DashboardPortfolioItem {
-  id: string;
-  lead_id?: string;
-  company_name: string;
-  opportunity_name: string;
-  industry: string;
-  revenue_motion: string;
-  estimated_value: number;
-  pipeline_opp?: PipelineOpportunity & { latest_assessment?: PipelineAssessment };
-}
+import { PipelineCardItem } from './PipelineCard';
+import {
+  loadCanonicalPipelinePortfolio,
+  resolveCanvasColumn,
+  isPipelineItemClosed
+} from '../services/pipelinePortfolioLoader';
 
 type StageKey =
-  | 'Active Assessment'
-  | 'Discovery & Solutioning'
-  | 'Proposal & Negotiation'
+  | 'Initial Pipeline'
+  | 'Proposal / Evaluation'
+  | 'Negotiation / Commit'
   | 'Closed Won'
   | 'Closed Lost';
 
 const STAGE_ORDER: Array<{ key: StageKey; shortLabel: string; colorClass: string }> = [
-  { key: 'Active Assessment', shortLabel: 'Active', colorClass: 'bg-accent' },
-  { key: 'Discovery & Solutioning', shortLabel: 'Discovery', colorClass: 'bg-sky-400' },
-  { key: 'Proposal & Negotiation', shortLabel: 'Proposal', colorClass: 'bg-amber-400' },
+  { key: 'Initial Pipeline', shortLabel: 'Initial', colorClass: 'bg-accent' },
+  { key: 'Proposal / Evaluation', shortLabel: 'Proposal', colorClass: 'bg-sky-400' },
+  { key: 'Negotiation / Commit', shortLabel: 'Negotiation', colorClass: 'bg-amber-400' },
   { key: 'Closed Won', shortLabel: 'Won', colorClass: 'bg-emerald-400' },
   { key: 'Closed Lost', shortLabel: 'Lost', colorClass: 'bg-red-400' }
 ];
 
-function resolveStage(item: DashboardPortfolioItem): StageKey {
-  const opp = item.pipeline_opp;
-  if (!opp) return 'Active Assessment';
-  if (opp.lifecycle_status === 'CLOSED_WON' || opp.pipeline_stage === 'Closed Won') {
-    return 'Closed Won';
-  }
-  if (opp.lifecycle_status === 'CLOSED_LOST' || opp.pipeline_stage === 'Closed Lost') {
-    return 'Closed Lost';
-  }
-  if (opp.pipeline_stage === 'Proposal & Negotiation') return 'Proposal & Negotiation';
-  if (opp.pipeline_stage === 'Discovery & Solutioning') return 'Discovery & Solutioning';
-  return 'Active Assessment';
+function isClosedWonItem(item: PipelineCardItem): boolean {
+  return (
+    item.pipeline_stage === 'Closed Won' || item.pipeline_opp?.lifecycle_status === 'CLOSED_WON'
+  );
+}
+
+function isClosedLostItem(item: PipelineCardItem): boolean {
+  return (
+    item.pipeline_stage === 'Closed Lost' || item.pipeline_opp?.lifecycle_status === 'CLOSED_LOST'
+  );
+}
+
+function resolveStage(item: PipelineCardItem): StageKey {
+  if (isClosedWonItem(item)) return 'Closed Won';
+  if (isClosedLostItem(item)) return 'Closed Lost';
+  const col = resolveCanvasColumn(item);
+  if (col === 'Proposal/Evaluation') return 'Proposal / Evaluation';
+  if (col === 'Negotiation/Commit') return 'Negotiation / Commit';
+  return 'Initial Pipeline';
 }
 
 function formatCompactCurrency(val: number): string {
@@ -104,178 +104,29 @@ const StageTooltip: React.FC<{
 
 export const PipelineDashboard: React.FC = () => {
   const [loading, setLoading] = useState(true);
-  const [items, setItems] = useState<DashboardPortfolioItem[]>([]);
-  const [activeRisksCount, setActiveRisksCount] = useState(0);
-  const [criticalRisksCount, setCriticalRisksCount] = useState(0);
-  const [openActionsCount, setOpenActionsCount] = useState(0);
+  const [items, setItems] = useState<PipelineCardItem[]>([]);
+  const [riskRows, setRiskRows] = useState<
+    Array<{ risk_instance_id: string; pipeline_id: string; assessment_id: string; severity: string; risk_status: string }>
+  >([]);
+  const [actionRows, setActionRows] = useState<
+    Array<{ action_id: string; pipeline_id: string; action_status: string }>
+  >([]);
   const [scopeFilter, setScopeFilter] = useState<'ALL' | 'ACTIVE' | 'CLOSED'>('ALL');
 
   const loadDashboardData = async () => {
     setLoading(true);
     try {
-      const [pipeList, oppsRes, promosRes, formRes, risksRes, actionsRes] = await Promise.all([
-        PipelineDataService.listPipelineOpportunities(),
-        supabase.from('opportunities').select('*').order('created_at', { ascending: false }),
-        supabase.from('sql_opportunity_promotions').select('lead_id, opportunity_id'),
+      const [mergedItems, risksRes, actionsRes] = await Promise.all([
+        loadCanonicalPipelinePortfolio(),
         supabase
-          .from('opportunity_form_records')
-          .select('opportunity_id, company_name, opportunity_name, estimated_revenue, industry, revenue_motion'),
-        supabase.from('pipeline_risks').select('risk_instance_id, severity, risk_status'),
-        supabase.from('pipeline_actions').select('action_id, action_status')
+          .from('pipeline_risks')
+          .select('risk_instance_id, pipeline_id, assessment_id, severity, risk_status'),
+        supabase.from('pipeline_actions').select('action_id, pipeline_id, action_status')
       ]);
 
-      const pipeByOppId = new Map<string, PipelineOpportunity & { latest_assessment?: PipelineAssessment }>();
-      const registerPipeLookup = (
-        key: string | undefined,
-        candidate: PipelineOpportunity & { latest_assessment?: PipelineAssessment }
-      ) => {
-        if (!key) return;
-        const existing = pipeByOppId.get(key);
-        if (!existing || (!existing.latest_assessment && candidate.latest_assessment)) {
-          pipeByOppId.set(key, candidate);
-        }
-      };
-      pipeList.forEach((p) => {
-        registerPipeLookup(p.pipeline_id, p);
-        registerPipeLookup(p.opportunity_id, p);
-        registerPipeLookup(p.lead_id, p);
-      });
-
-      const formByOppId = new Map<string, any>();
-      (formRes.data || []).forEach((f: any) => {
-        if (f.opportunity_id) formByOppId.set(f.opportunity_id, f);
-      });
-
-      const promoLeadIds = new Set<string>(
-        (promosRes.data || []).map((p: any) => p.lead_id).filter(Boolean)
-      );
-      const seenIds = new Set<string>();
-      const seenItemIds = new Set<string>();
-      const seenPipeIds = new Set<string>();
-      const mergedItems: DashboardPortfolioItem[] = [];
-
-      const markMatchingPipesSeen = (oppId?: string, leadId?: string) => {
-        pipeList.forEach((p) => {
-          if (
-            (oppId && (p.opportunity_id === oppId || p.pipeline_id === oppId)) ||
-            (leadId && p.lead_id === leadId)
-          ) {
-            seenPipeIds.add(p.pipeline_id);
-          }
-        });
-      };
-
-      (oppsRes.data || []).forEach((opp: any) => {
-        if (!opp?.id || seenItemIds.has(opp.id)) return;
-        const form = formByOppId.get(opp.id) || {};
-        let parsedDesc: any = {};
-        if (opp.description && typeof opp.description === 'string' && opp.description.trim().startsWith('{')) {
-          try {
-            parsedDesc = JSON.parse(opp.description);
-          } catch (_e) {}
-        }
-        const rawRev = form.estimated_revenue || parsedDesc.estimated_revenue || opp.expected_revenue || '0';
-        const estVal = parseFloat(String(rawRev).replace(/[^0-9.]/g, '')) || 0;
-        const linkedPipe =
-          pipeByOppId.get(opp.id) ||
-          (opp.mql_reference_id ? pipeByOppId.get(opp.mql_reference_id) : undefined);
-
-        seenIds.add(opp.id);
-        seenItemIds.add(opp.id);
-        if (opp.mql_reference_id) seenIds.add(opp.mql_reference_id);
-        if (linkedPipe) seenPipeIds.add(linkedPipe.pipeline_id);
-        markMatchingPipesSeen(opp.id, opp.mql_reference_id);
-
-        mergedItems.push({
-          id: opp.id,
-          lead_id: opp.mql_reference_id || undefined,
-          company_name: linkedPipe?.customer_name || form.company_name || opp.company_name || 'Enterprise Customer',
-          opportunity_name:
-            linkedPipe?.opportunity_name ||
-            form.opportunity_name ||
-            opp.opportunity_name ||
-            `${opp.company_name || 'Enterprise'} Opportunity`,
-          industry: linkedPipe?.industry_name || form.industry || opp.industry || 'Enterprise Software',
-          revenue_motion:
-            linkedPipe?.revenue_motion_name || form.revenue_motion || opp.revenue_motion || 'Digital Solution Selling',
-          estimated_value: linkedPipe?.deal_value || estVal,
-          pipeline_opp: linkedPipe
-        });
-      });
-
-      const missingLeadIds = Array.from(promoLeadIds).filter((lid) => !seenIds.has(lid));
-      if (missingLeadIds.length > 0) {
-        const { data: leadRows } = await supabase
-          .from('mql_leads')
-          .select('id, company_name, lead_industry')
-          .in('id', missingLeadIds);
-
-        (leadRows || []).forEach((l: any) => {
-          if (!l?.id) return;
-          const linkedPipe = pipeByOppId.get(l.id);
-          const resolvedItemId = linkedPipe?.opportunity_id || l.id;
-          if (seenItemIds.has(resolvedItemId) || seenItemIds.has(l.id)) {
-            markMatchingPipesSeen(linkedPipe?.opportunity_id, l.id);
-            return;
-          }
-          seenIds.add(l.id);
-          seenItemIds.add(resolvedItemId);
-          if (linkedPipe) seenPipeIds.add(linkedPipe.pipeline_id);
-          markMatchingPipesSeen(linkedPipe?.opportunity_id, l.id);
-
-          mergedItems.push({
-            id: resolvedItemId,
-            lead_id: l.id,
-            company_name: linkedPipe?.customer_name || l.company_name || 'Enterprise Customer',
-            opportunity_name:
-              linkedPipe?.opportunity_name || `${l.company_name || 'Enterprise'} Opportunity`,
-            industry: linkedPipe?.industry_name || l.lead_industry || 'Enterprise Software',
-            revenue_motion: linkedPipe?.revenue_motion_name || 'Digital Solution Selling',
-            estimated_value: linkedPipe?.deal_value || 0,
-            pipeline_opp: linkedPipe
-          });
-        });
-      }
-
-      pipeList.forEach((p) => {
-        const candidateId = p.opportunity_id || p.pipeline_id;
-        if (
-          seenPipeIds.has(p.pipeline_id) ||
-          seenItemIds.has(candidateId) ||
-          (p.lead_id && seenIds.has(p.lead_id))
-        ) {
-          return;
-        }
-        seenItemIds.add(candidateId);
-        seenPipeIds.add(p.pipeline_id);
-        markMatchingPipesSeen(p.opportunity_id, p.lead_id);
-
-        mergedItems.push({
-          id: candidateId,
-          lead_id: p.lead_id,
-          company_name: p.customer_name,
-          opportunity_name: p.opportunity_name,
-          industry: p.industry_name,
-          revenue_motion: p.revenue_motion_name,
-          estimated_value: p.deal_value || 0,
-          pipeline_opp: p
-        });
-      });
-
       setItems(mergedItems);
-
-      const activeRisks = (risksRes.data || []).filter(
-        (r: any) => r.risk_status === 'ACTIVE' || r.risk_status === 'MITIGATING'
-      );
-      setActiveRisksCount(activeRisks.length);
-      setCriticalRisksCount(
-        activeRisks.filter((r: any) => r.severity === 'CRITICAL' || r.severity === 'HIGH').length
-      );
-
-      const openActions = (actionsRes.data || []).filter(
-        (a: any) => a.action_status !== 'COMPLETED' && a.action_status !== 'CANCELLED'
-      );
-      setOpenActionsCount(openActions.length);
+      setRiskRows((risksRes.data || []) as any[]);
+      setActionRows((actionsRes.data || []) as any[]);
     } catch (err) {
       console.error('Error loading Pipeline Dashboard:', err);
     } finally {
@@ -289,27 +140,54 @@ export const PipelineDashboard: React.FC = () => {
 
   const scopedItems = useMemo(() => {
     if (scopeFilter === 'ACTIVE') {
-      return items.filter((i) => {
-        const stage = resolveStage(i);
-        return stage !== 'Closed Won' && stage !== 'Closed Lost';
-      });
+      return items.filter((i) => !isPipelineItemClosed(i));
     }
     if (scopeFilter === 'CLOSED') {
-      return items.filter((i) => {
-        const stage = resolveStage(i);
-        return stage === 'Closed Won' || stage === 'Closed Lost';
-      });
+      return items.filter((i) => isPipelineItemClosed(i));
     }
     return items;
   }, [items, scopeFilter]);
 
-  const kpis = useMemo(() => {
-    const activeDeals = items.filter((i) => {
-      const stage = resolveStage(i);
-      return stage !== 'Closed Won' && stage !== 'Closed Lost';
+  const { activeRisksCount, criticalRisksCount, openActionsCount } = useMemo(() => {
+    const scopedPipeIds = new Set<string>();
+    const latestAssessmentByPipe = new Map<string, string>();
+    scopedItems.forEach((i) => {
+      const pid = i.pipeline_opp?.pipeline_id;
+      if (pid) {
+        scopedPipeIds.add(pid);
+        if (i.pipeline_opp?.latest_assessment?.assessment_id) {
+          latestAssessmentByPipe.set(pid, i.pipeline_opp.latest_assessment.assessment_id);
+        }
+      }
     });
-    const closedWon = items.filter((i) => resolveStage(i) === 'Closed Won');
-    const closedLost = items.filter((i) => resolveStage(i) === 'Closed Lost');
+
+    const activeRisks = riskRows.filter((r) => {
+      if (!scopedPipeIds.has(r.pipeline_id)) return false;
+      const latestAssessId = latestAssessmentByPipe.get(r.pipeline_id);
+      if (latestAssessId && r.assessment_id && r.assessment_id !== latestAssessId) return false;
+      return r.risk_status === 'ACTIVE' || r.risk_status === 'MITIGATING';
+    });
+
+    const openActions = actionRows.filter(
+      (a) =>
+        scopedPipeIds.has(a.pipeline_id) &&
+        a.action_status !== 'COMPLETED' &&
+        a.action_status !== 'CANCELLED'
+    );
+
+    return {
+      activeRisksCount: activeRisks.length,
+      criticalRisksCount: activeRisks.filter(
+        (r) => r.severity === 'CRITICAL' || r.severity === 'HIGH'
+      ).length,
+      openActionsCount: openActions.length
+    };
+  }, [scopedItems, riskRows, actionRows]);
+
+  const kpis = useMemo(() => {
+    const activeDeals = items.filter((i) => !isPipelineItemClosed(i));
+    const closedWon = items.filter((i) => isClosedWonItem(i));
+    const closedLost = items.filter((i) => isClosedLostItem(i));
 
     const activeValue = activeDeals.reduce((sum, i) => sum + (i.estimated_value || 0), 0);
     const closedWonValue = closedWon.reduce((sum, i) => sum + (i.estimated_value || 0), 0);
@@ -763,7 +641,7 @@ export const PipelineDashboard: React.FC = () => {
               <div className="space-y-2.5 overflow-y-auto max-h-[300px] pr-1">
                 {priorityOpportunities.map((item, idx) => {
                   const assess = item.pipeline_opp?.latest_assessment;
-                  const stage = resolveStage(item);
+                  const stage = item.pipeline_stage || resolveStage(item);
                   const targetUrl = `/product/revos/pipeline?opportunityId=${encodeURIComponent(
                     item.id
                   )}${item.lead_id ? `&leadId=${encodeURIComponent(item.lead_id)}` : ''}&source=pipeline_dashboard`;

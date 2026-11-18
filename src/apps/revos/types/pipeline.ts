@@ -237,6 +237,85 @@ export interface PipelineRecommendedActionItem {
   timeframe?: string;
 }
 
+export type WinningStrategyExecutionStatus =
+  | 'PROPOSED'
+  | 'APPROVED'
+  | 'IN_PROGRESS'
+  | 'COMPLETED'
+  | 'SUPERSEDED';
+
+export interface WinningStrategyCausalChain {
+  assessment_weakness_or_threat: string;
+  evidence_and_business_implication: string;
+  strategic_objective: string;
+  tows_response: string;
+  existing_risk_and_winability_context: string;
+  recommended_action: string;
+  expected_evidence_of_improvement: string;
+}
+
+export interface WinningStrategySupportingSWOT {
+  factor_id: string;
+  factor_name: string;
+  classification?: string;
+}
+
+export interface WinningStrategySupportingEvidence {
+  evidence_object_id: string;
+  title: string;
+  dimension_code?: string;
+  signal_score?: number;
+  evidence_snippet?: string;
+}
+
+export interface WinningStrategyRelatedRisk {
+  risk_id: string;
+  risk_title: string;
+  severity?: string;
+}
+
+export interface WinningStrategyActionItem {
+  action_title: string;
+  action_description: string;
+  owner_role?: string;
+  timeframe?: string;
+  expected_outcome?: string;
+}
+
+export interface PipelineWinningStrategy {
+  strategy_id: string;
+  title: string;
+  strategic_objective: string; // Q1
+  condition_to_change: string; // Q2
+  why_condition_important: string; // Q3
+  tows_category?: TOWSType | 'NONE' | string;
+  linked_tows_strategy_ids?: string[];
+  linked_padf_dimensions?: string[];
+  supporting_swot_factors: WinningStrategySupportingSWOT[];
+  supporting_evidence: WinningStrategySupportingEvidence[]; // Q4
+  related_formal_risks: WinningStrategyRelatedRisk[];
+  strategic_rationale: string;
+  expected_impact: string; // Strictly directional unless deterministically computed
+  probability_and_quality_influence: string; // Q8 (strictly directional)
+  feasibility: 'HIGH' | 'MODERATE' | 'CHALLENGING' | string;
+  feasibility_notes?: string;
+  dependencies: string[]; // Q6
+  priority: 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW' | string;
+  recommended_actions: WinningStrategyActionItem[]; // Q5
+  expected_evidence_of_improvement: string[]; // Q7
+  execution_status: WinningStrategyExecutionStatus;
+  causal_chain: WinningStrategyCausalChain;
+}
+
+export interface PipelineWinningStrategySummary {
+  customer_objectives_and_outcomes: string;
+  opportunity_business_conditions: string;
+  competitive_circumstances: string;
+  primary_winning_thesis: string;
+  top_strategy_id?: string;
+  winability_context_note?: string;
+}
+
 export interface PipelineAssessment {
   id?: string;
   assessment_id: string;
@@ -262,6 +341,8 @@ export interface PipelineAssessment {
     observed_supporting_evidence?: PipelineObservedEvidenceItem[];
     ai_cognitive_reasoning?: PipelineAICognitiveReasoning;
     recommended_next_actions?: PipelineRecommendedActionItem[];
+    winning_strategies?: PipelineWinningStrategy[];
+    winning_strategy_summary?: PipelineWinningStrategySummary;
     [key: string]: unknown;
   };
   executive_summary?: PipelineExecutiveSummary;
@@ -377,15 +458,21 @@ export interface PipelineAssessmentSnapshot {
   snapshot_sequence: number;
   snapshot_timestamp: string;
   full_snapshot_payload: {
-    opportunity: PipelineOpportunity;
-    inheritance: PipelineInheritance;
-    evidence: PipelineEvidence[];
-    padf_results: PipelinePADFResult[];
-    swot_results: PipelineSWOTResult[];
-    risks: PipelineRisk[];
-    strategies: PipelineStrategy[];
-    actions: PipelineAction[];
-    assessment: PipelineAssessment;
+    opportunity?: PipelineOpportunity;
+    inheritance?: PipelineInheritance;
+    evidence?: PipelineEvidence[];
+    padf_results?: Array<
+      Pick<
+        PipelinePADFResult,
+        'dimension_id' | 'dimension_name' | 'dimension_score' | 'assessment_state'
+      > &
+        Partial<PipelinePADFResult>
+    >;
+    swot_results?: PipelineSWOTResult[];
+    risks?: PipelineRisk[];
+    strategies?: PipelineStrategy[];
+    actions?: PipelineAction[];
+    assessment?: Partial<PipelineAssessment>;
   };
   created_at?: string;
 }

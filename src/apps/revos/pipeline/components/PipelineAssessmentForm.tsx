@@ -52,6 +52,7 @@ export const PipelineAssessmentForm: React.FC<PipelineAssessmentFormProps> = ({
   const dimensions = useMemo(() => PipelineConfigService.getCanonicalPADFDimensions(), []);
   const evidenceSources = useMemo(() => PipelineConfigService.getEvidenceSources(), []);
   const tabsContainerRef = useRef<HTMLDivElement>(null);
+  const tabButtonRefs = useRef<Record<string, HTMLButtonElement | null>>({});
 
   const [activeDimension, setActiveDimension] = useState<PADFDimensionId>(
     initialDimension || 'PA1_Customer_Value_and_Urgency'
@@ -62,6 +63,71 @@ export const PipelineAssessmentForm: React.FC<PipelineAssessmentFormProps> = ({
       setActiveDimension(initialDimension);
     }
   }, [initialDimension]);
+
+  // Auto-advance horizontal navbar when active tab sits at the last visible position (or off-edge)
+  useEffect(() => {
+    const container = tabsContainerRef.current;
+    const activeEl = tabButtonRefs.current[activeDimension];
+    if (!container || !activeEl) return;
+
+    const containerWidth = container.clientWidth;
+    const maxScrollLeft = container.scrollWidth - containerWidth;
+    if (maxScrollLeft <= 0) return;
+
+    const containerRect = container.getBoundingClientRect();
+    const activeRect = activeEl.getBoundingClientRect();
+    const currentScroll = container.scrollLeft;
+
+    const activeRelLeft = activeRect.left - containerRect.left + currentScroll;
+    const activeRelRight = activeRect.right - containerRect.left + currentScroll;
+    const visibleRight = currentScroll + containerWidth;
+
+    const activeIdx = dimensions.findIndex((d) => d.id === activeDimension);
+    const nextEl =
+      activeIdx >= 0 && activeIdx < dimensions.length - 1
+        ? tabButtonRefs.current[dimensions[activeIdx + 1].id]
+        : null;
+    const prevEl =
+      activeIdx > 0 ? tabButtonRefs.current[dimensions[activeIdx - 1].id] : null;
+
+    const nextRelRight = nextEl
+      ? nextEl.getBoundingClientRect().right - containerRect.left + currentScroll
+      : activeRelRight;
+
+    const isAtOrNearRightEdge = activeRelRight >= visibleRight - 48;
+    const nextTabHiddenOrClipped = nextEl ? nextRelRight > visibleRight - 8 : false;
+
+    if (isAtOrNearRightEdge || nextTabHiddenOrClipped) {
+      const revealNextScroll = nextRelRight - containerWidth + 24;
+      const comfortShiftScroll = activeRelLeft - Math.round(containerWidth * 0.25);
+      const targetScroll = Math.max(
+        currentScroll,
+        Math.min(maxScrollLeft, Math.max(revealNextScroll, comfortShiftScroll))
+      );
+      if (Math.abs(targetScroll - currentScroll) > 4) {
+        container.scrollTo({ left: targetScroll, behavior: 'smooth' });
+      }
+      return;
+    }
+
+    if (prevEl) {
+      const prevRelLeft = prevEl.getBoundingClientRect().left - containerRect.left + currentScroll;
+      const isAtOrNearLeftEdge = activeRelLeft <= currentScroll + 48;
+      const prevTabHiddenOrClipped = prevRelLeft < currentScroll + 8;
+
+      if (isAtOrNearLeftEdge || prevTabHiddenOrClipped) {
+        const revealPrevScroll = prevRelLeft - 24;
+        const comfortShiftBackScroll = activeRelRight - Math.round(containerWidth * 0.75);
+        const targetScroll = Math.max(
+          0,
+          Math.min(currentScroll, Math.min(revealPrevScroll, comfortShiftBackScroll))
+        );
+        if (Math.abs(targetScroll - currentScroll) > 4) {
+          container.scrollTo({ left: targetScroll, behavior: 'smooth' });
+        }
+      }
+    }
+  }, [activeDimension, dimensions]);
   const [groupedQuestions, setGroupedQuestions] = useState<Record<string, any[]>>({});
   const [formData, setFormData] = useState<Record<string, FormEntryState>>({});
   const [filterMode, setFilterMode] = useState<'all' | 'unanswered' | 'populated'>('all');
@@ -414,6 +480,9 @@ export const PipelineAssessmentForm: React.FC<PipelineAssessmentFormProps> = ({
           return (
             <button
               key={dim.id}
+              ref={(el) => {
+                tabButtonRefs.current[dim.id] = el;
+              }}
               type="button"
               onClick={() => setActiveDimension(dim.id)}
               className={`flex items-center gap-2 px-3.5 py-2 rounded-t-xl text-xs font-semibold transition-all whitespace-nowrap shrink-0 cursor-pointer select-none ${
@@ -423,7 +492,7 @@ export const PipelineAssessmentForm: React.FC<PipelineAssessmentFormProps> = ({
               }`}
             >
               <CheckCircle2 className={`h-3.5 w-3.5 shrink-0 ${stat.isComplete ? 'text-emerald-500' : 'text-text-secondary/40'}`} />
-              <span>{dim.shortCode}: {dim.name}</span>
+              <span>{dim.name}</span>
               <span className="font-mono text-[11px] tabular-nums opacity-80">
                 {stat.completed}/{stat.total}
               </span>

@@ -24,30 +24,94 @@ export interface PipelineEvolutionTimelineProps {
   snapshots: PipelineAssessmentSnapshot[];
 }
 
+export function formatSnapshotMMDDYYYY(ts?: string): string {
+  if (!ts) return '--';
+  const d = new Date(ts);
+  if (Number.isNaN(d.getTime())) return '--';
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const dd = String(d.getDate()).padStart(2, '0');
+  const yyyy = d.getFullYear();
+  return `${mm}/${dd}/${yyyy}`;
+}
+
+function getSnapshotDayKey(snap: PipelineAssessmentSnapshot): string {
+  if (snap.snapshot_timestamp) {
+    const d = new Date(snap.snapshot_timestamp);
+    if (!Number.isNaN(d.getTime())) {
+      const yyyy = d.getFullYear();
+      const mm = String(d.getMonth() + 1).padStart(2, '0');
+      const dd = String(d.getDate()).padStart(2, '0');
+      return `${yyyy}-${mm}-${dd}`;
+    }
+  }
+  return `snap_${snap.snapshot_id}`;
+}
+
+export function consolidateDailySnapshots(
+  snapshots: PipelineAssessmentSnapshot[]
+): PipelineAssessmentSnapshot[] {
+  const sortedAsc = [...snapshots].sort((a, b) => {
+    const seqDiff = (a.snapshot_sequence || 0) - (b.snapshot_sequence || 0);
+    if (seqDiff !== 0) return seqDiff;
+    const tA = a.snapshot_timestamp ? new Date(a.snapshot_timestamp).getTime() : 0;
+    const tB = b.snapshot_timestamp ? new Date(b.snapshot_timestamp).getTime() : 0;
+    return tA - tB;
+  });
+
+  const byDay = new Map<string, PipelineAssessmentSnapshot>();
+  for (const snap of sortedAsc) {
+    const key = getSnapshotDayKey(snap);
+    const existing = byDay.get(key);
+    if (!existing) {
+      byDay.set(key, snap);
+      continue;
+    }
+
+    const existingPadf = existing.full_snapshot_payload?.padf_results;
+    const currentPadf = snap.full_snapshot_payload?.padf_results;
+    const mergedPadf =
+      Array.isArray(currentPadf) && currentPadf.length > 0
+        ? currentPadf
+        : Array.isArray(existingPadf)
+          ? existingPadf
+          : [];
+
+    byDay.set(key, {
+      ...snap,
+      full_snapshot_payload: {
+        ...(existing.full_snapshot_payload || {}),
+        ...(snap.full_snapshot_payload || {}),
+        assessment:
+          snap.full_snapshot_payload?.assessment || existing.full_snapshot_payload?.assessment,
+        padf_results: mergedPadf
+      }
+    });
+  }
+
+  return Array.from(byDay.values());
+}
+
 export const PipelineEvolutionTimeline: React.FC<PipelineEvolutionTimelineProps> = ({
   snapshots
 }) => {
   const canonicalDims = useMemo(() => PipelineConfigService.getCanonicalPADFDimensions(), []);
 
-  const ordered = useMemo(
-    () => [...snapshots].sort((a, b) => a.snapshot_sequence - b.snapshot_sequence),
-    [snapshots]
-  );
+  const ordered = useMemo(() => consolidateDailySnapshots(snapshots), [snapshots]);
 
-  const [baselineSeq, setBaselineSeq] = useState<number>(
-    ordered.length >= 2 ? ordered[ordered.length - 2].snapshot_sequence : ordered[0]?.snapshot_sequence || 1
+  const [baselineId, setBaselineId] = useState<string>(
+    ordered.length >= 2 ? ordered[ordered.length - 2].snapshot_id : ordered[0]?.snapshot_id || ''
   );
-  const [targetSeq, setTargetSeq] = useState<number>(
-    ordered[ordered.length - 1]?.snapshot_sequence || 1
+  const [targetId, setTargetId] = useState<string>(
+    ordered[ordered.length - 1]?.snapshot_id || ''
   );
 
   useEffect(() => {
     if (ordered.length >= 2) {
-      setBaselineSeq(ordered[ordered.length - 2].snapshot_sequence);
-      setTargetSeq(ordered[ordered.length - 1].snapshot_sequence);
+      setBaselineId(ordered[ordered.length - 2].snapshot_id);
+      setTargetId(ordered[ordered.length - 1].snapshot_id);
     } else if (ordered.length === 1) {
-      setBaselineSeq(ordered[0].snapshot_sequence);
-      setTargetSeq(ordered[0].snapshot_sequence);
+      setBaselineId(ordered[0].snapshot_id);
+      setTargetId(ordered[0].snapshot_id);
     }
   }, [ordered]);
 
@@ -55,11 +119,10 @@ export const PipelineEvolutionTimeline: React.FC<PipelineEvolutionTimelineProps>
     () =>
       ordered.map((snap) => {
         const assess = snap.full_snapshot_payload?.assessment;
+        const formattedDate = formatSnapshotMMDDYYYY(snap.snapshot_timestamp);
         return {
-          name: `#${snap.snapshot_sequence}`,
-          dateLabel: snap.snapshot_timestamp
-            ? new Date(snap.snapshot_timestamp).toLocaleDateString()
-            : `Run ${snap.snapshot_sequence}`,
+          name: formattedDate,
+          dateLabel: formattedDate,
           baseWinability: assess?.base_winability ?? 0,
           riskAdjustedWinability: assess?.risk_adjusted_winability ?? 0,
           confidence: assess?.assessment_confidence ?? 0,
@@ -69,9 +132,9 @@ export const PipelineEvolutionTimeline: React.FC<PipelineEvolutionTimelineProps>
     [ordered]
   );
 
-  const baselineSnap = ordered.find((s) => s.snapshot_sequence === baselineSeq) || ordered[0];
+  const baselineSnap = ordered.find((s) => s.snapshot_id === baselineId) || ordered[0];
   const targetSnap =
-    ordered.find((s) => s.snapshot_sequence === targetSeq) || ordered[ordered.length - 1];
+    ordered.find((s) => s.snapshot_id === targetId) || ordered[ordered.length - 1];
 
   const padfComparison = useMemo(() => {
     if (!baselineSnap || !targetSnap) return [];
@@ -110,6 +173,8 @@ export const PipelineEvolutionTimeline: React.FC<PipelineEvolutionTimelineProps>
 
   const assessA = baselineSnap?.full_snapshot_payload?.assessment;
   const assessB = targetSnap?.full_snapshot_payload?.assessment;
+  const baselineDateLabel = formatSnapshotMMDDYYYY(baselineSnap?.snapshot_timestamp);
+  const targetDateLabel = formatSnapshotMMDDYYYY(targetSnap?.snapshot_timestamp);
   const baseDelta = (assessB?.base_winability ?? 0) - (assessA?.base_winability ?? 0);
   const riskAdjDelta =
     (assessB?.risk_adjusted_winability ?? 0) - (assessA?.risk_adjusted_winability ?? 0);
@@ -210,27 +275,25 @@ export const PipelineEvolutionTimeline: React.FC<PipelineEvolutionTimelineProps>
 
           <div className="flex flex-wrap items-center gap-2 text-xs">
             <select
-              value={baselineSeq}
-              onChange={(e) => setBaselineSeq(Number(e.target.value))}
+              value={baselineSnap?.snapshot_id || baselineId}
+              onChange={(e) => setBaselineId(e.target.value)}
               className="px-3 py-1.5 bg-bg-primary border border-border rounded-xl font-mono text-text-primary focus:outline-none focus:border-accent"
             >
               {ordered.map((s) => (
-                <option key={s.snapshot_id} value={s.snapshot_sequence}>
-                  Baseline #{s.snapshot_sequence} (
-                  {new Date(s.snapshot_timestamp).toLocaleDateString()})
+                <option key={s.snapshot_id} value={s.snapshot_id}>
+                  Baseline ({formatSnapshotMMDDYYYY(s.snapshot_timestamp)})
                 </option>
               ))}
             </select>
             <ArrowRight className="h-3.5 w-3.5 text-text-secondary" />
             <select
-              value={targetSeq}
-              onChange={(e) => setTargetSeq(Number(e.target.value))}
+              value={targetSnap?.snapshot_id || targetId}
+              onChange={(e) => setTargetId(e.target.value)}
               className="px-3 py-1.5 bg-bg-primary border border-border rounded-xl font-mono text-text-primary focus:outline-none focus:border-accent"
             >
               {ordered.map((s) => (
-                <option key={s.snapshot_id} value={s.snapshot_sequence}>
-                  Target #{s.snapshot_sequence} (
-                  {new Date(s.snapshot_timestamp).toLocaleDateString()})
+                <option key={s.snapshot_id} value={s.snapshot_id}>
+                  Target ({formatSnapshotMMDDYYYY(s.snapshot_timestamp)})
                 </option>
               ))}
             </select>
@@ -275,8 +338,8 @@ export const PipelineEvolutionTimeline: React.FC<PipelineEvolutionTimelineProps>
             <thead>
               <tr className="border-b border-border/70 text-text-secondary font-mono">
                 <th className="py-2.5 pr-4">Dimension</th>
-                <th className="py-2.5 px-3 text-right">Baseline (#{baselineSeq})</th>
-                <th className="py-2.5 px-3 text-right">Target (#{targetSeq})</th>
+                <th className="py-2.5 px-3 text-right">Baseline ({baselineDateLabel})</th>
+                <th className="py-2.5 px-3 text-right">Target ({targetDateLabel})</th>
                 <th className="py-2.5 pl-3 text-right">Delta</th>
               </tr>
             </thead>
@@ -307,12 +370,12 @@ export const PipelineEvolutionTimeline: React.FC<PipelineEvolutionTimelineProps>
           <div className="p-3.5 bg-bg-primary border border-border/60 rounded-xl flex flex-wrap items-center gap-x-5 gap-y-1.5 text-[11px] font-mono text-text-secondary">
             <span className="inline-flex items-center gap-1 text-text-primary font-semibold">
               <ShieldCheck className="h-3.5 w-3.5 text-accent" />
-              Audit Trace (#{targetSeq}):
+              Audit Trace ({targetDateLabel}):
             </span>
             <span>Config v{assessB.configuration_version}</span>
             <span>KB v{assessB.evidence_kb_version}</span>
             <span>Rules v{assessB.rules_version}</span>
-            <span>Model: {assessB.model_identifier}</span>
+            {/*<span>Model: {assessB.model_identifier}</span>*/}
             <span>Trigger: {assessB.trigger_type}</span>
           </div>
         )}
