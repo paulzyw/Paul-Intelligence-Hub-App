@@ -78,8 +78,24 @@ export const PADFDimensionHealthView: React.FC<PADFDimensionHealthViewProps> = (
 
   const [isAuditsExpanded, setIsAuditsExpanded] = useState(false);
   const [selectedToolkitDim, setSelectedToolkitDim] = useState<PipelinePADFDimensionAudit | null>(null);
+  const [healthLegendPos, setHealthLegendPos] = useState<{ top: number; left: number; placeBelow: boolean } | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
+
+  const openHealthLegend = (el: HTMLElement) => {
+    if (typeof window === 'undefined') return;
+    const rect = el.getBoundingClientRect();
+    const tooltipWidth = 420;
+    const placeBelow = rect.top < 190;
+    const clampedLeft = Math.max(16, Math.min(window.innerWidth - tooltipWidth - 16, rect.left));
+    setHealthLegendPos({
+      top: placeBelow ? rect.bottom + 10 : rect.top - 10,
+      left: clampedLeft,
+      placeBelow
+    });
+  };
+
+  const closeHealthLegend = () => setHealthLegendPos(null);
 
   // Prevent background scrolling and support ESC key to close Diagnostic Toolkit Modal
   useEffect(() => {
@@ -298,10 +314,99 @@ export const PADFDimensionHealthView: React.FC<PADFDimensionHealthViewProps> = (
       if (obj.evidenceId) kbById.set(obj.evidenceId, obj);
     });
 
-    const formatAuditItem = (
+    const dimScoreByShortCode = new Map<string, number>();
+    mergedDimensions.forEach((d) => {
+      dimScoreByShortCode.set(d.dimension_code, d.score);
+    });
+
+    const computeDeterministicSignalScore = (
       aiItem: any,
-      evRow?: PipelineEvidence
-    ): PipelineQuestionSignalAudit => {
+      evRow: PipelineEvidence | undefined,
+      kbObj: any,
+      kbConf: number
+    ): number => {
+      let itemScore = 50;
+      const rawStmt = aiItem?.evidence_statement ?? evRow?.evidence_statement ?? '';
+      const lowerContent = String(rawStmt).toLowerCase();
+
+      const posSignals: string[] = Array.isArray(kbObj?.strongEvidenceIndicators)
+        ? kbObj.strongEvidenceIndicators
+        : Array.isArray(kbObj?.positiveSignals)
+          ? kbObj.positiveSignals
+          : [];
+      const negSignals: string[] = Array.isArray(kbObj?.weakEvidenceIndicators)
+        ? kbObj.weakEvidenceIndicators
+        : Array.isArray(kbObj?.negativeSignals)
+          ? kbObj.negativeSignals
+          : [];
+
+      const hasPositiveMatch = posSignals.some(
+        (sig: string) =>
+          lowerContent.includes(sig.slice(0, 15).toLowerCase()) ||
+          lowerContent.includes('verified') ||
+          lowerContent.includes('approved') ||
+          lowerContent.includes('signed')
+      );
+      const hasNegativeMatch = negSignals.some(
+        (sig: string) =>
+          lowerContent.includes(sig.slice(0, 15).toLowerCase()) ||
+          lowerContent.includes('unanswered') ||
+          lowerContent.includes('blocker') ||
+          lowerContent.includes('unknown')
+      );
+
+      if (
+        lowerContent.includes('customer verified') ||
+        lowerContent.includes('formally approved') ||
+        lowerContent.includes('signed off') ||
+        lowerContent.includes('100%') ||
+        hasPositiveMatch
+      ) {
+        itemScore = 88;
+      } else if (
+        lowerContent.includes('in progress') ||
+        lowerContent.includes('aligned') ||
+        lowerContent.includes('reviewed')
+      ) {
+        itemScore = 65;
+      } else if (
+        lowerContent.includes('unanswered') ||
+        lowerContent.includes('no evidence') ||
+        lowerContent.includes('unknown') ||
+        hasNegativeMatch
+      ) {
+        itemScore = 25;
+      }
+
+      if (Number.isFinite(kbConf)) {
+        itemScore = Math.round(itemScore * 0.55 + kbConf * 0.45);
+      }
+
+      const isConfirmed = Boolean(aiItem?.customer_confirmed ?? evRow?.customer_confirmed);
+      const srcVal = String(aiItem?.source_type || evRow?.source_type || '');
+      if (isConfirmed) {
+        itemScore = Math.min(100, itemScore + 8);
+      } else if (
+        srcVal === 'Seller Assumption' ||
+        srcVal === 'Sales Representative Input' ||
+        srcVal.includes('ES06')
+      ) {
+        itemScore = Math.max(15, itemScore - 12);
+      }
+
+      return Math.max(0, Math.min(100, Math.round(itemScore)));
+    };
+
+    const rawEntries =
+      rawAudits.length > 0
+        ? rawAudits.map((aiItem) => ({
+            aiItem,
+            evRow: evByObjId.get(aiItem.evidence_object_id)
+          }))
+        : evidence.map((evRow) => ({ aiItem: null, evRow }));
+
+    // Prepare base & deterministic per-item scores, then calibrate per dimension if uncalibrated or stale
+    const prepared = rawEntries.map(({ aiItem, evRow }) => {
       const objId = aiItem?.evidence_object_id || evRow?.evidence_object_id || 'EV_ITEM';
       const kbObj = kbById.get(objId) || {};
       const canonDimId = PipelineConfigService.normalizePADFDimensionId(
@@ -311,21 +416,125 @@ export const PADFDimensionHealthView: React.FC<PADFDimensionHealthViewProps> = (
           'PA1'
       );
       const canonDim = canonicalDims.find((d) => d.id === canonDimId) || canonicalDims[0];
+      const kbConf = Number(aiItem?.evidence_confidence ?? evRow?.evidence_confidence ?? 70);
+      const detScore = computeDeterministicSignalScore(aiItem, evRow, kbObj, kbConf);
+      const hasAiScore = typeof aiItem?.signal_score === 'number';
+      const aiScore = hasAiScore
+        ? Math.max(0, Math.min(100, Math.round(aiItem.signal_score)))
+        : null;
+
+      return { aiItem, evRow, objId, kbObj, canonDim, kbConf, detScore, aiScore };
+    });
+
+    // Group indices by PADF shortCode to align per-evidence Signal Scores with each PADF Dimension Score
+    const indicesByDim = new Map<string, number[]>();
+    prepared.forEach((p, idx) => {
+      const list = indicesByDim.get(p.canonDim.shortCode) || [];
+      list.push(idx);
+      indicesByDim.set(p.canonDim.shortCode, list);
+    });
+
+    const calibratedScores = new Array<number>(prepared.length);
+    indicesByDim.forEach((idxs, shortCode) => {
+      const targetDimScore = dimScoreByShortCode.get(shortCode);
+      const allHaveAi = idxs.every((i) => prepared[i].aiScore !== null);
+      const aiAvg = allHaveAi
+        ? idxs.reduce((acc, i) => acc + (prepared[i].aiScore as number), 0) / idxs.length
+        : null;
+
+      // Preserve Edge Function's calibrated AI scores when already aligned with the dimension score
+      const aiAlreadyAligned =
+        aiAvg !== null &&
+        typeof targetDimScore === 'number' &&
+        targetDimScore > 0 &&
+        Math.abs(aiAvg - targetDimScore) < 2;
+
+      if (aiAlreadyAligned) {
+        idxs.forEach((i) => {
+          calibratedScores[i] = prepared[i].aiScore as number;
+        });
+        return;
+      }
+
+      // Otherwise derive from deterministic item scores (blending lightly if AI gave a distinct score) and calibrate to targetDimScore
+      const baseScores = idxs.map((i) => {
+        const p = prepared[i];
+        if (p.aiScore !== null && p.aiScore !== p.kbConf) {
+          return Math.round(p.detScore * 0.65 + p.aiScore * 0.35);
+        }
+        return p.detScore;
+      });
+
+      if (typeof targetDimScore === 'number' && targetDimScore > 0 && baseScores.length > 0) {
+        const currentAvg = baseScores.reduce((a, b) => a + b, 0) / baseScores.length;
+        const delta = targetDimScore - currentAvg;
+        const adjusted =
+          Math.abs(delta) >= 0.5
+            ? baseScores.map((s) => Math.max(0, Math.min(100, Math.round(s + delta))))
+            : [...baseScores];
+
+        const desiredSum = Math.round(targetDimScore) * adjusted.length;
+        let currentSum = adjusted.reduce((a, b) => a + b, 0);
+        let guard = 0;
+        while (currentSum !== desiredSum && guard < adjusted.length * 4) {
+          const step = currentSum < desiredSum ? 1 : -1;
+          for (let k = 0; k < adjusted.length && currentSum !== desiredSum; k++) {
+            const next = adjusted[k] + step;
+            if (next >= 0 && next <= 100) {
+              adjusted[k] = next;
+              currentSum += step;
+            }
+          }
+          guard++;
+        }
+
+        idxs.forEach((origIdx, pos) => {
+          calibratedScores[origIdx] = adjusted[pos];
+        });
+      } else {
+        idxs.forEach((origIdx, pos) => {
+          calibratedScores[origIdx] = baseScores[pos];
+        });
+      }
+    });
+
+    const formatHumanSourceLabel = (rawSource?: string): string => {
+      const s = String(rawSource || '').trim();
+      if (!s) return 'customer meeting notes';
+      const lower = s.toLowerCase();
+      if (lower.includes('es01') || lower.includes('executive conversation')) return 'executive conversation';
+      if (lower.includes('es02') || lower.includes('workshop')) return 'customer workshop';
+      if (lower.includes('es03') || lower.includes('meeting notes')) return 'customer meeting notes';
+      if (lower.includes('es04') || lower.includes('documentation')) return 'customer documentation';
+      if (lower.includes('es05') || lower.includes('crm')) return 'CRM activity data';
+      if (lower.includes('es06') || lower.includes('sales rep') || lower.includes('assumption')) return 'sales representative input';
+      if (lower.includes('es07') || lower.includes('external')) return 'external intelligence';
+      return s.replace(/^ES\d+_?/i, '').replace(/_/g, ' ').toLowerCase();
+    };
+
+    const isSubstantiveReasoning = (text?: string) => {
+      const cleaned = String(text || '').trim();
+      if (cleaned.length < 24) return false;
+      if (/^Submitted\s+(customer-confirmed|unconfirmed)\s+evidence/i.test(cleaned)) return false;
+      return !/^(verified|unverified|confirmed|supported|supports|positive|negative|neutral|n\/a)\.?$/i.test(cleaned);
+    };
+
+    return prepared.map(({ aiItem, evRow, objId, kbObj, canonDim, kbConf }, idx): PipelineQuestionSignalAudit => {
       const rels = evRow ? relByInstId.get(evRow.evidence_instance_id) || [] : [];
       const approvedMappings = PipelineConfigService.getMappingsForEvidenceObject(objId);
 
-      const kbConf = Number(aiItem?.evidence_confidence ?? evRow?.evidence_confidence ?? 70);
-      const signalScore =
-        typeof aiItem?.signal_score === 'number'
-          ? Math.max(0, Math.min(100, Math.round(aiItem.signal_score)))
-          : Math.max(15, Math.min(98, evRow?.customer_confirmed ? Math.max(kbConf, 78) : kbConf));
+      const signalScore = calibratedScores[idx] ?? 50;
 
       const matchedType: 'positive' | 'negative' | 'neutral' =
-        aiItem?.matched_type === 'positive' || signalScore >= 70
+        signalScore >= 70
           ? 'positive'
-          : aiItem?.matched_type === 'negative' || signalScore < 45
+          : signalScore < 45
             ? 'negative'
-            : 'neutral';
+            : aiItem?.matched_type === 'positive'
+              ? 'positive'
+              : aiItem?.matched_type === 'negative'
+                ? 'negative'
+                : 'neutral';
 
       const swotLinks =
         Array.isArray(aiItem?.linked_swot_factors) && aiItem.linked_swot_factors.length > 0
@@ -346,13 +555,8 @@ export const PADFDimensionHealthView: React.FC<PADFDimensionHealthViewProps> = (
             ? 'NEGATIVE MATCH'
             : 'NEUTRAL MATCH';
 
-      const isSubstantiveReasoning = (text?: string) => {
-        const cleaned = String(text || '').trim();
-        if (cleaned.length < 24) return false;
-        return !/^(verified|unverified|confirmed|supported|supports|positive|negative|neutral|n\/a)\.?$/i.test(cleaned);
-      };
-
       const sourceLabel = aiItem?.source_type || evRow?.source_type || 'Customer Meeting Notes';
+      const humanSource = formatHumanSourceLabel(sourceLabel);
       const stmtText = String(aiItem?.evidence_statement || evRow?.evidence_statement || '').trim();
       const stmtPreview = stmtText.slice(0, 180);
       const isConfirmed = aiItem?.customer_confirmed ?? evRow?.customer_confirmed ?? false;
@@ -361,8 +565,10 @@ export const PADFDimensionHealthView: React.FC<PADFDimensionHealthViewProps> = (
         : isSubstantiveReasoning(rels[0]?.runtime_interpretation)
           ? String(rels[0].runtime_interpretation).trim()
           : stmtPreview
-            ? `${isConfirmed ? 'Customer-confirmed' : 'Reported'} evidence from ${sourceLabel} (${kbConf}% validation strength): "${stmtPreview}${stmtText.length > 180 ? '...' : ''}" ${matchedType === 'positive' ? 'strongly reinforces' : matchedType === 'negative' ? 'indicates gaps within' : 'provides qualifying context for'} ${canonDim.name}.`
-            : `Evaluated ${isConfirmed ? 'customer-confirmed' : 'unconfirmed'} evidence (${sourceLabel}, ${kbConf}% confidence) for ${canonDim.name}.`;
+            ? isConfirmed
+              ? `Customer evidence confirms "${stmtPreview}${stmtText.length > 180 ? '...' : ''}". This ${matchedType === 'positive' ? 'substantiates' : matchedType === 'negative' ? 'exposes risk within' : 'informs'} ${canonDim.name} and is supported by ${humanSource}.`
+              : `Initial findings indicate "${stmtPreview}${stmtText.length > 180 ? '...' : ''}" based on ${humanSource}. Formal customer confirmation is still needed to strengthen confidence in ${canonDim.name}.`
+            : `No substantive evidence has been captured yet for ${kbObj?.evidenceName || objId}, leaving an unvalidated gap in ${canonDim.name}.`;
 
       return {
         evidence_instance_id: aiItem?.evidence_instance_id || evRow?.evidence_instance_id,
@@ -403,18 +609,8 @@ export const PADFDimensionHealthView: React.FC<PADFDimensionHealthViewProps> = (
           { label: matchLabel, type: matchedType }
         ]
       };
-    };
-
-    if (rawAudits.length > 0) {
-      return rawAudits.map((aiItem) =>
-        formatAuditItem(aiItem, evByObjId.get(aiItem.evidence_object_id))
-      );
-    }
-
-    // Fallback when viewing a historical DB assessment run saved prior to enriched audits:
-    // synthesize purely from saved pipeline_evidence + relationships (zero mocked strings)
-    return evidence.map((ev) => formatAuditItem(null, ev));
-  }, [rawOutput.evidence_assessments, evidence, evidenceRelationships, canonicalDims]);
+    });
+  }, [rawOutput.evidence_assessments, evidence, evidenceRelationships, canonicalDims, mergedDimensions]);
 
   // Observed Supporting Evidence (Section F)
   const observedSupportingEvidence = useMemo(() => {
@@ -687,7 +883,12 @@ export const PADFDimensionHealthView: React.FC<PADFDimensionHealthViewProps> = (
                 </span>
                 {/* Visual Health Indicator Badge derived from Rules Engine */}
                 <span
-                  className={`text-[10px] font-mono font-black uppercase px-2 py-0.5 rounded border ${
+                  tabIndex={0}
+                  onMouseEnter={(e) => openHealthLegend(e.currentTarget)}
+                  onMouseLeave={closeHealthLegend}
+                  onFocus={(e) => openHealthLegend(e.currentTarget)}
+                  onBlur={closeHealthLegend}
+                  className={`text-[10px] font-mono font-black uppercase px-2 py-0.5 rounded border cursor-help ${
                     healthIndicator === 'Strong'
                       ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30'
                       : healthIndicator === 'Moderate'
@@ -704,7 +905,14 @@ export const PADFDimensionHealthView: React.FC<PADFDimensionHealthViewProps> = (
                 )}
               </div>
 
-              <h2 className={`text-2xl font-black uppercase tracking-tight ${bannerIconText}`}>
+              <h2
+                tabIndex={0}
+                onMouseEnter={(e) => openHealthLegend(e.currentTarget)}
+                onMouseLeave={closeHealthLegend}
+                onFocus={(e) => openHealthLegend(e.currentTarget)}
+                onBlur={closeHealthLegend}
+                className={`inline-block text-2xl font-black uppercase tracking-tight cursor-help ${bannerIconText}`}
+              >
                 {classifications.pipelineHealthLabel.replace(/_/g, ' ')}
               </h2>
 
@@ -779,6 +987,105 @@ export const PADFDimensionHealthView: React.FC<PADFDimensionHealthViewProps> = (
           </div>
         </div>
       </div>
+
+      {/* Hover Tooltip: Pipeline Health Status Threshold Legend */}
+      {typeof document !== 'undefined' &&
+        healthLegendPos &&
+        createPortal(
+          <div
+            style={{
+              position: 'fixed',
+              top: healthLegendPos.top,
+              left: healthLegendPos.left,
+              transform: healthLegendPos.placeBelow ? 'translateY(0)' : 'translateY(-100%)',
+              zIndex: 99999
+            }}
+            className="w-[420px] max-w-[calc(100vw-32px)] bg-bg-surface border border-border rounded-xl p-4 shadow-2xl pointer-events-none"
+            role="tooltip"
+          >
+            {(() => {
+              const critMax = rulesConfig.radarThresholds.critical; // 35
+              const modMin = rulesConfig.radarThresholds.moderate;  // 55
+              const strongMin = rulesConfig.radarThresholds.healthy; // 75
+              const critWidth = critMax;
+              const weakWidth = modMin - critMax;
+              const modWidth = strongMin - modMin;
+              const strongWidth = 100 - strongMin;
+              const clampedScore = Math.max(0, Math.min(100, riskAdjWin));
+
+              return (
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between text-[10px] font-mono uppercase tracking-wider text-text-secondary">
+                    <span>Pipeline Health Threshold Legend</span>
+                    <span className="text-text-primary font-bold">Score: {clampedScore}%</span>
+                  </div>
+
+                  {/* Labels row aligned to exact segment widths */}
+                  <div className="flex items-center text-[11px] font-bold">
+                    <div
+                      style={{ width: `${critWidth}%` }}
+                      className={`text-center ${healthIndicator === 'Critical' ? 'text-red-400' : 'text-text-primary'}`}
+                    >
+                      Critical
+                    </div>
+                    <div
+                      style={{ width: `${weakWidth}%` }}
+                      className={`text-center ${healthIndicator === 'Weak' ? 'text-red-400' : 'text-text-primary'}`}
+                    >
+                      Weak
+                    </div>
+                    <div
+                      style={{ width: `${modWidth}%` }}
+                      className={`text-center ${healthIndicator === 'Moderate' ? 'text-amber-400' : 'text-text-primary'}`}
+                    >
+                      Moderate
+                    </div>
+                    <div
+                      style={{ width: `${strongWidth}%` }}
+                      className={`text-center ${healthIndicator === 'Strong' ? 'text-emerald-400' : 'text-text-primary'}`}
+                    >
+                      Strong
+                    </div>
+                  </div>
+
+                  {/* Proportional 4-segment color bar */}
+                  <div className="relative h-4 w-full flex rounded-sm overflow-hidden border border-border/40">
+                    <div style={{ width: `${critWidth}%` }} className="bg-red-700 h-full" />
+                    <div style={{ width: `${weakWidth}%` }} className="bg-red-500 h-full" />
+                    <div style={{ width: `${modWidth}%` }} className="bg-amber-500 h-full" />
+                    <div style={{ width: `${strongWidth}%` }} className="bg-emerald-500 h-full" />
+                    {/* Current score marker line */}
+                    <div
+                      style={{ left: `${clampedScore}%` }}
+                      className="absolute top-0 bottom-0 w-0.5 bg-white shadow-[0_0_4px_rgba(0,0,0,0.8)] -translate-x-1/2"
+                    />
+                  </div>
+
+                  {/* Threshold scale ticks */}
+                  <div className="relative h-4 text-[11px] font-mono tabular-nums text-text-primary">
+                    <span className="absolute left-0">0</span>
+                    <span style={{ left: `${critMax}%` }} className="absolute -translate-x-1/2">
+                      {critMax}
+                    </span>
+                    <span style={{ left: `${modMin}%` }} className="absolute -translate-x-1/2">
+                      {modMin}
+                    </span>
+                    <span style={{ left: `${strongMin}%` }} className="absolute -translate-x-1/2">
+                      {strongMin}
+                    </span>
+                    <span className="absolute right-0">100</span>
+                  </div>
+
+                  <div className="flex items-center justify-between gap-2 text-[10px] text-text-secondary pt-0.5">
+                    <span>Risk-Adj Winability</span>
+                    <span>Strong requires Conf &ge; 65% &amp; 0 Critical Risks</span>
+                  </div>
+                </div>
+              );
+            })()}
+          </div>,
+          document.body
+        )}
 
       {/* =================================================================== */}
       {/* B. EXECUTIVE SUMMARY (ANSWERING ALL 5 BUSINESS QUESTIONS)           */}
@@ -1395,67 +1702,6 @@ export const PADFDimensionHealthView: React.FC<PADFDimensionHealthViewProps> = (
                         <p className="text-xs text-text-secondary leading-relaxed">
                           {audit.identification_assessment}
                         </p>
-
-                        {/* Structured Evidence Provenance & Runtime Classification Grid */}
-                        <div className="bg-bg-primary/65 border border-border/50 rounded-xl p-3 space-y-2 text-[11px]">
-                          <div>
-                            <span className="font-mono font-bold text-text-secondary uppercase text-[10px] mr-1.5">
-                              Evidence Statement:
-                            </span>
-                            <span className="text-text-primary">
-                              {audit.evidence_statement || 'No statement entered'}
-                            </span>
-                          </div>
-
-                          <div className="grid grid-cols-2 sm:grid-cols-4 gap-x-4 gap-y-1.5 font-mono tabular-nums pt-1 border-t border-border/30">
-                            <div>
-                              <span className="text-[10px] text-text-secondary block">Evidence Type</span>
-                              <span className="text-text-primary font-semibold">{audit.evidence_type}</span>
-                            </div>
-                            <div>
-                              <span className="text-[10px] text-text-secondary block">Source</span>
-                              <span className="text-text-primary font-semibold truncate block" title={audit.source_type}>
-                                {audit.source_type}
-                              </span>
-                            </div>
-                            <div>
-                              <span className="text-[10px] text-text-secondary block">Verification Status</span>
-                              <span className={audit.verification_status === 'VERIFIED' ? 'text-emerald-400 font-semibold' : 'text-amber-400 font-semibold'}>
-                                {audit.verification_status}
-                              </span>
-                            </div>
-                            <div>
-                              <span className="text-[10px] text-text-secondary block">Evidence Quality</span>
-                              <span className="text-text-primary font-semibold">{audit.evidence_quality}</span>
-                            </div>
-                            <div>
-                              <span className="text-[10px] text-text-secondary block">Evidence Confidence</span>
-                              <span className="text-accent font-bold">{audit.evidence_confidence}%</span>
-                            </div>
-                            <div>
-                              <span className="text-[10px] text-text-secondary block">Mapping Relevance</span>
-                              <span className="text-text-primary font-semibold">{audit.mapping_relevance}</span>
-                            </div>
-                            <div>
-                              <span className="text-[10px] text-text-secondary block">Runtime Relationship</span>
-                              <span className="text-sky-400 font-semibold">{audit.runtime_relationship}</span>
-                            </div>
-                            <div>
-                              <span className="text-[10px] text-text-secondary block">Runtime Polarity</span>
-                              <span
-                                className={
-                                  audit.runtime_polarity === 'POSITIVE'
-                                    ? 'text-emerald-400 font-semibold'
-                                    : audit.runtime_polarity === 'NEGATIVE'
-                                      ? 'text-red-400 font-semibold'
-                                      : 'text-amber-400 font-semibold'
-                                }
-                              >
-                                {audit.runtime_polarity}
-                              </span>
-                            </div>
-                          </div>
-                        </div>
                       </div>
 
                       <div className="shrink-0 flex items-center gap-3 self-end md:self-center">

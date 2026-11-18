@@ -639,69 +639,54 @@ export class PipelineConfigService {
     }> = [];
 
     const p3Strong1 = strongIndicators[0] || `${evidenceName} confirmed with customer`;
-    const p3Strong2 = strongIndicators[1] || strongIndicators[0];
     const p4StrongSignal = pickOffset(ctx.motionHighValueSignals, 0);
     const p5ValReq1 = pickOffset(ctx.industryValidationRequirements, 0);
-    const p5ValReq2 = pickOffset(ctx.industryValidationRequirements, 1);
     const p5PosSignal = pickOffset(ctx.industryPositiveSignals, 0) || pickOffset(ctx.industryDimStrongIndicators, 0);
-    const indFocus = pickOffset(ctx.industryDimFocus, 0);
 
-    // Tier 1: Strong Verified (Phase 3 strong[0] + Phase 4 Revenue Motion signal + Phase 5 Industry validation requirement)
-    const strongParts = [`[${ctx.industryName} · ${ctx.revenueMotionName}] ${trimPunctuation(p3Strong1)}.`];
-    if (p4StrongSignal && !p3Strong1.toLowerCase().includes(p4StrongSignal.toLowerCase())) {
-      strongParts.push(`Motion signal verified: ${trimPunctuation(p4StrongSignal)}.`);
-    }
-    if (p5ValReq1 && !p3Strong1.toLowerCase().includes(p5ValReq1.toLowerCase())) {
-      strongParts.push(`Industry requirement met: ${trimPunctuation(p5ValReq1)}.`);
-    }
+    // Tier 1: Strong Verified
+    const tier1Text = trimPunctuation(p3Strong1);
     options.push({
       tier: 'Strong Verified',
-      label: `Strong Verified — ${p3Strong1}`,
-      text: strongParts.join(' '),
+      label: `Strong Verified — ${tier1Text}`,
+      text: tier1Text,
       confidence: 95,
       confirmed: true
     });
 
-    // Tier 2: Substantiated (Phase 3 strong[1] + Phase 5 Industry validation/positive signal + Industry PADF focus)
-    const subParts = [`Substantiated in ${ctx.revenueMotionName}: ${trimPunctuation(p3Strong2)}.`];
-    const subContext = p5ValReq2 || p5PosSignal || indFocus;
-    if (subContext && !p3Strong2.toLowerCase().includes(subContext.toLowerCase())) {
-      subParts.push(`${ctx.industryName} context aligned (${trimPunctuation(subContext)}).`);
+    // Tier 2: Substantiated
+    const rawTier2 =
+      strongIndicators[1] && trimPunctuation(strongIndicators[1]).toLowerCase() !== tier1Text.toLowerCase()
+        ? strongIndicators[1]
+        : p4StrongSignal || p5PosSignal || p5ValReq1 || `${evidenceName} substantiated`;
+    let tier2Text = trimPunctuation(rawTier2);
+    if (tier2Text.toLowerCase() === tier1Text.toLowerCase()) {
+      tier2Text = `${evidenceName} substantiated`;
     }
     options.push({
       tier: 'Substantiated',
-      label: `Substantiated — ${p3Strong2}`,
-      text: subParts.join(' '),
+      label: `Substantiated — ${tier2Text}`,
+      text: tier2Text,
       confidence: 82,
       confirmed: true
     });
 
-    // Tier 3: Partial / Pending Verification (Phase 5 validation requirement + Industry Config EvidenceExpectation)
-    const pendingReq = p5ValReq1 || indFocus || evidenceName;
-    const partialText = `Initial signals observed for ${evidenceName} (${ctx.industryName}), but formal verification for "${trimPunctuation(pendingReq)}" remains pending against ${ctx.minimumCoverageLevel} coverage / ${ctx.freshnessRequirement} freshness expectations.`;
+    // Tier 3: Partial / Pending Verification
+    const tier3Text = `${evidenceName} awaiting verification`;
     options.push({
       tier: 'Partial / Pending',
-      label: `Partial / Pending — ${evidenceName} awaiting verification`,
-      text: partialText,
+      label: `Partial / Pending — ${tier3Text}`,
+      text: tier3Text,
       confidence: 60,
       confirmed: false
     });
 
-    // Tier 4: Gap / Risk (Phase 3 weak[0] + Phase 4 weak signal + Phase 5 negative signal / Industry PADF weak indicator)
-    const p3Weak = weakIndicators[0] || `${evidenceName} not yet substantiated by customer`;
-    const p4WeakSignal = pickOffset(ctx.motionWeakSignals, 0);
-    const p5NegSignal = pickOffset(ctx.industryNegativeSignals, 0) || pickOffset(ctx.industryDimWeakIndicators, 0);
-    const gapParts = [`Gap identified in ${evidenceName}: ${trimPunctuation(p3Weak)}.`];
-    if (p4WeakSignal && !p3Weak.toLowerCase().includes(p4WeakSignal.toLowerCase())) {
-      gapParts.push(`Motion risk signal: ${trimPunctuation(p4WeakSignal)}.`);
-    }
-    if (p5NegSignal && !p3Weak.toLowerCase().includes(p5NegSignal.toLowerCase())) {
-      gapParts.push(`${ctx.industryName} risk: ${trimPunctuation(p5NegSignal)}.`);
-    }
+    // Tier 4: Gap / Risk
+    const p3Weak = weakIndicators[0] || pickOffset(ctx.motionWeakSignals, 0) || pickOffset(ctx.industryNegativeSignals, 0) || pickOffset(ctx.industryDimWeakIndicators, 0) || `${evidenceName} not yet substantiated by customer`;
+    const tier4Text = trimPunctuation(p3Weak);
     options.push({
       tier: 'Gap / Risk',
-      label: `Gap / Risk — ${p3Weak}`,
-      text: gapParts.join(' '),
+      label: `Gap / Risk — ${tier4Text}`,
+      text: tier4Text,
       confidence: 35,
       confirmed: false
     });

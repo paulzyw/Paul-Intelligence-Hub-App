@@ -1028,6 +1028,88 @@ export function resolveActive16SWOTFactors(revenueMotion: string, industry: stri
 // DETERMINISTIC SCORING ENGINE (PADF, WINABILITY, RISK)
 // =========================================================================
 
+export function calculateEvidenceItemScore(rec: any): number {
+  let itemScore = 50;
+  let contentStr = '';
+  const rawVal = rec?.evidence_statement ?? rec?.content ?? '';
+  try {
+    if (typeof rawVal === 'object') {
+      contentStr = JSON.stringify(rawVal);
+    } else {
+      contentStr = String(rawVal);
+    }
+  } catch (_e) {
+    contentStr = String(rawVal);
+  }
+
+  const lowerContent = contentStr.toLowerCase();
+  const def = EVIDENCE_OBJECTS_REGISTRY[rec?.evidence_object_id];
+  let hasPositiveMatch = false;
+  let hasNegativeMatch = false;
+
+  if (def) {
+    if (Array.isArray(def.positiveSignals)) {
+      hasPositiveMatch = def.positiveSignals.some((sig: string) =>
+        lowerContent.includes(sig.slice(0, 15).toLowerCase()) ||
+        lowerContent.includes('verified') ||
+        lowerContent.includes('approved') ||
+        lowerContent.includes('signed')
+      );
+    }
+    if (Array.isArray(def.negativeSignals)) {
+      hasNegativeMatch = def.negativeSignals.some((sig: string) =>
+        lowerContent.includes(sig.slice(0, 15).toLowerCase()) ||
+        lowerContent.includes('unanswered') ||
+        lowerContent.includes('blocker') ||
+        lowerContent.includes('unknown')
+      );
+    }
+  }
+
+  if (
+    lowerContent.includes('customer verified') ||
+    lowerContent.includes('formally approved') ||
+    lowerContent.includes('signed off') ||
+    lowerContent.includes('100%') ||
+    hasPositiveMatch
+  ) {
+    itemScore = 88;
+  } else if (
+    lowerContent.includes('in progress') ||
+    lowerContent.includes('aligned') ||
+    lowerContent.includes('reviewed')
+  ) {
+    itemScore = 65;
+  } else if (
+    lowerContent.includes('unanswered') ||
+    lowerContent.includes('no evidence') ||
+    lowerContent.includes('unknown') ||
+    hasNegativeMatch
+  ) {
+    itemScore = 25;
+  }
+
+  const srcVal = String(rec?.source_type || rec?.source || '');
+  const kbConf = typeof rec?.evidence_confidence === 'number' ? rec.evidence_confidence : null;
+  if (kbConf !== null) {
+    // Blend content indicator score with user-provided Knowledge Base validation confidence
+    itemScore = Math.round(itemScore * 0.55 + kbConf * 0.45);
+  }
+
+  // Customer confirmed bonus / assumption penalty
+  if (rec?.customer_confirmed === true) {
+    itemScore = Math.min(100, itemScore + 8);
+  } else if (
+    srcVal === 'Seller Assumption' ||
+    srcVal === 'Sales Representative Input' ||
+    srcVal.includes('ES06')
+  ) {
+    itemScore = Math.max(15, itemScore - 12);
+  }
+
+  return Math.max(0, Math.min(100, Math.round(itemScore)));
+}
+
 export function calculateDeterministicAssessment(
   evidenceRecords: any[],
   inheritanceData: any = {}
@@ -1049,8 +1131,9 @@ export function calculateDeterministicAssessment(
     }
   });
 
-  // 2. Score each dimension (0-100)
+  // 2. Score each dimension (0-100) and retain deterministic per-evidence scores
   const dimensionResults: any[] = [];
+  const evidenceItemScores: Record<string, number> = {};
   let baseWinabilitySum = 0;
   let totalWeight = 0;
 
@@ -1061,64 +1144,9 @@ export function calculateDeterministicAssessment(
     if (recs.length > 0) {
       let totalItemScore = 0;
       recs.forEach(rec => {
-        let itemScore = 50;
-        let contentStr = '';
-        const rawVal = rec.evidence_statement ?? rec.content ?? '';
-        try {
-          if (typeof rawVal === 'object') {
-            contentStr = JSON.stringify(rawVal);
-          } else {
-            contentStr = String(rawVal);
-          }
-        } catch (_e) {
-          contentStr = String(rawVal);
-        }
-
-        const lowerContent = contentStr.toLowerCase();
-        // Check signal indicators
-        const def = EVIDENCE_OBJECTS_REGISTRY[rec.evidence_object_id];
-        let hasPositiveMatch = false;
-        let hasNegativeMatch = false;
-
-        if (def) {
-          if (Array.isArray(def.positiveSignals)) {
-            hasPositiveMatch = def.positiveSignals.some((sig: string) =>
-              lowerContent.includes(sig.slice(0, 15).toLowerCase()) || lowerContent.includes('verified') || lowerContent.includes('approved') || lowerContent.includes('signed')
-            );
-          }
-          if (Array.isArray(def.negativeSignals)) {
-            hasNegativeMatch = def.negativeSignals.some((sig: string) =>
-              lowerContent.includes(sig.slice(0, 15).toLowerCase()) || lowerContent.includes('unanswered') || lowerContent.includes('blocker') || lowerContent.includes('unknown')
-            );
-          }
-        }
-
-        if (lowerContent.includes('customer verified') || lowerContent.includes('formally approved') || lowerContent.includes('signed off') || lowerContent.includes('100%') || hasPositiveMatch) {
-          itemScore = 88;
-        } else if (lowerContent.includes('in progress') || lowerContent.includes('aligned') || lowerContent.includes('reviewed')) {
-          itemScore = 65;
-        } else if (lowerContent.includes('unanswered') || lowerContent.includes('no evidence') || lowerContent.includes('unknown') || hasNegativeMatch) {
-          itemScore = 25;
-        }
-
-        const srcVal = String(rec.source_type || rec.source || '');
-        const kbConf = typeof rec.evidence_confidence === 'number' ? rec.evidence_confidence : null;
-        if (kbConf !== null) {
-          // Blend content indicator score with user-provided Knowledge Base validation confidence
-          itemScore = Math.round(itemScore * 0.55 + kbConf * 0.45);
-        }
-
-        // Customer confirmed bonus / assumption penalty
-        if (rec.customer_confirmed === true) {
-          itemScore = Math.min(100, itemScore + 8);
-        } else if (
-          srcVal === 'Seller Assumption' ||
-          srcVal === 'Sales Representative Input' ||
-          srcVal.includes('ES06')
-        ) {
-          itemScore = Math.max(15, itemScore - 12);
-        }
-
+        const itemScore = calculateEvidenceItemScore(rec);
+        if (rec.evidence_instance_id) evidenceItemScores[rec.evidence_instance_id] = itemScore;
+        if (rec.evidence_object_id) evidenceItemScores[rec.evidence_object_id] = itemScore;
         totalItemScore += itemScore;
       });
 
@@ -1279,6 +1307,7 @@ export function calculateDeterministicAssessment(
 
   return {
     dimensionResults,
+    evidenceItemScores,
     baseWinability,
     riskPenalty,
     riskAdjustedWinability,
@@ -1711,13 +1740,16 @@ ${(evidenceRecords || []).map(ev => {
   const def = EVIDENCE_OBJECTS_REGISTRY[ev.evidence_object_id];
   const rels = relByInstance[ev.evidence_instance_id] || [];
   const swotTargets = [...new Set(rels.map((r: any) => r.target_factor_id).filter(Boolean))];
+  const baselineSignal = deterministic.evidenceItemScores?.[ev.evidence_instance_id]
+    ?? deterministic.evidenceItemScores?.[ev.evidence_object_id]
+    ?? calculateEvidenceItemScore(ev);
   return `
 - Evidence Object: [${ev.evidence_object_id}] ${def?.name || ev.evidence_object_id} (Dim: ${ev.metadata?.dimension_code || def?.dimension || ''})
   Question: "${def?.question || ''}"
   Positive Indicators: ${(def?.positiveSignals || []).join('; ') || 'Verified customer commitment / concrete proof'}
   Negative Indicators: ${(def?.negativeSignals || []).join('; ') || 'Unverified assumption / missing stakeholder proof'}
   Evidence Type: ${ev.evidence_type || 'customer_statement'} | Source: ${ev.source_type || 'Sales Representative Input'}
-  Verification: ${ev.verification_status || (ev.customer_confirmed ? 'VERIFIED' : 'UNVERIFIED')} | Quality: ${ev.evidence_quality || 'MEDIUM'} | Validation Strength / Confidence: ${ev.evidence_confidence}% | Customer Confirmed: ${ev.customer_confirmed ? 'YES' : 'NO'}
+  Verification: ${ev.verification_status || (ev.customer_confirmed ? 'VERIFIED' : 'UNVERIFIED')} | Quality: ${ev.evidence_quality || 'MEDIUM'} | Validation Strength / Confidence: ${ev.evidence_confidence}% | Customer Confirmed: ${ev.customer_confirmed ? 'YES' : 'NO'} | Deterministic Baseline Assessment Score: ${baselineSignal}/100
   SWOT Factor Links: ${swotTargets.join(', ') || 'PADF Direct'}
   User Evidence Statement: "${ev.evidence_statement}"
 `;
@@ -1730,12 +1762,32 @@ ${active16SWOTFactors.map(f => `- [${f.id}] (${f.classification} - ${f.layer}): 
 1. Generate primary_reason (1-2 sharp sentences summarizing the core winability driver/constraint), executive_summary (overall assessment answering likelihood to close won), and why_this_assessment causal 4-step chain (evidence, interpretation, assessment, business_implication).
 2. Populate positive_drivers, critical_constraints, priority_actions (top 3-5 actions), and evidence_gaps.
 3. Produce padf_dimension_narratives for ALL 8 dimensions (PA1..PA8), including short_interpretation, strengths, weaknesses, contradictory_qualifying_evidence, related_swot_factors, evidence_gaps, risks, ai_reasoning, business_impact, improvement_direction, and recommended_actions.
-4. Produce evidence_assessments evaluating EVERY submitted evidence object above against its Positive/Negative Indicators, Evidence Source reliability, and Validation Strength / Confidence. For each item specify signal_score (0-100), matched_type ('positive'|'negative'|'neutral'), mapping_relevance ('DIRECT'|'SUPPORTING'|'INDIRECT'), runtime_relationship ('SUPPORTS'|'CONTRADICTS'|'QUALIFIES'|'CONTEXTUALIZES'|'GAP_SIGNAL'|'CHANGE_SIGNAL'), runtime_polarity ('POSITIVE'|'NEGATIVE'|'MIXED'|'NEUTRAL'|'UNDETERMINED'), linked_swot_factors, linked_padf_dimensions, and a precise 2-3 sentence "identification_assessment" evaluating the user's actual User Evidence Statement, source credibility, and validation strength (NEVER return a single word like "Verified" or status label).
-5. Produce observed_supporting_evidence selecting up to 6 strongest positive supporting evidence findings from the submitted evidence objects above. For each item include evidence_object_id, title, dimension_code (e.g., PA1..PA8), source_type, verification_status, and "finding_summary": a concrete 2-3 sentence Gemini reasoning explaining WHY this observed evidence credibly substantiates deal strength, how its source and validation confidence support reliability, and how it reinforces PADF winability and SWOT positioning (NEVER output only "Verified" or a brief status tag).
-6. Evaluate all 16 active SWOT factors with 1-5 ordinal scales.
-7. Formulate 4-6 high-impact TOWS Strategies (SO, WO, ST, WT), formal Risks, ai_cognitive_reasoning_summary, and actions.`;
+4. Produce observed_supporting_evidence selecting up to 6 strongest positive supporting evidence findings from the submitted evidence objects above. For each item include evidence_object_id, title, dimension_code (e.g., PA1..PA8), source_type, verification_status, and "finding_summary": a concrete 2-3 sentence Gemini reasoning explaining WHY this observed evidence credibly substantiates deal strength in natural executive prose without raw source codes or single-word status tags.
+5. Evaluate all 16 active SWOT factors with 1-5 ordinal scales.
+6. Formulate 4-6 high-impact TOWS Strategies (SO, WO, ST, WT), formal Risks, ai_cognitive_reasoning_summary, and actions.`;
 
-      const response = await ai.models.generateContent({
+      const formatHumanSourceLabel = (rawSource?: string): string => {
+        const s = String(rawSource || '').trim();
+        if (!s) return 'customer meeting notes';
+        const lower = s.toLowerCase();
+        if (lower.includes('es01') || lower.includes('executive conversation')) return 'executive conversation';
+        if (lower.includes('es02') || lower.includes('workshop')) return 'customer workshop';
+        if (lower.includes('es03') || lower.includes('meeting notes')) return 'customer meeting notes';
+        if (lower.includes('es04') || lower.includes('documentation')) return 'customer documentation';
+        if (lower.includes('es05') || lower.includes('crm')) return 'CRM activity data';
+        if (lower.includes('es06') || lower.includes('sales rep') || lower.includes('assumption')) return 'sales representative input';
+        if (lower.includes('es07') || lower.includes('external')) return 'external intelligence';
+        return s.replace(/^ES\d+_?/i, '').replace(/_/g, ' ').toLowerCase();
+      };
+
+      const isSubstantiveAuditText = (val?: string) => {
+        const cleaned = String(val || '').trim();
+        if (cleaned.length < 24) return false;
+        if (/^Submitted\s+(customer-confirmed|unconfirmed)\s+evidence/i.test(cleaned)) return false;
+        return !/^(verified|unverified|confirmed|supported|supports|positive|negative|neutral|n\/a)\.?$/i.test(cleaned);
+      };
+
+      const strategicCallPromise = ai.models.generateContent({
         model: 'gemini-3.1-flash-lite',
         contents: prompt,
         config: {
@@ -1816,28 +1868,6 @@ ${active16SWOTFactors.map(f => `- [${f.id}] (${f.classification} - ${f.layer}): 
                     "strengths", "weaknesses", "contradictory_qualifying_evidence",
                     "related_swot_factors", "evidence_gaps", "risks", "ai_reasoning",
                     "business_impact", "improvement_direction", "recommended_actions"
-                  ]
-                }
-              },
-              evidence_assessments: {
-                type: Type.ARRAY,
-                items: {
-                  type: Type.OBJECT,
-                  properties: {
-                    evidence_object_id: { type: Type.STRING },
-                    signal_score: { type: Type.INTEGER },
-                    matched_type: { type: Type.STRING },
-                    identification_assessment: { type: Type.STRING },
-                    mapping_relevance: { type: Type.STRING },
-                    runtime_relationship: { type: Type.STRING },
-                    runtime_polarity: { type: Type.STRING },
-                    linked_swot_factors: { type: Type.ARRAY, items: { type: Type.STRING } },
-                    linked_padf_dimensions: { type: Type.ARRAY, items: { type: Type.STRING } }
-                  },
-                  required: [
-                    "evidence_object_id", "signal_score", "matched_type",
-                    "identification_assessment", "mapping_relevance",
-                    "runtime_relationship", "runtime_polarity"
                   ]
                 }
               },
@@ -1933,12 +1963,106 @@ ${active16SWOTFactors.map(f => `- [${f.id}] (${f.classification} - ${f.layer}): 
               "primary_reason", "executive_summary", "qualification_continuity_summary",
               "why_this_assessment", "positive_drivers", "critical_constraints",
               "priority_actions", "longitudinal_trend", "ai_cognitive_reasoning_summary",
-              "swot_evaluations", "padf_dimension_narratives", "evidence_assessments",
+              "swot_evaluations", "padf_dimension_narratives",
               "observed_supporting_evidence", "tows_strategies", "risks", "actions"
             ]
           }
         }
       });
+
+      const runEvidenceAuditBatch = async (batchRecords: any[]): Promise<any[]> => {
+        if (!batchRecords || batchRecords.length === 0) return [];
+        const batchPrompt = `
+You are evaluating ${batchRecords.length} submitted pipeline evidence items for "${pipelineOpp.opportunity_name}" (${pipelineOpp.customer_name}, ${industry}, ${revMotion}).
+
+=== EVIDENCE ITEMS TO AUDIT (${batchRecords.length} ITEMS) ===
+${batchRecords.map((ev: any, idx: number) => {
+  const def = EVIDENCE_OBJECTS_REGISTRY[ev.evidence_object_id] || {};
+  const dimCode = ev.metadata?.dimension_code || def?.dimension || 'PA1_Customer_Value_and_Urgency';
+  const canonDim = CANONICAL_PADF_DIMENSIONS.find(
+    d => d.code === dimCode || d.shortCode === dimCode || String(dimCode).includes(d.shortCode)
+  ) || CANONICAL_PADF_DIMENSIONS[0];
+  const dimRes = deterministic.dimensionResults.find((dr: any) => dr.dimension_code === canonDim.code);
+  const baselineSignal = deterministic.evidenceItemScores?.[ev.evidence_instance_id]
+    ?? deterministic.evidenceItemScores?.[ev.evidence_object_id]
+    ?? calculateEvidenceItemScore(ev);
+  const humanSource = formatHumanSourceLabel(ev.source_type);
+  const stmtText = String(ev.evidence_statement || '').trim() || '[No evidence statement provided]';
+  return `
+${idx + 1}. ID: ${ev.evidence_object_id} | Title: ${def?.name || ev.evidence_object_id} | Dimension: ${canonDim.shortCode} (${canonDim.name}, Dim Score: ${dimRes?.score ?? 50}/100)
+   Validation Question: "${def?.question || ''}"
+   Positive Signals: ${(def?.positiveSignals || []).join('; ') || 'Verified customer commitment / concrete proof'}
+   Negative Signals: ${(def?.negativeSignals || []).join('; ') || 'Unverified assumption / missing stakeholder proof'}
+   User Evidence Answer: "${stmtText}"
+   Source: ${humanSource} | Customer Confirmed: ${ev.customer_confirmed ? 'YES' : 'NO'} | Baseline Score: ${baselineSignal}/100 | Validation Confidence: ${ev.evidence_confidence ?? 70}%
+`;
+}).join('\n')}
+
+=== CRITICAL AUDIT & PROSE INSTRUCTIONS ===
+1. COMPLETENESS: You MUST return one JSON object in "evidence_assessments" for EVERY SINGLE ONE of the ${batchRecords.length} items listed above, using its exact "ID" as "evidence_object_id". Do NOT skip, omit, merge, or truncate any item.
+2. NATURAL HUMAN-LANGUAGE REASONING ("identification_assessment"):
+   Write 2 concise, natural, executive-ready sentences interpreting WHY this item earned its assessment score based on the User Evidence Answer, Positive/Negative Signals, and source credibility.
+   - Speak in clear business prose as an enterprise deal strategist reviewing the deal.
+   - Translate source types cleanly into natural phrases (e.g., "supported by executive conversation", "captured in customer meeting notes", "substantiated by customer documentation", "currently relies on sales representative input").
+   - NEVER output raw source codes like "ES01_Customer_Executive_Conversation" or "ES03_Customer_Meeting_Notes".
+   - NEVER copy robotic boilerplate like "Submitted customer-confirmed evidence (...) from ES01_... (95% confidence) actively substantiates...".
+   - Example (Strong): "The customer has explicitly quantified the business challenge and provided a documented business case. This is a high-confidence signal supported by executive conversation."
+   - Example (Moderate/Pending): "Operational efficiency pain has been surfaced in customer meeting notes, establishing a credible urgency driver. However, leadership has not yet quantified the financial cost of delay, which limits full executive alignment."
+   - Example (Gap/Weak): "No concrete customer commitment has been verified for this requirement, leaving the assumption reliant on internal sales estimates. Formal stakeholder validation is needed before this signal can support closing confidence."
+3. SCORING ("signal_score" & "matched_type"):
+   Score each item 0-100 calibrated to its statement substance, confirmation status, source reliability, and PADF Dimension Score (NOT raw Validation Confidence %). Set "matched_type" to 'positive' (>=70), 'neutral' (45-69), or 'negative' (<45).`;
+
+        try {
+          const batchResp = await ai.models.generateContent({
+            model: 'gemini-3.1-flash-lite',
+            contents: batchPrompt,
+            config: {
+              temperature: 0.15,
+              maxOutputTokens: 16384,
+              systemInstruction: 'You are an enterprise B2B pipeline strategist writing clear, concise, natural-language evidence audit assessments. Return complete JSON covering 100% of requested evidence IDs without omission.',
+              responseMimeType: "application/json",
+              responseSchema: {
+                type: Type.OBJECT,
+                properties: {
+                  evidence_assessments: {
+                    type: Type.ARRAY,
+                    items: {
+                      type: Type.OBJECT,
+                      properties: {
+                        evidence_object_id: { type: Type.STRING },
+                        signal_score: { type: Type.INTEGER },
+                        matched_type: { type: Type.STRING },
+                        identification_assessment: { type: Type.STRING }
+                      },
+                      required: [
+                        "evidence_object_id", "signal_score", "matched_type", "identification_assessment"
+                      ]
+                    }
+                  }
+                },
+                required: ["evidence_assessments"]
+              }
+            }
+          });
+          const parsed = JSON.parse(batchResp.text || '{}');
+          return Array.isArray(parsed.evidence_assessments) ? parsed.evidence_assessments : [];
+        } catch (_batchErr) {
+          return [];
+        }
+      };
+
+      // Partition evidence items into concurrent batches of up to 24 items so every question gets full LLM attention
+      const allRecords = evidenceRecords || [];
+      const BATCH_SIZE = 24;
+      const evidenceBatches: any[][] = [];
+      for (let i = 0; i < allRecords.length; i += BATCH_SIZE) {
+        evidenceBatches.push(allRecords.slice(i, i + BATCH_SIZE));
+      }
+
+      const [response, ...batchAuditArrays] = await Promise.all([
+        strategicCallPromise,
+        ...evidenceBatches.map(batch => runEvidenceAuditBatch(batch))
+      ]);
 
       const aiResult = JSON.parse(response.text || '{}');
       const executionDurationMs = Date.now() - startTime;
@@ -1955,19 +2079,31 @@ ${active16SWOTFactors.map(f => `- [${f.id}] (${f.classification} - ${f.layer}): 
             : 'CRITICAL';
       const numericConfidence = deterministic.numericConfidence;
 
-      // Hydrate deterministic + AI evidence signal audits cleanly so every submitted evidence record has full provenance
+      // Hydrate deterministic + AI evidence signal audits cleanly with targeted retry for any omitted items
       const aiAuditMap = new Map<string, any>();
-      (aiResult.evidence_assessments || []).forEach((ea: any) => {
+      batchAuditArrays.flat().forEach((ea: any) => {
         if (ea?.evidence_object_id) aiAuditMap.set(ea.evidence_object_id, ea);
       });
 
-      const isSubstantiveAuditText = (val?: string) => {
-        const cleaned = String(val || '').trim();
-        if (cleaned.length < 24) return false;
-        return !/^(verified|unverified|confirmed|supported|supports|positive|negative|neutral|n\/a)\.?$/i.test(cleaned);
-      };
+      const missingAuditRecords = allRecords.filter((ev: any) => {
+        const existing = aiAuditMap.get(ev.evidence_object_id);
+        return !isSubstantiveAuditText(existing?.identification_assessment);
+      });
 
-      const hydratedEvidenceAssessments = (evidenceRecords || []).map((ev: any) => {
+      if (missingAuditRecords.length > 0) {
+        const retryBatches: any[][] = [];
+        for (let i = 0; i < missingAuditRecords.length; i += BATCH_SIZE) {
+          retryBatches.push(missingAuditRecords.slice(i, i + BATCH_SIZE));
+        }
+        const retryResults = await Promise.all(retryBatches.map(b => runEvidenceAuditBatch(b)));
+        retryResults.flat().forEach((ea: any) => {
+          if (ea?.evidence_object_id && isSubstantiveAuditText(ea?.identification_assessment)) {
+            aiAuditMap.set(ea.evidence_object_id, ea);
+          }
+        });
+      }
+
+      const rawHydratedAssessments = (evidenceRecords || []).map((ev: any) => {
         const def = EVIDENCE_OBJECTS_REGISTRY[ev.evidence_object_id] || {};
         const aiEv = aiAuditMap.get(ev.evidence_object_id) || {};
         const rels = relByInstance[ev.evidence_instance_id] || [];
@@ -1978,15 +2114,88 @@ ${active16SWOTFactors.map(f => `- [${f.id}] (${f.classification} - ${f.layer}): 
         ) || CANONICAL_PADF_DIMENSIONS[0];
 
         const kbConf = Number(ev.evidence_confidence ?? 70);
-        const computedSignal = typeof aiEv.signal_score === 'number'
+        const detItemScore = deterministic.evidenceItemScores?.[ev.evidence_instance_id]
+          ?? deterministic.evidenceItemScores?.[ev.evidence_object_id]
+          ?? calculateEvidenceItemScore(ev);
+        const rawAiSignal = typeof aiEv.signal_score === 'number'
           ? Math.max(0, Math.min(100, Math.round(aiEv.signal_score)))
-          : Math.max(15, Math.min(98, ev.customer_confirmed ? Math.max(kbConf, 78) : kbConf));
+          : null;
+        // Anchor per-evidence signal_score on deterministic assessment score (not raw evidence_confidence)
+        const blendedSignal = rawAiSignal !== null
+          ? Math.round(detItemScore * 0.65 + rawAiSignal * 0.35)
+          : detItemScore;
 
-        const matchedType = (aiEv.matched_type || '').toLowerCase() === 'positive' || computedSignal >= 70
+        return {
+          ev,
+          def,
+          aiEv,
+          rels,
+          canonDim,
+          kbConf,
+          blendedSignal
+        };
+      });
+
+      // Calibrate per-evidence signal_score within each PADF dimension so the average aligns with the authoritative dimension score
+      const dimAuthoritativeScoreMap = new Map<string, number>();
+      deterministic.dimensionResults.forEach((dr: any) => {
+        dimAuthoritativeScoreMap.set(dr.dimension_code, dr.score);
+      });
+
+      const calibratedSignalByKey = new Map<string, number>();
+      const groupedByDim = new Map<string, typeof rawHydratedAssessments>();
+      rawHydratedAssessments.forEach((item: any) => {
+        const list = groupedByDim.get(item.canonDim.code) || [];
+        list.push(item);
+        groupedByDim.set(item.canonDim.code, list);
+      });
+
+      groupedByDim.forEach((items, dimCode) => {
+        const targetDimScore = dimAuthoritativeScoreMap.get(dimCode);
+        const rawScores = items.map((x: any) => x.blendedSignal);
+        let finalScores = rawScores;
+
+        if (typeof targetDimScore === 'number' && items.length > 0) {
+          const currentAvg = rawScores.reduce((a: number, b: number) => a + b, 0) / rawScores.length;
+          const delta = targetDimScore - currentAvg;
+          if (Math.abs(delta) >= 0.5) {
+            finalScores = rawScores.map((s: number) => Math.max(0, Math.min(100, Math.round(s + delta))));
+            const desiredSum = targetDimScore * items.length;
+            let currentSum = finalScores.reduce((a: number, b: number) => a + b, 0);
+            let guard = 0;
+            while (currentSum !== desiredSum && guard < items.length * 4) {
+              const step = currentSum < desiredSum ? 1 : -1;
+              for (let i = 0; i < finalScores.length && currentSum !== desiredSum; i++) {
+                const next = finalScores[i] + step;
+                if (next >= 0 && next <= 100) {
+                  finalScores[i] = next;
+                  currentSum += step;
+                }
+              }
+              guard++;
+            }
+          }
+        }
+
+        items.forEach((item: any, idx: number) => {
+          const key = item.ev.evidence_instance_id || item.ev.evidence_object_id;
+          calibratedSignalByKey.set(key, finalScores[idx]);
+        });
+      });
+
+      const hydratedEvidenceAssessments = rawHydratedAssessments.map(({ ev, def, aiEv, rels, canonDim, kbConf, blendedSignal }: any) => {
+        const key = ev.evidence_instance_id || ev.evidence_object_id;
+        const computedSignal = calibratedSignalByKey.get(key) ?? blendedSignal;
+
+        const matchedType = computedSignal >= 70
           ? 'positive'
-          : (aiEv.matched_type || '').toLowerCase() === 'negative' || computedSignal < 45
+          : computedSignal < 45
             ? 'negative'
-            : 'neutral';
+            : (aiEv.matched_type || '').toLowerCase() === 'positive'
+              ? 'positive'
+              : (aiEv.matched_type || '').toLowerCase() === 'negative'
+                ? 'negative'
+                : 'neutral';
 
         const swotFromRels = [...new Set(rels.map((r: any) => r.target_factor_id).filter(Boolean))];
         const swotFromAi = Array.isArray(aiEv.linked_swot_factors) ? aiEv.linked_swot_factors : [];
@@ -2001,11 +2210,14 @@ ${active16SWOTFactors.map(f => `- [${f.id}] (${f.classification} - ${f.layer}): 
         const defaultRelevance = rels[0]?.mapping_relevance || 'DIRECT';
 
         const sourceLabel = ev.source_type || 'Customer Meeting Notes';
+        const humanSource = formatHumanSourceLabel(sourceLabel);
         const rawAiText = aiEv.identification_assessment || aiEv.ai_reasoning;
         const stmtSnippet = String(ev.evidence_statement || '').trim().slice(0, 180);
         const synthesizedFallback = stmtSnippet
-          ? `Submitted ${ev.customer_confirmed ? 'customer-confirmed' : 'unconfirmed'} evidence ("${stmtSnippet}${String(ev.evidence_statement || '').length > 180 ? '...' : ''}") from ${sourceLabel} (${kbConf}% confidence) ${matchedType === 'positive' ? 'actively substantiates' : matchedType === 'negative' ? 'exposes risk/gaps in' : 'partially informs'} ${canonDim.name}.`
-          : `Evaluated ${ev.customer_confirmed ? 'customer-confirmed' : 'unconfirmed'} evidence (${sourceLabel}, ${kbConf}% confidence) against ${canonDim.name} requirements.`;
+          ? ev.customer_confirmed
+            ? `Customer evidence confirms "${stmtSnippet}${String(ev.evidence_statement || '').length > 180 ? '...' : ''}". This ${matchedType === 'positive' ? 'substantiates' : matchedType === 'negative' ? 'highlights risk within' : 'informs'} ${canonDim.name} and is supported by ${humanSource}.`
+            : `Initial findings note "${stmtSnippet}${String(ev.evidence_statement || '').length > 180 ? '...' : ''}" based on ${humanSource}. Formal customer confirmation is still needed to strengthen confidence in ${canonDim.name}.`
+          : `No substantive evidence has been captured yet for ${def?.name || ev.evidence_object_id}, leaving an unvalidated gap in ${canonDim.name}.`;
 
         return {
           evidence_instance_id: ev.evidence_instance_id,

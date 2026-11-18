@@ -318,55 +318,22 @@ export const OpportunityToPipeline: React.FC<OpportunityToPipelineProps> = ({
       {/* Commercial Opportunity Identity Strip */}
       <div className="bg-bg-surface border border-border rounded-2xl p-5 sm:p-6 space-y-4">
         <div className="flex items-start justify-between gap-4">
-          <div className="flex-1 min-w-0 flex flex-col lg:flex-row lg:items-start justify-between gap-4">
-            <div className="space-y-1 min-w-0">
-              <div className="flex items-center gap-2 text-xs text-text-secondary">
+          <div className="flex-1 min-w-0 space-y-2">
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-text-secondary">
+              <span className="inline-flex items-center gap-2 font-semibold text-text-primary mr-1">
                 <Building2 className="h-3.5 w-3.5 text-accent shrink-0" />
-                <span className="font-semibold text-text-primary">{pipelineOpp.customer_name}</span>
-              </div>
-              <h1 className="text-2xl font-bold text-text-primary tracking-tight">
-                {pipelineOpp.opportunity_name}
-              </h1>
+                {pipelineOpp.customer_name}
+              </span>
+              <span>{swotResolution?.industryName || pipelineOpp.industry_name}</span>
+              <span aria-hidden="true">·</span>
+              <span>{swotResolution?.revenueMotionName || pipelineOpp.revenue_motion_name}</span>
+              <span aria-hidden="true">·</span>
+              <span>Opportunity Stage: {pipelineOpp.sales_stage}</span>
             </div>
 
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 lg:gap-6 bg-bg-primary p-4 rounded-xl border border-border/80 shrink-0">
-              <div>
-                <div className="text-[11px] text-text-secondary flex items-center gap-1">
-                  <DollarSign className="h-3 w-3" />
-                  Deal Value
-                </div>
-                <div className="text-sm font-bold font-mono tabular-nums text-text-primary mt-0.5">
-                  {formattedDealValue}
-                </div>
-              </div>
-              <div>
-                <div className="text-[11px] text-text-secondary flex items-center gap-1">
-                  <User className="h-3 w-3" />
-                  Owner
-                </div>
-                <div className="text-sm font-semibold text-text-primary mt-0.5 truncate max-w-[140px]">
-                  {pipelineOpp.opportunity_owner}
-                </div>
-              </div>
-              <div>
-                <div className="text-[11px] text-text-secondary flex items-center gap-1">
-                  <Calendar className="h-3 w-3" />
-                  Target Close
-                </div>
-                <div className="text-sm font-mono tabular-nums text-text-primary mt-0.5">
-                  {pipelineOpp.expected_close_date || 'Not Set'}
-                </div>
-              </div>
-              <div>
-                <div className="text-[11px] text-text-secondary flex items-center gap-1">
-                  <Briefcase className="h-3 w-3" />
-                  Pipeline Stage
-                </div>
-                <div className="text-sm font-semibold text-accent mt-0.5 truncate max-w-[140px]">
-                  {pipelineOpp.pipeline_stage}
-                </div>
-              </div>
-            </div>
+            <h1 className="text-xl sm:text-2xl font-bold text-text-primary tracking-tight">
+              {pipelineOpp.opportunity_name}
+            </h1>
           </div>
 
           <button
@@ -380,12 +347,43 @@ export const OpportunityToPipeline: React.FC<OpportunityToPipelineProps> = ({
           </button>
         </div>
 
-        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-text-secondary">
-          <span>{swotResolution?.industryName || pipelineOpp.industry_name}</span>
-          <span aria-hidden="true">·</span>
-          <span>{swotResolution?.revenueMotionName || pipelineOpp.revenue_motion_name}</span>
-          <span aria-hidden="true">·</span>
-          <span>Opportunity Stage: {pipelineOpp.sales_stage}</span>
+        <div className="w-full grid grid-cols-2 sm:grid-cols-4 gap-4 lg:gap-6 bg-bg-primary p-4 rounded-xl border border-border/80">
+          <div className="min-w-0">
+            <div className="text-[11px] text-text-secondary flex items-center gap-1">
+              <DollarSign className="h-3 w-3 shrink-0" />
+              Deal Value
+            </div>
+            <div className="text-sm font-bold font-mono tabular-nums text-text-primary mt-0.5">
+              {formattedDealValue}
+            </div>
+          </div>
+          <div className="min-w-0">
+            <div className="text-[11px] text-text-secondary flex items-center gap-1">
+              <User className="h-3 w-3 shrink-0" />
+              Owner
+            </div>
+            <div className="text-sm font-semibold text-text-primary mt-0.5 break-words">
+              {pipelineOpp.opportunity_owner}
+            </div>
+          </div>
+          <div className="min-w-0">
+            <div className="text-[11px] text-text-secondary flex items-center gap-1">
+              <Calendar className="h-3 w-3 shrink-0" />
+              Target Close
+            </div>
+            <div className="text-sm font-mono tabular-nums text-text-primary mt-0.5">
+              {pipelineOpp.expected_close_date || 'Not Set'}
+            </div>
+          </div>
+          <div className="min-w-0">
+            <div className="text-[11px] text-text-secondary flex items-center gap-1">
+              <Briefcase className="h-3 w-3 shrink-0" />
+              Pipeline Stage
+            </div>
+            <div className="text-sm font-semibold text-accent mt-0.5 break-words">
+              {pipelineOpp.pipeline_stage}
+            </div>
+          </div>
         </div>
 
         {/* Latest Assessment Outcome Banner (if previously evaluated or just executed) */}
