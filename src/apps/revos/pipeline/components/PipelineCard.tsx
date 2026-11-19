@@ -32,8 +32,11 @@ export interface PipelineCardItem {
   company_name: string;
   opportunity_name: string;
   industry: string;
+  business_segment?: string;
   revenue_motion: string;
   estimated_value: number;
+  expected_close_date?: string;
+  opportunity_owner?: string;
   pipeline_stage: string;
   opportunity_stage: string;
   pipeline_opp?: PipelineOpportunity & { latest_assessment?: PipelineAssessment };

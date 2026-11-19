@@ -92,23 +92,37 @@ export function applyIsolatedEdits(item: PipelineCardItem): PipelineCardItem {
  * so Active Pipeline, Closed Outcomes, and deal valuations match 1:1.
  */
 export async function loadCanonicalPipelinePortfolio(): Promise<PipelineCardItem[]> {
-  const [pipeList, oppsRes, promosRes, mqlPromosRes, formRes, leadsRes, oppRevenueMap, oppNameMap] =
-    await Promise.all([
-      PipelineDataService.listPipelineOpportunities(),
-      supabase.from('opportunities').select('*').order('created_at', { ascending: false }),
-      supabase.from('sql_opportunity_promotions').select('lead_id, opportunity_id'),
-      supabase.from('mql_sql_promotions').select('lead_id, opportunity_id'),
-      supabase
-        .from('opportunity_form_records')
-        .select(
-          'opportunity_id, company_name, opportunity_name, estimated_revenue, industry, revenue_motion, pipeline_stage, opportunity_stage'
-        ),
-      supabase
-        .from('mql_leads')
-        .select('id, company_name, lead_industry, status'),
-      OpportunityDataService.getOpportunityEstimatedRevenuesMap().catch(() => ({} as Record<string, number>)),
-      OpportunityDataService.getOpportunityNamesMap().catch(() => ({} as Record<string, string>))
-    ]);
+  const [
+    pipeList,
+    oppsRes,
+    promosRes,
+    mqlPromosRes,
+    formRes,
+    leadsRes,
+    sqlHandoverRes,
+    pipeFormRes,
+    oppRevenueMap,
+    oppNameMap
+  ] = await Promise.all([
+    PipelineDataService.listPipelineOpportunities(),
+    supabase.from('opportunities').select('*').order('created_at', { ascending: false }),
+    supabase.from('sql_opportunity_promotions').select('lead_id, opportunity_id'),
+    supabase.from('mql_sql_promotions').select('lead_id, opportunity_id'),
+    supabase
+      .from('opportunity_form_records')
+      .select(
+        'opportunity_id, company_name, opportunity_name, estimated_revenue, industry, revenue_motion, pipeline_stage, opportunity_stage, expected_close_date, opportunity_owner'
+      ),
+    supabase.from('mql_leads').select('id, company_name, lead_industry, status'),
+    supabase
+      .from('opportunity_sql_handover_details')
+      .select('opportunity_id, sql_qip_package, editable_fields'),
+    supabase
+      .from('pipeline_form_records')
+      .select('pipeline_id, opportunity_id, expected_close_date, opportunity_owner'),
+    OpportunityDataService.getOpportunityEstimatedRevenuesMap().catch(() => ({} as Record<string, number>)),
+    OpportunityDataService.getOpportunityNamesMap().catch(() => ({} as Record<string, string>))
+  ]);
 
   if (leadsRes.error) {
     console.warn('Error fetching mql_leads for Pipeline Portfolio sync:', leadsRes.error.message);
@@ -138,6 +152,17 @@ export async function loadCanonicalPipelinePortfolio(): Promise<PipelineCardItem
   const formByOppId = new Map<string, any>();
   (formRes.data || []).forEach((f: any) => {
     if (f.opportunity_id) formByOppId.set(f.opportunity_id, f);
+  });
+
+  const handoverByOppId = new Map<string, any>();
+  (sqlHandoverRes.data || []).forEach((h: any) => {
+    if (h.opportunity_id) handoverByOppId.set(h.opportunity_id, h);
+  });
+
+  const pipeFormByKey = new Map<string, any>();
+  (pipeFormRes.data || []).forEach((pf: any) => {
+    if (pf.pipeline_id) pipeFormByKey.set(pf.pipeline_id, pf);
+    if (pf.opportunity_id) pipeFormByKey.set(pf.opportunity_id, pf);
   });
 
   let deletedLeadIds = new Set<string>();
@@ -195,6 +220,42 @@ export async function loadCanonicalPipelinePortfolio(): Promise<PipelineCardItem
     }
   });
 
+  // Exact match to SqlToOpportunityTable.extractBusinessSegment
+  const resolveBusinessSegment = (
+    oppId?: string,
+    leadId?: string,
+    fallbackIndustry?: string
+  ): string => {
+    const handover = oppId ? handoverByOppId.get(oppId) : undefined;
+    if (handover) {
+      if (handover.sql_qip_package?.company_context?.business_segment) {
+        return handover.sql_qip_package.company_context.business_segment;
+      }
+      if (handover.company_context?.business_segment) {
+        return handover.company_context.business_segment;
+      }
+      if (handover.editable_fields?.business_segment) {
+        return handover.editable_fields.business_segment;
+      }
+    }
+
+    if (leadId) {
+      const matchLead = leadById.get(leadId);
+      if (matchLead?.lead_industry) return matchLead.lead_industry;
+      if (typeof window !== 'undefined') {
+        const extraJson = localStorage.getItem(`mql_lead_extra_${leadId}`);
+        if (extraJson) {
+          try {
+            const extra = JSON.parse(extraJson);
+            if (extra.lead_industry) return extra.lead_industry;
+          } catch {}
+        }
+      }
+    }
+
+    return fallbackIndustry || 'Enterprise Cloud Software';
+  };
+
   const seenIds = new Set<string>();
   const seenItemIds = new Set<string>();
   const seenPipeIds = new Set<string>();
@@ -229,6 +290,9 @@ export async function loadCanonicalPipelinePortfolio(): Promise<PipelineCardItem
     if (!isInLeadCanvasOppColumn && !linkedPipe) return;
 
     const form = formByOppId.get(opp.id) || {};
+    const pipeForm =
+      (linkedPipe?.pipeline_id ? pipeFormByKey.get(linkedPipe.pipeline_id) : undefined) ||
+      pipeFormByKey.get(opp.id);
     let parsedDesc: any = {};
     if (
       opp.description &&
@@ -264,12 +328,25 @@ export async function loadCanonicalPipelinePortfolio(): Promise<PipelineCardItem
         `${opp.company_name || 'Enterprise'} Opportunity`,
       industry:
         linkedPipe?.industry_name || form.industry || opp.industry || 'Enterprise Software',
+      business_segment: resolveBusinessSegment(opp.id, resolvedLeadId, opp.industry),
       revenue_motion:
         linkedPipe?.revenue_motion_name ||
         form.revenue_motion ||
         opp.revenue_motion ||
         'Digital Solution Selling',
       estimated_value: linkedPipe?.deal_value || estVal,
+      expected_close_date:
+        pipeForm?.expected_close_date ||
+        linkedPipe?.expected_close_date ||
+        form.expected_close_date ||
+        parsedDesc.expected_close_date ||
+        undefined,
+      opportunity_owner:
+        pipeForm?.opportunity_owner ||
+        linkedPipe?.opportunity_owner ||
+        form.opportunity_owner ||
+        parsedDesc.opportunity_owner ||
+        'Senior Enterprise AE',
       pipeline_stage: normalizePipelineStage(
         linkedPipe?.pipeline_stage,
         linkedPipe?.lifecycle_status,
@@ -319,6 +396,9 @@ export async function loadCanonicalPipelinePortfolio(): Promise<PipelineCardItem
     markMatchingPipesSeen(linkedPipe?.opportunity_id || promoOppId, l.id);
 
     const form = formByOppId.get(resolvedItemId) || {};
+    const pipeForm =
+      (linkedPipe?.pipeline_id ? pipeFormByKey.get(linkedPipe.pipeline_id) : undefined) ||
+      pipeFormByKey.get(resolvedItemId);
     const formRev = parseFloat(String(form.estimated_revenue || '').replace(/[^0-9.]/g, '')) || 0;
     const fallbackRev =
       formRev > 0 ? formRev : oppRevenueMap[resolvedItemId] || oppRevenueMap[l.id] || 0;
@@ -338,9 +418,20 @@ export async function loadCanonicalPipelinePortfolio(): Promise<PipelineCardItem
         form.industry ||
         l.lead_industry ||
         'Enterprise Software',
+      business_segment: resolveBusinessSegment(resolvedItemId, l.id, l.lead_industry),
       revenue_motion:
         linkedPipe?.revenue_motion_name || form.revenue_motion || 'Digital Solution Selling',
       estimated_value: linkedPipe?.deal_value || fallbackRev,
+      expected_close_date:
+        pipeForm?.expected_close_date ||
+        linkedPipe?.expected_close_date ||
+        form.expected_close_date ||
+        undefined,
+      opportunity_owner:
+        pipeForm?.opportunity_owner ||
+        linkedPipe?.opportunity_owner ||
+        form.opportunity_owner ||
+        'Senior Enterprise AE',
       pipeline_stage: normalizePipelineStage(
         linkedPipe?.pipeline_stage,
         linkedPipe?.lifecycle_status,
@@ -379,14 +470,19 @@ export async function loadCanonicalPipelinePortfolio(): Promise<PipelineCardItem
       resolvedLeadId && activeLeadCanvasOppLeadIds.has(resolvedLeadId)
     );
 
+    const pipeForm = pipeFormByKey.get(p.pipeline_id) || pipeFormByKey.get(candidateId);
+
     const baseItem: PipelineCardItem = {
       id: candidateId,
       lead_id: resolvedLeadId,
       company_name: p.customer_name,
       opportunity_name: p.opportunity_name,
       industry: p.industry_name,
+      business_segment: resolveBusinessSegment(p.opportunity_id, resolvedLeadId, p.industry_name),
       revenue_motion: p.revenue_motion_name,
       estimated_value: p.deal_value || 0,
+      expected_close_date: pipeForm?.expected_close_date || p.expected_close_date || undefined,
+      opportunity_owner: pipeForm?.opportunity_owner || p.opportunity_owner || 'Senior Enterprise AE',
       pipeline_stage: normalizePipelineStage(p.pipeline_stage, p.lifecycle_status),
       opportunity_stage: normalizeOpportunityStage(p.sales_stage),
       pipeline_opp: p

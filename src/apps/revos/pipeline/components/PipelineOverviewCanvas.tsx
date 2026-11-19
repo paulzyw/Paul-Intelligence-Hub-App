@@ -3,7 +3,6 @@ import { Link } from 'react-router-dom';
 import {
   PieChart,
   Search,
-  ArrowRight,
   RefreshCw,
   Briefcase,
   DollarSign,
@@ -23,6 +22,7 @@ import {
   PipelineCardItem,
   IsolatedPipelineCardEdits
 } from './PipelineCard';
+import { PipelineDirectoryTable } from './PipelineDirectoryTable';
 import {
   CanvasColumnKey,
   resolveCanvasColumn,
@@ -193,22 +193,6 @@ export const PipelineOverviewCanvas: React.FC<PipelineOverviewCanvasProps> = ({ 
     }
   };
 
-  const healthTextClass = (h?: string) => {
-    switch (h) {
-      case 'STRONG':
-        return 'text-emerald-400';
-      case 'HEALTHY':
-        return 'text-sky-400';
-      case 'MODERATE':
-        return 'text-amber-400';
-      case 'AT_RISK':
-      case 'CRITICAL':
-        return 'text-red-400';
-      default:
-        return 'text-text-secondary';
-    }
-  };
-
   const handleSearchChange = (val: string) => {
     setSearchQuery(val);
     setColumnPages({
@@ -315,16 +299,18 @@ export const PipelineOverviewCanvas: React.FC<PipelineOverviewCanvasProps> = ({ 
       {/* Filter & View Controls (Unchanged) */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div className="flex flex-wrap items-center gap-3">
-          <div className="relative">
-            <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-text-secondary" />
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => handleSearchChange(e.target.value)}
-              placeholder="Search company, opportunity, or industry..."
-              className="pl-10 pr-4 py-2 bg-bg-surface border border-border rounded-xl text-xs text-text-primary focus:outline-none focus:border-accent w-64 sm:w-72"
-            />
-          </div>
+          {viewMode === 'canvas' && (
+            <div className="relative">
+              <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-text-secondary" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => handleSearchChange(e.target.value)}
+                placeholder="Search company, opportunity, or industry..."
+                className="pl-10 pr-4 py-2 bg-bg-surface border border-border rounded-xl text-xs text-text-primary focus:outline-none focus:border-accent w-64 sm:w-72"
+              />
+            </div>
+          )}
 
           <select
             value={healthFilter}
@@ -369,12 +355,23 @@ export const PipelineOverviewCanvas: React.FC<PipelineOverviewCanvasProps> = ({ 
       </div>
 
       {/* Main Portfolio View */}
-      {loading ? (
+      {viewMode === 'list' ? (
+        <PipelineDirectoryTable
+          items={items}
+          loading={loading}
+          searchQuery={searchQuery}
+          onSearchChange={handleSearchChange}
+          healthFilter={healthFilter}
+          onItemsPurged={(purged) =>
+            setItems((prev) => prev.filter((it) => !purged.includes(it.id)))
+          }
+        />
+      ) : loading ? (
         <div className="flex flex-col items-center justify-center py-16 text-text-secondary space-y-2">
           <RefreshCw className="h-6 w-6 animate-spin text-accent" />
           <span className="text-xs font-mono">Loading Pipeline Canvas...</span>
         </div>
-      ) : viewMode === 'canvas' ? (
+      ) : (
         /* 4-Column Kanban Canvas matching Lead Canvas UI Style */
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3 items-start pb-4">
           {CANVAS_COLUMNS.map((col) => {
@@ -534,82 +531,6 @@ export const PipelineOverviewCanvas: React.FC<PipelineOverviewCanvasProps> = ({ 
               </div>
             );
           })}
-        </div>
-      ) : filteredItems.length === 0 ? (
-        <div className="p-10 text-center bg-bg-surface border border-border rounded-2xl space-y-3">
-          <PieChart className="h-9 w-9 mx-auto text-text-secondary/50" />
-          <h3 className="text-sm font-bold text-text-primary">No Matching Pipeline Opportunities</h3>
-          <p className="text-xs text-text-secondary max-w-md mx-auto">
-            Promote qualified SQLs into the Opportunity column in Lead Canvas or clear your active search filters.
-          </p>
-          <Link
-            to="/product/revos/leads"
-            className="inline-flex items-center gap-2 px-4 py-2 bg-accent text-black rounded-xl text-xs font-bold hover:bg-accent-hover transition-colors"
-          >
-            <span>Go to Lead Canvas</span>
-            <ArrowRight className="h-3.5 w-3.5" />
-          </Link>
-        </div>
-      ) : (
-        <div className="bg-bg-surface border border-border rounded-2xl overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs border-collapse">
-              <thead>
-                <tr className="border-b border-border/70 text-text-secondary font-mono bg-bg-primary/60">
-                  <th className="py-3 px-4">Opportunity / Customer</th>
-                  <th className="py-3 px-4">Opportunity Stage</th>
-                  <th className="py-3 px-4">Pipeline Stage</th>
-                  <th className="py-3 px-4 text-right">Estimate Value</th>
-                  <th className="py-3 px-4 text-right">Base Win</th>
-                  <th className="py-3 px-4 text-right">Risk-Adj</th>
-                  <th className="py-3 px-4">Health</th>
-                  <th className="py-3 px-4 text-right">Action</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border/50">
-                {filteredItems.map((item) => {
-                  const assess = item.pipeline_opp?.latest_assessment;
-                  const targetUrl = `/product/revos/pipeline?opportunityId=${encodeURIComponent(
-                    item.id
-                  )}${item.lead_id ? `&leadId=${encodeURIComponent(item.lead_id)}` : ''}&source=pipeline_directory`;
-
-                  return (
-                    <tr key={item.id} className="hover:bg-bg-primary/40 transition-colors">
-                      <td className="py-3.5 px-4">
-                        <div className="font-bold text-text-primary">{item.opportunity_name}</div>
-                        <div className="text-[11px] text-text-secondary">{item.company_name}</div>
-                      </td>
-                      <td className="py-3.5 px-4 text-text-secondary">{item.opportunity_stage}</td>
-                      <td className="py-3.5 px-4 font-mono text-text-primary">{item.pipeline_stage}</td>
-                      <td className="py-3.5 px-4 text-right font-mono tabular-nums text-text-primary font-semibold">
-                        {item.estimated_value > 0
-                          ? `$${item.estimated_value.toLocaleString('en-US')}`
-                          : '—'}
-                      </td>
-                      <td className="py-3.5 px-4 text-right font-mono tabular-nums text-text-secondary">
-                        {assess ? `${assess.base_winability}%` : '--'}
-                      </td>
-                      <td className="py-3.5 px-4 text-right font-mono tabular-nums font-bold text-accent">
-                        {assess ? `${assess.risk_adjusted_winability}%` : '--'}
-                      </td>
-                      <td className={`py-3.5 px-4 font-mono font-bold ${healthTextClass(assess?.pipeline_health)}`}>
-                        {assess?.pipeline_health || 'UNASSESSED'}
-                      </td>
-                      <td className="py-3.5 px-4 text-right">
-                        <Link
-                          to={targetUrl}
-                          className="inline-flex items-center gap-1 px-3 py-1.5 bg-accent hover:bg-accent-hover text-black font-bold text-[11px] rounded-xl transition-colors whitespace-nowrap"
-                        >
-                          <span>{assess ? 'Workspace' : 'Assess'}</span>
-                          <ArrowRight className="h-3 w-3" />
-                        </Link>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
         </div>
       )}
     </div>
