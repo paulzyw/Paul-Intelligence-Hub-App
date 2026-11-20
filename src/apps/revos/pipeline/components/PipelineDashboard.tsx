@@ -5,6 +5,9 @@ import {
   ResponsiveContainer,
   BarChart,
   Bar,
+  PieChart,
+  Pie,
+  Cell,
   ScatterChart,
   Scatter,
   XAxis,
@@ -53,6 +56,19 @@ import {
   resolveCanvasColumn,
   isPipelineItemClosed
 } from '../services/pipelinePortfolioLoader';
+import {
+  PriorityInterventionsSection,
+  DashboardRiskRow,
+  DashboardActionRow
+} from './PriorityInterventionsSection';
+import { RevenueIntelligenceInsightsSection } from './RevenueIntelligenceInsightsSection';
+import {
+  PipelineWinabilityEvolutionSection,
+  DashboardAssessmentRecord,
+  OpportunityCreatedRecord
+} from './PipelineWinabilityEvolutionSection';
+import { PipelineRiskIntelligenceSection } from './PipelineRiskIntelligenceSection';
+import { PipelineAssessmentSnapshot } from '../../types/pipeline';
 
 type StageKey =
   | 'Initial Pipeline'
@@ -120,6 +136,53 @@ const StageTooltip: React.FC<{
       </div>
       <div className="font-mono text-text-secondary">
         Risk-Adj Forecast: <strong className="text-emerald-400">${Math.round(row.weightedValue).toLocaleString('en-US')}</strong>
+      </div>
+    </div>
+  );
+};
+
+const BUSINESS_SEGMENT_COLORS = [
+  '#38bdf8', // sky-400 (matches Stage Valuation Gross Value)
+  '#10b981', // emerald-500 (matches Stage Valuation Risk-Adj Forecast)
+  '#f59e0b', // amber-500
+  '#6366f1', // indigo-500
+  '#14b8a6', // teal-500
+  '#ec4899', // pink-500
+  '#8b5cf6', // violet-500
+  '#f97316'  // orange-500
+];
+
+const BusinessSegmentTooltip: React.FC<{
+  active?: boolean;
+  payload?: Array<{
+    payload: {
+      name: string;
+      count: number;
+      value: number;
+      pctLabel: string;
+      color: string;
+    };
+  }>;
+}> = ({ active, payload }) => {
+  if (!active || !payload || payload.length === 0) return null;
+  const row = payload[0].payload;
+  return (
+    <div className="rounded-xl border border-border bg-bg-surface px-3.5 py-2.5 shadow-lg text-xs space-y-1">
+      <div className="font-bold text-text-primary flex items-center gap-1.5">
+        <span
+          className="h-2.5 w-2.5 rounded-sm shrink-0"
+          style={{ backgroundColor: row.color }}
+        />
+        <span>{row.name}</span>
+      </div>
+      <div className="font-mono text-text-secondary tabular-nums">
+        Deals: <strong className="text-text-primary">{row.count}</strong>
+      </div>
+      <div className="font-mono text-text-secondary tabular-nums">
+        Estimated Revenue: <strong className="text-accent">${row.value.toLocaleString('en-US')}</strong>
+      </div>
+      <div className="font-mono text-text-secondary tabular-nums">
+        Share of Total: <strong className="text-emerald-400">{row.pctLabel}%</strong>
       </div>
     </div>
   );
@@ -695,16 +758,16 @@ const DEFAULT_GLOBAL_FILTERS: GlobalFilterState = {
 
 export const PipelineDashboard: React.FC = () => {
   const navigate = useNavigate();
-  const { profile, hasRole } = useAuth();
+  const { user, profile, hasRole } = useAuth();
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [items, setItems] = useState<PipelineCardItem[]>([]);
-  const [riskRows, setRiskRows] = useState<
-    Array<{ risk_instance_id: string; pipeline_id: string; assessment_id: string; severity: string; risk_status: string }>
-  >([]);
-  const [actionRows, setActionRows] = useState<
-    Array<{ action_id: string; pipeline_id: string; action_status: string }>
-  >([]);
+  const [riskRows, setRiskRows] = useState<DashboardRiskRow[]>([]);
+  const [actionRows, setActionRows] = useState<DashboardActionRow[]>([]);
+  const [historicalAssessments, setHistoricalAssessments] = useState<DashboardAssessmentRecord[]>([]);
+  const [historicalSnapshots, setHistoricalSnapshots] = useState<PipelineAssessmentSnapshot[]>([]);
+  const [opportunityCreatedDates, setOpportunityCreatedDates] = useState<OpportunityCreatedRecord[]>([]);
+  const [historyError, setHistoryError] = useState<string | null>(null);
   const [scopeFilter, setScopeFilter] = useState<'ALL' | 'ACTIVE' | 'CLOSED'>('ALL');
   const [isFilterBarExpanded, setIsFilterBarExpanded] = useState(false);
   const [globalFilters, setGlobalFilters] = useState<GlobalFilterState>(DEFAULT_GLOBAL_FILTERS);
@@ -754,20 +817,60 @@ export const PipelineDashboard: React.FC = () => {
     } else {
       setRefreshing(true);
     }
+    setHistoryError(null);
     try {
-      const [mergedItems, risksRes, actionsRes] = await Promise.all([
+      const [
+        mergedItems,
+        risksRes,
+        actionsRes,
+        assessmentsRes,
+        snapshotsRes,
+        oppDatesRes
+      ] = await Promise.all([
         loadCanonicalPipelinePortfolio(),
         supabase
           .from('pipeline_risks')
-          .select('risk_instance_id, pipeline_id, assessment_id, severity, risk_status'),
-        supabase.from('pipeline_actions').select('action_id, pipeline_id, action_status')
+          .select(
+            'risk_instance_id, pipeline_id, assessment_id, risk_id, severity, likelihood, impact, risk_status, risk_category, risk_description, mitigation_strategy, triggering_evidence, owner'
+          ),
+        supabase
+          .from('pipeline_actions')
+          .select(
+            'action_id, pipeline_id, action_status, action_description, strategic_objective, action_owner, priority, target_date'
+          ),
+        supabase
+          .from('pipeline_assessments')
+          .select(
+            'assessment_id, pipeline_id, assessment_sequence, assessment_status, trigger_type, base_winability, risk_adjusted_winability, pipeline_health, assessment_confidence, configuration_version, evidence_kb_version, rules_version, completed_at, created_at, updated_at'
+          )
+          .order('completed_at', { ascending: true }),
+        supabase
+          .from('pipeline_assessment_snapshots')
+          .select(
+            'snapshot_id, assessment_id, pipeline_id, snapshot_sequence, snapshot_timestamp, full_snapshot_payload, created_at'
+          )
+          .order('snapshot_timestamp', { ascending: true }),
+        supabase.from('opportunities').select('id, created_at')
       ]);
 
       setItems(mergedItems);
       setRiskRows((risksRes.data || []) as any[]);
       setActionRows((actionsRes.data || []) as any[]);
-    } catch (err) {
+
+      if (assessmentsRes.error || snapshotsRes.error) {
+        setHistoryError(
+          assessmentsRes.error?.message ||
+            snapshotsRes.error?.message ||
+            'Failed to retrieve historical assessment ledger.'
+        );
+      } else {
+        setHistoricalAssessments((assessmentsRes.data || []) as DashboardAssessmentRecord[]);
+        setHistoricalSnapshots((snapshotsRes.data || []) as PipelineAssessmentSnapshot[]);
+      }
+      setOpportunityCreatedDates((oppDatesRes.data || []) as OpportunityCreatedRecord[]);
+    } catch (err: any) {
       console.error('Error loading Pipeline Dashboard:', err);
+      setHistoryError(err?.message || 'Unexpected error loading historical winability records.');
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -1253,30 +1356,53 @@ export const PipelineDashboard: React.FC = () => {
     return buckets;
   }, [scopedItems]);
 
-  const motionBreakdown = useMemo(() => {
+  const {
+    segments: businessSegmentBreakdown,
+    chartSegments: businessSegmentChartData,
+    totalValue: totalBusinessSegmentValue
+  } = useMemo(() => {
     const map = new Map<string, { name: string; count: number; value: number }>();
     scopedItems.forEach((item) => {
-      const key = item.revenue_motion || 'Digital Solution Selling';
+      const key =
+        (item.business_segment || item.industry || 'Enterprise Cloud Software').trim() ||
+        'Enterprise Cloud Software';
       const existing = map.get(key) || { name: key, count: 0, value: 0 };
       existing.count += 1;
-      existing.value += item.estimated_value || 0;
+      existing.value += Math.max(0, Number(item.estimated_value || 0));
       map.set(key, existing);
     });
-    const list = Array.from(map.values()).sort((a, b) => b.value - a.value);
-    const maxVal = list.reduce((m, r) => Math.max(m, r.value), 0) || 1;
-    return list.map((r) => ({ ...r, pct: Math.round((r.value / maxVal) * 100) }));
-  }, [scopedItems]);
 
-  const priorityOpportunities = useMemo(() => {
-    return [...scopedItems]
-      .sort((a, b) => {
-        const valDiff = (b.estimated_value || 0) - (a.estimated_value || 0);
-        if (valDiff !== 0) return valDiff;
-        const winA = a.pipeline_opp?.latest_assessment?.risk_adjusted_winability ?? 0;
-        const winB = b.pipeline_opp?.latest_assessment?.risk_adjusted_winability ?? 0;
-        return winB - winA;
-      })
-      .slice(0, 6);
+    const sorted = Array.from(map.values()).sort((a, b) => {
+      if (b.value !== a.value) return b.value - a.value;
+      if (b.count !== a.count) return b.count - a.count;
+      return a.name.localeCompare(b.name);
+    });
+
+    const totalVal = sorted.reduce((sum, r) => sum + r.value, 0);
+    const totalCount = sorted.reduce((sum, r) => sum + r.count, 0);
+
+    const enriched = sorted.map((r, idx) => {
+      const pct =
+        totalVal > 0
+          ? (r.value / totalVal) * 100
+          : totalCount > 0
+            ? (r.count / totalCount) * 100
+            : 0;
+      const pctRounded = Math.round(pct * 10) / 10;
+      return {
+        ...r,
+        color: BUSINESS_SEGMENT_COLORS[idx % BUSINESS_SEGMENT_COLORS.length],
+        pct: pctRounded,
+        pctLabel: pctRounded.toFixed(1).replace(/\.0$/, ''),
+        chartValue: totalVal > 0 ? r.value : r.count
+      };
+    });
+
+    return {
+      segments: enriched,
+      chartSegments: enriched.filter((s) => s.chartValue > 0),
+      totalValue: totalVal
+    };
   }, [scopedItems]);
 
   const winabilityMatrixData = useMemo(() => {
@@ -2512,105 +2638,136 @@ export const PipelineDashboard: React.FC = () => {
             actionRows={actionRows}
           />
 
-          {/* Bottom Row: Revenue Motion Exposure & Top Priority Opportunities */}
+          {/* Pipeline Winability Evolution (100% Full Width) */}
+          <PipelineWinabilityEvolutionSection
+            filteredItems={globallyFilteredItems}
+            assessments={historicalAssessments}
+            snapshots={historicalSnapshots}
+            opportunityDates={opportunityCreatedDates}
+            loading={loading}
+            error={historyError}
+            onRetry={loadDashboardData}
+          />
+
+          {/* Bottom Row: Business Segment Exposure & Pipeline Risk Intelligence */}
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-            {/* Revenue Motion Valuation Exposure */}
+            {/* Business Segment Exposure (Doughnut Chart) */}
             <div className="lg:col-span-5 p-5 rounded-2xl border border-border bg-bg-surface shadow-sm flex flex-col justify-between">
-              <div className="border-b border-border/70 pb-3 mb-4">
-                <h3 className="text-xs font-black text-text-primary uppercase tracking-wider flex items-center gap-1.5">
-                  <Briefcase className="h-3.5 w-3.5 text-accent" />
-                  Revenue Motion Exposure
-                </h3>
-                <p className="text-[10px] text-text-secondary mt-0.5">
-                  Pipeline concentration by commercial selling motion
-                </p>
+              <div className="border-b border-border/70 pb-3 mb-4 flex items-center justify-between gap-2">
+                <div>
+                  <h3 className="text-xs font-black text-text-primary uppercase tracking-wider flex items-center gap-1.5">
+                    <PieChartIcon className="h-3.5 w-3.5 text-accent" />
+                    Business Segment Exposure
+                  </h3>
+                  <p className="text-[10px] text-text-secondary mt-0.5">
+                    Pipeline concentration by customer business segment
+                  </p>
+                </div>
+                <span className="text-[10px] font-mono text-text-secondary shrink-0 tabular-nums">
+                  {scopedItems.length} deal{scopedItems.length === 1 ? '' : 's'}
+                </span>
               </div>
 
-              <div className="space-y-3.5 flex-1">
-                {motionBreakdown.map((m) => (
-                  <div key={m.name} className="space-y-1.5">
-                    <div className="flex items-center justify-between gap-2 text-xs">
-                      <span className="font-semibold text-text-primary truncate">{m.name}</span>
-                      <span className="font-mono text-[11px] text-text-secondary shrink-0 tabular-nums">
-                        {m.count} deal{m.count === 1 ? '' : 's'} ·{' '}
-                        <strong className="text-text-primary">{formatCompactCurrency(m.value)}</strong>
-                      </span>
+              {businessSegmentChartData.length === 0 ? (
+                <div className="h-[200px] flex flex-col items-center justify-center text-center space-y-1.5">
+                  <PieChartIcon className="h-6 w-6 text-text-secondary/50" />
+                  <div className="text-xs font-bold text-text-primary">No Business Segment Data</div>
+                  <p className="text-[11px] text-text-secondary">
+                    No customer business segments or revenue figures available in current scope.
+                  </p>
+                </div>
+              ) : (
+                <div className="relative h-[200px] w-full">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Tooltip content={<BusinessSegmentTooltip />} />
+                      <Pie
+                        data={businessSegmentChartData}
+                        dataKey="chartValue"
+                        nameKey="name"
+                        cx="50%"
+                        cy="50%"
+                        innerRadius={52}
+                        outerRadius={82}
+                        paddingAngle={2}
+                        stroke="var(--bg-surface)"
+                        strokeWidth={2}
+                        isAnimationActive={false}
+                      >
+                        {businessSegmentChartData.map((entry) => (
+                          <Cell key={entry.name} fill={entry.color} />
+                        ))}
+                      </Pie>
+                    </PieChart>
+                  </ResponsiveContainer>
+                  <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center text-center">
+                    <div className="text-base font-black font-mono tabular-nums text-text-primary leading-none">
+                      {formatCompactCurrency(totalBusinessSegmentValue)}
                     </div>
-                    <div className="h-2 w-full bg-bg-primary rounded-full overflow-hidden">
-                      <div
-                        className="h-full bg-accent rounded-full transition-all duration-500"
-                        style={{ width: `${Math.max(4, m.pct)}%` }}
+                    <div className="text-[10px] font-mono text-text-secondary mt-1">
+                      {businessSegmentBreakdown.length} segment
+                      {businessSegmentBreakdown.length === 1 ? '' : 's'}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              <div className="pt-3 mt-3 border-t border-border/50 max-h-[104px] overflow-y-auto custom-scrollbar-vertical pr-1 space-y-1.5 text-[11px] font-mono">
+                {businessSegmentBreakdown.map((seg) => (
+                  <div
+                    key={seg.name}
+                    className="flex items-center justify-between gap-2 text-text-secondary"
+                  >
+                    <span className="inline-flex items-center gap-1.5 min-w-0">
+                      <span
+                        className="h-2.5 w-2.5 rounded-sm shrink-0"
+                        style={{ backgroundColor: seg.color }}
                       />
-                    </div>
+                      <span className="text-text-primary font-sans font-semibold truncate">
+                        {seg.name}
+                      </span>
+                    </span>
+                    <span className="shrink-0 tabular-nums">
+                      {seg.count} deal{seg.count === 1 ? '' : 's'} ·{' '}
+                      <strong className="text-text-primary">
+                        {formatCompactCurrency(seg.value)}
+                      </strong>{' '}
+                      ({seg.pctLabel}%)
+                    </span>
                   </div>
                 ))}
               </div>
             </div>
 
-            {/* Priority Opportunities Leaderboard */}
-            <div className="lg:col-span-7 p-5 rounded-2xl border border-border bg-bg-surface shadow-sm flex flex-col">
-              <div className="border-b border-border/70 pb-3 mb-4 flex items-center justify-between gap-2">
-                <div>
-                  <h3 className="text-xs font-black text-text-primary uppercase tracking-wider flex items-center gap-1.5">
-                    <Award className="h-3.5 w-3.5 text-accent" />
-                    Top Pipeline Opportunities
-                  </h3>
-                  <p className="text-[10px] text-text-secondary mt-0.5">
-                    Highest-value opportunities in scope — select to open assessment workspace
-                  </p>
-                </div>
-              </div>
-
-              <div className="space-y-2.5 overflow-y-auto max-h-[300px] pr-1">
-                {priorityOpportunities.map((item, idx) => {
-                  const assess = item.pipeline_opp?.latest_assessment;
-                  const stage = item.pipeline_stage || resolveStage(item);
-                  const targetUrl = `/product/revos/pipeline?opportunityId=${encodeURIComponent(
-                    item.id
-                  )}${item.lead_id ? `&leadId=${encodeURIComponent(item.lead_id)}` : ''}&source=pipeline_dashboard`;
-
-                  return (
-                    <Link
-                      key={item.id}
-                      to={targetUrl}
-                      className="p-3 rounded-xl border border-border bg-bg-primary/40 hover:bg-bg-primary/80 hover:border-accent/50 transition-all flex items-center justify-between gap-3 text-xs group"
-                    >
-                      <div className="flex items-center gap-3 min-w-0">
-                        <span className="flex items-center justify-center w-6 h-6 rounded-lg bg-accent/10 border border-accent/20 text-accent font-mono text-[10px] font-black shrink-0">
-                          #{idx + 1}
-                        </span>
-                        <div className="min-w-0">
-                          <div className="font-bold text-text-primary group-hover:text-accent transition-colors truncate">
-                            {item.opportunity_name}
-                          </div>
-                          <div className="text-[10px] text-text-secondary truncate font-mono">
-                            {item.company_name} · {stage} ·{' '}
-                            <strong className="text-text-primary">
-                              {item.estimated_value > 0
-                                ? `$${item.estimated_value.toLocaleString('en-US')}`
-                                : '—'}
-                            </strong>
-                          </div>
-                        </div>
-                      </div>
-
-                      <div className="flex items-center gap-3 shrink-0">
-                        <div className="text-right font-mono">
-                          <div className="text-xs font-black text-accent">
-                            {assess ? `${assess.risk_adjusted_winability}%` : '--'}
-                          </div>
-                          <div className="text-[9px] text-text-secondary uppercase">
-                            {assess?.pipeline_health || 'Unassessed'}
-                          </div>
-                        </div>
-                        <ArrowRight className="h-3.5 w-3.5 text-text-secondary group-hover:text-accent transition-colors" />
-                      </div>
-                    </Link>
-                  );
-                })}
-              </div>
-            </div>
+            {/* Pipeline Risk Intelligence (replaces Top Pipeline Opportunities) */}
+            <PipelineRiskIntelligenceSection
+              scopedItems={scopedItems}
+              riskRows={riskRows}
+              loading={loading}
+            />
           </div>
+
+          {/* Priority Opportunities & Strategic Interventions */}
+          <PriorityInterventionsSection
+            scopedItems={scopedItems}
+            riskRows={riskRows}
+            actionRows={actionRows}
+          />
+
+          {/* Revenue Intelligence Insights */}
+          <RevenueIntelligenceInsightsSection
+            userId={profile?.id || user?.id || 'workspace_default'}
+            scopedItems={scopedItems}
+            riskRows={riskRows}
+            actionRows={actionRows}
+            historicalAssessments={historicalAssessments}
+            historicalSnapshots={historicalSnapshots}
+            filters={{
+              scopeFilter,
+              ...globalFilters
+            }}
+            dashboardLoading={loading}
+          />
         </>
       )}
       {/* Hover Tooltips for Risk-Adj Forecast & Avg Risk-Adj Winability */}
