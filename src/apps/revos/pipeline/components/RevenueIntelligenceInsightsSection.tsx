@@ -980,10 +980,6 @@ export const RevenueIntelligenceInsightsSection: React.FC<
                   report.overall_analysis_limitations.length}
                 )
               </span>
-              <span className="text-[10px] font-normal">
-                Prompt v{String(report.analysis_context.source_versions?.prompt_version || '1.0')} ·{' '}
-                {modelIdentifier}
-              </span>
             </button>
 
             {showLimitations && (

@@ -1,7 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import { Link } from 'react-router-dom';
 import { MQLLead, MQLCampaign } from '../../types/mql';
-import { Search, Edit, LayoutGrid, ChevronRight, ChevronLeft, CheckCircle2, AlertTriangle, AlertCircle, Table, ArrowUpRight } from 'lucide-react';
+import { Search, Edit, LayoutGrid, ChevronRight, ChevronLeft, CheckCircle2, AlertTriangle, AlertCircle, Table, ArrowUpRight, X } from 'lucide-react';
 import { MqlToSqlTable } from './MqlToSqlTable';
 import { SqlToOpportunityTable } from './SqlToOpportunityTable';
 import { PromotionDataService } from '../services/promotionDataService';
@@ -47,6 +48,12 @@ export const LeadCanvas: React.FC<LeadCanvasProps> = ({ leads, campaigns, onLead
   const [oppRevenueMap, setOppRevenueMap] = useState<Record<string, number>>(() => OpportunityDataService.getCachedOpportunityEstimatedRevenuesMap());
   const [oppNameMap, setOppNameMap] = useState<Record<string, string>>(() => OpportunityDataService.getCachedOpportunityNamesMap());
   const [oppIdByLeadMap, setOppIdByLeadMap] = useState<Record<string, string>>({});
+  const [oppRecordsById, setOppRecordsById] = useState<Record<string, any>>({});
+  const [oppFormByOppId, setOppFormByOppId] = useState<Record<string, any>>({});
+  const [oppHandoverByOppId, setOppHandoverByOppId] = useState<Record<string, any>>({});
+  const [oppSessionByOppId, setOppSessionByOppId] = useState<Record<string, any>>({});
+  const [oppResultByOppId, setOppResultByOppId] = useState<Record<string, any>>({});
+  const [selectedOppLeadId, setSelectedOppLeadId] = useState<string | null>(null);
 
   useEffect(() => {
     PromotionDataService.getPromotedLeadIds().then(ids => {
@@ -75,17 +82,58 @@ export const LeadCanvas: React.FC<LeadCanvasProps> = ({ leads, campaigns, onLead
       });
 
       Promise.all([
-        supabase.from('opportunities').select('id, mql_reference_id'),
-        supabase.from('sql_opportunity_promotions').select('lead_id, opportunity_id')
-      ]).then(([oppsRes, promosRes]) => {
-        const nextMap: Record<string, string> = {};
+        supabase.from('opportunities').select('*'),
+        supabase.from('sql_opportunity_promotions').select('lead_id, opportunity_id'),
+        supabase.from('opportunity_form_records').select('*'),
+        supabase.from('opportunity_sql_handover_details').select('*'),
+        supabase.from('opportunity_qualification_sessions').select('*'),
+        supabase.from('opportunity_qualification_results').select('*').order('created_at', { ascending: false })
+      ]).then(([oppsRes, promosRes, formsRes, handoversRes, sessionsRes, resultsRes]) => {
+        const nextIdMap: Record<string, string> = {};
+        const nextOpps: Record<string, any> = {};
         (promosRes.data || []).forEach((p: any) => {
-          if (p.lead_id && p.opportunity_id) nextMap[p.lead_id] = p.opportunity_id;
+          if (p.lead_id && p.opportunity_id) nextIdMap[p.lead_id] = p.opportunity_id;
         });
         (oppsRes.data || []).forEach((o: any) => {
-          if (o.mql_reference_id && o.id) nextMap[o.mql_reference_id] = o.id;
+          if (o.id) nextOpps[o.id] = o;
+          if (o.mql_reference_id && o.id) nextIdMap[o.mql_reference_id] = o.id;
         });
-        setOppIdByLeadMap(nextMap);
+        setOppIdByLeadMap(nextIdMap);
+        setOppRecordsById(nextOpps);
+
+        const nextForms: Record<string, any> = {};
+        (formsRes.data || []).forEach((f: any) => {
+          if (f.opportunity_id) nextForms[f.opportunity_id] = f;
+        });
+        setOppFormByOppId(nextForms);
+
+        const nextHandovers: Record<string, any> = {};
+        (handoversRes.data || []).forEach((h: any) => {
+          if (h.opportunity_id) nextHandovers[h.opportunity_id] = h;
+        });
+        setOppHandoverByOppId(nextHandovers);
+
+        const nextSessions: Record<string, any> = {};
+        (sessionsRes.data || []).forEach((s: any) => {
+          if (!s.opportunity_id) return;
+          const prev = nextSessions[s.opportunity_id];
+          if (!prev) {
+            nextSessions[s.opportunity_id] = s;
+          } else {
+            const prevTime = new Date(prev.updated_at || prev.created_at || 0).getTime();
+            const curTime = new Date(s.updated_at || s.created_at || 0).getTime();
+            if (curTime > prevTime) nextSessions[s.opportunity_id] = s;
+          }
+        });
+        setOppSessionByOppId(nextSessions);
+
+        const nextResults: Record<string, any> = {};
+        (resultsRes.data || []).forEach((r: any) => {
+          if (r.opportunity_id && !nextResults[r.opportunity_id]) {
+            nextResults[r.opportunity_id] = r;
+          }
+        });
+        setOppResultByOppId(nextResults);
       }).catch(() => {});
     };
 
@@ -97,16 +145,27 @@ export const LeadCanvas: React.FC<LeadCanvasProps> = ({ leads, campaigns, onLead
 
     if (typeof window !== 'undefined') {
       window.addEventListener('opportunity_form_updated', handleFormUpdate);
+      window.addEventListener('opportunity_qualification_updated', handleFormUpdate);
       window.addEventListener('storage', handleFormUpdate);
     }
 
     return () => {
       if (typeof window !== 'undefined') {
         window.removeEventListener('opportunity_form_updated', handleFormUpdate);
+        window.removeEventListener('opportunity_qualification_updated', handleFormUpdate);
         window.removeEventListener('storage', handleFormUpdate);
       }
     };
   }, []);
+
+  useEffect(() => {
+    if (!selectedOppLeadId) return;
+    const handleEsc = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setSelectedOppLeadId(null);
+    };
+    window.addEventListener('keydown', handleEsc);
+    return () => window.removeEventListener('keydown', handleEsc);
+  }, [selectedOppLeadId]);
 
   const allLeads = filteredLeads;
   const mqlLeads = filteredLeads.filter(l => l.handover_status === 'Handover to Sales');
@@ -359,6 +418,8 @@ export const LeadCanvas: React.FC<LeadCanvasProps> = ({ leads, campaigns, onLead
       </span>
     );
 
+    const assessPipelineUrl = getAssessPipelineUrl(lead);
+
     return (
       <div className="flex flex-col items-end gap-1.5 mt-2">
         {type === 'lead' && (
@@ -388,11 +449,24 @@ export const LeadCanvas: React.FC<LeadCanvasProps> = ({ leads, campaigns, onLead
         )}
         {type === 'opp' && (
           <>
+            <Link
+              to={assessPipelineUrl}
+              onClick={(e) => e.stopPropagation()}
+              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-accent/15 hover:bg-accent text-accent hover:text-black border border-accent/30 text-[9px] font-bold whitespace-nowrap shrink-0 transition-colors"
+              title="Open Pipeline Assessment Bridge"
+            >
+              <span>Assess Pipeline</span>
+              <ArrowUpRight className="w-2.5 h-2.5" />
+            </Link>
             {oppTag}
           </>
         )}
       </div>
     );
+  };
+
+  const getAssessPipelineUrl = (lead: MQLLead): string => {
+    return `/product/revos/pipeline?opportunityId=${encodeURIComponent(oppIdByLeadMap[lead.id] || lead.id)}&leadId=${encodeURIComponent(lead.id)}&source=lead_canvas_opp`;
   };
 
   const getOpportunityName = (lead: MQLLead): string => {
@@ -418,11 +492,195 @@ export const LeadCanvas: React.FC<LeadCanvasProps> = ({ leads, campaigns, onLead
     return `${lead.company_name || 'Enterprise'} Opportunity`;
   };
 
+  const resolveOpportunityTooltipDetails = (lead: MQLLead) => {
+    const currentLead = getIsolatedLead(lead, 'opp');
+    const resolvedOppId = oppIdByLeadMap[lead.id];
+    const opp =
+      (resolvedOppId ? oppRecordsById[resolvedOppId] : undefined) ||
+      Object.values(oppRecordsById).find(
+        (o: any) =>
+          o.mql_reference_id === lead.id ||
+          (o.company_name &&
+            lead.company_name &&
+            o.company_name.toLowerCase().trim() === lead.company_name.toLowerCase().trim())
+      );
+    const effectiveOppId = opp?.id || resolvedOppId;
+    const formRecord = effectiveOppId ? oppFormByOppId[effectiveOppId] : undefined;
+    const handover = effectiveOppId ? oppHandoverByOppId[effectiveOppId] : undefined;
+    const session = effectiveOppId ? oppSessionByOppId[effectiveOppId] : undefined;
+    const oqResult = effectiveOppId ? oppResultByOppId[effectiveOppId] : undefined;
+
+    let parsedDesc: any = {};
+    if (opp?.description && typeof opp.description === 'string' && opp.description.trim().startsWith('{')) {
+      try {
+        parsedDesc = JSON.parse(opp.description);
+      } catch {}
+    }
+
+    const companyName =
+      formRecord?.company_name || opp?.company_name || currentLead.company_name || '—';
+    const opportunityName =
+      formRecord?.opportunity_name ||
+      opp?.opportunity_name ||
+      getOpportunityName(currentLead);
+
+    let extraBusinessSegment = '';
+    if (typeof window !== 'undefined') {
+      const extraJson = localStorage.getItem(`mql_lead_extra_${lead.id}`);
+      if (extraJson) {
+        try {
+          const parsedExtra = JSON.parse(extraJson);
+          extraBusinessSegment = parsedExtra.business_segment || parsedExtra.lead_industry || '';
+        } catch {}
+      }
+    }
+
+    const businessSegment =
+      handover?.sql_qip_package?.company_context?.business_segment ||
+      handover?.company_context?.business_segment ||
+      handover?.editable_fields?.business_segment ||
+      formRecord?.business_segment ||
+      extraBusinessSegment ||
+      currentLead.lead_industry ||
+      opp?.industry ||
+      '—';
+
+    const opportunityOwner =
+      formRecord?.opportunity_owner ||
+      handover?.editable_fields?.opportunity_owner ||
+      parsedDesc.opportunity_owner ||
+      opp?.opportunity_owner ||
+      'Senior Enterprise AE';
+
+    const revenueMotion =
+      formRecord?.revenue_motion ||
+      handover?.editable_fields?.revenue_motion ||
+      handover?.sql_qip_package?.revenue_motion_context?.revenue_motion ||
+      session?.revenue_motion ||
+      opp?.revenue_motion ||
+      parsedDesc.revenue_motion ||
+      'Digital Solution Selling';
+
+    const industryConfiguration =
+      formRecord?.industry ||
+      handover?.editable_fields?.industry ||
+      handover?.sql_qip_package?.company_context?.industry ||
+      session?.industry ||
+      opp?.industry ||
+      parsedDesc.industry ||
+      currentLead.lead_industry ||
+      'Enterprise Software';
+
+    const pipelineStage =
+      formRecord?.pipeline_stage ||
+      handover?.editable_fields?.pipeline_stage ||
+      parsedDesc.pipeline_stage ||
+      'Qualification';
+
+    const opportunityStage =
+      formRecord?.opportunity_stage ||
+      handover?.editable_fields?.opportunity_stage ||
+      parsedDesc.opportunity_stage ||
+      'Emerging Opportunity';
+
+    const rawEstRev =
+      formRecord?.estimated_revenue ||
+      handover?.editable_fields?.estimated_revenue ||
+      parsedDesc.estimated_revenue;
+    const revNum = getOpportunityEstimatedRevenue(currentLead);
+    let estimatedRevenueValue = '—';
+    if (revNum > 0) {
+      estimatedRevenueValue = `$${revNum.toLocaleString('en-US')}`;
+    } else if (rawEstRev) {
+      estimatedRevenueValue = String(rawEstRev);
+    }
+
+    const expectedCloseDate =
+      formRecord?.expected_close_date ||
+      handover?.editable_fields?.expected_close_date ||
+      parsedDesc.expected_close_date ||
+      '—';
+
+    const rawScore =
+      oqResult?.overall_score ??
+      oqResult?.final_decision?.qualification_summary?.overall_score ??
+      (session?.qualification_status && session.qualification_status !== 'NOT_STARTED'
+        ? session.overall_score
+        : null);
+    const oqScore =
+      typeof rawScore === 'number' && rawScore > 0 ? Math.round(rawScore) : null;
+
+    const rawStatus =
+      oqResult?.qualification_status ||
+      oqResult?.final_decision?.qualification_summary?.qualification_status ||
+      (session?.qualification_status && session.qualification_status !== 'NOT_STARTED'
+        ? session.qualification_status
+        : null);
+    const oqStatus = rawStatus || 'Not Assessed';
+
+    return {
+      opportunityName,
+      companyName,
+      businessSegment,
+      opportunityOwner,
+      revenueMotion,
+      industryConfiguration,
+      pipelineStage,
+      opportunityStage,
+      estimatedRevenueValue,
+      expectedCloseDate,
+      oqScore,
+      oqStatus,
+      assessPipelineUrl: getAssessPipelineUrl(currentLead)
+    };
+  };
+
+  const selectedOppTooltip = useMemo(() => {
+    if (!selectedOppLeadId) return null;
+    const targetLead = leads.find((l) => l.id === selectedOppLeadId);
+    if (!targetLead) return null;
+    return resolveOpportunityTooltipDetails(targetLead);
+  }, [
+    selectedOppLeadId,
+    leads,
+    oppIdByLeadMap,
+    oppRecordsById,
+    oppFormByOppId,
+    oppHandoverByOppId,
+    oppSessionByOppId,
+    oppResultByOppId,
+    oppRevenueMap,
+    oppNameMap
+  ]);
+
+  const getOqStatusBadgeClass = (status: string) => {
+    const u = status.toUpperCase();
+    if (u.includes('DISQUALIFIED')) {
+      return 'bg-red-500/15 text-red-500 border-red-500/30';
+    }
+    if (u.includes('CONDITIONALLY') || u.includes('CONDITIONAL') || u.includes('ON_HOLD')) {
+      return 'bg-amber-500/15 text-amber-500 border-amber-500/30';
+    }
+    if (u.includes('INSUFFICIENT') || u.includes('EVIDENCE')) {
+      return 'bg-indigo-500/15 text-indigo-400 border-indigo-500/30';
+    }
+    if (u.includes('QUALIFIED')) {
+      return 'bg-emerald-500/15 text-emerald-500 border-emerald-500/30';
+    }
+    return 'bg-bg-primary text-text-secondary border-border';
+  };
+
   const LeadCard = ({ lead, type }: { lead: MQLLead, type: 'lead' | 'mql' | 'sql' | 'opp' }) => {
     const currentLead = getIsolatedLead(lead, type);
     return (
       <div 
-        onClick={() => onLeadSelect(currentLead, type)}
+        onClick={() => {
+          if (type === 'opp') {
+            setSelectedOppLeadId(currentLead.id);
+          } else {
+            onLeadSelect(currentLead, type);
+          }
+        }}
         className="bg-bg-surface border border-border rounded-xl p-3 cursor-pointer hover:border-accent/50 hover:shadow-md transition-all group flex flex-col gap-1.5"
       >
         <div className="flex justify-between items-start">
@@ -433,7 +691,7 @@ export const LeadCanvas: React.FC<LeadCanvasProps> = ({ leads, campaigns, onLead
         </div>
         
         <div className="mt-1">
-          {type === 'sql' ? (
+          {(type === 'sql' || type === 'opp') ? (
             <h4 className="text-sm font-bold text-text-primary font-sans leading-tight truncate" title={getOpportunityName(currentLead)}>
               {getOpportunityName(currentLead)}
             </h4>
@@ -478,23 +736,6 @@ export const LeadCanvas: React.FC<LeadCanvasProps> = ({ leads, campaigns, onLead
           </div>
           {getLeadTags(currentLead, type)}
         </div>
-
-        {type === 'opp' && (
-          <div className="pt-2 mt-1 border-t border-border/60 flex items-center justify-between gap-2">
-            <span className="text-[10px] font-medium text-text-secondary truncate">
-              {getOpportunityName(currentLead)}
-            </span>
-            <Link
-              to={`/product/revos/pipeline?opportunityId=${encodeURIComponent(oppIdByLeadMap[currentLead.id] || currentLead.id)}&leadId=${encodeURIComponent(currentLead.id)}&source=lead_canvas_opp`}
-              onClick={(e) => e.stopPropagation()}
-              className="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-accent/15 hover:bg-accent text-accent hover:text-black border border-accent/30 text-[10px] font-bold whitespace-nowrap shrink-0 transition-colors"
-              title="Open Pipeline Assessment Bridge"
-            >
-              <span>Assess Pipeline</span>
-              <ArrowUpRight className="w-3 h-3" />
-            </Link>
-          </div>
-        )}
       </div>
     );
   };
@@ -671,6 +912,197 @@ export const LeadCanvas: React.FC<LeadCanvasProps> = ({ leads, campaigns, onLead
 
         </div>
       </div>
+
+      {/* Centered Opportunity Card Tooltip (Matches Lead Dashboard Heatmap Modal Behavior) */}
+      {typeof document !== 'undefined' &&
+        selectedOppTooltip &&
+        createPortal(
+          <div
+            className="fixed inset-0 z-[99999] flex items-center justify-center p-4 bg-black/75 backdrop-blur-xs animate-in fade-in duration-200"
+            onClick={() => setSelectedOppLeadId(null)}
+          >
+            <div
+              role="dialog"
+              aria-modal="true"
+              aria-label={`Opportunity Details — ${selectedOppTooltip.opportunityName}`}
+              className="w-full max-w-2xl max-h-[85vh] bg-bg-surface border border-border rounded-2xl shadow-2xl relative flex flex-col my-auto overflow-hidden animate-in zoom-in-95 duration-200"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* Modal Header */}
+              <div className="p-5 border-b border-border bg-bg-primary/40 flex items-start justify-between gap-4 shrink-0">
+                <div className="min-w-0">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="px-2 py-0.5 rounded text-[9px] font-mono font-bold bg-[#00a3ff]/15 border border-[#00a3ff]/30 text-[#00a3ff] uppercase tracking-wider">
+                      Opportunity Record
+                    </span>
+                    <span
+                      className={`px-2 py-0.5 rounded text-[9.5px] font-mono font-bold border ${getOqStatusBadgeClass(
+                        selectedOppTooltip.oqStatus
+                      )}`}
+                    >
+                      {selectedOppTooltip.oqStatus}
+                    </span>
+                  </div>
+                  <h3 className="text-lg font-black text-text-primary tracking-tight mt-1.5">
+                    {selectedOppTooltip.opportunityName}
+                  </h3>
+                  <p className="text-xs text-text-secondary mt-0.5">
+                    {selectedOppTooltip.companyName}
+                  </p>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => setSelectedOppLeadId(null)}
+                  className="p-1.5 rounded-lg hover:bg-bg-primary text-text-secondary hover:text-text-primary transition-colors cursor-pointer shrink-0"
+                  title="Close"
+                  aria-label="Close Opportunity Tooltip"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              {/* Content-Fit Body */}
+              <div className="overflow-y-auto custom-scrollbar-vertical p-5 text-xs">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div className="p-3 rounded-xl bg-bg-primary/50 border border-border">
+                    <span className="text-[10px] font-mono uppercase tracking-wider text-text-secondary block">
+                      Opportunity name
+                    </span>
+                    <span className="text-xs font-bold text-text-primary mt-0.5 block">
+                      {selectedOppTooltip.opportunityName}
+                    </span>
+                  </div>
+
+                  <div className="p-3 rounded-xl bg-bg-primary/50 border border-border">
+                    <span className="text-[10px] font-mono uppercase tracking-wider text-text-secondary block">
+                      Company Name
+                    </span>
+                    <span className="text-xs font-bold text-text-primary mt-0.5 block">
+                      {selectedOppTooltip.companyName}
+                    </span>
+                  </div>
+
+                  <div className="p-3 rounded-xl bg-bg-primary/50 border border-border">
+                    <span className="text-[10px] font-mono uppercase tracking-wider text-text-secondary block">
+                      Business Segment
+                    </span>
+                    <span className="text-xs font-semibold text-text-primary mt-0.5 block">
+                      {selectedOppTooltip.businessSegment}
+                    </span>
+                  </div>
+
+                  <div className="p-3 rounded-xl bg-bg-primary/50 border border-border">
+                    <span className="text-[10px] font-mono uppercase tracking-wider text-text-secondary block">
+                      Opportunity Owner
+                    </span>
+                    <span className="text-xs font-semibold text-text-primary mt-0.5 block">
+                      {selectedOppTooltip.opportunityOwner}
+                    </span>
+                  </div>
+
+                  <div className="p-3 rounded-xl bg-bg-primary/50 border border-border">
+                    <span className="text-[10px] font-mono uppercase tracking-wider text-text-secondary block">
+                      Revenue Motion
+                    </span>
+                    <span className="text-xs font-semibold text-text-primary mt-0.5 block">
+                      {selectedOppTooltip.revenueMotion}
+                    </span>
+                  </div>
+
+                  <div className="p-3 rounded-xl bg-bg-primary/50 border border-border">
+                    <span className="text-[10px] font-mono uppercase tracking-wider text-text-secondary block">
+                      Industry Configuration
+                    </span>
+                    <span className="text-xs font-semibold text-text-primary mt-0.5 block">
+                      {selectedOppTooltip.industryConfiguration}
+                    </span>
+                  </div>
+
+                  <div className="p-3 rounded-xl bg-bg-primary/50 border border-border">
+                    <span className="text-[10px] font-mono uppercase tracking-wider text-text-secondary block">
+                      Pipeline Stage
+                    </span>
+                    <span className="text-xs font-semibold text-text-primary mt-0.5 block">
+                      {selectedOppTooltip.pipelineStage}
+                    </span>
+                  </div>
+
+                  <div className="p-3 rounded-xl bg-bg-primary/50 border border-border">
+                    <span className="text-[10px] font-mono uppercase tracking-wider text-text-secondary block">
+                      Opportunity Stage
+                    </span>
+                    <span className="text-xs font-semibold text-text-primary mt-0.5 block">
+                      {selectedOppTooltip.opportunityStage}
+                    </span>
+                  </div>
+
+                  <div className="p-3 rounded-xl bg-bg-primary/50 border border-border">
+                    <span className="text-[10px] font-mono uppercase tracking-wider text-text-secondary block">
+                      Estimated Revenue Value
+                    </span>
+                    <span className="text-sm font-black font-mono tabular-nums text-emerald-500 mt-0.5 block">
+                      {selectedOppTooltip.estimatedRevenueValue}
+                    </span>
+                  </div>
+
+                  <div className="p-3 rounded-xl bg-bg-primary/50 border border-border">
+                    <span className="text-[10px] font-mono uppercase tracking-wider text-text-secondary block">
+                      Expected Close Date
+                    </span>
+                    <span className="text-xs font-mono tabular-nums font-semibold text-text-primary mt-0.5 block">
+                      {selectedOppTooltip.expectedCloseDate}
+                    </span>
+                  </div>
+
+                  <div className="p-3 rounded-xl bg-bg-primary/50 border border-border">
+                    <span className="text-[10px] font-mono uppercase tracking-wider text-text-secondary block">
+                      OQ Score
+                    </span>
+                    <span className="text-sm font-black font-mono tabular-nums text-accent mt-0.5 block">
+                      {selectedOppTooltip.oqScore !== null
+                        ? `${selectedOppTooltip.oqScore} / 100`
+                        : 'Not Assessed'}
+                    </span>
+                  </div>
+
+                  <div className="p-3 rounded-xl bg-bg-primary/50 border border-border">
+                    <span className="text-[10px] font-mono uppercase tracking-wider text-text-secondary block">
+                      Opportunity Qualification Status
+                    </span>
+                    <span
+                      className={`inline-flex items-center mt-1 px-2 py-0.5 rounded text-[10px] font-mono font-bold border ${getOqStatusBadgeClass(
+                        selectedOppTooltip.oqStatus
+                      )}`}
+                    >
+                      {selectedOppTooltip.oqStatus}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Modal Footer */}
+              <div className="p-4 border-t border-border bg-bg-surface flex items-center justify-end gap-2.5 shrink-0">
+                <button
+                  type="button"
+                  onClick={() => setSelectedOppLeadId(null)}
+                  className="px-3.5 py-1.5 rounded-lg border border-border text-xs font-semibold text-text-secondary hover:text-text-primary hover:bg-bg-primary transition-colors cursor-pointer"
+                >
+                  Close
+                </button>
+                <Link
+                  to={selectedOppTooltip.assessPipelineUrl}
+                  onClick={() => setSelectedOppLeadId(null)}
+                  className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-accent text-white text-xs font-bold hover:bg-accent/90 transition-all cursor-pointer shadow-sm"
+                >
+                  <span>Assess Pipeline</span>
+                  <ArrowUpRight className="w-3.5 h-3.5" />
+                </Link>
+              </div>
+            </div>
+          </div>,
+          document.body
+        )}
     </div>
   );
 };

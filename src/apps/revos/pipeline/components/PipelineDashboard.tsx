@@ -53,6 +53,8 @@ import {
 import { PipelineConfigService } from '../services/PipelineConfigService';
 import {
   loadCanonicalPipelinePortfolio,
+  getCachedCanonicalPipelinePortfolio,
+  invalidatePipelinePortfolioCache,
   resolveCanvasColumn,
   isPipelineItemClosed
 } from '../services/pipelinePortfolioLoader';
@@ -68,6 +70,10 @@ import {
   OpportunityCreatedRecord
 } from './PipelineWinabilityEvolutionSection';
 import { PipelineRiskIntelligenceSection } from './PipelineRiskIntelligenceSection';
+import {
+  PipelineRevenueOutlookChart,
+  OutlookGranularity
+} from './PipelineRevenueOutlookChart';
 import { PipelineAssessmentSnapshot } from '../../types/pipeline';
 
 type StageKey =
@@ -167,7 +173,7 @@ const BusinessSegmentTooltip: React.FC<{
   if (!active || !payload || payload.length === 0) return null;
   const row = payload[0].payload;
   return (
-    <div className="rounded-xl border border-border bg-bg-surface px-3.5 py-2.5 shadow-lg text-xs space-y-1">
+    <div className="relative z-50 rounded-xl border border-border bg-bg-surface px-3.5 py-2.5 shadow-xl text-xs space-y-1">
       <div className="font-bold text-text-primary flex items-center gap-1.5">
         <span
           className="h-2.5 w-2.5 rounded-sm shrink-0"
@@ -185,6 +191,86 @@ const BusinessSegmentTooltip: React.FC<{
         Share of Total: <strong className="text-emerald-400">{row.pctLabel}%</strong>
       </div>
     </div>
+  );
+};
+
+const renderRoundedDonutSector = (props: any) => {
+  const { cx, cy, innerRadius, outerRadius, startAngle, endAngle, fill, payload, isActive } = props;
+  if (
+    typeof cx !== 'number' ||
+    typeof cy !== 'number' ||
+    typeof innerRadius !== 'number' ||
+    typeof outerRadius !== 'number' ||
+    typeof startAngle !== 'number' ||
+    typeof endAngle !== 'number'
+  ) {
+    return null;
+  }
+
+  const segmentColor = fill || payload?.color || '#38bdf8';
+  const midRadius = (innerRadius + outerRadius) / 2;
+  const ringThickness = Math.max(8, outerRadius - innerRadius);
+  const activeThickness = isActive ? ringThickness + 2.5 : ringThickness;
+  const outlinePad = 2.5;
+  const delta = Math.abs(startAngle - endAngle);
+
+  if (delta <= 0.01) return null;
+
+  if (delta >= 359.9) {
+    return (
+      <g>
+        <circle
+          cx={cx}
+          cy={cy}
+          r={midRadius}
+          fill="none"
+          stroke="var(--bg-surface)"
+          strokeWidth={activeThickness + outlinePad * 2}
+          className="transition-all duration-150"
+        />
+        <circle
+          cx={cx}
+          cy={cy}
+          r={midRadius}
+          fill="none"
+          stroke={segmentColor}
+          strokeWidth={activeThickness}
+          className="transition-all duration-150"
+        />
+      </g>
+    );
+  }
+
+  const startRad = (startAngle * Math.PI) / 180;
+  const endRad = (endAngle * Math.PI) / 180;
+  const sx = cx + midRadius * Math.cos(startRad);
+  const sy = cy - midRadius * Math.sin(startRad);
+  const ex = cx + midRadius * Math.cos(endRad);
+  const ey = cy - midRadius * Math.sin(endRad);
+  const largeArcFlag = delta > 180 ? 1 : 0;
+  const sweepFlag = endAngle < startAngle ? 1 : 0;
+
+  const d = `M ${sx} ${sy} A ${midRadius} ${midRadius} 0 ${largeArcFlag} ${sweepFlag} ${ex} ${ey}`;
+
+  return (
+    <g>
+      <path
+        d={d}
+        fill="none"
+        stroke="var(--bg-surface)"
+        strokeWidth={activeThickness + outlinePad * 2}
+        strokeLinecap="round"
+        className="transition-all duration-150"
+      />
+      <path
+        d={d}
+        fill="none"
+        stroke={segmentColor}
+        strokeWidth={activeThickness}
+        strokeLinecap="round"
+        className="transition-all duration-150"
+      />
+    </g>
   );
 };
 
@@ -756,17 +842,119 @@ const DEFAULT_GLOBAL_FILTERS: GlobalFilterState = {
   closingEndDate: ''
 };
 
+const DASHBOARD_BUNDLE_STORAGE_KEY = 'revos_cached_pipeline_dashboard_v1';
+const DASHBOARD_FRESH_WINDOW_MS = 15_000;
+
+interface CachedPipelineDashboardBundle {
+  items: PipelineCardItem[];
+  riskRows: DashboardRiskRow[];
+  actionRows: DashboardActionRow[];
+  historicalAssessments: DashboardAssessmentRecord[];
+  historicalSnapshots: PipelineAssessmentSnapshot[];
+  opportunityCreatedDates: OpportunityCreatedRecord[];
+  fetchedAt: number;
+}
+
+let memoryDashboardBundle: CachedPipelineDashboardBundle | null = null;
+let inFlightDashboardLoad: Promise<CachedPipelineDashboardBundle | null> | null = null;
+let dashboardCacheDirty = false;
+let dashboardListenersAttached = false;
+
+function ensureDashboardInvalidationListeners() {
+  if (dashboardListenersAttached || typeof window === 'undefined') return;
+  dashboardListenersAttached = true;
+  const markDirty = () => {
+    dashboardCacheDirty = true;
+  };
+  window.addEventListener('pipeline_portfolio_updated', markDirty);
+  window.addEventListener('pipeline_cache_invalidated', markDirty);
+  window.addEventListener('opportunity_form_updated', markDirty);
+  window.addEventListener('opportunity_qualification_updated', markDirty);
+}
+
+function compactSnapshotsForStorage(
+  snaps: PipelineAssessmentSnapshot[]
+): PipelineAssessmentSnapshot[] {
+  return snaps.map((s) => ({
+    ...s,
+    full_snapshot_payload: s.full_snapshot_payload
+      ? {
+          assessment: s.full_snapshot_payload.assessment,
+          opportunity: s.full_snapshot_payload.opportunity
+        }
+      : s.full_snapshot_payload
+  })) as PipelineAssessmentSnapshot[];
+}
+
+function getCachedPipelineDashboardBundle(): CachedPipelineDashboardBundle | null {
+  ensureDashboardInvalidationListeners();
+  if (memoryDashboardBundle) return memoryDashboardBundle;
+  if (typeof window === 'undefined') return null;
+  try {
+    const raw = localStorage.getItem(DASHBOARD_BUNDLE_STORAGE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (parsed && Array.isArray(parsed.items)) {
+      memoryDashboardBundle = parsed as CachedPipelineDashboardBundle;
+      return memoryDashboardBundle;
+    }
+  } catch {}
+  return null;
+}
+
+function isDashboardBundleFresh(): boolean {
+  ensureDashboardInvalidationListeners();
+  const cached = getCachedPipelineDashboardBundle();
+  if (!cached || dashboardCacheDirty) return false;
+  return Date.now() - cached.fetchedAt < DASHBOARD_FRESH_WINDOW_MS;
+}
+
+function persistDashboardBundle(bundle: Omit<CachedPipelineDashboardBundle, 'fetchedAt'>) {
+  const entry: CachedPipelineDashboardBundle = {
+    ...bundle,
+    fetchedAt: Date.now()
+  };
+  memoryDashboardBundle = entry;
+  dashboardCacheDirty = false;
+  if (typeof window !== 'undefined') {
+    try {
+      localStorage.setItem(
+        DASHBOARD_BUNDLE_STORAGE_KEY,
+        JSON.stringify({
+          ...entry,
+          historicalSnapshots: compactSnapshotsForStorage(entry.historicalSnapshots)
+        })
+      );
+    } catch {}
+  }
+}
+
 export const PipelineDashboard: React.FC = () => {
   const navigate = useNavigate();
   const { user, profile, hasRole } = useAuth();
-  const [loading, setLoading] = useState(true);
+  const initialBundle = useMemo(() => getCachedPipelineDashboardBundle(), []);
+  const initialPortfolioItems = useMemo(() => {
+    const cachedPortfolio = getCachedCanonicalPipelinePortfolio();
+    if (dashboardCacheDirty && cachedPortfolio) return cachedPortfolio;
+    return initialBundle?.items || cachedPortfolio || [];
+  }, [initialBundle]);
+
+  const [loading, setLoading] = useState(() => !initialBundle && initialPortfolioItems.length === 0);
   const [refreshing, setRefreshing] = useState(false);
-  const [items, setItems] = useState<PipelineCardItem[]>([]);
-  const [riskRows, setRiskRows] = useState<DashboardRiskRow[]>([]);
-  const [actionRows, setActionRows] = useState<DashboardActionRow[]>([]);
-  const [historicalAssessments, setHistoricalAssessments] = useState<DashboardAssessmentRecord[]>([]);
-  const [historicalSnapshots, setHistoricalSnapshots] = useState<PipelineAssessmentSnapshot[]>([]);
-  const [opportunityCreatedDates, setOpportunityCreatedDates] = useState<OpportunityCreatedRecord[]>([]);
+  const [items, setItems] = useState<PipelineCardItem[]>(initialPortfolioItems);
+  const [riskRows, setRiskRows] = useState<DashboardRiskRow[]>(() => initialBundle?.riskRows || []);
+  const [actionRows, setActionRows] = useState<DashboardActionRow[]>(
+    () => initialBundle?.actionRows || []
+  );
+  const [historicalAssessments, setHistoricalAssessments] = useState<DashboardAssessmentRecord[]>(
+    () => initialBundle?.historicalAssessments || []
+  );
+  const [historicalSnapshots, setHistoricalSnapshots] = useState<PipelineAssessmentSnapshot[]>(
+    () => initialBundle?.historicalSnapshots || []
+  );
+  const [opportunityCreatedDates, setOpportunityCreatedDates] = useState<OpportunityCreatedRecord[]>(
+    () => initialBundle?.opportunityCreatedDates || []
+  );
   const [historyError, setHistoryError] = useState<string | null>(null);
   const [scopeFilter, setScopeFilter] = useState<'ALL' | 'ACTIVE' | 'CLOSED'>('ALL');
   const [isFilterBarExpanded, setIsFilterBarExpanded] = useState(false);
@@ -776,15 +964,17 @@ export const PipelineDashboard: React.FC = () => {
   const [matrixZoomLevel, setMatrixZoomLevel] = useState<number>(1);
   const [matrixPanOffset, setMatrixPanOffset] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
   const [hoveredMatrixId, setHoveredMatrixId] = useState<string | null>(null);
+  const [valuationTab, setValuationTab] = useState<'STAGE' | 'OUTLOOK'>('STAGE');
+  const [outlookGranularity, setOutlookGranularity] = useState<OutlookGranularity>('QUARTER');
   const [activeKpiTooltip, setActiveKpiTooltip] = useState<{
-    id: 'riskAdjForecast' | 'avgRiskAdjWin';
+    id: 'riskAdjForecast' | 'avgRiskAdjWin' | 'closedWonRevenue';
     top: number;
     left: number;
     placeBelow: boolean;
   } | null>(null);
 
   const openKpiTooltip = (
-    id: 'riskAdjForecast' | 'avgRiskAdjWin',
+    id: 'riskAdjForecast' | 'avgRiskAdjWin' | 'closedWonRevenue',
     target: HTMLElement
   ) => {
     const rect = target.getBoundingClientRect();
@@ -810,64 +1000,96 @@ export const PipelineDashboard: React.FC = () => {
 
   const closeKpiTooltip = () => setActiveKpiTooltip(null);
 
-  const loadDashboardData = async () => {
-    const isInitial = items.length === 0;
-    if (isInitial) {
+  const loadDashboardData = async (forceRefresh = false) => {
+    const hasRenderableData = items.length > 0 || getCachedPipelineDashboardBundle() !== null;
+    if (!hasRenderableData) {
       setLoading(true);
     } else {
       setRefreshing(true);
     }
     setHistoryError(null);
     try {
-      const [
-        mergedItems,
-        risksRes,
-        actionsRes,
-        assessmentsRes,
-        snapshotsRes,
-        oppDatesRes
-      ] = await Promise.all([
-        loadCanonicalPipelinePortfolio(),
-        supabase
-          .from('pipeline_risks')
-          .select(
-            'risk_instance_id, pipeline_id, assessment_id, risk_id, severity, likelihood, impact, risk_status, risk_category, risk_description, mitigation_strategy, triggering_evidence, owner'
-          ),
-        supabase
-          .from('pipeline_actions')
-          .select(
-            'action_id, pipeline_id, action_status, action_description, strategic_objective, action_owner, priority, target_date'
-          ),
-        supabase
-          .from('pipeline_assessments')
-          .select(
-            'assessment_id, pipeline_id, assessment_sequence, assessment_status, trigger_type, base_winability, risk_adjusted_winability, pipeline_health, assessment_confidence, configuration_version, evidence_kb_version, rules_version, completed_at, created_at, updated_at'
-          )
-          .order('completed_at', { ascending: true }),
-        supabase
-          .from('pipeline_assessment_snapshots')
-          .select(
-            'snapshot_id, assessment_id, pipeline_id, snapshot_sequence, snapshot_timestamp, full_snapshot_payload, created_at'
-          )
-          .order('snapshot_timestamp', { ascending: true }),
-        supabase.from('opportunities').select('id, created_at')
-      ]);
-
-      setItems(mergedItems);
-      setRiskRows((risksRes.data || []) as any[]);
-      setActionRows((actionsRes.data || []) as any[]);
-
-      if (assessmentsRes.error || snapshotsRes.error) {
-        setHistoryError(
-          assessmentsRes.error?.message ||
-            snapshotsRes.error?.message ||
-            'Failed to retrieve historical assessment ledger.'
-        );
-      } else {
-        setHistoricalAssessments((assessmentsRes.data || []) as DashboardAssessmentRecord[]);
-        setHistoricalSnapshots((snapshotsRes.data || []) as PipelineAssessmentSnapshot[]);
+      if (forceRefresh) {
+        invalidatePipelinePortfolioCache();
+        dashboardCacheDirty = true;
       }
-      setOpportunityCreatedDates((oppDatesRes.data || []) as OpportunityCreatedRecord[]);
+
+      const fetchBundle = async (): Promise<CachedPipelineDashboardBundle | null> => {
+        const [
+          mergedItems,
+          risksRes,
+          actionsRes,
+          assessmentsRes,
+          snapshotsRes,
+          oppDatesRes
+        ] = await Promise.all([
+          loadCanonicalPipelinePortfolio({ forceRefresh }),
+          supabase
+            .from('pipeline_risks')
+            .select(
+              'risk_instance_id, pipeline_id, assessment_id, risk_id, severity, likelihood, impact, risk_status, risk_category, risk_description, mitigation_strategy, triggering_evidence, owner'
+            ),
+          supabase
+            .from('pipeline_actions')
+            .select(
+              'action_id, pipeline_id, action_status, action_description, strategic_objective, action_owner, priority, target_date'
+            ),
+          supabase
+            .from('pipeline_assessments')
+            .select(
+              'assessment_id, pipeline_id, assessment_sequence, assessment_status, trigger_type, base_winability, risk_adjusted_winability, pipeline_health, assessment_confidence, configuration_version, evidence_kb_version, rules_version, completed_at, created_at, updated_at'
+            )
+            .order('completed_at', { ascending: true }),
+          supabase
+            .from('pipeline_assessment_snapshots')
+            .select(
+              'snapshot_id, assessment_id, pipeline_id, snapshot_sequence, snapshot_timestamp, full_snapshot_payload, created_at'
+            )
+            .order('snapshot_timestamp', { ascending: true }),
+          supabase.from('opportunities').select('id, created_at')
+        ]);
+
+        if (assessmentsRes.error || snapshotsRes.error) {
+          setHistoryError(
+            assessmentsRes.error?.message ||
+              snapshotsRes.error?.message ||
+              'Failed to retrieve historical assessment ledger.'
+          );
+        }
+
+        const nextBundle: Omit<CachedPipelineDashboardBundle, 'fetchedAt'> = {
+          items: mergedItems,
+          riskRows: (risksRes.data || []) as any[],
+          actionRows: (actionsRes.data || []) as any[],
+          historicalAssessments: (assessmentsRes.error
+            ? historicalAssessments
+            : assessmentsRes.data || []) as DashboardAssessmentRecord[],
+          historicalSnapshots: (snapshotsRes.error
+            ? historicalSnapshots
+            : snapshotsRes.data || []) as PipelineAssessmentSnapshot[],
+          opportunityCreatedDates: (oppDatesRes.data || []) as OpportunityCreatedRecord[]
+        };
+
+        persistDashboardBundle(nextBundle);
+        return memoryDashboardBundle;
+      };
+
+      const activePromise =
+        !forceRefresh && inFlightDashboardLoad
+          ? inFlightDashboardLoad
+          : (inFlightDashboardLoad = fetchBundle().finally(() => {
+              inFlightDashboardLoad = null;
+            }));
+
+      const resolved = await activePromise;
+      if (resolved) {
+        setItems(resolved.items);
+        setRiskRows(resolved.riskRows);
+        setActionRows(resolved.actionRows);
+        setHistoricalAssessments(resolved.historicalAssessments);
+        setHistoricalSnapshots(resolved.historicalSnapshots);
+        setOpportunityCreatedDates(resolved.opportunityCreatedDates);
+      }
     } catch (err: any) {
       console.error('Error loading Pipeline Dashboard:', err);
       setHistoryError(err?.message || 'Unexpected error loading historical winability records.');
@@ -878,7 +1100,31 @@ export const PipelineDashboard: React.FC = () => {
   };
 
   useEffect(() => {
-    loadDashboardData();
+    // Render cached dashboard instantaneously; sync backend when cold, stale, or dirty
+    if (!isDashboardBundleFresh()) {
+      loadDashboardData(false);
+    } else {
+      setLoading(false);
+    }
+
+    const handleInvalidate = () => {
+      dashboardCacheDirty = true;
+      invalidatePipelinePortfolioCache();
+      loadDashboardData(true);
+    };
+
+    if (typeof window !== 'undefined') {
+      window.addEventListener('pipeline_portfolio_updated', handleInvalidate);
+      window.addEventListener('opportunity_form_updated', handleInvalidate);
+      window.addEventListener('opportunity_qualification_updated', handleInvalidate);
+    }
+    return () => {
+      if (typeof window !== 'undefined') {
+        window.removeEventListener('pipeline_portfolio_updated', handleInvalidate);
+        window.removeEventListener('opportunity_form_updated', handleInvalidate);
+        window.removeEventListener('opportunity_qualification_updated', handleInvalidate);
+      }
+    };
   }, []);
 
   // Permission-aware and data-driven filter availability & options
@@ -1285,6 +1531,10 @@ export const PipelineDashboard: React.FC = () => {
 
     const closedTotal = closedWon.length + closedLost.length;
     const winRate = closedTotal > 0 ? Math.round((closedWon.length / closedTotal) * 100) : null;
+    const closedItems = globallyFilteredItems.filter((i) => resolveCanvasColumn(i) === 'Closed');
+    const closedTotalValue = closedItems.reduce((sum, i) => sum + (i.estimated_value || 0), 0);
+    const winRateByValue =
+      closedTotalValue > 0 ? Math.round((closedWonValue / closedTotalValue) * 100) : 0;
 
     return {
       totalDeals: globallyFilteredItems.length,
@@ -1297,7 +1547,9 @@ export const PipelineDashboard: React.FC = () => {
       closedWonCount: closedWon.length,
       closedWonValue,
       closedTotal,
-      winRate
+      closedTotalValue,
+      winRate,
+      winRateByValue
     };
   }, [globallyFilteredItems, scopedItems]);
 
@@ -1721,7 +1973,7 @@ export const PipelineDashboard: React.FC = () => {
 
             <button
               type="button"
-              onClick={loadDashboardData}
+              onClick={() => loadDashboardData(true)}
               disabled={refreshing}
               className="inline-flex items-center gap-1.5 px-3 py-2 bg-bg-surface border border-border rounded-xl text-xs font-semibold text-text-secondary hover:text-text-primary hover:border-accent/50 transition-colors cursor-pointer disabled:opacity-60"
             >
@@ -2091,10 +2343,18 @@ export const PipelineDashboard: React.FC = () => {
           </div>
         </div>
 
-        <div className="p-4 rounded-2xl border border-border bg-bg-surface flex flex-col justify-between shadow-sm">
+        <div
+          tabIndex={0}
+          onMouseEnter={(e) => openKpiTooltip('closedWonRevenue', e.currentTarget)}
+          onMouseLeave={closeKpiTooltip}
+          onFocus={(e) => openKpiTooltip('closedWonRevenue', e.currentTarget)}
+          onBlur={closeKpiTooltip}
+          className="p-4 rounded-2xl border border-border bg-bg-surface hover:border-emerald-400/50 focus:outline-none focus:border-emerald-400/60 flex flex-col justify-between shadow-sm transition-colors cursor-help group"
+        >
           <div className="flex items-center justify-between mb-2">
-            <span className="text-[10px] font-mono font-bold text-text-secondary uppercase tracking-wider">
-              Closed Won Revenue
+            <span className="inline-flex items-center gap-1.5 text-[10px] font-mono font-bold text-text-secondary uppercase tracking-wider">
+              <span>Closed Won Revenue</span>
+              <Info className="h-3 w-3 text-text-secondary/60 group-hover:text-emerald-400 transition-colors" />
             </span>
             <Award className="h-4 w-4 text-emerald-400" />
           </div>
@@ -2145,62 +2405,142 @@ export const PipelineDashboard: React.FC = () => {
         <>
           {/* Charts Row: Stage Valuation Bar Chart + PADF Health & Risk Posture */}
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-            {/* Stage Distribution & Valuation */}
+            {/* Stage Distribution & Valuation / Pipeline Revenue Outlook */}
             <div className="lg:col-span-7 p-5 rounded-2xl border border-border bg-bg-surface shadow-sm flex flex-col justify-between">
-              <div className="border-b border-border/70 pb-3 mb-4 flex items-center justify-between gap-2">
-                <div>
-                  <h3 className="text-xs font-black text-text-primary uppercase tracking-wider flex items-center gap-1.5">
-                    <PieChartIcon className="h-3.5 w-3.5 text-accent" />
-                    Stage Valuation &amp; Risk-Adjusted Forecast
-                  </h3>
-                  <p className="text-[10px] text-text-secondary mt-0.5">
-                    Gross deal value vs. risk-adjusted expected revenue across pipeline stages
-                  </p>
-                </div>
-                <span className="text-[10px] font-mono text-text-secondary">
-                  {scopedItems.length} deal{scopedItems.length === 1 ? '' : 's'}
-                </span>
-              </div>
-
-              <div className="h-[260px] w-full">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={stageChartData} margin={{ top: 8, right: 12, left: 0, bottom: 4 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(148,163,184,0.15)" vertical={false} />
-                    <XAxis
-                      dataKey="shortLabel"
-                      tick={{ fill: '#94a3b8', fontSize: 11, fontFamily: 'monospace' }}
-                      axisLine={false}
-                      tickLine={false}
-                    />
-                    <YAxis
-                      tickFormatter={(v) => formatCompactCurrency(Number(v))}
-                      tick={{ fill: '#94a3b8', fontSize: 11, fontFamily: 'monospace' }}
-                      axisLine={false}
-                      tickLine={false}
-                      width={64}
-                    />
-                    <Tooltip content={<StageTooltip />} cursor={{ fill: 'rgba(148,163,184,0.08)' }} />
-                    <Bar dataKey="totalValue" name="Gross Value" fill="#38bdf8" radius={[6, 6, 0, 0]} />
-                    <Bar dataKey="weightedValue" name="Risk-Adj Forecast" fill="#10b981" radius={[6, 6, 0, 0]} />
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
-
-              <div className="pt-3 mt-3 border-t border-border/50 flex flex-wrap items-center justify-between gap-3 text-[11px] font-mono">
-                <div className="flex items-center gap-4">
-                  <span className="inline-flex items-center gap-1.5 text-text-secondary">
-                    <span className="h-2.5 w-2.5 rounded-sm bg-sky-400" />
-                    Gross Pipeline Value
-                  </span>
-                  <span className="inline-flex items-center gap-1.5 text-text-secondary">
-                    <span className="h-2.5 w-2.5 rounded-sm bg-emerald-500" />
-                    Risk-Adjusted Forecast
+              <div className="border-b border-border/70 pb-3 mb-4 space-y-2.5">
+                <div className="flex items-start justify-between gap-2">
+                  <div>
+                    <h3 className="text-xs font-black text-text-primary uppercase tracking-wider flex items-center gap-1.5">
+                      <PieChartIcon className="h-3.5 w-3.5 text-accent" />
+                      {valuationTab === 'STAGE'
+                        ? 'Stage Valuation & Risk-Adjusted Forecast'
+                        : 'Pipeline Revenue Outlook'}
+                    </h3>
+                    <p className="text-[10px] text-text-secondary mt-0.5">
+                      {valuationTab === 'STAGE'
+                        ? 'Gross deal value vs. risk-adjusted expected revenue across pipeline stages'
+                        : 'Forecast pipeline value vs. risk-adjusted expected revenue over expected close date'}
+                    </p>
+                  </div>
+                  <span className="text-[10px] font-mono text-text-secondary shrink-0">
+                    {scopedItems.length} deal{scopedItems.length === 1 ? '' : 's'}
                   </span>
                 </div>
-                <span className="text-text-secondary">
-                  Won: <strong className="text-emerald-400">{kpis.closedWonCount}</strong>
-                </span>
+
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div
+                    className="inline-flex items-center p-0.5 rounded-lg border border-border bg-bg-primary/70 text-[10px] font-mono"
+                    role="tablist"
+                    aria-label="Pipeline Valuation Chart View"
+                  >
+                    <button
+                      type="button"
+                      role="tab"
+                      aria-selected={valuationTab === 'STAGE'}
+                      onClick={() => setValuationTab('STAGE')}
+                      className={`px-2.5 py-1 rounded-md font-semibold transition-colors cursor-pointer ${
+                        valuationTab === 'STAGE'
+                          ? 'bg-accent text-white shadow-sm'
+                          : 'text-text-secondary hover:text-text-primary'
+                      }`}
+                    >
+                      Stage Valuation
+                    </button>
+                    <button
+                      type="button"
+                      role="tab"
+                      aria-selected={valuationTab === 'OUTLOOK'}
+                      onClick={() => setValuationTab('OUTLOOK')}
+                      className={`px-2.5 py-1 rounded-md font-semibold transition-colors cursor-pointer ${
+                        valuationTab === 'OUTLOOK'
+                          ? 'bg-accent text-white shadow-sm'
+                          : 'text-text-secondary hover:text-text-primary'
+                      }`}
+                    >
+                      Pipeline Revenue Outlook
+                    </button>
+                  </div>
+
+                  {valuationTab === 'OUTLOOK' && (
+                    <div
+                      className="inline-flex items-center p-0.5 rounded-lg border border-border bg-bg-primary/70 text-[10px] font-mono"
+                      role="group"
+                      aria-label="Time Granularity Selector"
+                    >
+                      {(
+                        [
+                          { id: 'YEAR', label: 'Year' },
+                          { id: 'QUARTER', label: 'Quarter' },
+                          { id: 'MONTH', label: 'Month' }
+                        ] as const
+                      ).map((opt) => (
+                        <button
+                          key={opt.id}
+                          type="button"
+                          onClick={() => setOutlookGranularity(opt.id)}
+                          className={`px-2.5 py-1 rounded-md font-semibold transition-colors cursor-pointer ${
+                            outlookGranularity === opt.id
+                              ? 'bg-sky-500/20 text-sky-400 border border-sky-400/30'
+                              : 'text-text-secondary hover:text-text-primary border border-transparent'
+                          }`}
+                        >
+                          {opt.label}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
               </div>
+
+              {valuationTab === 'STAGE' ? (
+                <>
+                  <div className="h-[260px] w-full">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart data={stageChartData} margin={{ top: 8, right: 12, left: 0, bottom: 4 }}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="rgba(148,163,184,0.15)" vertical={false} />
+                        <XAxis
+                          dataKey="shortLabel"
+                          tick={{ fill: '#94a3b8', fontSize: 11, fontFamily: 'monospace' }}
+                          axisLine={false}
+                          tickLine={false}
+                        />
+                        <YAxis
+                          tickFormatter={(v) => formatCompactCurrency(Number(v))}
+                          tick={{ fill: '#94a3b8', fontSize: 11, fontFamily: 'monospace' }}
+                          axisLine={false}
+                          tickLine={false}
+                          width={64}
+                        />
+                        <Tooltip content={<StageTooltip />} cursor={{ fill: 'rgba(148,163,184,0.08)' }} />
+                        <Bar dataKey="totalValue" name="Gross Value" fill="#38bdf8" radius={[6, 6, 0, 0]} />
+                        <Bar dataKey="weightedValue" name="Risk-Adj Forecast" fill="#10b981" radius={[6, 6, 0, 0]} />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+
+                  <div className="pt-3 mt-3 border-t border-border/50 flex flex-wrap items-center justify-between gap-3 text-[11px] font-mono">
+                    <div className="flex items-center gap-4">
+                      <span className="inline-flex items-center gap-1.5 text-text-secondary">
+                        <span className="h-2.5 w-2.5 rounded-sm bg-sky-400" />
+                        Gross Pipeline Value
+                      </span>
+                      <span className="inline-flex items-center gap-1.5 text-text-secondary">
+                        <span className="h-2.5 w-2.5 rounded-sm bg-emerald-500" />
+                        Risk-Adjusted Forecast
+                      </span>
+                    </div>
+                    <span className="text-text-secondary">
+                      Won: <strong className="text-emerald-400">{kpis.closedWonCount}</strong>
+                    </span>
+                  </div>
+                </>
+              ) : (
+                <PipelineRevenueOutlookChart
+                  scopedItems={scopedItems}
+                  granularity={outlookGranularity}
+                  closedWonCount={kpis.closedWonCount}
+                />
+              )}
             </div>
 
             {/* PADF Health Breakdown & Risk Execution Posture */}
@@ -2677,65 +3017,74 @@ export const PipelineDashboard: React.FC = () => {
                   </p>
                 </div>
               ) : (
-                <div className="relative h-[200px] w-full">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <PieChart>
-                      <Tooltip content={<BusinessSegmentTooltip />} />
-                      <Pie
-                        data={businessSegmentChartData}
-                        dataKey="chartValue"
-                        nameKey="name"
-                        cx="50%"
-                        cy="50%"
-                        innerRadius={52}
-                        outerRadius={82}
-                        paddingAngle={2}
-                        stroke="var(--bg-surface)"
-                        strokeWidth={2}
-                        isAnimationActive={false}
-                      >
-                        {businessSegmentChartData.map((entry) => (
-                          <Cell key={entry.name} fill={entry.color} />
-                        ))}
-                      </Pie>
-                    </PieChart>
-                  </ResponsiveContainer>
-                  <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center text-center">
-                    <div className="text-base font-black font-mono tabular-nums text-text-primary leading-none">
+                <div className="relative h-[224px] w-full">
+                  <div className="pointer-events-none absolute inset-0 z-0 flex flex-col items-center justify-center text-center">
+                    <div className="text-xl sm:text-2xl font-black font-mono tabular-nums text-text-primary leading-none">
                       {formatCompactCurrency(totalBusinessSegmentValue)}
                     </div>
-                    <div className="text-[10px] font-mono text-text-secondary mt-1">
+                    <div className="text-xs font-mono text-text-secondary mt-1.5">
                       {businessSegmentBreakdown.length} segment
                       {businessSegmentBreakdown.length === 1 ? '' : 's'}
                     </div>
                   </div>
+                  <div className="relative z-10 h-full w-full">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <PieChart margin={{ top: 0, right: 0, bottom: 0, left: 0 }}>
+                        <Tooltip
+                          content={<BusinessSegmentTooltip />}
+                          wrapperStyle={{ zIndex: 50, pointerEvents: 'none' }}
+                        />
+                        <Pie
+                          data={businessSegmentChartData}
+                          dataKey="chartValue"
+                          nameKey="name"
+                          cx="50%"
+                          cy="50%"
+                          startAngle={90}
+                          endAngle={-270}
+                          innerRadius={79}
+                          outerRadius={105}
+                          paddingAngle={0}
+                          stroke="none"
+                          shape={renderRoundedDonutSector}
+                          isAnimationActive={false}
+                        >
+                          {businessSegmentChartData.map((entry) => (
+                            <Cell key={entry.name} fill={entry.color} />
+                          ))}
+                        </Pie>
+                      </PieChart>
+                    </ResponsiveContainer>
+                  </div>
                 </div>
               )}
 
-              <div className="pt-3 mt-3 border-t border-border/50 max-h-[104px] overflow-y-auto custom-scrollbar-vertical pr-1 space-y-1.5 text-[11px] font-mono">
-                {businessSegmentBreakdown.map((seg) => (
-                  <div
-                    key={seg.name}
-                    className="flex items-center justify-between gap-2 text-text-secondary"
-                  >
-                    <span className="inline-flex items-center gap-1.5 min-w-0">
-                      <span
-                        className="h-2.5 w-2.5 rounded-sm shrink-0"
-                        style={{ backgroundColor: seg.color }}
-                      />
-                      <span className="text-text-primary font-sans font-semibold truncate">
-                        {seg.name}
+              <div className="pt-3 mt-3 border-t border-border/50">
+                <div className="max-h-[68px] overflow-y-auto custom-scrollbar-horizontal-neutral pr-1.5 space-y-1.5 text-[11px] font-mono">
+                  {businessSegmentBreakdown.map((seg) => (
+                    <div
+                      key={seg.name}
+                      className="flex items-center justify-between gap-2 text-text-secondary leading-[18px]"
+                    >
+                      <span className="inline-flex items-center gap-1.5 min-w-0">
+                        <span
+                          className="h-2.5 w-2.5 rounded-sm shrink-0"
+                          style={{ backgroundColor: seg.color }}
+                        />
+                        <span className="text-text-primary font-sans font-semibold truncate">
+                          {seg.name}
+                        </span>
                       </span>
-                    </span>
-                    <span className="shrink-0 tabular-nums">
-                      {seg.count} deal{seg.count === 1 ? '' : 's'} ·{' '}
-                      <strong className="text-text-primary">
-                        {formatCompactCurrency(seg.value)}
-                      </strong>{' '}
-                      ({seg.pctLabel}%)
-                    </span>
-                  </div>
-                ))}
+                      <span className="shrink-0 tabular-nums">
+                        {seg.count} deal{seg.count === 1 ? '' : 's'} ·{' '}
+                        <strong className="text-text-primary">
+                          {formatCompactCurrency(seg.value)}
+                        </strong>{' '}
+                        ({seg.pctLabel}%)
+                      </span>
+                    </div>
+                  ))}
+                </div>
               </div>
             </div>
 
@@ -2823,7 +3172,7 @@ export const PipelineDashboard: React.FC = () => {
                   <span>Gross Value: <strong className="text-text-primary">{formatCompactCurrency(kpis.activeValue)}</strong></span>
                 </div>
               </>
-            ) : (
+            ) : activeKpiTooltip.id === 'avgRiskAdjWin' ? (
               <>
                 <div className="flex items-center justify-between gap-2 border-b border-border/70 pb-2">
                   <span className="font-black text-text-primary uppercase tracking-wide text-[11px] flex items-center gap-1.5">
@@ -2864,6 +3213,46 @@ export const PipelineDashboard: React.FC = () => {
                       ? ` (−${kpis.avgBaseWin - kpis.avgRiskAdjWin} pts risk)`
                       : ''}
                   </span>
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="flex items-center justify-between gap-2 border-b border-border/70 pb-2">
+                  <span className="font-black text-text-primary uppercase tracking-wide text-[11px] flex items-center gap-1.5">
+                    <Award className="h-3.5 w-3.5 text-emerald-400" />
+                    Closed Won Revenue
+                  </span>
+                  <span className="font-mono font-black text-emerald-400">
+                    {formatCompactCurrency(kpis.closedWonValue)}
+                  </span>
+                </div>
+
+                <div className="space-y-2 rounded-xl bg-bg-primary/70 border border-border/60 p-2.5">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-[11px] font-bold text-text-primary">
+                      Win Rates (%, by Deal Counts)
+                    </span>
+                    <span className="font-mono font-black text-emerald-400 tabular-nums">
+                      {kpis.winRate !== null ? `${kpis.winRate}%` : '--'}
+                    </span>
+                  </div>
+                  <p className="text-[10px] font-mono text-text-secondary leading-relaxed">
+                    Won Deals &divide; Total Closed Deals &times; 100% ({kpis.closedWonCount} &divide; {kpis.closedTotal})
+                  </p>
+                </div>
+
+                <div className="space-y-2 rounded-xl bg-bg-primary/70 border border-border/60 p-2.5">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-[11px] font-bold text-text-primary">
+                      Win Rates (%, by Dollar Value)
+                    </span>
+                    <span className="font-mono font-black text-accent tabular-nums">
+                      {kpis.winRateByValue}%
+                    </span>
+                  </div>
+                  <p className="text-[10px] font-mono text-text-secondary leading-relaxed">
+                    Closed Kanban Win Rate (${kpis.closedWonValue.toLocaleString('en-US')} / ${kpis.closedTotalValue.toLocaleString('en-US')})
+                  </p>
                 </div>
               </>
             )}

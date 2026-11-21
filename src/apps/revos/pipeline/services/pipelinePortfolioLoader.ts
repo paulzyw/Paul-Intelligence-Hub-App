@@ -2,13 +2,90 @@ import { supabase } from '../../../../lib/supabase';
 import { PipelineOpportunity, PipelineAssessment } from '../../types/pipeline';
 import { PipelineDataService } from './PipelineDataService';
 import { PromotionDataService } from '../../leads/services/promotionDataService';
-import { OpportunityDataService } from '../../leads/services/opportunityDataService';
 import {
   PipelineCardItem,
   PIPELINE_STAGE_OPTIONS,
   OPPORTUNITY_STAGE_OPTIONS,
   getIsolatedPipelineCardEdits
 } from '../components/PipelineCard';
+
+const PORTFOLIO_CACHE_STORAGE_KEY = 'revos_cached_pipeline_portfolio_v1';
+const PORTFOLIO_FRESH_WINDOW_MS = 15_000;
+
+let memoryPortfolioCache: { items: PipelineCardItem[]; fetchedAt: number } | null = null;
+let inFlightPortfolioLoad: Promise<PipelineCardItem[]> | null = null;
+let portfolioCacheDirty = false;
+let portfolioListenersAttached = false;
+
+function ensurePortfolioInvalidationListeners() {
+  if (portfolioListenersAttached || typeof window === 'undefined') return;
+  portfolioListenersAttached = true;
+  const markDirty = () => {
+    portfolioCacheDirty = true;
+  };
+  window.addEventListener('opportunity_form_updated', markDirty);
+  window.addEventListener('opportunity_qualification_updated', markDirty);
+  window.addEventListener('pipeline_portfolio_updated', markDirty);
+}
+
+function hydrateMemoryPortfolioFromStorage(): { items: PipelineCardItem[]; fetchedAt: number } | null {
+  if (memoryPortfolioCache) return memoryPortfolioCache;
+  if (typeof window === 'undefined') return null;
+  try {
+    const raw = localStorage.getItem(PORTFOLIO_CACHE_STORAGE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (parsed && Array.isArray(parsed.items)) {
+      memoryPortfolioCache = {
+        items: parsed.items,
+        fetchedAt: typeof parsed.fetchedAt === 'number' ? parsed.fetchedAt : 0
+      };
+      return memoryPortfolioCache;
+    }
+  } catch {}
+  return null;
+}
+
+function persistPortfolioCache(items: PipelineCardItem[]) {
+  const entry = { items, fetchedAt: Date.now() };
+  memoryPortfolioCache = entry;
+  portfolioCacheDirty = false;
+  if (typeof window !== 'undefined') {
+    try {
+      localStorage.setItem(PORTFOLIO_CACHE_STORAGE_KEY, JSON.stringify(entry));
+    } catch {}
+  }
+}
+
+export function getCachedCanonicalPipelinePortfolio(): PipelineCardItem[] | null {
+  ensurePortfolioInvalidationListeners();
+  const cached = hydrateMemoryPortfolioFromStorage();
+  if (!cached) return null;
+  return cached.items.map(applyIsolatedEdits);
+}
+
+export function isPipelinePortfolioCacheFresh(): boolean {
+  ensurePortfolioInvalidationListeners();
+  const cached = hydrateMemoryPortfolioFromStorage();
+  if (!cached || portfolioCacheDirty) return false;
+  return Date.now() - cached.fetchedAt < PORTFOLIO_FRESH_WINDOW_MS;
+}
+
+export function invalidatePipelinePortfolioCache(): void {
+  portfolioCacheDirty = true;
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('pipeline_cache_invalidated'));
+  }
+}
+
+export function updateCachedCanonicalPipelinePortfolio(
+  updater: (prev: PipelineCardItem[]) => PipelineCardItem[]
+): void {
+  const cached = hydrateMemoryPortfolioFromStorage();
+  if (!cached) return;
+  const next = updater(cached.items);
+  persistPortfolioCache(next);
+}
 
 export type CanvasColumnKey =
   | 'Initial Pipeline'
@@ -90,8 +167,32 @@ export function applyIsolatedEdits(item: PipelineCardItem): PipelineCardItem {
 /**
  * Canonical Pipeline Portfolio Loader shared by Pipeline Canvas & Pipeline Dashboard
  * so Active Pipeline, Closed Outcomes, and deal valuations match 1:1.
+ * Deduplicates concurrent requests and uses SWR memory + localStorage caching.
  */
-export async function loadCanonicalPipelinePortfolio(): Promise<PipelineCardItem[]> {
+export async function loadCanonicalPipelinePortfolio(options?: {
+  forceRefresh?: boolean;
+}): Promise<PipelineCardItem[]> {
+  ensurePortfolioInvalidationListeners();
+
+  if (!options?.forceRefresh && isPipelinePortfolioCacheFresh() && memoryPortfolioCache) {
+    return memoryPortfolioCache.items.map(applyIsolatedEdits);
+  }
+
+  if (!options?.forceRefresh && inFlightPortfolioLoad) {
+    return inFlightPortfolioLoad;
+  }
+
+  const runPromise = executeLoadCanonicalPipelinePortfolio().finally(() => {
+    if (inFlightPortfolioLoad === runPromise) {
+      inFlightPortfolioLoad = null;
+    }
+  });
+
+  inFlightPortfolioLoad = runPromise;
+  return runPromise;
+}
+
+async function executeLoadCanonicalPipelinePortfolio(): Promise<PipelineCardItem[]> {
   const [
     pipeList,
     oppsRes,
@@ -100,12 +201,15 @@ export async function loadCanonicalPipelinePortfolio(): Promise<PipelineCardItem
     formRes,
     leadsRes,
     sqlHandoverRes,
-    pipeFormRes,
-    oppRevenueMap,
-    oppNameMap
+    pipeFormRes
   ] = await Promise.all([
     PipelineDataService.listPipelineOpportunities(),
-    supabase.from('opportunities').select('*').order('created_at', { ascending: false }),
+    supabase
+      .from('opportunities')
+      .select(
+        'id, mql_reference_id, company_name, opportunity_name, industry, revenue_motion, expected_revenue, description, created_at'
+      )
+      .order('created_at', { ascending: false }),
     supabase.from('sql_opportunity_promotions').select('lead_id, opportunity_id'),
     supabase.from('mql_sql_promotions').select('lead_id, opportunity_id'),
     supabase
@@ -119,14 +223,70 @@ export async function loadCanonicalPipelinePortfolio(): Promise<PipelineCardItem
       .select('opportunity_id, sql_qip_package, editable_fields'),
     supabase
       .from('pipeline_form_records')
-      .select('pipeline_id, opportunity_id, expected_close_date, opportunity_owner'),
-    OpportunityDataService.getOpportunityEstimatedRevenuesMap().catch(() => ({} as Record<string, number>)),
-    OpportunityDataService.getOpportunityNamesMap().catch(() => ({} as Record<string, string>))
+      .select('pipeline_id, opportunity_id, expected_close_date, opportunity_owner')
   ]);
 
   if (leadsRes.error) {
     console.warn('Error fetching mql_leads for Pipeline Portfolio sync:', leadsRes.error.message);
   }
+
+  // Derive oppRevenueMap & oppNameMap in-memory from already-fetched rows (avoids 10 duplicate Supabase calls)
+  const oppRevenueMap: Record<string, number> = {};
+  const oppNameMap: Record<string, string> = {};
+  const parseNumericRevenue = (val: any): number => {
+    if (!val) return 0;
+    const clean = String(val).replace(/[^0-9.]/g, '');
+    const num = parseFloat(clean);
+    return isNaN(num) ? 0 : num;
+  };
+
+  (oppsRes.data || []).forEach((opp: any) => {
+    let desc: any = {};
+    if (opp.description && typeof opp.description === 'string' && opp.description.trim().startsWith('{')) {
+      try {
+        desc = JSON.parse(opp.description);
+      } catch {}
+    }
+    if (desc.estimated_revenue) {
+      const num = parseNumericRevenue(desc.estimated_revenue);
+      oppRevenueMap[opp.id] = num;
+      if (opp.mql_reference_id) oppRevenueMap[opp.mql_reference_id] = num;
+    }
+    const name =
+      opp.opportunity_name ||
+      desc.opportunity_name ||
+      (opp.company_name ? `${opp.company_name} Opportunity` : '');
+    if (name) {
+      oppNameMap[opp.id] = name;
+      if (opp.mql_reference_id) oppNameMap[opp.mql_reference_id] = name;
+    }
+  });
+
+  (sqlHandoverRes.data || []).forEach((h: any) => {
+    const rev = h.editable_fields?.estimated_revenue;
+    if (rev) oppRevenueMap[h.opportunity_id] = parseNumericRevenue(rev);
+    const name = h.editable_fields?.opportunity_name;
+    if (name) oppNameMap[h.opportunity_id] = name;
+  });
+
+  (formRes.data || []).forEach((f: any) => {
+    if (f.estimated_revenue) oppRevenueMap[f.opportunity_id] = parseNumericRevenue(f.estimated_revenue);
+    if (f.opportunity_name) oppNameMap[f.opportunity_id] = f.opportunity_name;
+  });
+
+  (promosRes.data || []).forEach((p: any) => {
+    if (p.opportunity_id && p.lead_id) {
+      if (oppRevenueMap[p.opportunity_id]) oppRevenueMap[p.lead_id] = oppRevenueMap[p.opportunity_id];
+      if (oppNameMap[p.opportunity_id]) oppNameMap[p.lead_id] = oppNameMap[p.opportunity_id];
+    }
+  });
+
+  (mqlPromosRes.data || []).forEach((p: any) => {
+    if (p.opportunity_id && p.lead_id) {
+      if (oppRevenueMap[p.opportunity_id]) oppRevenueMap[p.lead_id] = oppRevenueMap[p.opportunity_id];
+      if (oppNameMap[p.opportunity_id]) oppNameMap[p.lead_id] = oppNameMap[p.opportunity_id];
+    }
+  });
 
   // Prefer assessed / newest pipeline record when multiple rows share an opportunity_id or lead_id
   const pipeByOppId = new Map<
@@ -499,6 +659,8 @@ export async function loadCanonicalPipelinePortfolio(): Promise<PipelineCardItem
 
     mergedItems.push(finalItem);
   });
+
+  persistPortfolioCache(mergedItems);
 
   return mergedItems;
 }

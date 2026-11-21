@@ -489,6 +489,7 @@ html.dark .custom-scrollbar-horizontal-neutral,
   scrollbar-color: rgba(100, 116, 139, 0.5) transparent;
 }
 .custom-scrollbar-horizontal-neutral::-webkit-scrollbar {
+  width: 6px;
   height: 6px;
 }
 .custom-scrollbar-horizontal-neutral::-webkit-scrollbar-track {

@@ -26,7 +26,11 @@ import { PipelineDirectoryTable } from './PipelineDirectoryTable';
 import {
   CanvasColumnKey,
   resolveCanvasColumn,
-  loadCanonicalPipelinePortfolio
+  loadCanonicalPipelinePortfolio,
+  getCachedCanonicalPipelinePortfolio,
+  isPipelinePortfolioCacheFresh,
+  invalidatePipelinePortfolioCache,
+  updateCachedCanonicalPipelinePortfolio
 } from '../services/pipelinePortfolioLoader';
 
 export type PipelineCanvasItem = PipelineCardItem;
@@ -48,13 +52,17 @@ export interface PipelineOverviewCanvasProps {
 }
 
 export const PipelineOverviewCanvas: React.FC<PipelineOverviewCanvasProps> = ({ embedded = false }) => {
-  const [loading, setLoading] = useState(true);
+  const [items, setItems] = useState<PipelineCardItem[]>(
+    () => getCachedCanonicalPipelinePortfolio() || []
+  );
+  const [loading, setLoading] = useState<boolean>(
+    () => getCachedCanonicalPipelinePortfolio() === null
+  );
   const [viewMode, setViewMode] = useState<'canvas' | 'list'>('canvas');
   const [searchQuery, setSearchQuery] = useState('');
   const [healthFilter, setHealthFilter] = useState<
     'ALL' | 'UNASSESSED' | 'STRONG' | 'HEALTHY' | 'MODERATE' | 'AT_RISK'
   >('ALL');
-  const [items, setItems] = useState<PipelineCardItem[]>([]);
   const [columnPages, setColumnPages] = useState<Record<CanvasColumnKey, number>>({
     'Initial Pipeline': 1,
     'Proposal/Evaluation': 1,
@@ -62,10 +70,13 @@ export const PipelineOverviewCanvas: React.FC<PipelineOverviewCanvasProps> = ({ 
     Closed: 1
   });
 
-  const loadPipelinePortfolio = async () => {
-    setLoading(true);
+  const loadPipelinePortfolio = async (forceRefresh = false) => {
+    const hasCached = items.length > 0 || getCachedCanonicalPipelinePortfolio() !== null;
+    if (!hasCached) {
+      setLoading(true);
+    }
     try {
-      const mergedItems = await loadCanonicalPipelinePortfolio();
+      const mergedItems = await loadCanonicalPipelinePortfolio({ forceRefresh });
       setItems(mergedItems);
     } catch (err) {
       console.error('Error loading Pipeline Overview & Canvas:', err);
@@ -75,7 +86,32 @@ export const PipelineOverviewCanvas: React.FC<PipelineOverviewCanvasProps> = ({ 
   };
 
   useEffect(() => {
-    loadPipelinePortfolio();
+    // Render cached items immediately; only fetch from backend when cold or stale/dirty
+    if (!isPipelinePortfolioCacheFresh() || items.length === 0) {
+      loadPipelinePortfolio(false);
+    } else {
+      setLoading(false);
+    }
+
+    const handleInvalidateAndRefresh = () => {
+      invalidatePipelinePortfolioCache();
+      loadPipelinePortfolio(true);
+    };
+
+    if (typeof window !== 'undefined') {
+      window.addEventListener('pipeline_portfolio_updated', handleInvalidateAndRefresh);
+      window.addEventListener('opportunity_form_updated', handleInvalidateAndRefresh);
+      window.addEventListener('opportunity_qualification_updated', handleInvalidateAndRefresh);
+      window.addEventListener('storage', handleInvalidateAndRefresh);
+    }
+    return () => {
+      if (typeof window !== 'undefined') {
+        window.removeEventListener('pipeline_portfolio_updated', handleInvalidateAndRefresh);
+        window.removeEventListener('opportunity_form_updated', handleInvalidateAndRefresh);
+        window.removeEventListener('opportunity_qualification_updated', handleInvalidateAndRefresh);
+        window.removeEventListener('storage', handleInvalidateAndRefresh);
+      }
+    };
   }, []);
 
   const filteredItems = useMemo(() => {
@@ -151,7 +187,7 @@ export const PipelineOverviewCanvas: React.FC<PipelineOverviewCanvasProps> = ({ 
           : 'ACTIVE';
 
     // Update isolated state immediately so the Pipeline Card stays responsive and independent
-    setItems((prev) =>
+    const applyUpdate = (prev: PipelineCardItem[]) =>
       prev.map((it) => {
         if (it.id !== item.id) return it;
         return {
@@ -177,8 +213,10 @@ export const PipelineOverviewCanvas: React.FC<PipelineOverviewCanvasProps> = ({ 
               }
             : undefined
         };
-      })
-    );
+      });
+    setItems(applyUpdate);
+    updateCachedCanonicalPipelinePortfolio(applyUpdate);
+    invalidatePipelinePortfolioCache();
 
     // If a pipeline_opportunities record exists in Pipeline Engine, persist strictly there (never upstream Lead Canvas tables)
     if (item.pipeline_opp?.pipeline_id) {
@@ -358,15 +396,19 @@ export const PipelineOverviewCanvas: React.FC<PipelineOverviewCanvasProps> = ({ 
       {viewMode === 'list' ? (
         <PipelineDirectoryTable
           items={items}
-          loading={loading}
+          loading={loading && items.length === 0}
           searchQuery={searchQuery}
           onSearchChange={handleSearchChange}
           healthFilter={healthFilter}
-          onItemsPurged={(purged) =>
-            setItems((prev) => prev.filter((it) => !purged.includes(it.id)))
-          }
+          onItemsPurged={(purged) => {
+            const filterPurged = (prev: PipelineCardItem[]) =>
+              prev.filter((it) => !purged.includes(it.id));
+            setItems(filterPurged);
+            updateCachedCanonicalPipelinePortfolio(filterPurged);
+            invalidatePipelinePortfolioCache();
+          }}
         />
-      ) : loading ? (
+      ) : loading && items.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-16 text-text-secondary space-y-2">
           <RefreshCw className="h-6 w-6 animate-spin text-accent" />
           <span className="text-xs font-mono">Loading Pipeline Canvas...</span>

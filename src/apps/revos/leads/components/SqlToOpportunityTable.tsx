@@ -660,7 +660,7 @@ export const SqlToOpportunityTable: React.FC<SqlToOpportunityTableProps> = ({
       </div>
 
       <div className="bg-bg-surface border border-border rounded-2xl overflow-hidden shadow-sm">
-        <div className="overflow-x-auto custom-scrollbar-horizontal pb-2">
+        <div className="overflow-x-auto custom-scrollbar-horizontal-neutral pb-2">
           <table className="w-full text-left text-xs min-w-[1720px]">
             <thead className="bg-bg-primary/50 border-b border-border text-text-secondary font-mono uppercase tracking-wider">
               <tr>

@@ -44,6 +44,12 @@ export class PipelineDataService {
     }>
   >();
 
+  private static emitPortfolioUpdated(): void {
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('pipeline_portfolio_updated'));
+    }
+  }
+
   private static async resolveCommercialPipelineStage(pipeRow: any): Promise<any> {
     if (!pipeRow) return pipeRow;
     const currentStage = String(pipeRow.pipeline_stage || '').trim();
@@ -480,10 +486,18 @@ export class PipelineDataService {
   static async listPipelineOpportunities(): Promise<Array<PipelineOpportunity & {
     latest_assessment?: PipelineAssessment;
   }>> {
-    const { data: opportunities, error } = await supabase
-      .from('pipeline_opportunities')
-      .select('*')
-      .order('created_at', { ascending: false });
+    const [oppsRes, assessmentsRes] = await Promise.all([
+      supabase
+        .from('pipeline_opportunities')
+        .select('*')
+        .order('created_at', { ascending: false }),
+      supabase
+        .from('pipeline_assessments')
+        .select('*')
+        .order('assessment_sequence', { ascending: false })
+    ]);
+
+    const { data: opportunities, error } = oppsRes;
 
     if (error) {
       console.error('Error fetching pipeline opportunities:', error);
@@ -494,16 +508,10 @@ export class PipelineDataService {
       return [];
     }
 
-    const pipeIds = opportunities.map(o => o.pipeline_id);
-    const { data: assessments } = await supabase
-      .from('pipeline_assessments')
-      .select('*')
-      .in('pipeline_id', pipeIds)
-      .order('assessment_sequence', { ascending: false });
-
+    const pipeIdsSet = new Set(opportunities.map(o => o.pipeline_id));
     const assessmentMap = new Map<string, PipelineAssessment>();
-    (assessments || []).forEach(a => {
-      if (!assessmentMap.has(a.pipeline_id)) {
+    (assessmentsRes.data || []).forEach(a => {
+      if (pipeIdsSet.has(a.pipeline_id) && !assessmentMap.has(a.pipeline_id)) {
         assessmentMap.set(a.pipeline_id, a as PipelineAssessment);
       }
     });
@@ -632,6 +640,7 @@ export class PipelineDataService {
       console.error('Error updating pipeline_action status:', error);
       return false;
     }
+    this.emitPortfolioUpdated();
     return true;
   }
 
@@ -690,6 +699,7 @@ export class PipelineDataService {
       console.error('Error updating pipeline_opportunity stage:', error);
       return null;
     }
+    this.emitPortfolioUpdated();
     return (data as PipelineOpportunity) || null;
   }
 
@@ -1215,6 +1225,7 @@ export class PipelineDataService {
       }
     }
 
+    this.emitPortfolioUpdated();
     return (updatedAssessment as PipelineAssessment) || null;
   }
 
@@ -2467,6 +2478,8 @@ export class PipelineDataService {
       lifecycle_status: nextLifecycle,
       updated_at: nowIso
     };
+
+    this.emitPortfolioUpdated();
 
     return {
       formRecord: savedForm as PipelineFormRecord,
