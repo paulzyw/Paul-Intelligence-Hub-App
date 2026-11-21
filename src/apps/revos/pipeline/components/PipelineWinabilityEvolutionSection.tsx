@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Link } from 'react-router-dom';
 import {
@@ -232,6 +232,15 @@ export const PipelineWinabilityEvolutionSection: React.FC<
   const [timeRange, setTimeRange] = useState<TimeRangeKey>('6M');
   const [selectedPointId, setSelectedPointId] = useState<string | null>(null);
   const [inspectTimelinePipelineId, setInspectTimelinePipelineId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!selectedPointId) return;
+    const handleKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setSelectedPointId(null);
+    };
+    window.addEventListener('keydown', handleKey);
+    return () => window.removeEventListener('keydown', handleKey);
+  }, [selectedPointId]);
 
   const oppCreatedMap = useMemo(() => {
     const map = new Map<string, number>();
@@ -717,9 +726,13 @@ export const PipelineWinabilityEvolutionSection: React.FC<
     return (
       <g
         key={`dot-${payload.id}`}
-        onClick={() => openPointDrawer(payload)}
+        onClick={(e) => {
+          e.stopPropagation();
+          openPointDrawer(payload);
+        }}
         style={{ cursor: 'pointer' }}
       >
+        <circle cx={cx} cy={cy} r={14} fill="transparent" />
         {isSelected && (
           <circle cx={cx} cy={cy} r={10} fill={fill} fillOpacity={0.2} />
         )}
@@ -742,16 +755,23 @@ export const PipelineWinabilityEvolutionSection: React.FC<
     }
     const isAffected = payload.hasAgingOrStaleImpact || payload.isIncompleteCoverage;
     return (
-      <circle
-        cx={cx}
-        cy={cy}
-        r={7}
-        fill={isAffected ? '#f59e0b' : '#10b981'}
-        stroke="#ffffff"
-        strokeWidth={2}
+      <g
         style={{ cursor: 'pointer' }}
-        onClick={() => openPointDrawer(payload)}
-      />
+        onClick={(e) => {
+          e.stopPropagation();
+          openPointDrawer(payload);
+        }}
+      >
+        <circle cx={cx} cy={cy} r={14} fill="transparent" />
+        <circle
+          cx={cx}
+          cy={cy}
+          r={7}
+          fill={isAffected ? '#f59e0b' : '#10b981'}
+          stroke="#ffffff"
+          strokeWidth={2}
+        />
+      </g>
     );
   };
 
@@ -762,31 +782,33 @@ export const PipelineWinabilityEvolutionSection: React.FC<
     if (!active || !payload || payload.length === 0) return null;
     const pt = payload[0].payload;
     return (
-      <div className="rounded-xl border border-border bg-bg-surface px-3.5 py-2.5 shadow-xl text-xs space-y-1.5 max-w-[260px]">
+      <div className="rounded-xl border border-border bg-bg-surface px-3 py-2 shadow-xl text-[11px] space-y-1 min-w-[230px] max-w-[290px]">
         <div className="flex items-center justify-between gap-2 border-b border-border/60 pb-1">
-          <span className="font-bold text-text-primary">{pt.fullDateLabel}</span>
-          <span className="text-[10px] font-mono text-text-secondary">
+          <span className="font-bold text-text-primary whitespace-nowrap">{pt.fullDateLabel}</span>
+          <span className="text-[10px] font-mono text-text-secondary whitespace-nowrap">
             {interval === 'MONTHLY' ? 'Monthly' : 'Weekly'}
           </span>
         </div>
 
         <div className="flex items-center justify-between gap-3 font-mono tabular-nums">
-          <span className="text-text-secondary">{measurementLabel}:</span>
-          <strong className="text-accent">
+          <span className="text-text-secondary whitespace-nowrap">
+            {measurement === 'AVERAGE' ? 'Avg Winability:' : 'Weighted Winability:'}
+          </span>
+          <strong className="text-accent whitespace-nowrap">
             {pt.winabilityValue !== null ? formatWinPct(pt.winabilityValue) : 'Unavailable'}
           </strong>
         </div>
 
         {pt.deltaFromPrevious !== null && (
-          <div className="flex items-center justify-between gap-3 font-mono tabular-nums text-[11px]">
-            <span className="text-text-secondary">Change vs. prior:</span>
+          <div className="flex items-center justify-between gap-3 font-mono tabular-nums text-[10px]">
+            <span className="text-text-secondary whitespace-nowrap">Change vs. prior:</span>
             <span
               className={
                 pt.deltaFromPrevious > 0
-                  ? 'text-emerald-500 dark:text-emerald-400 font-bold'
+                  ? 'text-emerald-500 dark:text-emerald-400 font-bold whitespace-nowrap'
                   : pt.deltaFromPrevious < 0
-                    ? 'text-red-500 dark:text-red-400 font-bold'
-                    : 'text-text-secondary'
+                    ? 'text-red-500 dark:text-red-400 font-bold whitespace-nowrap'
+                    : 'text-text-secondary whitespace-nowrap'
               }
             >
               {formatDeltaPts(pt.deltaFromPrevious)}
@@ -807,8 +829,8 @@ export const PipelineWinabilityEvolutionSection: React.FC<
           <span>No Valid: {pt.notAssessedCount}</span>
         </div>
 
-        <div className="text-[10px] text-accent font-mono pt-0.5">
-          Click observation marker to inspect details
+        <div className="text-[10px] text-accent font-mono pt-0.5 whitespace-nowrap">
+          Click marker to inspect details
         </div>
       </div>
     );
@@ -1160,46 +1182,60 @@ export const PipelineWinabilityEvolutionSection: React.FC<
                 </div>
               </div>
 
-              <div className="overflow-x-auto custom-scrollbar-horizontal">
-                <div className="h-[145px] min-w-[420px] w-full">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <LineChart
-                      data={observationSeries}
-                      margin={{ top: 8, right: 14, left: -16, bottom: 0 }}
-                      onClick={(state: any) => {
-                        const idx = state?.activeTooltipIndex;
-                        if (typeof idx === 'number' && observationSeries[idx]) {
-                          openPointDrawer(observationSeries[idx]);
-                        }
-                      }}
-                    >
-                      <CartesianGrid stroke="rgba(148,163,184,0.14)" strokeDasharray="3 3" />
-                      <XAxis
-                        dataKey="label"
-                        tick={{ fill: '#94a3b8', fontSize: 10, fontFamily: 'monospace' }}
-                        tickMargin={4}
-                      />
-                      <YAxis
-                        domain={[0, 100]}
-                        ticks={[0, 25, 50, 75, 100]}
-                        tickFormatter={(v) => `${v}%`}
-                        tick={{ fill: '#94a3b8', fontSize: 10, fontFamily: 'monospace' }}
-                      />
-                      <Tooltip content={<EvolutionTooltip />} />
-                      <Line
-                        type="monotone"
-                        dataKey="winabilityValue"
-                        name={measurementLabel}
-                        stroke="#10b981"
-                        strokeWidth={2.5}
-                        connectNulls={false}
-                        dot={renderObservationDot}
-                        activeDot={renderActiveDot}
-                        isAnimationActive={false}
-                      />
-                    </LineChart>
-                  </ResponsiveContainer>
-                </div>
+              <div className="h-[155px] w-full overflow-visible">
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart
+                    data={observationSeries}
+                    margin={{ top: 12, right: 28, left: -10, bottom: 2 }}
+                    onClick={(state: any) => {
+                      const rawIdx = state?.activeTooltipIndex;
+                      const numericIdx = typeof rawIdx === 'number' ? rawIdx : Number(rawIdx);
+                      if (
+                        rawIdx !== undefined &&
+                        rawIdx !== null &&
+                        !Number.isNaN(numericIdx) &&
+                        observationSeries[numericIdx]
+                      ) {
+                        openPointDrawer(observationSeries[numericIdx]);
+                        return;
+                      }
+                      if (state?.activeLabel) {
+                        const matched = observationSeries.find((p) => p.label === state.activeLabel);
+                        if (matched) openPointDrawer(matched);
+                      }
+                    }}
+                  >
+                    <CartesianGrid stroke="rgba(148,163,184,0.14)" strokeDasharray="3 3" />
+                    <XAxis
+                      dataKey="label"
+                      padding={{ left: 16, right: 26 }}
+                      tick={{ fill: '#94a3b8', fontSize: 10, fontFamily: 'monospace' }}
+                      tickMargin={5}
+                    />
+                    <YAxis
+                      domain={[0, 100]}
+                      ticks={[0, 25, 50, 75, 100]}
+                      tickFormatter={(v) => `${v}%`}
+                      tick={{ fill: '#94a3b8', fontSize: 10, fontFamily: 'monospace' }}
+                    />
+                    <Tooltip
+                      content={<EvolutionTooltip />}
+                      allowEscapeViewBox={{ x: false, y: true }}
+                      wrapperStyle={{ zIndex: 60, pointerEvents: 'none' }}
+                    />
+                    <Line
+                      type="monotone"
+                      dataKey="winabilityValue"
+                      name={measurementLabel}
+                      stroke="#10b981"
+                      strokeWidth={2.5}
+                      connectNulls={false}
+                      dot={renderObservationDot}
+                      activeDot={renderActiveDot}
+                      isAnimationActive={false}
+                    />
+                  </LineChart>
+                </ResponsiveContainer>
               </div>
 
               {/* Single-line Scrollable Observation Chips */}
@@ -1232,29 +1268,32 @@ export const PipelineWinabilityEvolutionSection: React.FC<
         </div>
       </div>
 
-      {/* Element 4: Historical Observation Detail Drawer (Slide-over on Desktop/Tablet, Full-Height Sheet on Mobile) */}
+      {/* Element 4: Historical Observation Detail Modal (Centered Viewport Modal with Content-Fit Height, matching Pipeline Assessment Heatmap Cell Behavior) */}
       {typeof document !== 'undefined' &&
         selectedPoint &&
         createPortal(
           <div
-            className="fixed inset-0 z-[99999] bg-black/70 backdrop-blur-xs flex justify-end"
+            className="fixed inset-0 z-[99999] flex items-center justify-center p-4 sm:p-6 bg-black/75 backdrop-blur-xs"
             onClick={(e) => {
               if (e.target === e.currentTarget) setSelectedPointId(null);
             }}
           >
             <div
-              className="w-full sm:max-w-2xl h-full bg-bg-surface border-l border-border shadow-2xl flex flex-col overflow-hidden"
+              role="dialog"
+              aria-modal="true"
+              aria-label="Historical Portfolio Snapshot Detail"
+              className="bg-bg-surface border border-border/80 rounded-2xl max-w-2xl w-full max-h-[85vh] p-6 shadow-2xl relative flex flex-col my-auto"
               onClick={(e) => e.stopPropagation()}
             >
-              {/* Drawer Header */}
-              <div className="px-5 py-4 border-b border-border flex items-start justify-between gap-3 shrink-0 bg-bg-surface">
+              {/* Modal Header */}
+              <div className="flex items-start justify-between border-b border-border/60 pb-3.5 shrink-0 gap-3">
                 <div className="space-y-1 min-w-0">
                   <div className="flex flex-wrap items-center gap-2 text-[10px] font-mono text-text-secondary">
                     <span>{interval === 'MONTHLY' ? 'Monthly Observation' : 'Weekly Observation'}</span>
                     <span>·</span>
                     <span>{measurementLabel}</span>
                   </div>
-                  <h3 className="text-base font-black text-text-primary tracking-tight">
+                  <h3 className="text-base sm:text-lg font-black text-text-primary tracking-tight">
                     Historical Portfolio Snapshot — {selectedPoint.fullDateLabel}
                   </h3>
                 </div>
@@ -1262,15 +1301,16 @@ export const PipelineWinabilityEvolutionSection: React.FC<
                 <button
                   type="button"
                   onClick={() => setSelectedPointId(null)}
-                  className="p-1.5 rounded-lg border border-border text-text-secondary hover:text-text-primary hover:bg-bg-primary cursor-pointer shrink-0"
-                  title="Close Observation Detail Drawer"
+                  className="p-1.5 rounded-lg border border-border text-text-secondary hover:text-text-primary hover:bg-bg-primary transition-colors cursor-pointer shrink-0"
+                  title="Close Observation Detail"
+                  aria-label="Close Observation Detail"
                 >
                   <X className="h-4 w-4" />
                 </button>
               </div>
 
-              {/* Drawer Scrollable Body */}
-              <div className="flex-1 overflow-y-auto p-5 space-y-5 text-xs">
+              {/* Scrollable Content-Fit Body */}
+              <div className="overflow-y-auto custom-scrollbar-vertical space-y-4 pr-1.5 mt-4 text-xs">
                 {/* Optional Nested Individual Opportunity Evolution Timeline */}
                 {inspectedOpportunity && inspectedOpportunity.snapshotsForOpp.length > 0 && (
                   <div className="p-4 rounded-xl border border-accent/40 bg-bg-primary/60 space-y-3">
@@ -1461,7 +1501,7 @@ export const PipelineWinabilityEvolutionSection: React.FC<
                       No active opportunities existed in the reconstructed portfolio at this observation date.
                     </div>
                   ) : (
-                    <div className="overflow-x-auto custom-scrollbar-horizontal rounded-xl border border-border/70">
+                    <div className="overflow-x-auto custom-scrollbar-horizontal-neutral rounded-xl border border-border/70">
                       <table className="w-full text-left border-collapse text-xs">
                         <thead>
                           <tr className="bg-bg-primary/70 border-b border-border font-mono text-[10px] text-text-secondary uppercase">
@@ -1568,8 +1608,8 @@ export const PipelineWinabilityEvolutionSection: React.FC<
                 </div>
               </div>
 
-              {/* Drawer Footer */}
-              <div className="px-5 py-3.5 border-t border-border flex items-center justify-between gap-3 shrink-0 bg-bg-surface">
+              {/* Modal Footer */}
+              <div className="pt-4 mt-4 border-t border-border/60 flex items-center justify-between gap-3 shrink-0">
                 <div className="text-[11px] font-mono text-text-secondary flex items-center gap-1.5">
                   <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500 shrink-0" />
                   <span>
@@ -1579,7 +1619,7 @@ export const PipelineWinabilityEvolutionSection: React.FC<
                 <button
                   type="button"
                   onClick={() => setSelectedPointId(null)}
-                  className="px-4 py-1.5 rounded-xl border border-border bg-bg-primary text-xs font-semibold text-text-primary hover:border-accent cursor-pointer"
+                  className="px-4 py-2 rounded-xl border border-border text-xs text-text-secondary hover:text-text-primary cursor-pointer"
                 >
                   Close
                 </button>

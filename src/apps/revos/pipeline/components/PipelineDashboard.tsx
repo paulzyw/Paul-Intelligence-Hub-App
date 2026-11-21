@@ -2889,6 +2889,7 @@ const PipelineAssessmentHeatmapSection: React.FC<{
   const [conditionFilter, setConditionFilter] = useState<string>('ALL');
   const [sortBy, setSortBy] = useState<'VALUE' | 'WINABILITY' | 'HEALTH' | 'RISK'>('VALUE');
   const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(5);
   const [selectedCell, setSelectedCell] = useState<{
     item: PipelineCardItem;
     dim: (typeof CANONICAL_PADF_DIMS)[0];
@@ -2898,8 +2899,6 @@ const PipelineAssessmentHeatmapSection: React.FC<{
     narrative: any;
     dbRow: any;
   } | null>(null);
-
-  const itemsPerPage = 10;
 
   const rows = useMemo(() => {
     return scopedItems.map((item) => {
@@ -2991,15 +2990,15 @@ const PipelineAssessmentHeatmapSection: React.FC<{
     });
   }, [rows, searchQuery, conditionFilter, dimFilter, sortBy]);
 
-  const totalPages = Math.max(1, Math.ceil(filteredRows.length / itemsPerPage));
+  const totalPages = Math.max(1, Math.ceil(filteredRows.length / pageSize));
   const paginatedRows = useMemo(() => {
-    const start = (currentPage - 1) * itemsPerPage;
-    return filteredRows.slice(start, start + itemsPerPage);
-  }, [filteredRows, currentPage]);
+    const start = (currentPage - 1) * pageSize;
+    return filteredRows.slice(start, start + pageSize);
+  }, [filteredRows, currentPage, pageSize]);
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchQuery, conditionFilter, dimFilter, sortBy]);
+  }, [searchQuery, conditionFilter, dimFilter, sortBy, filteredRows.length]);
 
   const renderCellBadge = (semantic: string, score: number) => {
     let bg = 'bg-bg-primary text-text-secondary border-border/60';
@@ -3085,7 +3084,7 @@ const PipelineAssessmentHeatmapSection: React.FC<{
         </div>
       </div>
 
-      <div className="overflow-x-auto custom-scrollbar-horizontal rounded-xl border border-border/70 max-h-[460px] pb-2">
+      <div className="overflow-x-auto custom-scrollbar-horizontal-neutral rounded-xl border border-border/70 max-h-[460px] pb-2">
         <table className="w-full text-left border-collapse text-xs">
           <thead>
             <tr className="sticky top-0 z-20 bg-bg-surface border-b border-border font-mono text-[10px] text-text-secondary uppercase">
@@ -3166,31 +3165,65 @@ const PipelineAssessmentHeatmapSection: React.FC<{
         </table>
       </div>
 
-      {totalPages > 1 && (
-        <div className="flex items-center justify-between pt-2 text-xs font-mono">
-          <span className="text-text-secondary">
-            Showing page {currentPage} of {totalPages} ({filteredRows.length} opportunities)
-          </span>
-          <div className="flex items-center gap-1">
-            <button
-              type="button"
-              disabled={currentPage <= 1}
-              onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-              className="px-3 py-1 rounded-lg border border-border bg-bg-primary text-text-secondary hover:text-text-primary disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
-            >
-              Previous
-            </button>
-            <button
-              type="button"
-              disabled={currentPage >= totalPages}
-              onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
-              className="px-3 py-1 rounded-lg border border-border bg-bg-primary text-text-secondary hover:text-text-primary disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
-            >
-              Next
-            </button>
-          </div>
+      <div className="pt-1 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs">
+        <div className="text-text-secondary text-[11px] font-mono tabular-nums">
+          Showing{' '}
+          <span className="font-bold text-text-primary">
+            {filteredRows.length > 0 ? (currentPage - 1) * pageSize + 1 : 0}
+          </span>{' '}
+          to{' '}
+          <span className="font-bold text-text-primary">
+            {Math.min(currentPage * pageSize, filteredRows.length)}
+          </span>{' '}
+          of <span className="font-bold text-text-primary">{filteredRows.length}</span> opportunities
         </div>
-      )}
+
+        <div className="flex items-center gap-2">
+          {/* Page size selector */}
+          <div className="flex items-center gap-1.5 text-[11px] font-mono text-text-secondary mr-2">
+            <span>Show:</span>
+            <select
+              value={pageSize}
+              onChange={(e) => {
+                setPageSize(Number(e.target.value));
+                setCurrentPage(1);
+              }}
+              aria-label="Opportunities per page"
+              className="bg-bg-primary border border-border rounded px-1.5 py-0.5 text-text-primary font-bold focus:outline-none cursor-pointer"
+            >
+              <option value={5}>5</option>
+              <option value={10}>10</option>
+              <option value={25}>25</option>
+              <option value={50}>50</option>
+            </select>
+          </div>
+
+          {/* Page nav */}
+          <button
+            type="button"
+            onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+            disabled={currentPage === 1}
+            className="p-1.5 rounded-lg border border-border bg-bg-surface text-text-primary hover:bg-bg-primary disabled:opacity-40 disabled:cursor-not-allowed transition-colors cursor-pointer"
+            title="Previous Page"
+          >
+            <ChevronLeft className="w-3.5 h-3.5" />
+          </button>
+
+          <span className="text-[11px] font-mono font-bold text-text-primary px-2 tabular-nums">
+            Page {currentPage} of {totalPages}
+          </span>
+
+          <button
+            type="button"
+            onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+            disabled={currentPage === totalPages}
+            className="p-1.5 rounded-lg border border-border bg-bg-surface text-text-primary hover:bg-bg-primary disabled:opacity-40 disabled:cursor-not-allowed transition-colors cursor-pointer"
+            title="Next Page"
+          >
+            <ChevronRight className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      </div>
 
       {typeof document !== 'undefined' &&
         selectedCell &&
