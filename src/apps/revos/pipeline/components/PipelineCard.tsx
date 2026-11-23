@@ -39,6 +39,7 @@ export interface PipelineCardItem {
   opportunity_owner?: string;
   pipeline_stage: string;
   opportunity_stage: string;
+  source?: string;
   pipeline_opp?: PipelineOpportunity & { latest_assessment?: PipelineAssessment };
 }
 
@@ -91,10 +92,15 @@ function pipelineStageBadgeClass(stage: string): string {
 
 export interface PipelineCardProps {
   item: PipelineCardItem;
+  highlighted?: boolean;
   onSaveIsolatedEdits?: (item: PipelineCardItem, edits: IsolatedPipelineCardEdits) => Promise<void> | void;
 }
 
-export const PipelineCard: React.FC<PipelineCardProps> = ({ item, onSaveIsolatedEdits }) => {
+export const PipelineCard: React.FC<PipelineCardProps> = ({
+  item,
+  highlighted = false,
+  onSaveIsolatedEdits
+}) => {
   const navigate = useNavigate();
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -143,12 +149,43 @@ export const PipelineCard: React.FC<PipelineCardProps> = ({ item, onSaveIsolated
     }
   };
 
+  const rawSource = String(
+    item.source ||
+      item.pipeline_opp?.source ||
+      (item.pipeline_opp?.metadata as any)?.source ||
+      ''
+  )
+    .trim()
+    .toLowerCase();
+  const sourceBadge =
+    rawSource === 'inherited'
+      ? { marker: 'I', label: 'Inherited', bgColor: 'bg-[#00b67a]' }
+      : rawSource === 'created'
+        ? { marker: 'C', label: 'Created', bgColor: 'bg-[#00a3ff]' }
+        : null;
+
   return (
     <>
       <div
         onClick={() => navigate(targetUrl)}
-        className="bg-bg-surface border border-border rounded-xl p-3 cursor-pointer hover:border-accent/50 hover:shadow-md transition-all group flex flex-col gap-1.5"
+        className={`relative overflow-hidden bg-bg-surface border rounded-xl p-3 cursor-pointer hover:border-accent/50 hover:shadow-md transition-all group flex flex-col gap-1.5 ${
+          highlighted ? 'border-accent ring-2 ring-accent/35 shadow-md' : 'border-border'
+        }`}
       >
+        {sourceBadge && (
+          <div
+            className={`absolute top-0 right-0 w-11 h-11 [clip-path:polygon(0_0,100%_0,100%_100%)] pointer-events-auto z-10 ${sourceBadge.bgColor}`}
+            title={`Source: ${sourceBadge.label}`}
+            aria-label={`Source: ${sourceBadge.label}`}
+          >
+            <span
+              className="absolute top-[4.5px] right-[4.5px] w-[18px] h-[18px] rounded-full border-[1.5px] border-white flex items-center justify-center text-[10px] font-bold leading-none text-white select-none"
+            >
+              {sourceBadge.marker}
+            </span>
+          </div>
+        )}
+
         {/* Top Row: Company + Isolated Edit Affordance */}
         <div className="flex justify-between items-start gap-2">
           <span
@@ -163,7 +200,9 @@ export const PipelineCard: React.FC<PipelineCardProps> = ({ item, onSaveIsolated
               e.stopPropagation();
               openEditor();
             }}
-            className="p-0.5 rounded text-text-secondary hover:text-accent opacity-0 group-hover:opacity-100 transition-opacity shrink-0 cursor-pointer"
+            className={`p-0.5 rounded text-text-secondary hover:text-accent opacity-0 group-hover:opacity-100 transition-opacity shrink-0 cursor-pointer ${
+              sourceBadge ? 'mr-7' : ''
+            }`}
             title="Edit Pipeline Card Details"
             aria-label="Edit Pipeline Card Details"
           >

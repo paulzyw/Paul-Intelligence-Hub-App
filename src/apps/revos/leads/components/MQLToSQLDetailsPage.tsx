@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import { SQLDynamicEvidenceForm, ensureUICompatibleResult } from './SQL_DynamicEvidenceForm';
 import { SQLQualificationResult, SQLQualificationResultData } from './SQL_QualificationResult';
+import { STANDARD_COUNTRIES, parseLegacyLocationToCountryAndState } from '../constants/countries';
 import UREKB_Config from '../../../../config/SQL_evidence_knowledge_base.json';
 
 interface MQLToSQLDetailsPageProps {
@@ -163,6 +164,25 @@ export const MQLToSQLDetailsPage: React.FC<MQLToSQLDetailsPageProps> = ({
     }
   }, [lead?.id, dbHandoverDate]);
 
+  const leadExtra = React.useMemo(() => {
+    if (typeof window === 'undefined' || !lead?.id) return {};
+    try {
+      const stored = localStorage.getItem(`mql_lead_extra_${lead.id}`);
+      return stored ? JSON.parse(stored) : {};
+    } catch {
+      return {};
+    }
+  }, [lead?.id]);
+
+  const initialMqlCountry =
+    lead.country ||
+    leadExtra.country ||
+    parseLegacyLocationToCountryAndState(lead.location || leadExtra.location).country ||
+    '';
+  const initialMqlCampaignAssignment = campaign?.name || '';
+  const initialMqlBusinessSegment = lead.lead_industry || leadExtra.lead_industry || '';
+  const initialMqlProductSolution = lead.product_solution || leadExtra.product_solution || '';
+
   const [formCompanyName, setFormCompanyName] = useState(inheritanceContext.company_context.company_name);
   const [formOpportunityName, setFormOpportunityName] = useState(`${inheritanceContext.company_context.company_name} - ${inheritanceContext.customer_intent_intelligence.business_topic}`);
   const [formOpportunityOwner, setFormOpportunityOwner] = useState('');
@@ -172,6 +192,10 @@ export const MQLToSQLDetailsPage: React.FC<MQLToSQLDetailsPageProps> = ({
   const [formEstimatedRevenue, setFormEstimatedRevenue] = useState('$100,000');
   const [formPipelineStage, setFormPipelineStage] = useState('Qualification');
   const [formExpectedCloseDate, setFormExpectedCloseDate] = useState('');
+  const [formCountry, setFormCountry] = useState(initialMqlCountry);
+  const [formCampaignAssignment, setFormCampaignAssignment] = useState(initialMqlCampaignAssignment);
+  const [formBusinessSegment, setFormBusinessSegment] = useState(initialMqlBusinessSegment);
+  const [formProductSolution, setFormProductSolution] = useState(initialMqlProductSolution);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [saveSuccessMessage, setSaveSuccessMessage] = useState<string | null>(null);
   const [showEvidenceForm, setShowEvidenceForm] = useState(false);
@@ -187,18 +211,29 @@ export const MQLToSQLDetailsPage: React.FC<MQLToSQLDetailsPageProps> = ({
           setFormOpportunityName(opp.opportunity_name || '');
           setFormIndustry(campaign?.industry || opp.industry || '');
           setFormRevenueMotion(campaign?.revenue_motion || opp.revenue_motion || '');
+          let parsedDesc: any = {};
           if (opp.description) {
             try {
-              const desc = JSON.parse(opp.description);
-              setFormOpportunityOwner(desc.opportunity_owner || '');
-              setFormOpportunityStage(desc.opportunity_stage || '');
-              setFormEstimatedRevenue(desc.estimated_revenue || '');
-              setFormPipelineStage(desc.pipeline_stage || '');
-              setFormExpectedCloseDate(desc.expected_close_date || '');
+              parsedDesc = JSON.parse(opp.description);
+              setFormOpportunityOwner(parsedDesc.opportunity_owner || '');
+              setFormOpportunityStage(parsedDesc.opportunity_stage || '');
+              setFormEstimatedRevenue(parsedDesc.estimated_revenue || '');
+              setFormPipelineStage(parsedDesc.pipeline_stage || '');
+              setFormExpectedCloseDate(parsedDesc.expected_close_date || '');
             } catch (e) {
               // Not JSON description
             }
           }
+          setFormCountry(opp.country || parsedDesc.country || initialMqlCountry);
+          setFormCampaignAssignment(
+            opp.campaign_assignment || parsedDesc.campaign_assignment || initialMqlCampaignAssignment
+          );
+          setFormBusinessSegment(
+            opp.business_segment || parsedDesc.business_segment || initialMqlBusinessSegment
+          );
+          setFormProductSolution(
+            opp.product_solution || parsedDesc.product_solution || initialMqlProductSolution
+          );
           // Check if there's an existing draft/assessment and auto-expand
           const assessment = await SQLDataService.getAssessmentByOpportunity(opp.id);
           if (assessment) {
@@ -247,7 +282,11 @@ export const MQLToSQLDetailsPage: React.FC<MQLToSQLDetailsPageProps> = ({
         opportunity_stage: formOpportunityStage,
         estimated_revenue: formEstimatedRevenue,
         pipeline_stage: formPipelineStage,
-        expected_close_date: formExpectedCloseDate
+        expected_close_date: formExpectedCloseDate,
+        country: formCountry,
+        campaign_assignment: formCampaignAssignment,
+        business_segment: formBusinessSegment,
+        product_solution: formProductSolution
       });
 
       if (existingOpp) {
@@ -257,6 +296,10 @@ export const MQLToSQLDetailsPage: React.FC<MQLToSQLDetailsPageProps> = ({
           opportunity_name: formOpportunityName,
           industry: formIndustry,
           revenue_motion: formRevenueMotion,
+          country: formCountry,
+          campaign_assignment: formCampaignAssignment,
+          business_segment: formBusinessSegment,
+          product_solution: formProductSolution,
           description: serializedDescription,
         });
         setExistingOpp(updatedOpp);
@@ -267,6 +310,10 @@ export const MQLToSQLDetailsPage: React.FC<MQLToSQLDetailsPageProps> = ({
           opportunity_name: formOpportunityName,
           industry: formIndustry,
           revenue_motion: formRevenueMotion,
+          country: formCountry,
+          campaign_assignment: formCampaignAssignment,
+          business_segment: formBusinessSegment,
+          product_solution: formProductSolution,
           description: serializedDescription,
           source: 'MQL Handover',
           mql_reference_id: lead.id
@@ -897,6 +944,70 @@ export const MQLToSQLDetailsPage: React.FC<MQLToSQLDetailsPageProps> = ({
                     className="w-full bg-bg-primary/50 border border-border focus:border-accent/50 focus:outline-none rounded-xl px-4 py-2 text-xs text-text-primary font-sans transition-all cursor-pointer"
                   />
                 </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-[10px] uppercase font-black tracking-wider text-text-secondary block">
+                    Country
+                  </label>
+                  <select
+                    value={formCountry}
+                    onChange={(e) => setFormCountry(e.target.value)}
+                    className="w-full bg-bg-primary/50 border border-border focus:border-accent/50 focus:outline-none rounded-xl px-4 py-2.5 text-xs text-text-primary font-sans cursor-pointer transition-all"
+                  >
+                    <option value="" className="bg-bg-surface text-text-secondary">
+                      Select Country
+                    </option>
+                    {formCountry && !STANDARD_COUNTRIES.includes(formCountry) && (
+                      <option value={formCountry} className="bg-bg-surface text-text-primary">
+                        {formCountry}
+                      </option>
+                    )}
+                    {STANDARD_COUNTRIES.map((countryName) => (
+                      <option key={countryName} value={countryName} className="bg-bg-surface text-text-primary">
+                        {countryName}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-[10px] uppercase font-black tracking-wider text-text-secondary block">
+                    Campaign Assignment
+                  </label>
+                  <input
+                    type="text"
+                    value={formCampaignAssignment}
+                    onChange={(e) => setFormCampaignAssignment(e.target.value)}
+                    placeholder="Enter Campaign Assignment"
+                    className="w-full bg-bg-primary/50 border border-border focus:border-accent/50 focus:outline-none rounded-xl px-4 py-2.5 text-xs text-text-primary font-sans transition-all placeholder-text-secondary/30"
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-[10px] uppercase font-black tracking-wider text-text-secondary block">
+                    Business Segment
+                  </label>
+                  <input
+                    type="text"
+                    value={formBusinessSegment}
+                    onChange={(e) => setFormBusinessSegment(e.target.value)}
+                    placeholder="Enter Business Segment"
+                    className="w-full bg-bg-primary/50 border border-border focus:border-accent/50 focus:outline-none rounded-xl px-4 py-2.5 text-xs text-text-primary font-sans transition-all placeholder-text-secondary/30"
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-[10px] uppercase font-black tracking-wider text-text-secondary block">
+                    Product/Solution
+                  </label>
+                  <input
+                    type="text"
+                    value={formProductSolution}
+                    onChange={(e) => setFormProductSolution(e.target.value)}
+                    placeholder="Enter Product/Solution"
+                    className="w-full bg-bg-primary/50 border border-border focus:border-accent/50 focus:outline-none rounded-xl px-4 py-2.5 text-xs text-text-primary font-sans transition-all placeholder-text-secondary/30"
+                  />
+                </div>
               </div>
             </div>
 
@@ -1014,13 +1125,21 @@ export const MQLToSQLDetailsPage: React.FC<MQLToSQLDetailsPageProps> = ({
                     opportunity_stage: formOpportunityStage,
                     estimated_revenue: formEstimatedRevenue,
                     pipeline_stage: formPipelineStage,
-                    expected_close_date: formExpectedCloseDate
+                    expected_close_date: formExpectedCloseDate,
+                    country: formCountry,
+                    campaign_assignment: formCampaignAssignment,
+                    business_segment: formBusinessSegment,
+                    product_solution: formProductSolution
                   });
                   const newOpp = await SQLDataService.createOpportunity({
                     company_name: formCompanyName,
                     opportunity_name: formOpportunityName,
                     industry: formIndustry,
                     revenue_motion: formRevenueMotion,
+                    country: formCountry,
+                    campaign_assignment: formCampaignAssignment,
+                    business_segment: formBusinessSegment,
+                    product_solution: formProductSolution,
                     description: serializedDescription,
                     source: 'MQL Handover',
                     mql_reference_id: lead.id

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import {
   PieChart,
   Search,
@@ -13,7 +13,8 @@ import {
   ShieldAlert,
   Award,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  Plus
 } from 'lucide-react';
 import { PipelineOpportunity } from '../../types/pipeline';
 import { PipelineDataService } from '../services/PipelineDataService';
@@ -52,6 +53,9 @@ export interface PipelineOverviewCanvasProps {
 }
 
 export const PipelineOverviewCanvas: React.FC<PipelineOverviewCanvasProps> = ({ embedded = false }) => {
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const highlightId = searchParams.get('highlight') || '';
   const [items, setItems] = useState<PipelineCardItem[]>(
     () => getCachedCanonicalPipelinePortfolio() || []
   );
@@ -113,6 +117,30 @@ export const PipelineOverviewCanvas: React.FC<PipelineOverviewCanvasProps> = ({ 
       }
     };
   }, []);
+
+  useEffect(() => {
+    if (!highlightId) return;
+    loadPipelinePortfolio(true);
+  }, [highlightId]);
+
+  useEffect(() => {
+    if (!highlightId || items.length === 0) return;
+    const targetItem = items.find(
+      (it) => it.id === highlightId || it.pipeline_opp?.pipeline_id === highlightId
+    );
+    if (!targetItem) return;
+    const colKey = resolveCanvasColumn(targetItem);
+    const colItems = items.filter((it) => resolveCanvasColumn(it) === colKey);
+    const idx = colItems.findIndex(
+      (it) => it.id === highlightId || it.pipeline_opp?.pipeline_id === highlightId
+    );
+    if (idx >= 0) {
+      const targetPage = Math.floor(idx / CARDS_PER_PAGE) + 1;
+      setColumnPages((prev) =>
+        prev[colKey] === targetPage ? prev : { ...prev, [colKey]: targetPage }
+      );
+    }
+  }, [highlightId, items]);
 
   const filteredItems = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
@@ -364,30 +392,45 @@ export const PipelineOverviewCanvas: React.FC<PipelineOverviewCanvasProps> = ({ 
           </select>
         </div>
 
-        <div className="flex items-center gap-1 p-1 bg-bg-surface border border-border rounded-xl self-start sm:self-auto">
+        <div className="flex flex-wrap items-center gap-2.5 self-start sm:self-auto">
+          <div className="flex items-center gap-1 p-1 bg-bg-surface border border-border rounded-xl">
+            <button
+              type="button"
+              onClick={() => setViewMode('canvas')}
+              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors cursor-pointer whitespace-nowrap ${
+                viewMode === 'canvas'
+                  ? 'bg-accent text-black'
+                  : 'text-text-secondary hover:text-text-primary'
+              }`}
+            >
+              <LayoutGrid className="h-3.5 w-3.5" />
+              <span>Kanban Canvas</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setViewMode('list')}
+              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors cursor-pointer whitespace-nowrap ${
+                viewMode === 'list'
+                  ? 'bg-accent text-black'
+                  : 'text-text-secondary hover:text-text-primary'
+              }`}
+            >
+              <List className="h-3.5 w-3.5" />
+              <span>Directory</span>
+            </button>
+          </div>
+
           <button
             type="button"
-            onClick={() => setViewMode('canvas')}
-            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors cursor-pointer whitespace-nowrap ${
-              viewMode === 'canvas'
-                ? 'bg-accent text-black'
-                : 'text-text-secondary hover:text-text-primary'
-            }`}
+            onClick={() => navigate('/product/revos/pipeline?create=true')}
+            className="group relative overflow-hidden inline-flex items-center gap-1.5 px-4 py-2 rounded-xl border border-text-primary text-text-primary bg-transparent text-xs font-semibold transition-colors duration-300 hover:border-accent hover:text-black cursor-pointer whitespace-nowrap"
           >
-            <LayoutGrid className="h-3.5 w-3.5" />
-            <span>Kanban Canvas</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => setViewMode('list')}
-            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors cursor-pointer whitespace-nowrap ${
-              viewMode === 'list'
-                ? 'bg-accent text-black'
-                : 'text-text-secondary hover:text-text-primary'
-            }`}
-          >
-            <List className="h-3.5 w-3.5" />
-            <span>Directory</span>
+            <span
+              className="absolute inset-0 bg-accent -translate-x-full group-hover:translate-x-0 transition-transform duration-300 ease-out"
+              aria-hidden="true"
+            />
+            <Plus className="h-3.5 w-3.5 relative z-10" />
+            <span className="relative z-10">Create Opportunity</span>
           </button>
         </div>
       </div>
@@ -525,6 +568,11 @@ export const PipelineOverviewCanvas: React.FC<PipelineOverviewCanvasProps> = ({ 
                     <PipelineCard
                       key={item.id}
                       item={item}
+                      highlighted={
+                        Boolean(highlightId) &&
+                        (item.id === highlightId ||
+                          item.pipeline_opp?.pipeline_id === highlightId)
+                      }
                       onSaveIsolatedEdits={handleSaveIsolatedCardEdits}
                     />
                   ))}
@@ -575,6 +623,46 @@ export const PipelineOverviewCanvas: React.FC<PipelineOverviewCanvasProps> = ({ 
           })}
         </div>
       )}
+
+      {/* Subtle Source Label Legend */}
+      <div className="pt-3 border-t border-border/50 flex flex-wrap items-center justify-between gap-3 text-[11px] text-text-secondary/80">
+        <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-text-secondary/70">
+          Card Source Legend
+        </span>
+        <div className="flex flex-wrap items-center gap-x-5 gap-y-2">
+          <div className="flex items-center gap-2">
+            <span
+              className="relative w-6 h-6 rounded border border-border/70 bg-bg-surface overflow-hidden shrink-0"
+              aria-hidden="true"
+            >
+              <span className="absolute inset-0 bg-[#00b67a] [clip-path:polygon(0_0,100%_0,100%_100%)]" />
+              <span className="absolute top-[2px] right-[2px] w-[11px] h-[11px] rounded-full border border-white flex items-center justify-center text-[7px] font-bold leading-none text-white">
+                I
+              </span>
+            </span>
+            <span>
+              <strong className="font-semibold text-text-primary">Inherited</strong>
+              <span className="text-text-secondary/70"> — Inherited from Opportunity Qualification</span>
+            </span>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <span
+              className="relative w-6 h-6 rounded border border-border/70 bg-bg-surface overflow-hidden shrink-0"
+              aria-hidden="true"
+            >
+              <span className="absolute inset-0 bg-[#00a3ff] [clip-path:polygon(0_0,100%_0,100%_100%)]" />
+              <span className="absolute top-[2px] right-[2px] w-[11px] h-[11px] rounded-full border border-white flex items-center justify-center text-[7px] font-bold leading-none text-white">
+                C
+              </span>
+            </span>
+            <span>
+              <strong className="font-semibold text-text-primary">Created</strong>
+              <span className="text-text-secondary/70"> — Created in Pipeline Assessment Engine</span>
+            </span>
+          </div>
+        </div>
+      </div>
     </div>
   );
 };

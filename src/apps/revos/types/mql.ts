@@ -29,7 +29,10 @@ export interface MQLLead {
   lead_industry?: string;
   employee_size?: string;
   location?: string;
+  country?: string;
+  state_province?: string;
   annual_revenue?: string;
+  product_solution?: string;
   phone?: string;
   department?: string;
   lead_date?: string;

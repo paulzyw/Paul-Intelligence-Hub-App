@@ -21,9 +21,12 @@ import {
   OpportunityHandoverUpstreamRisks,
   PipelineFormRecord,
   PipelineWinningStrategy,
-  WinningStrategyExecutionStatus
+  WinningStrategyExecutionStatus,
+  CreatedOpportunityFormInput,
+  CreatedOpportunityContextPayload
 } from '../../types/pipeline';
 import { PipelineConfigService } from './PipelineConfigService';
+import { parseLegacyLocationToCountryAndState } from '../../leads/constants/countries';
 
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const isValidUuid = (id?: string | null): id is string => typeof id === 'string' && UUID_REGEX.test(id);
@@ -44,7 +47,7 @@ export class PipelineDataService {
     }>
   >();
 
-  private static emitPortfolioUpdated(): void {
+  public static emitPortfolioUpdated(): void {
     if (typeof window !== 'undefined') {
       window.dispatchEvent(new CustomEvent('pipeline_portfolio_updated'));
     }
@@ -207,7 +210,18 @@ export class PipelineDataService {
       ]);
 
       return {
-        opportunity: healedPipe as PipelineOpportunity,
+        opportunity: {
+          ...healedPipe,
+          source:
+            healedPipe?.source ||
+            (healedPipe?.metadata as any)?.source ||
+            ((healedPipe?.opportunity_id ||
+              healedPipe?.lead_id ||
+              healedPipe?.source_system === 'RevOS_Opportunity_Qualification' ||
+              (healedPipe?.metadata as any)?.upstream_source)
+              ? 'Inherited'
+              : '')
+        } as PipelineOpportunity,
         inheritance: inheritance as PipelineInheritance,
         isNew: false
       };
@@ -269,7 +283,18 @@ export class PipelineDataService {
       ]);
 
       return {
-        opportunity: healedPipe as PipelineOpportunity,
+        opportunity: {
+          ...healedPipe,
+          source:
+            healedPipe?.source ||
+            (healedPipe?.metadata as any)?.source ||
+            ((healedPipe?.opportunity_id ||
+              healedPipe?.lead_id ||
+              healedPipe?.source_system === 'RevOS_Opportunity_Qualification' ||
+              (healedPipe?.metadata as any)?.upstream_source)
+              ? 'Inherited'
+              : '')
+        } as PipelineOpportunity,
         inheritance: matchedInh as PipelineInheritance,
         isNew: false
       };
@@ -361,7 +386,15 @@ export class PipelineDataService {
     const shortSlug = resolvedOppId.replace(/[^a-zA-Z0-9]/g, '').slice(0, 8) || 'OPP';
     const pipelineId = `PIPE_${shortSlug}_${Date.now()}`;
 
-    const newOpportunity: PipelineOpportunity = {
+    const isMissingColErr = (err: any) =>
+      Boolean(
+        err &&
+        (err.code === 'PGRST204' ||
+          /column .* does not exist/i.test(err.message || '') ||
+          /could not find the .* column/i.test(err.message || ''))
+      );
+
+    const baseOpportunity: PipelineOpportunity = {
       pipeline_id: pipelineId,
       opportunity_id: resolvedOppId,
       lead_id: resolvedLeadId || undefined,
@@ -382,17 +415,33 @@ export class PipelineDataService {
       source_system: 'RevOS_Opportunity_Qualification',
       metadata: {
         upstream_source: 'PADIF_v1.0_Inheritance',
+        source: 'Inherited',
         original_opportunity_id: resolvedOppId,
         original_lead_id: resolvedLeadId,
         original_created_at: oppDb?.created_at || new Date().toISOString()
       }
     };
 
-    const { data: savedOpp, error: insertOppErr } = await supabase
+    const newOpportunity: PipelineOpportunity = {
+      ...baseOpportunity,
+      source: 'Inherited'
+    };
+
+    let { data: savedOpp, error: insertOppErr } = await supabase
       .from('pipeline_opportunities')
       .insert([newOpportunity])
       .select()
       .single();
+
+    if (insertOppErr && isMissingColErr(insertOppErr)) {
+      const fallbackInsertOpp = await supabase
+        .from('pipeline_opportunities')
+        .insert([baseOpportunity])
+        .select()
+        .single();
+      savedOpp = fallbackInsertOpp.data;
+      insertOppErr = fallbackInsertOpp.error;
+    }
 
     if (insertOppErr) {
       console.error('Failed to insert pipeline_opportunity:', insertOppErr);
@@ -447,7 +496,7 @@ export class PipelineDataService {
       }
     };
 
-    const newInheritance: PipelineInheritance = {
+    const baseInheritance: PipelineInheritance = {
       inheritance_id: inheritanceId,
       pipeline_id: activePipeId,
       opportunity_id: resolvedOppId,
@@ -463,19 +512,40 @@ export class PipelineDataService {
       inherited_at: new Date().toISOString()
     };
 
-    const { data: savedInh, error: insertInhErr } = await supabase
+    const newInheritance: PipelineInheritance = {
+      ...baseInheritance,
+      source: 'Inherited'
+    };
+
+    let { data: savedInh, error: insertInhErr } = await supabase
       .from('pipeline_inheritance')
       .insert([newInheritance])
       .select()
       .single();
+
+    if (insertInhErr && isMissingColErr(insertInhErr)) {
+      const fallbackInhRes = await supabase
+        .from('pipeline_inheritance')
+        .insert([baseInheritance])
+        .select()
+        .single();
+      savedInh = fallbackInhRes.data;
+      insertInhErr = fallbackInhRes.error;
+    }
 
     if (insertInhErr) {
       console.error('Failed to insert pipeline_inheritance:', insertInhErr);
     }
 
     return {
-      opportunity: (savedOpp || newOpportunity) as PipelineOpportunity,
-      inheritance: (savedInh || newInheritance) as PipelineInheritance,
+      opportunity: {
+        ...(savedOpp || newOpportunity),
+        source: (savedOpp as any)?.source || 'Inherited'
+      } as PipelineOpportunity,
+      inheritance: {
+        ...(savedInh || newInheritance),
+        source: (savedInh as any)?.source || 'Inherited'
+      } as PipelineInheritance,
       isNew: true
     };
   }
@@ -1052,7 +1122,38 @@ export class PipelineDataService {
         pipeline_opportunity_id: pipelineId
       }
     });
-    if (error) throw error;
+    if (error) {
+      let parsedErr: any = null;
+      try {
+        if ((error as any).context && typeof (error as any).context.json === 'function') {
+          parsedErr = await (error as any).context.json();
+        } else if ((error as any).context && typeof (error as any).context.text === 'function') {
+          const txt = await (error as any).context.text();
+          parsedErr = JSON.parse(txt);
+        }
+      } catch {}
+
+      const msg =
+        parsedErr?.error ||
+        parsedErr?.message ||
+        (error as any).message ||
+        'Pipeline Assessment execution failed.';
+      const wrapped: any = new Error(msg);
+      wrapped.code = parsedErr?.code || 'PIPELINE_ASSESSMENT_FAILED';
+      wrapped.retryable = Boolean(parsedErr?.retryable);
+      wrapped.summary_status = parsedErr?.summary_status;
+      wrapped.source_category = parsedErr?.source_category;
+      wrapped.httpStatus = (error as any)?.context?.status;
+      throw wrapped;
+    }
+    if (data?.error) {
+      const wrapped: any = new Error(data.error);
+      wrapped.code = data.code || 'PIPELINE_ASSESSMENT_FAILED';
+      wrapped.retryable = Boolean(data.retryable);
+      wrapped.summary_status = data.summary_status;
+      wrapped.source_category = data.source_category;
+      throw wrapped;
+    }
 
     // Preserve any real commercial Pipeline Stage so evidence intake / reassessment never overwrites it
     if (
@@ -1184,6 +1285,22 @@ export class PipelineDataService {
           evidence_kb_version: typedAssessment.evidence_kb_version,
           rules_version: typedAssessment.rules_version,
           reasoning_prompt_version: typedAssessment.reasoning_prompt_version,
+          opportunity_source_category:
+            typedAssessment.opportunity_source_category ||
+            typedAssessment.raw_reasoning_output?.initial_intelligence_provenance?.opportunity_source_category ||
+            null,
+          initial_intelligence_source_type:
+            typedAssessment.initial_intelligence_source_type ||
+            typedAssessment.raw_reasoning_output?.initial_intelligence_provenance?.initial_intelligence_source_type ||
+            null,
+          initial_intelligence_summary_version:
+            typedAssessment.initial_intelligence_summary_version ??
+            typedAssessment.raw_reasoning_output?.initial_intelligence_provenance?.summary_version ??
+            null,
+          initial_intelligence_provenance:
+            typedAssessment.initial_intelligence_provenance ||
+            typedAssessment.raw_reasoning_output?.initial_intelligence_provenance ||
+            null,
           completed_at: typedAssessment.completed_at,
           updated_at: nowIso
         },
@@ -1506,6 +1623,16 @@ export class PipelineDataService {
     forceRefresh = false
   ): Promise<PipelineOpportunityHandoverDetail> {
     const existing = await this.getOpportunityHandoverDetail(opportunity.pipeline_id);
+    const isCreatedSource =
+      String(opportunity.source || (opportunity.metadata as any)?.source || existing?.source || '')
+        .trim()
+        .toLowerCase() === 'created' ||
+      opportunity.source_system === 'RevOS_Pipeline_Direct_Creation';
+
+    if (isCreatedSource && existing) {
+      return existing;
+    }
+
     const isObservedSupportingMode =
       (existing?.padif_package as any)?.evidence_source_mode === 'observed_supporting_evidence';
     if (
@@ -1688,7 +1815,10 @@ export class PipelineDataService {
         oqResult?.configuration_versions?.qualification_rules_version ||
         'OQ Rules v3.0',
       framework_version: 'PADIF_v1.0',
-      lifecycle_state: existing?.handover_lifecycle_state || 'INHERITED',
+      lifecycle_state:
+        existing?.handover_lifecycle_state && existing.handover_lifecycle_state !== 'CREATED'
+          ? existing.handover_lifecycle_state
+          : 'INHERITED',
       health_indicator: finalDecisionSum.health_indicator || (qScore >= 75 ? 'Strong' : 'Moderate'),
       opportunity_readiness: finalDecisionSum.opportunity_readiness || 'Pipeline Ready',
       narrative_summary:
@@ -2189,12 +2319,15 @@ export class PipelineDataService {
   ): Promise<PipelineFormRecord> {
     const oppId =
       opportunity.opportunity_id ||
+      handoverDetail?.opportunity_id ||
       (opportunity.metadata as any)?.original_opportunity_id ||
       '';
     const leadId =
       opportunity.lead_id ||
+      handoverDetail?.lead_id ||
       (opportunity.metadata as any)?.original_lead_id ||
       '';
+    const oppMeta = (opportunity.metadata as any) || {};
 
     const currencyCodeToSymbol = (code?: string): string => {
       const c = String(code || '').toUpperCase();
@@ -2212,12 +2345,211 @@ export class PipelineDataService {
       return isNaN(parsed.getTime()) ? '' : parsed.toISOString().slice(0, 10);
     };
 
-    // 1. Check dedicated pipeline_form_records table in Supabase first
-    const { data: existingForm, error: formErr } = await supabase
-      .from('pipeline_form_records')
-      .select('*')
-      .eq('pipeline_id', opportunity.pipeline_id)
-      .maybeSingle();
+    // 1. Check dedicated pipeline_form_records and pipeline_opportunities tables in Supabase first
+    const [{ data: existingForm, error: formErr }, { data: dbPipeRow, error: pipeRowErr }] =
+      await Promise.all([
+        supabase
+          .from('pipeline_form_records')
+          .select('*')
+          .eq('pipeline_id', opportunity.pipeline_id)
+          .maybeSingle(),
+        supabase
+          .from('pipeline_opportunities')
+          .select('*')
+          .eq('pipeline_id', opportunity.pipeline_id)
+          .maybeSingle()
+      ]);
+
+    let resolvedCountry =
+      (!formErr && existingForm?.country) ||
+      opportunity.country ||
+      oppMeta.country ||
+      '';
+    let resolvedCampaign =
+      (!formErr && existingForm?.campaign_assignment) ||
+      opportunity.campaign_assignment ||
+      oppMeta.campaign_assignment ||
+      '';
+    let resolvedSegment =
+      (!formErr && existingForm?.business_segment) ||
+      opportunity.business_segment ||
+      oppMeta.business_segment ||
+      '';
+    let resolvedProduct =
+      (!formErr && existingForm?.product_solution) ||
+      opportunity.product_solution ||
+      oppMeta.product_solution ||
+      '';
+
+    const needsUpstreamContext =
+      Boolean(formErr || !existingForm) ||
+      !resolvedCountry ||
+      !resolvedCampaign ||
+      !resolvedSegment ||
+      !resolvedProduct;
+
+    let upstreamForm: any = {};
+    let sqlEditable: any = {};
+    let oppRow: any = null;
+    let parsedOppDesc: any = {};
+
+    if (needsUpstreamContext) {
+      // 2. Retrieve initial baseline from Opportunity Qualification / SQL Qualification
+      const emptyRes = Promise.resolve({ data: null });
+      const [oppFormRes, sqlHandoverRes, oppRes] = await Promise.all([
+        isValidUuid(oppId)
+          ? supabase.from('opportunity_form_records').select('*').eq('opportunity_id', oppId).maybeSingle()
+          : emptyRes,
+        isValidUuid(oppId)
+          ? supabase.from('opportunity_sql_handover_details').select('*').eq('opportunity_id', oppId).maybeSingle()
+          : emptyRes,
+        isValidUuid(oppId)
+          ? supabase.from('opportunities').select('*').eq('id', oppId).maybeSingle()
+          : emptyRes
+      ]);
+
+      upstreamForm = oppFormRes.data || {};
+      sqlEditable = (sqlHandoverRes.data as any)?.editable_fields || {};
+      oppRow = oppRes.data || null;
+
+      if (typeof oppRow?.description === 'string' && oppRow.description.trim().startsWith('{')) {
+        try {
+          parsedOppDesc = JSON.parse(oppRow.description);
+        } catch {}
+      }
+
+      if (!resolvedCountry) {
+        resolvedCountry =
+          upstreamForm.country ||
+          sqlEditable.country ||
+          oppRow?.country ||
+          parsedOppDesc.country ||
+          '';
+      }
+      if (!resolvedCampaign) {
+        resolvedCampaign =
+          upstreamForm.campaign_assignment ||
+          sqlEditable.campaign_assignment ||
+          oppRow?.campaign_assignment ||
+          parsedOppDesc.campaign_assignment ||
+          '';
+      }
+      if (!resolvedSegment) {
+        resolvedSegment =
+          upstreamForm.business_segment ||
+          sqlEditable.business_segment ||
+          oppRow?.business_segment ||
+          parsedOppDesc.business_segment ||
+          '';
+      }
+      if (!resolvedProduct) {
+        resolvedProduct =
+          upstreamForm.product_solution ||
+          sqlEditable.product_solution ||
+          oppRow?.product_solution ||
+          parsedOppDesc.product_solution ||
+          '';
+      }
+
+      // 3. Final fallback to MQL Lead / Campaign if still missing
+      const effectiveLeadId = leadId || oppRow?.mql_reference_id || '';
+      if ((!resolvedCountry || !resolvedCampaign || !resolvedSegment || !resolvedProduct) && isValidUuid(effectiveLeadId)) {
+        let mqlExtra: any = {};
+        if (typeof window !== 'undefined') {
+          try {
+            const rawExtra = localStorage.getItem(`mql_lead_extra_${effectiveLeadId}`);
+            if (rawExtra) mqlExtra = JSON.parse(rawExtra);
+          } catch {}
+        }
+        try {
+          const { data: mqlLead } = await supabase
+            .from('mql_leads')
+            .select('*')
+            .eq('id', effectiveLeadId)
+            .maybeSingle();
+
+          let campaignName = '';
+          if (mqlLead?.campaign_id) {
+            const { data: campRow } = await supabase
+              .from('mql_campaigns')
+              .select('name')
+              .eq('id', mqlLead.campaign_id)
+              .maybeSingle();
+            campaignName = campRow?.name || '';
+          }
+
+          if (!resolvedCountry) {
+            resolvedCountry =
+              mqlLead?.country ||
+              mqlExtra?.country ||
+              parseLegacyLocationToCountryAndState(mqlLead?.location || mqlExtra?.location).country ||
+              '';
+          }
+          if (!resolvedCampaign) {
+            resolvedCampaign = campaignName;
+          }
+          if (!resolvedSegment) {
+            resolvedSegment = mqlLead?.lead_industry || mqlExtra?.lead_industry || '';
+          }
+          if (!resolvedProduct) {
+            resolvedProduct = mqlLead?.product_solution || mqlExtra?.product_solution || '';
+          }
+        } catch {}
+      }
+    }
+
+    const dbPipeSource =
+      (!pipeRowErr && (dbPipeRow as any)?.source) ||
+      (!pipeRowErr && (dbPipeRow as any)?.metadata?.source) ||
+      '';
+
+    const resolvedSource =
+      dbPipeSource ||
+      (!formErr && existingForm?.source) ||
+      opportunity.source ||
+      oppMeta.source ||
+      (oppId ||
+      leadId ||
+      (!pipeRowErr && (dbPipeRow as any)?.source_system === 'RevOS_Opportunity_Qualification') ||
+      opportunity.source_system === 'RevOS_Opportunity_Qualification' ||
+      oppMeta.upstream_source
+        ? 'Inherited'
+        : '');
+
+    const isCreatedSource =
+      String(resolvedSource || '').trim().toLowerCase() === 'created' ||
+      opportunity.source_system === 'RevOS_Pipeline_Direct_Creation' ||
+      (!pipeRowErr && (dbPipeRow as any)?.source_system === 'RevOS_Pipeline_Direct_Creation');
+
+    if (isCreatedSource && !resolvedProduct) {
+      let createdProposedSolution =
+        handoverDetail?.initial_opportunity_context?.proposed_solution ||
+        (handoverDetail?.padif_package as any)?.initial_opportunity_context?.proposed_solution ||
+        (!pipeRowErr && (dbPipeRow as any)?.initial_context?.proposed_solution) ||
+        (!pipeRowErr && (dbPipeRow as any)?.metadata?.initial_context?.proposed_solution) ||
+        (!formErr && (existingForm as any)?.initial_context?.proposed_solution) ||
+        (opportunity as any)?.initial_context?.proposed_solution ||
+        oppMeta?.initial_context?.proposed_solution ||
+        '';
+
+      if (!createdProposedSolution) {
+        try {
+          const { data: handoverRow } = await supabase
+            .from('pipeline_opportunity_handover_details')
+            .select('initial_opportunity_context, padif_package')
+            .eq('pipeline_id', opportunity.pipeline_id)
+            .maybeSingle();
+          createdProposedSolution =
+            (handoverRow as any)?.initial_opportunity_context?.proposed_solution ||
+            (handoverRow as any)?.padif_package?.initial_opportunity_context?.proposed_solution ||
+            '';
+        } catch {}
+      }
+
+      if (createdProposedSolution) {
+        resolvedProduct = String(createdProposedSolution).trim();
+      }
+    }
 
     if (!formErr && existingForm) {
       const revNum =
@@ -2228,23 +2560,15 @@ export class PipelineDataService {
         ...(existingForm as PipelineFormRecord),
         currency_symbol: existingForm.currency_symbol || currencyCodeToSymbol(existingForm.estimated_revenue),
         deal_value: revNum,
-        expected_close_date: normalizeDateStr(existingForm.expected_close_date)
+        expected_close_date: normalizeDateStr(existingForm.expected_close_date),
+        country: resolvedCountry,
+        campaign_assignment: resolvedCampaign,
+        business_segment: resolvedSegment,
+        product_solution: resolvedProduct,
+        source: resolvedSource
       };
     }
 
-    // 2. Otherwise inherit initial baseline from Opportunity Qualification / SQL Qualification (read-only)
-    const emptyRes = Promise.resolve({ data: null });
-    const [oppFormRes, sqlHandoverRes] = await Promise.all([
-      isValidUuid(oppId)
-        ? supabase.from('opportunity_form_records').select('*').eq('opportunity_id', oppId).maybeSingle()
-        : emptyRes,
-      isValidUuid(oppId)
-        ? supabase.from('opportunity_sql_handover_details').select('*').eq('opportunity_id', oppId).maybeSingle()
-        : emptyRes
-    ]);
-
-    const upstreamForm: any = oppFormRes.data || {};
-    const sqlEditable: any = (sqlHandoverRes.data as any)?.editable_fields || {};
     const cc = handoverDetail?.canonical_classification;
 
     const rawEstimated =
@@ -2308,6 +2632,11 @@ export class PipelineDataService {
           upstreamForm.expected_close_date ||
           sqlEditable.expected_close_date
       ),
+      country: resolvedCountry,
+      campaign_assignment: resolvedCampaign,
+      business_segment: resolvedSegment,
+      product_solution: resolvedProduct,
+      source: resolvedSource,
       industry:
         cc?.commercial_context?.industry_name ||
         opportunity.industry_name ||
@@ -2334,6 +2663,11 @@ export class PipelineDataService {
       deal_value: number;
       pipeline_stage: string;
       expected_close_date: string;
+      country?: string;
+      campaign_assignment?: string;
+      business_segment?: string;
+      product_solution?: string;
+      source?: string;
       industry: string;
       revenue_motion: string;
       form_status: 'Draft' | 'Saved';
@@ -2352,7 +2686,15 @@ export class PipelineDataService {
       (opportunity.metadata as any)?.original_lead_id ||
       null;
 
-    const dbFormPayload = {
+    const isMissingColumnError = (err: any) =>
+      Boolean(
+        err &&
+        (err.code === 'PGRST204' ||
+          /column .* does not exist/i.test(err.message || '') ||
+          /could not find the .* column/i.test(err.message || ''))
+      );
+
+    const baseDbFormPayload = {
       pipeline_id: opportunity.pipeline_id,
       opportunity_id: oppId,
       lead_id: leadId,
@@ -2371,12 +2713,34 @@ export class PipelineDataService {
       updated_at: nowIso
     };
 
+    const resolvedSourceVal =
+      formInput.source !== undefined ? formInput.source.trim() : 'Inherited';
+
+    const fullDbFormPayload = {
+      ...baseDbFormPayload,
+      country: formInput.country || null,
+      campaign_assignment: formInput.campaign_assignment || null,
+      business_segment: formInput.business_segment || null,
+      product_solution: formInput.product_solution || null,
+      source: resolvedSourceVal || null
+    };
+
     // 1. Upsert into dedicated Supabase table public.pipeline_form_records
-    const { data: savedForm, error: formError } = await supabase
+    let { data: savedForm, error: formError } = await supabase
       .from('pipeline_form_records')
-      .upsert(dbFormPayload, { onConflict: 'pipeline_id' })
+      .upsert(fullDbFormPayload, { onConflict: 'pipeline_id' })
       .select()
       .single();
+
+    if (formError && isMissingColumnError(formError)) {
+      const fallbackRes = await supabase
+        .from('pipeline_form_records')
+        .upsert(baseDbFormPayload, { onConflict: 'pipeline_id' })
+        .select()
+        .single();
+      savedForm = fallbackRes.data;
+      formError = fallbackRes.error;
+    }
 
     if (formError) {
       throw new Error(
@@ -2398,7 +2762,16 @@ export class PipelineDataService {
           ? 'CLOSED_LOST'
           : 'ACTIVE';
 
-    const oppUpdatePayload: Record<string, unknown> = {
+    const nextMetadata: Record<string, unknown> = {
+      ...(opportunity.metadata || {}),
+      country: formInput.country || '',
+      campaign_assignment: formInput.campaign_assignment || '',
+      business_segment: formInput.business_segment || '',
+      product_solution: formInput.product_solution || '',
+      source: resolvedSourceVal
+    };
+
+    const baseOppUpdatePayload: Record<string, unknown> = {
       customer_name: formInput.company_name,
       opportunity_name: formInput.opportunity_name,
       opportunity_owner: formInput.opportunity_owner,
@@ -2408,15 +2781,36 @@ export class PipelineDataService {
       pipeline_stage: formInput.pipeline_stage,
       expected_close_date: formInput.expected_close_date || null,
       lifecycle_status: nextLifecycle,
+      metadata: nextMetadata,
       updated_at: nowIso
     };
 
-    const { data: updatedOppRow, error: oppUpdateError } = await supabase
+    const fullOppUpdatePayload: Record<string, unknown> = {
+      ...baseOppUpdatePayload,
+      country: formInput.country || null,
+      campaign_assignment: formInput.campaign_assignment || null,
+      business_segment: formInput.business_segment || null,
+      product_solution: formInput.product_solution || null,
+      source: resolvedSourceVal || null
+    };
+
+    let { data: updatedOppRow, error: oppUpdateError } = await supabase
       .from('pipeline_opportunities')
-      .update(oppUpdatePayload)
+      .update(fullOppUpdatePayload)
       .eq('pipeline_id', opportunity.pipeline_id)
       .select()
       .maybeSingle();
+
+    if (oppUpdateError && isMissingColumnError(oppUpdateError)) {
+      const fallbackOppRes = await supabase
+        .from('pipeline_opportunities')
+        .update(baseOppUpdatePayload)
+        .eq('pipeline_id', opportunity.pipeline_id)
+        .select()
+        .maybeSingle();
+      updatedOppRow = fallbackOppRes.data;
+      oppUpdateError = fallbackOppRes.error;
+    }
 
     if (oppUpdateError) {
       console.warn('pipeline_opportunities sync warning:', oppUpdateError.message);
@@ -2475,6 +2869,12 @@ export class PipelineDataService {
       currency: symbolToCurrency(formInput.currency_symbol),
       pipeline_stage: formInput.pipeline_stage,
       expected_close_date: formInput.expected_close_date || opportunity.expected_close_date,
+      country: formInput.country || '',
+      campaign_assignment: formInput.campaign_assignment || '',
+      business_segment: formInput.business_segment || '',
+      product_solution: formInput.product_solution || '',
+      source: resolvedSourceVal,
+      metadata: nextMetadata,
       lifecycle_status: nextLifecycle,
       updated_at: nowIso
     };
@@ -2482,9 +2882,963 @@ export class PipelineDataService {
     this.emitPortfolioUpdated();
 
     return {
-      formRecord: savedForm as PipelineFormRecord,
+      formRecord: {
+        ...(savedForm as PipelineFormRecord),
+        country: (savedForm as any)?.country ?? formInput.country ?? '',
+        campaign_assignment: (savedForm as any)?.campaign_assignment ?? formInput.campaign_assignment ?? '',
+        business_segment: (savedForm as any)?.business_segment ?? formInput.business_segment ?? '',
+        product_solution: (savedForm as any)?.product_solution ?? formInput.product_solution ?? '',
+        source: (savedForm as any)?.source ?? resolvedSourceVal
+      },
       updatedOpportunity
     };
+  }
+
+  /**
+   * 14. Save Direct Opportunity Creation Form (Source = 'Created')
+   * Persists to public.pipeline_opportunities, public.pipeline_form_records, and
+   * public.pipeline_opportunity_handover_details (where Initial Opportunity Context Summary will be stored).
+   * Reuses existing pipeline_id on subsequent saves to prevent duplicate records.
+   */
+  static async saveCreatedOpportunity(
+    input: CreatedOpportunityFormInput,
+    authUser?: { id?: string; email?: string } | null
+  ): Promise<{
+    opportunity: PipelineOpportunity;
+    formRecord: PipelineFormRecord;
+    isNew: boolean;
+  }> {
+    const nowIso = new Date().toISOString();
+    const isNew = !input.pipeline_id;
+    const rawSlug = `${input.company_name}_${input.opportunity_name}`
+      .replace(/[^a-zA-Z0-9]/g, '')
+      .toUpperCase()
+      .slice(0, 8) || 'OPP';
+    const pipelineId = input.pipeline_id || `PIPE_DIRECT_${rawSlug}_${Date.now()}`;
+
+    const { canonicalId: canonicalIndustryId, name: canonicalIndustryName } =
+      PipelineConfigService.normalizeIndustryId(input.industry);
+    const canonicalMotionId = PipelineConfigService.normalizeRevenueMotionId(input.revenue_motion);
+
+    const industryDisplayName = input.industry?.trim() || canonicalIndustryName;
+    const motionDisplayName = input.revenue_motion?.trim() || 'Digital Solution Selling';
+
+    const numericDealValue = Number(input.estimated_revenue) || 0;
+    const currencyCode = (input.currency || 'USD').trim().toUpperCase();
+    const currencySymbol = (input.currency_symbol || '$').trim() || '$';
+
+    const nextLifecycle: PipelineOpportunity['lifecycle_status'] =
+      input.pipeline_stage === 'Closed Won'
+        ? 'CLOSED_WON'
+        : input.pipeline_stage === 'Closed Lost'
+          ? 'CLOSED_LOST'
+          : 'ACTIVE';
+
+    const initialContextPayload: CreatedOpportunityContextPayload = {
+      source: 'Created',
+      opportunity_name: input.opportunity_name.trim(),
+      company_name: input.company_name.trim(),
+      industry: industryDisplayName,
+      industry_id: canonicalIndustryId,
+      revenue_motion: motionDisplayName,
+      revenue_motion_id: canonicalMotionId,
+      opportunity_owner: input.opportunity_owner.trim(),
+      country: input.country.trim(),
+      business_segment: input.business_segment?.trim() || '',
+      creation_date: input.creation_date?.trim() || '',
+      opportunity_overview: input.opportunity_overview.trim(),
+      customer_business_problem: input.customer_business_problem.trim(),
+      proposed_solution: input.proposed_solution.trim(),
+      expected_business_outcomes: input.expected_business_outcomes?.trim() || '',
+      opportunity_origin_background: input.opportunity_origin_background?.trim() || '',
+      estimated_revenue: numericDealValue,
+      currency: currencyCode,
+      currency_symbol: currencySymbol,
+      expected_closing_date: input.expected_closing_date.trim(),
+      pipeline_stage: input.pipeline_stage.trim(),
+      opportunity_stage: input.opportunity_stage.trim(),
+      commercial_model: input.commercial_model?.trim() || '',
+      current_engagement_status: input.current_engagement_status?.trim() || '',
+      known_customer_stakeholders: input.known_customer_stakeholders?.trim() || '',
+      known_decision_maker: input.known_decision_maker?.trim() || '',
+      internal_champion: input.internal_champion?.trim() || '',
+      recent_customer_interaction: input.recent_customer_interaction?.trim() || '',
+      known_competitors: input.known_competitors?.trim() || '',
+      known_customer_priorities: input.known_customer_priorities?.trim() || '',
+      known_constraints_challenges: input.known_constraints_challenges?.trim() || '',
+      additional_information: input.additional_information?.trim() || ''
+    };
+
+    const isMissingColumnOrSchemaErr = (err: any) =>
+      Boolean(
+        err &&
+        (err.code === 'PGRST204' ||
+          err.code === '42703' ||
+          /column .* does not exist/i.test(err.message || '') ||
+          /could not find the .* column/i.test(err.message || ''))
+      );
+
+    const dbCompanyName = initialContextPayload.company_name || 'Draft Account';
+    const dbOpportunityName = initialContextPayload.opportunity_name || 'Draft Opportunity';
+    const isDraftSave = Boolean(input.is_draft);
+
+    // 1. Upsert into public.pipeline_opportunities (canonical listing & lifecycle record)
+    const oppMetadata: Record<string, unknown> = {
+      source: 'Created',
+      creation_origin: 'RevOS_Pipeline_Direct_Creation',
+      is_draft: isDraftSave,
+      last_saved_section: input.last_saved_section || 'A',
+      saved_sections: Array.isArray(input.saved_sections) ? input.saved_sections : [],
+      country: initialContextPayload.country,
+      business_segment: initialContextPayload.business_segment || '',
+      creation_date: initialContextPayload.creation_date || '',
+      commercial_model: initialContextPayload.commercial_model || '',
+      product_solution: initialContextPayload.proposed_solution || '',
+      initial_context: initialContextPayload
+    };
+
+    const baseOppPayload: Record<string, unknown> = {
+      pipeline_id: pipelineId,
+      customer_name: dbCompanyName,
+      opportunity_name: dbOpportunityName,
+      industry_id: canonicalIndustryId,
+      industry_name: industryDisplayName,
+      revenue_motion_id: canonicalMotionId,
+      revenue_motion_name: motionDisplayName,
+      deal_value: numericDealValue,
+      currency: currencyCode,
+      sales_stage: initialContextPayload.opportunity_stage || 'Emerging Opportunity',
+      pipeline_stage: initialContextPayload.pipeline_stage || 'Qualification',
+      forecast_category:
+        nextLifecycle === 'CLOSED_WON'
+          ? 'Closed'
+          : nextLifecycle === 'CLOSED_LOST'
+            ? 'Omitted'
+            : 'Pipeline',
+      expected_close_date: initialContextPayload.expected_closing_date || null,
+      opportunity_owner: initialContextPayload.opportunity_owner || 'Senior Enterprise AE',
+      lifecycle_status: nextLifecycle,
+      source_system: 'RevOS_Pipeline_Direct_Creation',
+      metadata: oppMetadata,
+      updated_at: nowIso
+    };
+
+    const fullOppPayload: Record<string, unknown> = {
+      ...baseOppPayload,
+      source: 'Created',
+      country: initialContextPayload.country || null,
+      business_segment: initialContextPayload.business_segment || null,
+      creation_date: initialContextPayload.creation_date || null,
+      commercial_model: initialContextPayload.commercial_model || null,
+      product_solution: initialContextPayload.proposed_solution || null,
+      initial_context: initialContextPayload,
+      ...(authUser?.id && isValidUuid(authUser.id) ? { created_by: authUser.id } : {}),
+      ...(authUser?.email ? { owner_email: authUser.email } : {})
+    };
+
+    let { data: savedOppRow, error: oppErr } = await supabase
+      .from('pipeline_opportunities')
+      .upsert(fullOppPayload, { onConflict: 'pipeline_id' })
+      .select()
+      .single();
+
+    if (oppErr && isMissingColumnOrSchemaErr(oppErr)) {
+      const fallbackOppPayload: Record<string, unknown> = {
+        ...baseOppPayload,
+        source: 'Created',
+        country: initialContextPayload.country || null,
+        business_segment: initialContextPayload.business_segment || null,
+        product_solution: initialContextPayload.proposed_solution || null
+      };
+      const retry1 = await supabase
+        .from('pipeline_opportunities')
+        .upsert(fallbackOppPayload, { onConflict: 'pipeline_id' })
+        .select()
+        .single();
+      savedOppRow = retry1.data;
+      oppErr = retry1.error;
+
+      if (oppErr && isMissingColumnOrSchemaErr(oppErr)) {
+        const retry2 = await supabase
+          .from('pipeline_opportunities')
+          .upsert(baseOppPayload, { onConflict: 'pipeline_id' })
+          .select()
+          .single();
+        savedOppRow = retry2.data;
+        oppErr = retry2.error;
+      }
+    }
+
+    if (oppErr) {
+      throw new Error(`Failed to save opportunity to Supabase: ${oppErr.message}`);
+    }
+
+    // 2. Upsert into public.pipeline_form_records so Pipeline Form reflects Created values immediately
+    const formattedRevenue = `${currencySymbol}${new Intl.NumberFormat('en-US').format(numericDealValue)}`;
+    const baseFormPayload: Record<string, unknown> = {
+      pipeline_id: pipelineId,
+      company_name: dbCompanyName,
+      opportunity_name: dbOpportunityName,
+      opportunity_owner: initialContextPayload.opportunity_owner || 'Senior Enterprise AE',
+      opportunity_stage: initialContextPayload.opportunity_stage || 'Emerging Opportunity',
+      estimated_revenue: formattedRevenue,
+      currency_symbol: currencySymbol,
+      deal_value: numericDealValue,
+      pipeline_stage: initialContextPayload.pipeline_stage || 'Qualification',
+      expected_close_date: initialContextPayload.expected_closing_date || null,
+      industry: industryDisplayName,
+      revenue_motion: motionDisplayName,
+      form_status: isDraftSave ? 'Draft' : 'Saved',
+      updated_at: nowIso
+    };
+
+    const fullFormPayload: Record<string, unknown> = {
+      ...baseFormPayload,
+      source: 'Created',
+      country: initialContextPayload.country || null,
+      business_segment: initialContextPayload.business_segment || null,
+      creation_date: initialContextPayload.creation_date || null,
+      commercial_model: initialContextPayload.commercial_model || null,
+      product_solution: initialContextPayload.proposed_solution || null,
+      initial_context: initialContextPayload
+    };
+
+    let { data: savedFormRow, error: formErr } = await supabase
+      .from('pipeline_form_records')
+      .upsert(fullFormPayload, { onConflict: 'pipeline_id' })
+      .select()
+      .single();
+
+    if (formErr && isMissingColumnOrSchemaErr(formErr)) {
+      const retryForm = await supabase
+        .from('pipeline_form_records')
+        .upsert(
+          {
+            ...baseFormPayload,
+            source: 'Created',
+            country: initialContextPayload.country || null,
+            business_segment: initialContextPayload.business_segment || null,
+            product_solution: initialContextPayload.proposed_solution || null
+          },
+          { onConflict: 'pipeline_id' }
+        )
+        .select()
+        .single();
+      savedFormRow = retryForm.data;
+      formErr = retryForm.error;
+
+      if (formErr && isMissingColumnOrSchemaErr(formErr)) {
+        const retryForm2 = await supabase
+          .from('pipeline_form_records')
+          .upsert(baseFormPayload, { onConflict: 'pipeline_id' })
+          .select()
+          .single();
+        savedFormRow = retryForm2.data;
+        formErr = retryForm2.error;
+      }
+    }
+
+    if (formErr) {
+      console.warn('pipeline_form_records upsert note:', formErr.message);
+    }
+
+    // 3. Store initial opportunity context in public.pipeline_opportunity_handover_details
+    //    (the same table where inherited context & Initial Opportunity Context Summary are stored)
+    const canonicalClassification = {
+      opportunity_identity: {
+        opportunity_id: pipelineId,
+        pipeline_id: pipelineId,
+        opportunity_name: initialContextPayload.opportunity_name,
+        account_name: initialContextPayload.company_name,
+        contacts: [],
+        opportunity_owner: initialContextPayload.opportunity_owner,
+        creation_date: initialContextPayload.creation_date || nowIso,
+        qualification_date: nowIso
+      },
+      commercial_context: {
+        canonical_revenue_motion_id: canonicalMotionId,
+        revenue_motion_name: motionDisplayName,
+        canonical_industry_id: canonicalIndustryId,
+        industry_name: industryDisplayName,
+        geography_region: initialContextPayload.country,
+        estimated_value: numericDealValue,
+        currency: currencyCode,
+        expected_close_date: initialContextPayload.expected_closing_date
+      },
+      lifecycle_context: {
+        current_opportunity_stage: initialContextPayload.opportunity_stage,
+        pipeline_stage: initialContextPayload.pipeline_stage,
+        source_system: 'RevOS_Pipeline_Direct_Creation',
+        lead_origin: 'Direct_Creation',
+        sql_origin: 'Direct_Creation'
+      },
+      configuration_context: {
+        revenue_motion_config_id: canonicalMotionId,
+        industry_config_id: canonicalIndustryId,
+        qualification_framework_version: 'Direct_Creation_v1.0',
+        assessment_framework_version: 'PADF_v1.1',
+        inheritance_framework_version: 'N/A'
+      },
+      padf_dimension_mapping: []
+    };
+
+    try {
+      const existingHandover = !isNew
+        ? await this.getOpportunityHandoverDetail(pipelineId)
+        : null;
+
+      const preservedStatus =
+        existingHandover?.summary_status && existingHandover.summary_status !== 'NOT_GENERATED'
+          ? existingHandover.summary_status
+          : 'NOT_GENERATED';
+
+      const handoverPayload: Record<string, unknown> = {
+        pipeline_id: pipelineId,
+        source: 'Created',
+        source_module: 'RevOS_Pipeline_Direct_Creation',
+        framework_version: 'DIRECT_CREATION_v1.0',
+        handover_lifecycle_state: 'CREATED',
+        industry: initialContextPayload.industry || null,
+        industry_id: canonicalIndustryId || null,
+        revenue_motion: initialContextPayload.revenue_motion || null,
+        revenue_motion_id: canonicalMotionId || null,
+        business_segment: initialContextPayload.business_segment || null,
+        creation_date: initialContextPayload.creation_date || null,
+        canonical_classification: canonicalClassification,
+        initial_opportunity_context: initialContextPayload,
+        summary_status: preservedStatus,
+        updated_at: nowIso
+      };
+
+      let { error: handoverErr } = await supabase
+        .from('pipeline_opportunity_handover_details')
+        .upsert(handoverPayload, { onConflict: 'pipeline_id' });
+
+      if (handoverErr && isMissingColumnOrSchemaErr(handoverErr)) {
+        const retryCoreHandover = await supabase
+          .from('pipeline_opportunity_handover_details')
+          .upsert(
+            {
+              pipeline_id: pipelineId,
+              source: 'Created',
+              source_module: 'RevOS_Pipeline_Direct_Creation',
+              framework_version: 'DIRECT_CREATION_v1.0',
+              handover_lifecycle_state: 'CREATED',
+              canonical_classification: canonicalClassification,
+              initial_opportunity_context: initialContextPayload,
+              summary_status: preservedStatus,
+              updated_at: nowIso
+            },
+            { onConflict: 'pipeline_id' }
+          );
+        handoverErr = retryCoreHandover.error;
+      }
+
+      if (handoverErr && isMissingColumnOrSchemaErr(handoverErr)) {
+        await supabase
+          .from('pipeline_opportunity_handover_details')
+          .upsert(
+            {
+              pipeline_id: pipelineId,
+              source_module: 'RevOS_Pipeline_Direct_Creation',
+              framework_version: 'DIRECT_CREATION_v1.0',
+              handover_lifecycle_state: 'CREATED',
+              canonical_classification: canonicalClassification,
+              padif_package: {
+                ...(existingHandover?.padif_package || {}),
+                source: 'Created',
+                initial_opportunity_context: initialContextPayload
+              },
+              updated_at: nowIso
+            },
+            { onConflict: 'pipeline_id' }
+          );
+      }
+    } catch (e) {
+      console.warn('pipeline_opportunity_handover_details created context note:', e);
+    }
+
+    this.emitPortfolioUpdated();
+
+    const savedOpportunity: PipelineOpportunity = {
+      ...(savedOppRow as PipelineOpportunity),
+      source: 'Created',
+      country: initialContextPayload.country,
+      business_segment: initialContextPayload.business_segment,
+      creation_date: initialContextPayload.creation_date,
+      commercial_model: initialContextPayload.commercial_model,
+      initial_context: initialContextPayload
+    };
+
+    const formRecord: PipelineFormRecord = {
+      ...(savedFormRow as PipelineFormRecord),
+      pipeline_id: pipelineId,
+      company_name: initialContextPayload.company_name,
+      opportunity_name: initialContextPayload.opportunity_name,
+      opportunity_owner: initialContextPayload.opportunity_owner,
+      opportunity_stage: initialContextPayload.opportunity_stage,
+      estimated_revenue: formattedRevenue,
+      currency_symbol: currencySymbol,
+      deal_value: numericDealValue,
+      pipeline_stage: initialContextPayload.pipeline_stage,
+      expected_close_date: initialContextPayload.expected_closing_date,
+      country: initialContextPayload.country,
+      business_segment: initialContextPayload.business_segment,
+      creation_date: initialContextPayload.creation_date,
+      commercial_model: initialContextPayload.commercial_model,
+      initial_context: initialContextPayload,
+      source: 'Created',
+      industry: industryDisplayName,
+      revenue_motion: motionDisplayName,
+      form_status: isDraftSave ? 'Draft' : 'Saved'
+    };
+
+    if (typeof window !== 'undefined') {
+      try {
+        localStorage.setItem(
+          `revos_created_opp_draft_${pipelineId}`,
+          JSON.stringify({
+            pipeline_id: pipelineId,
+            updated_at: nowIso,
+            company_name: initialContextPayload.company_name,
+            opportunity_name: initialContextPayload.opportunity_name,
+            last_saved_section: input.last_saved_section || 'A',
+            saved_sections: Array.isArray(input.saved_sections) ? input.saved_sections : [],
+            initial_context: initialContextPayload,
+            summary_status: 'NOT_GENERATED'
+          })
+        );
+        localStorage.setItem('revos_latest_created_draft_id', pipelineId);
+      } catch {}
+    }
+
+    return {
+      opportunity: savedOpportunity,
+      formRecord,
+      isNew
+    };
+  }
+
+  /**
+   * List in-progress Created opportunity drafts saved section-by-section before final Submit
+   */
+  static async listCreatedOpportunityDrafts(
+    authUser?: { id?: string; email?: string } | null
+  ): Promise<import('../../types/pipeline').CreatedOpportunityDraftRecord[]> {
+    const draftsById = new Map<
+      string,
+      import('../../types/pipeline').CreatedOpportunityDraftRecord
+    >();
+    const excludedPipelineIds = new Set<string>();
+
+    try {
+      const [{ data: oppRows }, { data: handoverRows }, { data: formRows }] = await Promise.all([
+        supabase
+          .from('pipeline_opportunities')
+          .select('*')
+          .eq('source_system', 'RevOS_Pipeline_Direct_Creation')
+          .order('updated_at', { ascending: false })
+          .limit(25),
+        supabase
+          .from('pipeline_opportunity_handover_details')
+          .select(
+            'pipeline_id, summary_status, initial_opportunity_context, padif_package, updated_at'
+          )
+          .eq('source_module', 'RevOS_Pipeline_Direct_Creation')
+          .order('updated_at', { ascending: false })
+          .limit(25),
+        supabase
+          .from('pipeline_form_records')
+          .select('pipeline_id, form_status, initial_context, updated_at')
+          .eq('source', 'Created')
+          .limit(25)
+      ]);
+
+      const handoverMap = new Map<string, any>();
+      (handoverRows || []).forEach((h: any) => {
+        if (h?.pipeline_id) handoverMap.set(h.pipeline_id, h);
+      });
+
+      const formMap = new Map<string, any>();
+      (formRows || []).forEach((f: any) => {
+        if (f?.pipeline_id) formMap.set(f.pipeline_id, f);
+      });
+
+      const userEmail = authUser?.email?.toLowerCase();
+      const userId = authUser?.id;
+
+      (oppRows || []).forEach((opp: any) => {
+        if (!opp?.pipeline_id) return;
+        // Scope to matching authenticated user when ownership metadata exists
+        if (userId && opp.created_by && opp.created_by !== userId) {
+          if (!userEmail || !opp.owner_email || opp.owner_email.toLowerCase() !== userEmail) {
+            excludedPipelineIds.add(opp.pipeline_id);
+            return;
+          }
+        } else if (userEmail && opp.owner_email && opp.owner_email.toLowerCase() !== userEmail) {
+          excludedPipelineIds.add(opp.pipeline_id);
+          return;
+        }
+
+        const handover = handoverMap.get(opp.pipeline_id);
+        const form = formMap.get(opp.pipeline_id);
+        const summaryStatus = (handover?.summary_status || 'NOT_GENERATED') as any;
+
+        // Once summary generation succeeds (READY), opportunity lives on Pipeline Canvas instead of Drafts
+        if (summaryStatus === 'READY') {
+          excludedPipelineIds.add(opp.pipeline_id);
+          return;
+        }
+
+        const meta = (opp.metadata || {}) as Record<string, any>;
+        const ctx =
+          (handover?.initial_opportunity_context &&
+          Object.keys(handover.initial_opportunity_context).length > 0
+            ? handover.initial_opportunity_context
+            : opp.initial_context ||
+              meta.initial_context ||
+              form?.initial_context ||
+              handover?.padif_package?.initial_opportunity_context ||
+              {}) as Record<string, any>;
+
+        const isDraftRow =
+          meta.is_draft === true ||
+          form?.form_status === 'Draft' ||
+          summaryStatus === 'NOT_GENERATED' ||
+          summaryStatus === 'FAILED';
+
+        if (!isDraftRow) {
+          excludedPipelineIds.add(opp.pipeline_id);
+          return;
+        }
+
+        draftsById.set(opp.pipeline_id, {
+          pipeline_id: opp.pipeline_id,
+          updated_at: opp.updated_at || handover?.updated_at || new Date().toISOString(),
+          company_name: ctx.company_name ?? (opp.customer_name === 'Draft Account' ? '' : opp.customer_name || ''),
+          opportunity_name:
+            ctx.opportunity_name ??
+            (opp.opportunity_name === 'Draft Opportunity' ? '' : opp.opportunity_name || ''),
+          last_saved_section: meta.last_saved_section || 'A',
+          saved_sections: Array.isArray(meta.saved_sections) ? meta.saved_sections : [],
+          initial_context: ctx,
+          summary_status: summaryStatus
+        });
+      });
+    } catch (err) {
+      console.warn('Error listing created opportunity drafts from Supabase:', err);
+    }
+
+    // Merge any locally cached draft snapshots not yet reflected (skipping READY or non-owned records)
+    if (typeof window !== 'undefined') {
+      try {
+        for (let i = 0; i < localStorage.length; i++) {
+          const key = localStorage.key(i);
+          if (!key || !key.startsWith('revos_created_opp_draft_')) continue;
+          const raw = localStorage.getItem(key);
+          if (!raw) continue;
+          const parsed = JSON.parse(raw);
+          if (
+            parsed?.pipeline_id &&
+            parsed.summary_status !== 'READY' &&
+            !excludedPipelineIds.has(parsed.pipeline_id) &&
+            !draftsById.has(parsed.pipeline_id)
+          ) {
+            draftsById.set(parsed.pipeline_id, parsed);
+          }
+        }
+      } catch {}
+    }
+
+    return Array.from(draftsById.values()).sort((a, b) =>
+      String(b.updated_at || '').localeCompare(String(a.updated_at || ''))
+    );
+  }
+
+  /**
+   * Retrieve a single saved Created Opportunity draft by pipeline_id
+   */
+  static async getCreatedOpportunityDraft(
+    pipelineId: string
+  ): Promise<import('../../types/pipeline').CreatedOpportunityDraftRecord | null> {
+    if (!pipelineId) return null;
+    try {
+      const [{ data: opp }, { data: handover }, { data: form }] = await Promise.all([
+        supabase
+          .from('pipeline_opportunities')
+          .select('*')
+          .eq('pipeline_id', pipelineId)
+          .maybeSingle(),
+        supabase
+          .from('pipeline_opportunity_handover_details')
+          .select('summary_status, initial_opportunity_context, padif_package, updated_at')
+          .eq('pipeline_id', pipelineId)
+          .maybeSingle(),
+        supabase
+          .from('pipeline_form_records')
+          .select('form_status, initial_context, updated_at')
+          .eq('pipeline_id', pipelineId)
+          .maybeSingle()
+      ]);
+
+      if (opp || handover || form) {
+        const meta = ((opp as any)?.metadata || {}) as Record<string, any>;
+        const rawCtx =
+          (handover as any)?.initial_opportunity_context ||
+          (opp as any)?.initial_context ||
+          meta.initial_context ||
+          (form as any)?.initial_context ||
+          (handover as any)?.padif_package?.initial_opportunity_context ||
+          {};
+        const ctx = {
+          ...(opp
+            ? {
+                company_name:
+                  (opp as any).customer_name === 'Draft Account'
+                    ? ''
+                    : (opp as any).customer_name || '',
+                opportunity_name:
+                  (opp as any).opportunity_name === 'Draft Opportunity'
+                    ? ''
+                    : (opp as any).opportunity_name || '',
+                industry: (opp as any).industry_name || '',
+                revenue_motion: (opp as any).revenue_motion_name || '',
+                opportunity_owner: (opp as any).opportunity_owner || '',
+                country: (opp as any).country || meta.country || '',
+                business_segment: (opp as any).business_segment || meta.business_segment || '',
+                creation_date: (opp as any).creation_date || meta.creation_date || '',
+                estimated_revenue: Number((opp as any).deal_value) || 0,
+                currency: (opp as any).currency || 'USD',
+                expected_closing_date: (opp as any).expected_close_date || '',
+                pipeline_stage: (opp as any).pipeline_stage || '',
+                opportunity_stage: (opp as any).sales_stage || '',
+                commercial_model: (opp as any).commercial_model || meta.commercial_model || '',
+                proposed_solution: (opp as any).product_solution || meta.product_solution || ''
+              }
+            : {}),
+          ...rawCtx
+        };
+        return {
+          pipeline_id: pipelineId,
+          updated_at:
+            (opp as any)?.updated_at ||
+            (handover as any)?.updated_at ||
+            new Date().toISOString(),
+          company_name:
+            ctx.company_name ??
+            ((opp as any)?.customer_name === 'Draft Account'
+              ? ''
+              : (opp as any)?.customer_name || ''),
+          opportunity_name:
+            ctx.opportunity_name ??
+            ((opp as any)?.opportunity_name === 'Draft Opportunity'
+              ? ''
+              : (opp as any)?.opportunity_name || ''),
+          last_saved_section: meta.last_saved_section || 'A',
+          saved_sections: Array.isArray(meta.saved_sections) ? meta.saved_sections : [],
+          initial_context: ctx,
+          summary_status: ((handover as any)?.summary_status || 'NOT_GENERATED') as any
+        };
+      }
+    } catch (err) {
+      console.warn('Error fetching created opportunity draft:', err);
+    }
+
+    if (typeof window !== 'undefined') {
+      try {
+        const raw = localStorage.getItem(`revos_created_opp_draft_${pipelineId}`);
+        if (raw) return JSON.parse(raw);
+      } catch {}
+    }
+    return null;
+  }
+
+  static clearCreatedOpportunityDraftCache(pipelineId?: string | null): void {
+    if (typeof window === 'undefined') return;
+    try {
+      const latest = localStorage.getItem('revos_latest_created_draft_id');
+      if (!pipelineId || latest === pipelineId) {
+        localStorage.removeItem('revos_latest_created_draft_id');
+      }
+      if (pipelineId) {
+        localStorage.removeItem(`revos_created_opp_draft_${pipelineId}`);
+      }
+    } catch {}
+  }
+
+  /**
+   * 15. Edge Function: Generate Initial Opportunity Context Summary ("Created" Opportunities Only)
+   * Invokes dedicated action inside `/supabase/functions/pipeline-assessment/index.ts`.
+   */
+  static async generateInitialOpportunityContextSummary(
+    pipelineId: string,
+    options?: { forceRegenerate?: boolean; retry?: boolean }
+  ): Promise<{
+    status: string;
+    from_cache?: boolean;
+    is_stale?: boolean;
+    pipeline_id: string;
+    source_category: 'Created';
+    summary_status: 'NOT_GENERATED' | 'GENERATING' | 'READY' | 'FAILED';
+    summary_version: number;
+    summary_generated_at?: string | null;
+    model_identifier?: string;
+    summary?: import('../../types/pipeline').InitialOpportunityContextSummaryPayload | null;
+    summary_history?: import('../../types/pipeline').InitialOpportunityContextSummaryHistoryEntry[];
+  }> {
+    if (!pipelineId) {
+      throw new Error('pipeline_id is required to generate Initial Opportunity Context Summary.');
+    }
+
+    const { data, error } = await supabase.functions.invoke('pipeline-assessment', {
+      body: {
+        action: 'generate-initial-opportunity-context-summary',
+        pipeline_id: pipelineId,
+        pipeline_opportunity_id: pipelineId,
+        force_regenerate: Boolean(options?.forceRegenerate),
+        retry: Boolean(options?.retry)
+      }
+    });
+
+    if (error) {
+      let parsedErr: any = null;
+      try {
+        if (error.context && typeof error.context.json === 'function') {
+          parsedErr = await error.context.json();
+        } else if (error.context && typeof error.context.text === 'function') {
+          const txt = await error.context.text();
+          parsedErr = JSON.parse(txt);
+        }
+      } catch {}
+
+      const msg =
+        parsedErr?.error ||
+        parsedErr?.message ||
+        error.message ||
+        'Initial Opportunity Context Summary generation failed.';
+      const wrapped: any = new Error(msg);
+      wrapped.code = parsedErr?.code || 'SUMMARY_GENERATION_FAILED';
+      wrapped.summary_status = parsedErr?.summary_status || 'FAILED';
+      wrapped.retryable = parsedErr?.retryable !== false;
+      wrapped.httpStatus = error?.context?.status;
+      throw wrapped;
+    }
+
+    if (data?.error) {
+      const wrapped: any = new Error(data.error);
+      wrapped.code = data.code || 'SUMMARY_GENERATION_FAILED';
+      wrapped.summary_status = data.summary_status || 'FAILED';
+      wrapped.retryable = data.retryable !== false;
+      throw wrapped;
+    }
+
+    if (data?.summary_status === 'READY') {
+      this.emitPortfolioUpdated();
+    }
+
+    return data;
+  }
+
+  /**
+   * 16. Edge Function: Get Initial Opportunity Context Summary Status & Staleness
+   */
+  static async getInitialOpportunityContextSummaryStatus(pipelineId: string): Promise<{
+    pipeline_id: string;
+    summary_status: 'NOT_GENERATED' | 'GENERATING' | 'READY' | 'FAILED';
+    summary_version: number;
+    is_stale: boolean;
+    summary_generated_at?: string | null;
+    summary_error?: string | null;
+    summary?: import('../../types/pipeline').InitialOpportunityContextSummaryPayload | null;
+    summary_history?: import('../../types/pipeline').InitialOpportunityContextSummaryHistoryEntry[];
+  }> {
+    if (!pipelineId) {
+      return {
+        pipeline_id: '',
+        summary_status: 'NOT_GENERATED',
+        summary_version: 0,
+        is_stale: false,
+        summary: null,
+        summary_history: []
+      };
+    }
+
+    try {
+      const { data, error } = await supabase.functions.invoke('pipeline-assessment', {
+        body: {
+          action: 'get-initial-opportunity-context-summary',
+          pipeline_id: pipelineId,
+          pipeline_opportunity_id: pipelineId
+        }
+      });
+      if (!error && data && !data.error) {
+        return data;
+      }
+    } catch (e) {
+      console.warn('getInitialOpportunityContextSummaryStatus edge fallback:', e);
+    }
+
+    const handover = await this.getOpportunityHandoverDetail(pipelineId);
+    return {
+      pipeline_id: pipelineId,
+      summary_status: (handover?.summary_status as any) || 'NOT_GENERATED',
+      summary_version: Number(handover?.summary_version || 0),
+      is_stale: Boolean(handover?.is_stale),
+      summary_generated_at: handover?.summary_generated_at || null,
+      summary_error: handover?.summary_error || null,
+      summary: (handover?.initial_opportunity_context_summary as any) || null,
+      summary_history: []
+    };
+  }
+
+  /**
+   * 17. Manually persist / re-save generated Initial Opportunity Context Summary into Supabase
+   *     (`public.pipeline_opportunity_handover_details`).
+   */
+  static async saveInitialOpportunityContextSummary(
+    pipelineId: string,
+    summaryPayload: import('../../types/pipeline').InitialOpportunityContextSummaryPayload,
+    options?: {
+      summaryVersion?: number;
+      summaryGeneratedAt?: string | null;
+      summaryHistory?: import('../../types/pipeline').InitialOpportunityContextSummaryHistoryEntry[];
+      industry?: string;
+      industryId?: string;
+      revenueMotion?: string;
+      revenueMotionId?: string;
+    }
+  ): Promise<{ savedAt: string; summaryVersion: number }> {
+    if (!pipelineId) {
+      throw new Error('pipeline_id is required to save Initial Opportunity Context Summary.');
+    }
+    if (!summaryPayload || !summaryPayload.summary_sections) {
+      throw new Error('Generated summary content is required before saving.');
+    }
+
+    const nowIso = new Date().toISOString();
+    const effectiveVersion =
+      Number(options?.summaryVersion ?? summaryPayload.summary_metadata?.version ?? 1) || 1;
+    const effectiveGeneratedAt =
+      options?.summaryGeneratedAt || summaryPayload.summary_metadata?.generated_at || nowIso;
+
+    const existingHandover = await this.getOpportunityHandoverDetail(pipelineId);
+
+    const resolvedIndustry =
+      (options?.industry || summaryPayload.summary_metadata?.industry || existingHandover?.industry || '').trim();
+    const resolvedRevenueMotion =
+      (
+        options?.revenueMotion ||
+        summaryPayload.summary_metadata?.revenue_motion ||
+        existingHandover?.revenue_motion ||
+        ''
+      ).trim();
+
+    const canonicalIndustryId =
+      options?.industryId ||
+      summaryPayload.summary_metadata?.industry_id ||
+      existingHandover?.industry_id ||
+      (resolvedIndustry ? PipelineConfigService.normalizeIndustryId(resolvedIndustry).canonicalId : '');
+    const canonicalMotionId =
+      options?.revenueMotionId ||
+      summaryPayload.summary_metadata?.revenue_motion_id ||
+      existingHandover?.revenue_motion_id ||
+      (resolvedRevenueMotion
+        ? PipelineConfigService.normalizeRevenueMotionId(resolvedRevenueMotion)
+        : '');
+
+    const enrichedSummaryPayload: import('../../types/pipeline').InitialOpportunityContextSummaryPayload = {
+      ...summaryPayload,
+      summary_metadata: {
+        ...summaryPayload.summary_metadata,
+        ...(resolvedIndustry ? { industry: resolvedIndustry } : {}),
+        ...(canonicalIndustryId ? { industry_id: canonicalIndustryId } : {}),
+        ...(resolvedRevenueMotion ? { revenue_motion: resolvedRevenueMotion } : {}),
+        ...(canonicalMotionId ? { revenue_motion_id: canonicalMotionId } : {})
+      }
+    };
+
+    const fullPayload: Record<string, unknown> = {
+      pipeline_id: pipelineId,
+      source: 'Created',
+      source_module: existingHandover?.source_module || 'RevOS_Pipeline_Direct_Creation',
+      framework_version: existingHandover?.framework_version || 'DIRECT_CREATION_v1.0',
+      handover_lifecycle_state: existingHandover?.handover_lifecycle_state || 'CREATED',
+      industry: resolvedIndustry || null,
+      industry_id: canonicalIndustryId || null,
+      revenue_motion: resolvedRevenueMotion || null,
+      revenue_motion_id: canonicalMotionId || null,
+      initial_opportunity_context_summary: enrichedSummaryPayload,
+      summary_status: 'READY',
+      summary_error: null,
+      summary_generated_at: effectiveGeneratedAt,
+      summary_version: effectiveVersion,
+      summary_history: [],
+      summary_input_hash: enrichedSummaryPayload.summary_metadata?.input_hash || null,
+      summary_model_identifier: enrichedSummaryPayload.summary_metadata?.model_identifier || null,
+      summary_prompt_version: enrichedSummaryPayload.summary_metadata?.prompt_version || null,
+      updated_at: nowIso
+    };
+
+    let { error } = await supabase
+      .from('pipeline_opportunity_handover_details')
+      .upsert(fullPayload, { onConflict: 'pipeline_id' });
+
+    const isMissingColumnErr = (err: any) =>
+      Boolean(
+        err &&
+          (err.code === 'PGRST204' ||
+            err.code === '42703' ||
+            /column .* does not exist/i.test(err.message || '') ||
+            /could not find the .* column/i.test(err.message || ''))
+      );
+
+    if (error && isMissingColumnErr(error)) {
+      const retryCore = await supabase
+        .from('pipeline_opportunity_handover_details')
+        .upsert(
+          {
+            pipeline_id: pipelineId,
+            source: 'Created',
+            source_module: existingHandover?.source_module || 'RevOS_Pipeline_Direct_Creation',
+            framework_version: existingHandover?.framework_version || 'DIRECT_CREATION_v1.0',
+            handover_lifecycle_state: existingHandover?.handover_lifecycle_state || 'CREATED',
+            initial_opportunity_context_summary: enrichedSummaryPayload,
+            summary_status: 'READY',
+            summary_error: null,
+            summary_generated_at: effectiveGeneratedAt,
+            padif_package: {
+              ...(existingHandover?.padif_package || {}),
+              source: 'Created',
+              initial_context_summary_lifecycle: {
+                summary_status: 'READY',
+                summary_version: effectiveVersion,
+                summary_history: [],
+                summary_input_hash: enrichedSummaryPayload.summary_metadata?.input_hash || null,
+                summary_model_identifier:
+                  enrichedSummaryPayload.summary_metadata?.model_identifier || null,
+                summary_prompt_version:
+                  enrichedSummaryPayload.summary_metadata?.prompt_version || null,
+                industry: resolvedIndustry || null,
+                industry_id: canonicalIndustryId || null,
+                revenue_motion: resolvedRevenueMotion || null,
+                revenue_motion_id: canonicalMotionId || null
+              }
+            },
+            updated_at: nowIso
+          },
+          { onConflict: 'pipeline_id' }
+        );
+      error = retryCore.error;
+    }
+
+    if (error) {
+      throw new Error(
+        `Failed to save Initial Opportunity Context Summary to Supabase: ${error.message}`
+      );
+    }
+
+    this.emitPortfolioUpdated();
+    return { savedAt: nowIso, summaryVersion: effectiveVersion };
   }
 }
 

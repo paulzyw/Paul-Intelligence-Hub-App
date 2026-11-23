@@ -84,7 +84,21 @@ export class MQLDataService {
 
   static async createLead(lead: Partial<MQLLead>) {
     const { data, error } = await supabase.from('mql_leads').insert([lead]).select().single();
-    if (error) throw error;
+    if (error) {
+      const msg = String(error?.message || '').toLowerCase();
+      if (
+        error?.code === 'PGRST204' ||
+        msg.includes('country') ||
+        msg.includes('state_province') ||
+        msg.includes('product_solution')
+      ) {
+        const { country: _c, state_province: _s, product_solution: _p, ...legacyLead } = lead;
+        const retry = await supabase.from('mql_leads').insert([legacyLead]).select().single();
+        if (retry.error) throw retry.error;
+        return { ...(retry.data as MQLLead), country: _c, state_province: _s, product_solution: _p };
+      }
+      throw error;
+    }
     return data as MQLLead;
   }
 
@@ -96,7 +110,21 @@ export class MQLDataService {
 
   static async updateLead(leadId: string, lead: Partial<MQLLead>) {
     const { data, error } = await supabase.from('mql_leads').update(lead).eq('id', leadId).select().single();
-    if (error) throw error;
+    if (error) {
+      const msg = String(error?.message || '').toLowerCase();
+      if (
+        error?.code === 'PGRST204' ||
+        msg.includes('country') ||
+        msg.includes('state_province') ||
+        msg.includes('product_solution')
+      ) {
+        const { country: _c, state_province: _s, product_solution: _p, ...legacyLead } = lead;
+        const retry = await supabase.from('mql_leads').update(legacyLead).eq('id', leadId).select().single();
+        if (retry.error) throw retry.error;
+        return { ...(retry.data as MQLLead), country: _c, state_province: _s, product_solution: _p };
+      }
+      throw error;
+    }
     return data as MQLLead;
   }
 

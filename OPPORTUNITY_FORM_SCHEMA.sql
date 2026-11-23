@@ -19,9 +19,13 @@ CREATE TABLE IF NOT EXISTS public.opportunity_form_records (
   pipeline_stage TEXT DEFAULT 'Qualification',
   expected_close_date DATE,
   
-  -- Inherited from SQL Qualification Module
+  -- Inherited / Retrieved from MQL & SQL Qualification Modules
   industry TEXT,
   revenue_motion TEXT,
+  country TEXT,
+  campaign_assignment TEXT,
+  business_segment TEXT,
+  product_solution TEXT,
   
   -- Optional Notes & Status
   strategic_note TEXT,

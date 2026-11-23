@@ -52,7 +52,38 @@ export class SQLDataService {
       .insert([opportunity])
       .select()
       .single();
-    if (error) throw error;
+    if (error) {
+      const msg = String(error?.message || '').toLowerCase();
+      if (
+        error?.code === 'PGRST204' ||
+        msg.includes('country') ||
+        msg.includes('campaign_assignment') ||
+        msg.includes('business_segment') ||
+        msg.includes('product_solution')
+      ) {
+        const {
+          country: _c,
+          campaign_assignment: _ca,
+          business_segment: _bs,
+          product_solution: _ps,
+          ...legacyOpp
+        } = opportunity;
+        const retry = await supabase
+          .from('opportunities')
+          .insert([legacyOpp])
+          .select()
+          .single();
+        if (retry.error) throw retry.error;
+        return {
+          ...(retry.data as SQLOpportunity),
+          country: _c,
+          campaign_assignment: _ca,
+          business_segment: _bs,
+          product_solution: _ps
+        };
+      }
+      throw error;
+    }
     return data as SQLOpportunity;
   }
 
@@ -63,7 +94,39 @@ export class SQLDataService {
       .eq('id', id)
       .select()
       .single();
-    if (error) throw error;
+    if (error) {
+      const msg = String(error?.message || '').toLowerCase();
+      if (
+        error?.code === 'PGRST204' ||
+        msg.includes('country') ||
+        msg.includes('campaign_assignment') ||
+        msg.includes('business_segment') ||
+        msg.includes('product_solution')
+      ) {
+        const {
+          country: _c,
+          campaign_assignment: _ca,
+          business_segment: _bs,
+          product_solution: _ps,
+          ...legacyOpp
+        } = opportunity;
+        const retry = await supabase
+          .from('opportunities')
+          .update(legacyOpp)
+          .eq('id', id)
+          .select()
+          .single();
+        if (retry.error) throw retry.error;
+        return {
+          ...(retry.data as SQLOpportunity),
+          country: _c,
+          campaign_assignment: _ca,
+          business_segment: _bs,
+          product_solution: _ps
+        };
+      }
+      throw error;
+    }
     return data as SQLOpportunity;
   }
 

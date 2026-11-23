@@ -71,7 +71,17 @@ export interface PipelineOpportunity {
   forecast_category?: string;
   expected_close_date?: string;
   opportunity_owner: string;
+  country?: string;
+  campaign_assignment?: string;
+  business_segment?: string;
+  product_solution?: string;
+  commercial_model?: string;
+  creation_date?: string;
+  initial_context?: CreatedOpportunityContextPayload;
+  created_by?: string;
+  owner_email?: string;
   lifecycle_status: 'ACTIVE' | 'ON_HOLD' | 'CLOSED_WON' | 'CLOSED_LOST';
+  source?: string;
   source_system?: string;
   metadata?: Record<string, unknown>;
   created_at?: string;
@@ -85,6 +95,7 @@ export interface PipelineInheritance {
   opportunity_id?: string;
   lead_id?: string;
   source_qualification_id?: string;
+  source?: string;
   source_module: string;
   framework_version: string;
   qualification_decision?: string;
@@ -158,6 +169,8 @@ export interface PipelineExecutiveSummary {
   why_this_assessment?: PipelineWhyAssessmentChain;
   longitudinal_trend?: string;
   reasoning_duration_ms?: number;
+  source_category?: 'Inherited' | 'Created' | string;
+  initial_intelligence_provenance?: InitialIntelligenceProvenance;
 }
 
 export interface PipelinePADFDimensionAudit {
@@ -335,6 +348,8 @@ export interface PipelineAssessment {
   raw_reasoning_output?: {
     primary_reason?: string;
     health_indicator?: PipelineHealthIndicator;
+    opportunity_source_category?: 'Inherited' | 'Created' | string;
+    initial_intelligence_provenance?: InitialIntelligenceProvenance;
     executive_summary_v2?: PipelineExecutiveSummary;
     padf_dimension_narratives?: PipelinePADFDimensionAudit[];
     evidence_assessments?: PipelineQuestionSignalAudit[];
@@ -345,11 +360,50 @@ export interface PipelineAssessment {
     winning_strategy_summary?: PipelineWinningStrategySummary;
     [key: string]: unknown;
   };
+  opportunity_source_category?: 'Inherited' | 'Created' | string | null;
+  initial_intelligence_source_type?:
+    | 'inherited_lead_qualification'
+    | 'initial_opportunity_context_summary'
+    | 'unavailable'
+    | string
+    | null;
+  initial_intelligence_source_id?: string | null;
+  initial_intelligence_summary_version?: number | null;
+  initial_intelligence_status?: string | null;
+  initial_intelligence_provenance?: InitialIntelligenceProvenance | null;
   executive_summary?: PipelineExecutiveSummary;
   created_by?: string;
   completed_at?: string;
   created_at?: string;
   updated_at?: string;
+}
+
+export interface InitialIntelligenceProvenance {
+  opportunity_source_category: 'Inherited' | 'Created';
+  initial_intelligence_source_type:
+    | 'inherited_lead_qualification'
+    | 'initial_opportunity_context_summary'
+    | 'unavailable';
+  intended_source_type?:
+    | 'inherited_lead_qualification'
+    | 'initial_opportunity_context_summary';
+  availability_status:
+    | 'AVAILABLE'
+    | 'READY'
+    | 'READY_STALE_WARNING'
+    | 'UNAVAILABLE_FAILED'
+    | 'UNAVAILABLE_MISSING';
+  source_record_id?: string | null;
+  summary_version?: number | null;
+  summary_generated_at?: string | null;
+  summary_input_hash?: string | null;
+  summary_model_identifier?: string | null;
+  summary_prompt_version?: string | null;
+  summary_error?: string | null;
+  is_stale?: boolean;
+  is_independently_verified_evidence: boolean;
+  client_override_ignored?: boolean;
+  provenance_note: string;
 }
 
 export interface PipelinePADFResult {
@@ -601,20 +655,141 @@ export interface OpportunityHandoverUpstreamRisks {
   inheritance_priority_order: string[];
 }
 
+export type InitialSummaryStatus = 'NOT_GENERATED' | 'GENERATING' | 'READY' | 'FAILED';
+
+export interface InitialOpportunityContextSummarySections {
+  opportunity_overview: string;
+  customer_context: string;
+  business_problem_and_customer_needs: string;
+  proposed_solution_and_value_proposition: string;
+  expected_business_outcomes: string;
+  commercial_context: string;
+  customer_engagement_and_stakeholder_context: string;
+  competitive_context: string;
+  known_constraints_and_challenges: string;
+  missing_or_unconfirmed_information: string;
+}
+
+export interface InitialOpportunityContextSummaryMetadata {
+  summary_type: 'initial_opportunity_context_summary';
+  generation_status: 'ready';
+  generated_at: string;
+  source_category: 'Created';
+  opportunity_id: string;
+  version: number;
+  prompt_version: string;
+  model_identifier: string;
+  input_hash: string;
+  evidence_status: 'not_independent_verified_evidence';
+  provenance_note: string;
+  industry?: string;
+  industry_id?: string;
+  revenue_motion?: string;
+  revenue_motion_id?: string;
+}
+
+export interface InitialOpportunityContextSummaryPayload {
+  summary_metadata: InitialOpportunityContextSummaryMetadata;
+  summary_sections: InitialOpportunityContextSummarySections;
+}
+
+export interface InitialOpportunityContextSummaryHistoryEntry {
+  version: number;
+  generated_at: string;
+  input_hash: string;
+  model_identifier: string;
+  prompt_version: string;
+  summary: InitialOpportunityContextSummaryPayload;
+}
+
+export interface CreatedOpportunityContextPayload {
+  source: 'Created';
+  // Section A — Opportunity Identity
+  opportunity_name: string;
+  company_name: string;
+  industry: string;
+  industry_id?: string;
+  revenue_motion: string;
+  revenue_motion_id?: string;
+  opportunity_owner: string;
+  country: string;
+  business_segment?: string;
+  creation_date?: string;
+  // Section B — Opportunity Description
+  opportunity_overview: string;
+  customer_business_problem: string;
+  proposed_solution: string;
+  expected_business_outcomes?: string;
+  opportunity_origin_background?: string;
+  // Section C — Commercial Information
+  estimated_revenue: number;
+  currency: string;
+  currency_symbol: string;
+  expected_closing_date: string;
+  pipeline_stage: string;
+  opportunity_stage: string;
+  commercial_model?: string;
+  // Section D — Customer Engagement & Stakeholders
+  current_engagement_status?: string;
+  known_customer_stakeholders?: string;
+  known_decision_maker?: string;
+  internal_champion?: string;
+  recent_customer_interaction?: string;
+  known_competitors?: string;
+  // Section E — Additional Context
+  known_customer_priorities?: string;
+  known_constraints_challenges?: string;
+  additional_information?: string;
+}
+
+export interface CreatedOpportunityFormInput extends CreatedOpportunityContextPayload {
+  pipeline_id?: string;
+  is_draft?: boolean;
+  last_saved_section?: 'A' | 'B' | 'C' | 'D' | 'E';
+  saved_sections?: Array<'A' | 'B' | 'C' | 'D' | 'E'>;
+}
+
+export interface CreatedOpportunityDraftRecord {
+  pipeline_id: string;
+  updated_at: string;
+  company_name: string;
+  opportunity_name: string;
+  last_saved_section?: 'A' | 'B' | 'C' | 'D' | 'E';
+  saved_sections?: Array<'A' | 'B' | 'C' | 'D' | 'E'>;
+  initial_context: Partial<CreatedOpportunityContextPayload>;
+  summary_status: InitialSummaryStatus;
+}
+
 export interface PipelineOpportunityHandoverDetail {
   id?: string;
   pipeline_id: string;
   opportunity_id?: string;
   lead_id?: string;
+  source?: string;
   source_session_id?: string;
   source_result_id?: string;
   source_module: string;
   framework_version: string;
-  handover_lifecycle_state: 'INHERITED' | 'REVALIDATED' | 'SUPERSEDED' | 'INVALIDATED';
+  handover_lifecycle_state: 'INHERITED' | 'REVALIDATED' | 'SUPERSEDED' | 'INVALIDATED' | 'CREATED';
+  industry?: string | null;
+  industry_id?: string | null;
+  revenue_motion?: string | null;
+  revenue_motion_id?: string | null;
   qualification_continuity: OpportunityHandoverQualificationContinuity;
   canonical_classification: OpportunityHandoverCanonicalClassification;
   upstream_handover_risks: OpportunityHandoverUpstreamRisks;
   padif_package: Record<string, unknown>;
+  initial_opportunity_context?: CreatedOpportunityContextPayload;
+  initial_opportunity_context_summary?: InitialOpportunityContextSummaryPayload | Record<string, unknown> | null;
+  summary_status?: InitialSummaryStatus;
+  summary_error?: string | null;
+  summary_generated_at?: string | null;
+  summary_version?: number;
+  summary_history?: InitialOpportunityContextSummaryHistoryEntry[];
+  summary_input_hash?: string | null;
+  summary_model_identifier?: string | null;
+  summary_prompt_version?: string | null;
+  is_stale?: boolean;
   owner_notes?: string;
   inherited_at?: string;
   revalidated_at?: string;
@@ -637,6 +812,14 @@ export interface PipelineFormRecord {
   deal_value: number;
   pipeline_stage: string;
   expected_close_date: string;
+  country?: string;
+  campaign_assignment?: string;
+  business_segment?: string;
+  product_solution?: string;
+  commercial_model?: string;
+  creation_date?: string;
+  initial_context?: CreatedOpportunityContextPayload;
+  source?: string;
   industry: string;
   revenue_motion: string;
   form_status?: 'Draft' | 'Saved';

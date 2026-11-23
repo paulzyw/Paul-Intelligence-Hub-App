@@ -138,7 +138,7 @@ export class PipelineConfigService {
     if (lower.includes('infrastructure')) return { canonicalId: 'IND_Infrastructure_Projects', name: 'Infrastructure Projects' };
     if (lower.includes('epc') || lower.includes('procurement & construction')) return { canonicalId: 'IND_EPC_EP_Projects', name: 'EPC / EP Projects' };
     if (lower.includes('procurement')) return { canonicalId: 'IND_Enterprise_Procurement', name: 'Enterprise Procurement' };
-    if (lower.includes('solution selling')) return { canonicalId: 'IND_Solution_Selling_Organizations', name: 'Solution-Selling Organizations' };
+    if (lower.includes('solution selling') || lower.includes('solution-selling')) return { canonicalId: 'IND_Solution_Selling_Organizations', name: 'Solution-Selling Organizations' };
     if (lower.includes('other')) return { canonicalId: 'IND_Other_Solutions', name: 'Other Solutions' };
 
     return { canonicalId: 'IND_Enterprise_Software', name: 'Enterprise Software' };

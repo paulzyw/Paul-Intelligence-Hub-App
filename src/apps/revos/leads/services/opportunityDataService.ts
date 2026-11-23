@@ -376,6 +376,12 @@ export class OpportunityDataService {
   // Opportunity Form Data Management (Supabase-Persisted)
   static async getOpportunityFormData(opportunityId: string) {
     if (!isValidUuid(opportunityId)) return null;
+
+    let formRecord: any = null;
+    let handoverEditable: any = null;
+    let oppRecord: any = null;
+    let parsedDesc: any = {};
+
     // 1. Try dedicated opportunity_form_records table
     try {
       const { data, error } = await supabase
@@ -385,7 +391,7 @@ export class OpportunityDataService {
         .maybeSingle();
 
       if (!error && data) {
-        return data;
+        formRecord = data;
       }
     } catch (e) {
       // Table may not yet be initialized in Supabase
@@ -395,13 +401,13 @@ export class OpportunityDataService {
     try {
       const handover = await this.getSqlHandoverData(opportunityId);
       if (handover?.editable_fields && Object.keys(handover.editable_fields).length > 0) {
-        return handover.editable_fields;
+        handoverEditable = handover.editable_fields;
       }
     } catch (e) {
       // Fallback
     }
 
-    // 3. Fallback to opportunities record
+    // 3. Also inspect opportunities record as fallback / enrichment for inherited SQL/MQL fields
     try {
       const { data: opp } = await supabase
         .from('opportunities')
@@ -410,28 +416,77 @@ export class OpportunityDataService {
         .maybeSingle();
 
       if (opp) {
-        let parsedDesc: any = {};
+        oppRecord = opp;
         if (opp.description && opp.description.trim().startsWith('{')) {
           try {
             parsedDesc = JSON.parse(opp.description);
           } catch (e) {}
         }
-        return {
-          company_name: opp.company_name,
-          opportunity_name: opp.opportunity_name,
-          industry: opp.industry,
-          revenue_motion: opp.revenue_motion,
-          opportunity_owner: parsedDesc.opportunity_owner || 'Senior Enterprise AE',
-          opportunity_stage: parsedDesc.opportunity_stage || 'Emerging Opportunity',
-          estimated_revenue: parsedDesc.estimated_revenue || '$150,000',
-          pipeline_stage: parsedDesc.pipeline_stage || 'Qualification',
-          expected_close_date: parsedDesc.expected_close_date || '',
-          ...parsedDesc
-        };
       }
     } catch (e) {}
 
-    return null;
+    if (!formRecord && !handoverEditable && !oppRecord) {
+      return null;
+    }
+
+    const base = formRecord || handoverEditable || {};
+    const mergedCountry =
+      formRecord?.country ||
+      handoverEditable?.country ||
+      oppRecord?.country ||
+      parsedDesc?.country ||
+      '';
+    const mergedCampaign =
+      formRecord?.campaign_assignment ||
+      handoverEditable?.campaign_assignment ||
+      oppRecord?.campaign_assignment ||
+      parsedDesc?.campaign_assignment ||
+      '';
+    const mergedSegment =
+      formRecord?.business_segment ||
+      handoverEditable?.business_segment ||
+      oppRecord?.business_segment ||
+      parsedDesc?.business_segment ||
+      '';
+    const mergedProduct =
+      formRecord?.product_solution ||
+      handoverEditable?.product_solution ||
+      oppRecord?.product_solution ||
+      parsedDesc?.product_solution ||
+      '';
+
+    if (formRecord || handoverEditable) {
+      return {
+        ...parsedDesc,
+        ...handoverEditable,
+        ...base,
+        company_name: base.company_name || oppRecord?.company_name || '',
+        opportunity_name: base.opportunity_name || oppRecord?.opportunity_name || '',
+        industry: base.industry || oppRecord?.industry || '',
+        revenue_motion: base.revenue_motion || oppRecord?.revenue_motion || '',
+        country: mergedCountry,
+        campaign_assignment: mergedCampaign,
+        business_segment: mergedSegment,
+        product_solution: mergedProduct
+      };
+    }
+
+    return {
+      company_name: oppRecord.company_name,
+      opportunity_name: oppRecord.opportunity_name,
+      industry: oppRecord.industry,
+      revenue_motion: oppRecord.revenue_motion,
+      opportunity_owner: parsedDesc.opportunity_owner || 'Senior Enterprise AE',
+      opportunity_stage: parsedDesc.opportunity_stage || 'Emerging Opportunity',
+      estimated_revenue: parsedDesc.estimated_revenue || '$150,000',
+      pipeline_stage: parsedDesc.pipeline_stage || 'Qualification',
+      expected_close_date: parsedDesc.expected_close_date || '',
+      ...parsedDesc,
+      country: mergedCountry,
+      campaign_assignment: mergedCampaign,
+      business_segment: mergedSegment,
+      product_solution: mergedProduct
+    };
   }
 
   /**
@@ -664,23 +719,52 @@ export class OpportunityDataService {
     expected_close_date: string;
     industry: string;
     revenue_motion: string;
+    country?: string;
+    campaign_assignment?: string;
+    business_segment?: string;
+    product_solution?: string;
     strategic_note?: string;
   }) {
+    const isMissingColumnError = (err: any) =>
+      err && (
+        err.code === 'PGRST204' ||
+        /column .* does not exist/i.test(err.message || '') ||
+        /could not find the .* column/i.test(err.message || '')
+      );
+
     // 1. Update public.opportunities table (primary system of record)
+    const baseOppUpdate = {
+      company_name: formData.company_name,
+      opportunity_name: formData.opportunity_name,
+      industry: formData.industry,
+      revenue_motion: formData.revenue_motion,
+      description: JSON.stringify(formData),
+      updated_at: new Date().toISOString()
+    };
+
     const { error: oppError } = await supabase
       .from('opportunities')
       .update({
-        company_name: formData.company_name,
-        opportunity_name: formData.opportunity_name,
-        industry: formData.industry,
-        revenue_motion: formData.revenue_motion,
-        description: JSON.stringify(formData),
-        updated_at: new Date().toISOString()
+        ...baseOppUpdate,
+        country: formData.country ?? null,
+        campaign_assignment: formData.campaign_assignment ?? null,
+        business_segment: formData.business_segment ?? null,
+        product_solution: formData.product_solution ?? null
       })
       .eq('id', opportunityId);
 
     if (oppError) {
-      console.error('Error updating opportunities record:', oppError);
+      if (isMissingColumnError(oppError)) {
+        const { error: fallbackOppError } = await supabase
+          .from('opportunities')
+          .update(baseOppUpdate)
+          .eq('id', opportunityId);
+        if (fallbackOppError) {
+          console.error('Error updating opportunities record (fallback):', fallbackOppError);
+        }
+      } else {
+        console.error('Error updating opportunities record:', oppError);
+      }
     }
 
     // 2. Update public.opportunity_sql_handover_details
@@ -697,7 +781,7 @@ export class OpportunityDataService {
 
     // 3. Upsert into public.opportunity_form_records
     try {
-      const record = {
+      const baseRecord = {
         opportunity_id: opportunityId,
         company_name: formData.company_name,
         opportunity_name: formData.opportunity_name,
@@ -712,6 +796,14 @@ export class OpportunityDataService {
         updated_at: new Date().toISOString()
       };
 
+      const fullRecord = {
+        ...baseRecord,
+        country: formData.country || null,
+        campaign_assignment: formData.campaign_assignment || null,
+        business_segment: formData.business_segment || null,
+        product_solution: formData.product_solution || null
+      };
+
       const { data: existing } = await supabase
         .from('opportunity_form_records')
         .select('id')
@@ -719,14 +811,27 @@ export class OpportunityDataService {
         .maybeSingle();
 
       if (existing) {
-        await supabase
+        const { error: recUpdateError } = await supabase
           .from('opportunity_form_records')
-          .update(record)
+          .update(fullRecord)
           .eq('id', existing.id);
+
+        if (recUpdateError && isMissingColumnError(recUpdateError)) {
+          await supabase
+            .from('opportunity_form_records')
+            .update(baseRecord)
+            .eq('id', existing.id);
+        }
       } else {
-        await supabase
+        const { error: recInsertError } = await supabase
           .from('opportunity_form_records')
-          .insert([record]);
+          .insert([fullRecord]);
+
+        if (recInsertError && isMissingColumnError(recInsertError)) {
+          await supabase
+            .from('opportunity_form_records')
+            .insert([baseRecord]);
+        }
       }
     } catch (e) {
       console.info('opportunity_form_records upsert note (will succeed once migration runs):', e);

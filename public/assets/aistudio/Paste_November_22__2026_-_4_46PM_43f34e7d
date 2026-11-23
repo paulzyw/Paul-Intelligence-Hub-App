@@ -1,0 +1,586 @@
+In the next, please help me build the "Opportunity Creation Form", it shall be an independent component within Pipeline Assessment engine.
+This Opportunity Creation Form will be opened after user clicked on the button "Create Opportunity" in Pipeline Canvas page.
+For the Opportunity created through this, the Source field, the content will be automatically given with "Created", and in the form after user completed the required input, user to save it in database in supabase, and then, user clicking on a button of "Submit", this button clicking will trigger a Gemini reasoning to generate the "Initial Opportunity Context Summary", this summary will be stored in the database where the inherited data of the opportunity inherited from Lead Qualification engine is stored, and this summary will be used as one of input in assessment Gemini reasoning. Regarding the relevant reasoning, I will give you more guidance to implement in seperate chat.
+In this chat, we only build the Opportunity Creation Form.
+
+The following are the information about why I ask you to build this component and page, what this component look like, and what content are in this component,
+
+1. Project Background
+RevOS is an AI-native Revenue Operating System.
+Its Pipeline Assessment (PA) engine supports two opportunity entry paths.
+Path A — Lead Qualification Inheritance
+An opportunity is transferred from Lead Qualification after successful qualification.
+The opportunity inherits relevant customer, business, solution, stakeholder, engagement and qualification intelligence.
+Its Opportunity Source Category is:
+Inherited
+Path B — Direct Opportunity Creation
+A user creates an opportunity directly inside Pipeline Assessment without first going through Lead Qualification.
+The system collects initial opportunity information and uses a dedicated Supabase Edge Function to generate an AI-powered Initial Opportunity Context Summary.
+This summary subsequently becomes one of the input sources for Gemini reasoning when Pipeline Assessment conducts its assessment.
+Its Opportunity Source Category is:
+Created
+The two opportunity categories enter the same Pipeline Assessment environment and ultimately follow the same assessment methodology.
+However, their initial intelligence sources and corresponding workspace presentation are different.
+Your task is to implement the complete Create Opportunity feature within the existing RevOS application, incorporating this source-category architecture.
+The feature must integrate with the existing Pipeline Assessment dashboard, opportunity data model, Supabase backend, Gemini reasoning architecture and user experience.
+________________________________________
+2. Product Objectives
+The Create Opportunity feature must achieve seven objectives:
+1.	Allow users to create opportunities directly inside Pipeline Assessment.
+2.	Collect sufficient initial information to establish the business context of an opportunity.
+3.	Assign the Opportunity Source Category Created automatically.
+4.	Store the information using the existing opportunity data architecture.
+5.	Trigger the Initial Opportunity Context Summary generation process.
+6.	Make the newly created opportunity immediately available within the existing Pipeline Assessment opportunity listing and workspace.
+7.	Ensure that the opportunity is presented and processed according to the Created source category.
+The feature must not duplicate Lead Qualification functionality.
+It must not require users to complete all eight PADF dimensions during opportunity creation.
+The purpose of opportunity creation is to establish initial context. The actual assessment must be conducted through the existing Pipeline Assessment methodology.
+________________________________________
+3. Core Architecture — Opportunity Source Category
+This is a mandatory architectural requirement.
+Every opportunity in Pipeline Assessment must have an identifiable Opportunity Source Category.
+There are two categories:
+Source Category	Definition	Origin
+Inherited	Opportunity transferred from Lead Qualification after qualification	Lead Qualification
+Created	Opportunity created directly by a user inside Pipeline Assessment	Pipeline Assessment
+3.1 Source Category Assignment
+The source category must be assigned automatically according to the actual opportunity creation or transfer process.
+For directly created opportunities:
+Opportunity Source Category = Created
+For opportunities transferred from Lead Qualification:
+Opportunity Source Category = Inherited
+Reuse the existing source or origin identification mechanism if one already exists.
+If the current database does not contain an appropriate field, propose the smallest compatible database change.
+Do not create duplicate source fields unnecessarily.
+3.2 Source Category Governance
+The source category must:
+•	Be stored persistently with the opportunity.
+•	Be available to the frontend and backend.
+•	Remain consistent throughout the opportunity lifecycle.
+•	Be used to determine the appropriate initial intelligence source.
+•	Control the display of source-specific components in the assessment workspace.
+•	Be available to the Gemini reasoning input-selection process.
+•	Be traceable for historical and analytical purposes.
+The source category represents opportunity provenance.
+It is not an assessment score, quality classification or user preference.
+Users must not be allowed to arbitrarily change an opportunity's source category through normal opportunity editing.
+Do not infer source category from whether inherited data or a summary happens to be populated.
+________________________________________
+4. Phase 0 — Existing Architecture Audit
+Before writing or modifying code, inspect the existing RevOS implementation.
+This is mandatory.
+A. Frontend
+Inspect:
+•	Existing Pipeline Assessment dashboard.
+•	Existing opportunity listing and navigation.
+•	Existing opportunity cards.
+•	Existing opportunity creation or editing components, if any.
+•	Existing Opportunity Handover component.
+•	Existing SWOT Factors Matrix component.
+•	Existing assessment workspace structure.
+•	Existing UI component library and design system.
+•	Existing form validation approach.
+•	Existing responsive layout implementation.
+•	Existing loading, error and notification patterns.
+•	Existing routing and state management.
+B. Backend
+Inspect:
+•	Pipeline Assessment opportunity database tables.
+•	Existing opportunity creation and update Edge Functions.
+•	Opportunity ownership and access-control implementation.
+•	Existing opportunity-origin identification mechanism.
+•	Existing Lead Qualification inheritance workflow.
+•	Initial Opportunity Context Summary Edge Function, if implemented.
+•	Existing Pipeline Assessment Gemini reasoning Edge Function.
+•	Existing mechanisms for retrieving inherited qualification information and SWOT factors.
+C. Data Architecture
+Inspect:
+•	Opportunity data model.
+•	Opportunity source/origin fields.
+•	Industry configuration.
+•	Revenue motion configuration.
+•	Opportunity lifecycle and sales-stage definitions.
+•	Currency conventions.
+•	Stakeholder data structures.
+•	Evidence and provenance structures.
+•	Historical assessment and snapshot structures.
+D. Integration
+Determine:
+1.	How the frontend creates an opportunity.
+2.	How the backend persists opportunity information.
+3.	How opportunity source is identified and stored.
+4.	How the Initial Opportunity Context Summary generation is triggered.
+5.	How the generated summary is stored.
+6.	How inherited qualification data is retrieved.
+7.	How the Opportunity Handover component retrieves inherited data.
+8.	How the SWOT Factors Matrix retrieves its information.
+9.	How the assessment workspace determines which components to display.
+10.	How both opportunity categories enter the same assessment workflow.
+Do not invent table names, column names, Edge Function names, field structures or database relationships.
+Reuse the existing implementation wherever possible.
+Audit Deliverable
+Before implementation, provide:
+1.	Existing architecture findings.
+2.	Relevant frontend and backend files.
+3.	Existing database structures.
+4.	Current opportunity source identification mechanism.
+5.	Existing inherited-opportunity workspace structure.
+6.	Required changes.
+7.	Proposed user workflow.
+8.	Proposed integration architecture.
+9.	Any missing information requiring clarification.
+Do not modify production code before completing the audit.
+________________________________________
+5. Phase 1 — User Experience and Entry Point
+The Create Opportunity feature must be accessible from the existing Pipeline Assessment interface.
+Inspect the current dashboard design and determine the most appropriate entry point.
+The feature should be accessible through a clearly visible action such as:
++ Create Opportunity (we already have it in Pipeline Canvas)
+The action should be available even when the user has no existing opportunities.
+5.1 Empty Pipeline State
+When a user has no opportunities in Pipeline Assessment, the dashboard should display an appropriate empty state.
+The empty state should:
+•	Explain that no opportunities have been created yet.
+•	Provide a prominent Create Opportunity action.
+•	Allow the user to start creating their first opportunity.
+•	Avoid displaying empty pipeline charts, heatmaps or assessment metrics that have no meaningful data.
+The empty state must not prevent access to normal Pipeline Assessment functionality once opportunities are created.
+5.2 Existing Pipeline State
+When opportunities already exist, the Create Opportunity action should remain accessible from the dashboard.
+Do not disrupt the existing dashboard layout or functionality.
+________________________________________
+6. Phase 2 — Opportunity Creation Form
+Implement a two-step creation experience.
+The interface should be professional, intuitive, lightweight and consistent with the existing RevOS design system.
+Do not display every optional field as mandatory.
+Step 1 — Basic Opportunity Information
+Section A — Opportunity Identity
+Field	Requirement
+Source	“Created”, automatically given, locked, not able to change
+Opportunity Name	Required
+Customer / Company Name	Required
+Industry	Required
+Revenue Motion	Required
+Opportunity Owner	Required or existing system default
+Country	Required
+
+Field Behaviour
+Opportunity Name
+A text input identifying the opportunity.
+Customer / Company Name
+A text input identifying the customer organization.
+Reuse the existing account or customer selection mechanism if one exists.
+Do not introduce a duplicate customer-management system.
+Industry
+Use the existing RevOS industry configuration and industry taxonomy, a selection from a dropdown list containing following items:
+SaaS / Software
+Enterprise Software
+AI Solutions
+Cloud Transformation
+Consulting
+Professional Services
+System Integration
+Managed Services
+Digital Transformation
+OT/IT Solutions
+Engineering Solutions
+Infrastructure Projects
+EPC / EP Projects
+Enterprise Procurement
+Solution-Selling Organizations
+Other Solutions
+
+Revenue Motion
+Use the existing six RevOS revenue motion families and their established configuration, a selection from a dropdown list containing following items:
+Digital Solution Selling
+Professional & Solution Services
+Digital Transformation & OT
+Engineering & Project Solutions
+Project & Procurement
+Generic Solution Selling
+
+Do not introduce another revenue motion classification system.
+Opportunity Owner
+Use the existing authenticated user or established ownership mechanism where appropriate.
+Country
+User to select a country where the opportunity is located in from a dropdown list containing standard country names.
+.
+Section B — Opportunity Description
+Field	Requirement
+Opportunity Overview	Required
+Customer's Business Problem	Required
+Proposed Solution / Offering	Required
+Expected Business Outcomes	Recommended
+Opportunity Origin / Background	Optional
+The three mandatory descriptive fields should allow concise but meaningful answers.
+Provide short explanatory placeholder text.
+Example:
+Opportunity Overview:
+"Implementation of an AI-powered predictive maintenance solution for a chemical manufacturing facility."
+Customer's Business Problem:
+"Unexpected equipment failures are causing production interruptions and increasing maintenance costs."
+Proposed Solution:
+"An integrated predictive maintenance platform using equipment sensor data and AI-based failure prediction."
+Expected Business Outcomes:
+"Reduced unplanned downtime, lower maintenance costs and improved production reliability."
+These examples are illustrative only.
+Do not populate actual opportunity records with these example values.
+Step 1 Validation
+Before proceeding:
+•	Validate mandatory fields.
+•	Validate selected industry and revenue motion against existing configurations.
+•	Validate field lengths and data formats.
+•	Display clear validation messages.
+•	Preserve user-entered information when validation fails.
+________________________________________
+Step 2 — Additional Opportunity Context
+This step collects further information that can enrich initial Gemini reasoning.
+All fields should be optional unless an existing business rule requires otherwise.
+Section C — Commercial Information
+Field	Requirement
+Estimated Revenue	Required
+Currency	Required, select from a dropdown list containing major currencies
+Expected Closing Date	Required
+Pipeline Stage	Required, select from a dropdown list
+Opportunity Stage	Required, select from a dropdown list
+Commercial Model	Optional
+Currency must follow existing RevOS conventions.
+
+Pipeline Stage definitions: items to be included in the dropdown list
+Qualification
+Discovery
+Solution Development
+Proposal
+Evaluation
+Negotiation
+Commit
+Closed Won
+Closed Lost
+
+Opportunity Stage definitions: items to be included in the dropdown list
+Emerging Opportunity
+Defined Opportunity
+Validated Opportunity
+Active Buying Opportunity
+Decision Opportunity
+Contract Decision
+
+Section D — Customer Engagement & Stakeholders
+Field	Requirement
+Current Engagement Status	Optional
+Known Customer Stakeholders	Optional
+Known Decision Maker	Optional
+Internal Champion	Optional
+Recent Customer Interaction	Optional
+Known Competitors	Optional
+Keep stakeholder input lightweight.
+If an existing stakeholder structure is available, reuse it.
+Do not build a separate stakeholder-management module.
+Section E — Additional Context
+Field	Requirement
+Known Customer Priorities	Optional
+Known Constraints / Challenges	Optional
+Additional Information	Optional
+Provide suitable text inputs or text areas depending on information type.
+
+Step 2 Navigation
+Provide:
+•	Back button.
+•	Create Opportunity button.
+•	Clear validation messages.
+•	Loading state during submission.
+•	Protection against accidental duplicate submissions.
+The user should be able to return to Step 1 without losing previously entered information.
+________________________________________
+7. Phase 3 — Opportunity Creation and Data Persistence
+When the user submits the form:
+1.	Validate submitted information.
+2.	Authenticate the user.
+3.	Verify the user is authorized to create an opportunity in the relevant workspace or account.
+4.	Assign the Opportunity Source Category Created.
+5.	Persist the opportunity using the existing Pipeline Assessment data model.
+6.	Associate the opportunity with the correct user and organization.
+7.	Preserve the original user-entered information.
+8.	Return the created opportunity identifier and relevant status information.
+7.1 Opportunity Source Assignment
+The newly created opportunity must be explicitly identifiable as:
+Created
+This must be stored in the appropriate existing database field or the smallest compatible schema addition.
+Do not rely on frontend-only state to identify opportunity source.
+The source category must be available after page refresh, subsequent login and future assessment sessions.
+7.2 Data Integrity
+Do not:
+•	Create duplicate opportunity records.
+•	Create a separate opportunity data model.
+•	Populate fabricated qualification information.
+•	Automatically generate PADF assessment scores during opportunity creation.
+•	Automatically classify the opportunity as strong or weak.
+•	Change the source category based on subsequent assessment results.
+The opportunity must enter the existing Pipeline Assessment lifecycle.
+________________________________________
+8. Phase 4 — Initial Opportunity Context Summary Integration
+After successfully creating the opportunity, trigger the existing Initial Opportunity Context Summary generation Edge Function.
+Inspect its actual interface and implementation before integrating it.
+Do not assume its function name, request payload or response structure.
+Expected Workflow
+1.	Opportunity is successfully created.
+2.	The frontend or backend initiates summary generation using the established integration mechanism.
+3.	The Edge Function retrieves the opportunity's stored information.
+4.	Gemini generates the Initial Opportunity Context Summary.
+5.	The summary is stored and associated with the opportunity.
+6.	The summary generation status is updated.
+7.	The opportunity becomes available for subsequent Pipeline Assessment reasoning.
+Summary Content
+The generated summary should cover:
+•	Opportunity Overview.
+•	Customer Context.
+•	Business Problem and Customer Needs.
+•	Proposed Solution and Value Proposition.
+•	Expected Business Outcomes.
+•	Commercial Context.
+•	Customer Engagement and Stakeholder Context.
+•	Competitive Context.
+•	Known Constraints and Challenges.
+•	Missing or Unconfirmed Information.
+The Create Opportunity frontend must not independently generate another summary using a separate Gemini call.
+Use the dedicated Edge Function.
+Asynchronous Processing
+Treat summary generation as a separate processing step after opportunity creation.
+The opportunity must not be lost if Gemini generation fails.
+If generation is unsuccessful:
+•	Preserve the created opportunity.
+•	Display an appropriate status.
+•	Allow retry through the established mechanism.
+•	Do not falsely indicate that the summary was successfully generated.
+The UI should distinguish:
+•	Opportunity Created.
+•	Summary Generating.
+•	Summary Ready.
+•	Summary Generation Failed.
+Follow existing application conventions for status storage and display.
+________________________________________
+10. Phase 6 — Source-Aware Pipeline Assessment Workspace
+This is a mandatory product architecture requirement.
+The existing Pipeline Assessment workspace was originally designed for opportunities inherited from Lead Qualification.
+It currently includes source-specific components:
+1.	Opportunity Handover.
+2.	SWOT Factors Matrix.
+These components are appropriate for inherited opportunities because they display intelligence generated from Lead Qualification information.
+They are not appropriate for directly created opportunities.
+The workspace must therefore support conditional source-specific initial intelligence presentation.
+However, the remaining Pipeline Assessment workspace must be shared by both categories.
+10.1 Inherited Opportunity Workspace
+When a user clicks an opportunity card with source category Inherited, the assessment workspace must display the existing source-specific components:
+A. Opportunity Handover
+Display the inherited opportunity intelligence from Lead Qualification using the existing component and design.
+Preserve its existing functionality and data retrieval mechanism.
+B. SWOT Factors Matrix
+Display the existing SWOT Factors Matrix using the SWOT intelligence associated with the inherited opportunity data.
+Preserve its existing functionality and design.
+Do not replace or redesign these components as part of the Create Opportunity implementation unless necessary for compatibility.
+10.2 Created Opportunity Workspace
+When a user clicks an opportunity card with source category Created, the assessment workspace must display a new source-specific component:
+Initial Opportunity Context Summary
+This component displays the summary generated during direct opportunity creation.
+It should provide an organized presentation of:
+1.	Opportunity Overview.
+2.	Customer Context.
+3.	Business Problem and Customer Needs.
+4.	Proposed Solution and Value Proposition.
+5.	Expected Business Outcomes.
+6.	Commercial Context.
+7.	Customer Engagement and Stakeholder Context.
+8.	Competitive Context.
+9.	Known Constraints and Challenges.
+10.	Missing or Unconfirmed Information.
+The component must retrieve the actual generated summary associated with the opportunity.
+It must not generate a second summary in the frontend.
+It should also display the summary generation status.
+If the summary is:
+Ready: Display the generated summary.
+Generating: Display a clear processing state.
+Failed: Display a clear failure state and provide the appropriate retry mechanism, if supported.
+Unavailable: Explain that the initial context summary is not yet available.
+Do not display fabricated or placeholder summary content as if it were real opportunity information.
+Where appropriate, allow the user to review the original opportunity information.
+The component must clearly represent initial opportunity context, not a PADF assessment or formal SWOT analysis.
+10.3 Shared Pipeline Assessment Workspace
+After the source-specific initial intelligence component or components, both opportunity categories must use the same remaining Pipeline Assessment workspace.
+
+The following components and capabilities must remain shared:
+•	Pipeline Form
+•	Pipeline Assessment Form
+•	Pipeline Assessment Result
+•	SWOT Intelligence
+•	Risk Register
+•	TOWS & Actions
+•	Winning Strategy
+•	Evolution Timeline
+•	Governance & Audit
+•	And Other existing shared PA functionality if any
+
+Do not create a separate assessment workspace for directly created opportunities.
+Do not duplicate existing PA components.
+Do not change the assessment methodology based on source category.
+10.4 Important Distinction Regarding SWOT
+The existing inherited-data SWOT Factors Matrix is a source-specific presentation component.
+Its existing purpose and data must be preserved for inherited opportunities.
+For directly created opportunities, do not display an inherited-data SWOT Factors Matrix because no Lead Qualification inherited intelligence exists.
+However, this must not disable or prevent any existing SWOT intelligence functionality that may be generated later through the normal Pipeline Assessment process.
+If the existing PA workflow generates or updates SWOT intelligence using accumulated Pipeline Assessment evidence, preserve that capability.
+The source category should determine the initial intelligence presentation, not permanently restrict the opportunity's future intelligence capabilities.
+10.5 Workspace Architecture
+The intended conceptual structure is:
+Inherited
+Opportunity Card — Inherited
+→ Opportunity Handover
+→ SWOT Factors Matrix
+→ Shared Pipeline Assessment Workspace
+Created
+Opportunity Card — Created
+→ Initial Opportunity Context Summary
+→ Shared Pipeline Assessment Workspace
+
+This is a presentation architecture requirement.
+Do not introduce two separate backend assessment processes.
+Both paths must converge into the existing Pipeline Assessment engine.
+________________________________________
+11. Phase 7 — Integration with Gemini Reasoning
+The opportunity source category must also support correct selection of initial opportunity intelligence for Gemini reasoning.
+The detailed reasoning Edge Function integration is handled by a separate implementation task, but this Create Opportunity implementation must be compatible with it.
+Expected behaviour:
+Opportunity Source	Initial Gemini Reasoning Input
+Inherited	Existing Lead Qualification inherited intelligence
+Created	Initial Opportunity Context Summary
+For directly created opportunities:
+•	Persist the Created source category.
+•	Associate the generated summary with the correct opportunity.
+•	Make the summary retrievable by the existing Pipeline Assessment reasoning process.
+•	Preserve the original user-provided information and provenance.
+For inherited opportunities:
+•	Preserve the Inherited source category.
+•	Preserve the existing Lead Qualification inheritance mechanism.
+•	Do not replace inherited intelligence with the direct opportunity summary.
+Both categories must continue using the same:
+•	PADF framework.
+•	Evidence Framework.
+•	Industry and revenue motion configuration.
+•	Gemini reasoning strategy.
+•	Rules Engine.
+•	Winability methodology.
+•	Risk Intelligence methodology.
+•	Winning Strategy process.
+•	Historical assessment architecture.
+The source category must not affect assessment scoring or create an automatic advantage or penalty.
+________________________________________
+12. Phase 8 — Data Integrity and Assessment Compatibility
+The Create Opportunity feature must preserve the existing Pipeline Assessment architecture.
+PADF
+All eight existing PADF dimensions remain unchanged.
+Evidence Framework
+Direct user-entered information must retain its original provenance.
+A generated summary must not become an independent additional piece of evidence.
+For example, if a user enters a customer budget of €2 million and Gemini repeats that information in the summary, the system must not count these as two separate pieces of evidence.
+Gemini Reasoning
+The Initial Opportunity Context Summary is one input source for directly created opportunities.
+For inherited opportunities, existing Lead Qualification inherited intelligence must continue to be used.
+Both paths converge into the same reasoning architecture.
+Rules Engine
+The existing deterministic Rules Engine remains authoritative for its existing scoring and calculation responsibilities.
+Winability
+Do not introduce new source-based weighting.
+Do not penalize direct creation simply because Lead Qualification data is unavailable.
+Missing information must remain unknown or insufficient, not automatically negative.
+________________________________________
+14. Phase 10 — Responsive UI and Interaction Quality
+The feature must work across desktop, tablet and mobile.
+Follow the existing RevOS design system.
+Pay particular attention to:
+•	Form readability.
+•	Field spacing.
+•	Section hierarchy.
+•	Clear mandatory/optional indicators.
+•	Responsive input layouts.
+•	Touch-friendly controls.
+•	Keyboard navigation.
+•	Accessible labels.
+•	Validation feedback.
+•	Loading and error states.
+•	Prevention of accidental duplicate submissions.
+•	Responsive opportunity cards.
+•	Responsive source-specific workspace components.
+Avoid excessive animations.
+Prioritize performance, usability and consistency with the existing application.
+Do not introduce unnecessary dependencies or large UI libraries.
+
+________________________________________
+16. Phase 12 — Final Deliverables
+At completion, provide:
+1.	Initial architecture audit findings.
+2.	Final Create Opportunity user workflow.
+3.	Opportunity Source Category implementation details.
+4.	Database changes and migration scripts, if any.
+5.	Frontend files created or modified.
+6.	Backend files created or modified.
+7.	Opportunity card source-label implementation.
+8.	Source-aware assessment workspace implementation.
+9.	Integration details with the summary-generation Edge Function.
+10.	Gemini reasoning integration compatibility details.
+11.	Screenshots or preview of the implemented interface, where available.
+12.	Functional testing results.
+13.	Integration testing results.
+14.	Regression testing results.
+15.	Deployment instructions.
+16.	Outstanding issues and recommendations.
+________________________________________
+17. Implementation Governance
+This is a production feature being added to an existing RevOS application.
+Follow these implementation rules:
+1.	Inspect before modifying.
+2.	Reuse existing architecture and components.
+3.	Do not invent database schemas or backend interfaces.
+4.	Do not duplicate existing functionality.
+5.	Do not modify unrelated modules.
+6.	Do not change PADF or existing assessment rules.
+7.	Do not change existing inherited opportunity workflows.
+8.	Do not expose Gemini credentials in frontend code.
+9.	Do not silently ignore failed operations.
+10.	Do not mark incomplete functionality as completed.
+11.	Do not create separate assessment workspaces for the two opportunity categories.
+12.	Do not allow source category to influence assessment scoring or winability.
+13.	Do not display inherited-data components for directly created opportunities.
+14.	Do not disable future SWOT intelligence capabilities for directly created opportunities.
+Divide implementation into controlled phases.
+After completing Phase 0, present the audit findings and proposed implementation approach for review.
+Proceed with implementation only after approval.
+The final result must be a fully integrated, production-ready Create Opportunity feature, including Opportunity Source Category and source-aware workspace presentation.
+________________________________________
+18. Final Product Architecture Principle
+The implementation must follow this principle:
+One Pipeline Assessment workspace, two opportunity source paths, and one unified assessment methodology.
+The opportunity source determines:
+•	Initial intelligence provenance.
+•	Initial intelligence presentation.
+•	Which source-specific components are displayed.
+•	Which initial intelligence source is supplied to Gemini reasoning.
+The opportunity source does NOT determine:
+•	PADF assessment methodology.
+•	Evidence evaluation standards.
+•	Rules Engine calculations.
+•	Winability methodology.
+•	Risk Intelligence methodology.
+•	Winning Strategy methodology.
+•	Overall assessment quality.
+Both opportunity categories must ultimately receive the same evidence-driven Pipeline Assessment capabilities.
+
+Regarding the UI style, especially the typography, coloring etc., please refer to the design of Pipeline Form page.
+
+Regarding the content layout in the Opportunity Creation Form page, from the design, there will be content of Section A to Section E, in the page, there will be a horizontal tab bar for selecting these sections.
+For all the required content in all sections, only if all required content have input from user, the save button or the next button on the section can be available to click on, at the last section, at the right-bottom corner, there will be a button "Submit", all required content have input, and saved, Submit button available to click. Regarding the link of Submit button, just leave it blank, we will work on it in next step.
+
+After your implementation, please let me know the step-by-step guidance to finalize the implementation, like running SQl code in supabase.
+
+In the next step, we will build the Gemini reasoning edge function dedicated for generating the initial opportunity context summary.
+
+Please keep the other part not related to this update unchanged!

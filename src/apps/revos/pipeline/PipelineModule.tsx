@@ -4,6 +4,7 @@ import { Cpu, Layers } from 'lucide-react';
 import { OpportunityToPipeline } from './components/opportunity-to-pipeline';
 import { PipelineOverviewCanvas } from './components/PipelineOverviewCanvas';
 import { PipelineDashboard } from './components/PipelineDashboard';
+import { OpportunityCreationForm } from './components/OpportunityCreationForm';
 
 type PipelineTab = 'canvas' | 'dashboard';
 
@@ -11,7 +12,22 @@ export const PipelineModule: React.FC = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const opportunityIdParam = searchParams.get('opportunityId');
   const leadIdParam = searchParams.get('leadId');
+  const createParam = searchParams.get('create');
   const tabParam = searchParams.get('tab');
+
+  // Independent Direct Opportunity Creation Form View
+  if (createParam === 'true') {
+    return (
+      <OpportunityCreationForm
+        onBack={() => {
+          const nextParams = new URLSearchParams(searchParams);
+          nextParams.delete('create');
+          nextParams.delete('draftId');
+          setSearchParams(nextParams, { replace: true });
+        }}
+      />
+    );
+  }
 
   // Isolated Parameter Route View: renders dedicated opportunity-to-pipeline bridge & workspace
   if (opportunityIdParam || leadIdParam) {

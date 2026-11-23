@@ -1585,6 +1585,1122 @@ export function calculateDeterministicAssessment(
 }
 
 // =========================================================================
+// INITIAL OPPORTUNITY CONTEXT SUMMARY MODULE (DEDICATED & ISOLATED)
+// Only for directly "Created" opportunities — completely separate from PADF,
+// Winability, Evidence Intelligence, Risk Intelligence, and SWOT/TOWS.
+// =========================================================================
+
+const INITIAL_CONTEXT_SUMMARY_PROMPT_VERSION = 'v1.0';
+const INITIAL_CONTEXT_SUMMARY_MODEL_ID = 'gemini-3.1-flash-lite';
+const INITIAL_CONTEXT_SUMMARY_FALLBACK_MODEL_ID = 'gemini-4-hydrogen';
+const INITIAL_CONTEXT_SUMMARY_PROVENANCE_NOTE =
+  'AI-generated synthesis derived solely from user-provided direct opportunity creation inputs in Supabase. Not an independently verified customer evidence source.';
+
+const INITIAL_CONTEXT_SUMMARY_REQUIRED_SECTION_KEYS = [
+  'opportunity_overview',
+  'customer_context',
+  'business_problem_and_customer_needs',
+  'proposed_solution_and_value_proposition',
+  'expected_business_outcomes',
+  'commercial_context',
+  'customer_engagement_and_stakeholder_context',
+  'competitive_context',
+  'known_constraints_and_challenges',
+  'missing_or_unconfirmed_information'
+] as const;
+
+const INITIAL_CONTEXT_SUMMARY_SYSTEM_PROMPT_V1 = `# RevOS Pipeline Assessment — Initial Opportunity Context Summary Engine
+## System Prompt ${INITIAL_CONTEXT_SUMMARY_PROMPT_VERSION}
+
+# 1. ROLE AND ARCHITECTURAL BOUNDARY
+You are the dedicated Initial Opportunity Context Summary reasoning engine inside RevOS Pipeline Assessment.
+Your sole responsibility is to synthesize user-provided opportunity creation information for directly "Created" opportunities into a structured, concise, factually grounded Initial Opportunity Context Summary.
+
+CRITICAL ARCHITECTURAL BOUNDARIES:
+- This summary is an AI-generated synthesis of user-provided opportunity creation inputs.
+- It is NOT an independent evidence source and must never present user claims as independently verified customer proof.
+- Do NOT generate PADF scores, Winability scores, Pipeline Health ratings, formal Risk Intelligence records, SWOT/TOWS analyses, or Winning Strategies.
+
+# 2. REQUIRED SUMMARY STRUCTURE (10 MANDATORY CATEGORIES)
+Return valid JSON containing a "summary_sections" object with EXACTLY these 10 keys:
+
+1. "opportunity_overview":
+   Summarize what the opportunity is about, the nature and scope of the proposed business engagement, and the general commercial direction based strictly on supplied creation inputs.
+2. "customer_context":
+   Summarize customer / account background, industry and business environment, and country/geography context from supplied data. Do NOT invent external company facts.
+3. "business_problem_and_customer_needs":
+   Summarize the identified business problem, customer challenges, operational/financial/strategic needs, and stated urgency if known. Distinguish user-provided descriptions from any explicitly mentioned customer confirmation where source data permits.
+4. "proposed_solution_and_value_proposition":
+   Summarize proposed products/services/solutions, how the proposal addresses the identified problem, and the expected value proposition. Do NOT assume solution alignment has been validated.
+5. "expected_business_outcomes":
+   Summarize expected customer outcomes, operational improvements, financial/commercial benefits, or strategic benefits. If omitted or vague, explicitly state that expected outcomes were not specified or quantified. Do NOT invent financial results or ROI numbers.
+6. "commercial_context":
+   Summarize opportunity value, currency, commercial model, expected closing date, current sales/pipeline stage, and any supplied budget or procurement context. Explicitly note unknown commercial elements (such as unprovided commercial model or unconfirmed budget/procurement timeline).
+7. "customer_engagement_and_stakeholder_context":
+   Summarize current engagement status, known stakeholders, decision-maker info, internal champion info, and recent customer interactions. Do NOT assume a named contact is a decision-maker or champion unless explicitly stated in the supplied data.
+8. "competitive_context":
+   Summarize known competitors, alternative solutions, competitive considerations, or existing customer preferences if supplied. Explicitly state when competitive information was not provided. Do NOT invent competitors or assume competitive advantage.
+9. "known_constraints_and_challenges":
+   Summarize commercial constraints, technical constraints, operational challenges, customer-side limitations, or delivery concerns supplied. Explicitly state when none were reported rather than inventing constraints.
+10. "missing_or_unconfirmed_information":
+    Explicitly identify important information that was not provided, remains unknown, has not been independently confirmed by the customer, contains potential contradictions or ambiguities in user-provided fields, or requires customer discovery during downstream Pipeline Assessment.
+
+# 3. MANDATORY INFORMATION INTEGRITY & PROVENANCE RULES
+You MUST strictly obey all 10 integrity rules:
+1. Never invent customer facts or external company history.
+2. Never invent financial figures, ROI metrics, or deal terms.
+3. Never invent stakeholder roles or elevate a named contact to decision-maker/champion without support in the input.
+4. Never invent customer confirmation.
+5. Never invent buying-process stages or procurement approvals.
+6. Never assume budget availability or funding approval.
+7. Never assume decision-maker access.
+8. Never assume competitive advantage.
+9. Never interpret missing optional fields as negative evidence; treat missing items strictly as unprovided/unknown gaps requiring discovery.
+10. Preserve clear provenance: attribute claims accurately (e.g., "According to the user-submitted creation context...") and explicitly surface contradictions or unconfirmed assumptions if present.
+
+# 4. QUALITY REQUIREMENTS
+- Concise, structured, contextual, professionally written, non-repetitive, and strictly grounded in supplied fields.
+- Synthesize related creation inputs into clear business context rather than verbatim copy-pasting form labels.
+- Avoid generic sales filler or speculative adjectives.
+- Output strictly valid JSON matching the requested schema (no markdown code fences).`;
+
+const normalizeTextField = (val: unknown): string => {
+  if (val === null || val === undefined) return '';
+  return String(val).trim();
+};
+
+const stableCanonicalJson = (value: unknown): string => {
+  if (value === null || typeof value !== 'object') {
+    return JSON.stringify(value);
+  }
+  if (Array.isArray(value)) {
+    return '[' + value.map((item) => stableCanonicalJson(item)).join(',') + ']';
+  }
+  const entries = Object.entries(value as Record<string, unknown>)
+    .sort(([a], [b]) => a.localeCompare(b));
+  return (
+    '{' +
+    entries
+      .map(([k, v]) => `${JSON.stringify(k)}:${stableCanonicalJson(v)}`)
+      .join(',') +
+    '}'
+  );
+};
+
+const computeSha256Hex = async (input: string): Promise<string> => {
+  const bytes = new TextEncoder().encode(input);
+  const hashBuffer = await crypto.subtle.digest('SHA-256', bytes);
+  return Array.from(new Uint8Array(hashBuffer))
+    .map((b) => b.toString(16).padStart(2, '0'))
+    .join('');
+};
+
+const isMissingSummaryLifecycleColumnError = (err: any): boolean => {
+  const msg = String(err?.message || err?.details || '');
+  const code = String(err?.code || '');
+  return (
+    code === 'PGRST204' ||
+    code === '42703' ||
+    /column .* does not exist/i.test(msg) ||
+    /could not find the .* column/i.test(msg)
+  );
+};
+
+const validateSourceCategoryForSummary = (
+  pipelineOpp: any,
+  handoverRow: any
+): {
+  valid: boolean;
+  sourceCategory: string | null;
+  code:
+    | 'ELIGIBLE_CREATED'
+    | 'INHERITED_SOURCE_NOT_ELIGIBLE'
+    | 'MISSING_SOURCE_CATEGORY'
+    | 'UNSUPPORTED_SOURCE_CATEGORY';
+  message: string;
+} => {
+  const oppSource = normalizeTextField(pipelineOpp?.source);
+  const metaSource = normalizeTextField(pipelineOpp?.metadata?.source);
+  const handoverSource = normalizeTextField(handoverRow?.source);
+
+  // Explicit DB column on pipeline_opportunities takes precedence; fallback to metadata/handover only if unset.
+  const authoritativeSource = oppSource || metaSource || handoverSource;
+
+  if (!authoritativeSource) {
+    return {
+      valid: false,
+      sourceCategory: null,
+      code: 'MISSING_SOURCE_CATEGORY',
+      message:
+        'Opportunity source category is missing. Initial Opportunity Context Summary generation requires authoritative source = "Created".'
+    };
+  }
+
+  if (
+    oppSource.toLowerCase() === 'inherited' ||
+    handoverSource.toLowerCase() === 'inherited' ||
+    authoritativeSource.toLowerCase() === 'inherited'
+  ) {
+    return {
+      valid: false,
+      sourceCategory: 'Inherited',
+      code: 'INHERITED_SOURCE_NOT_ELIGIBLE',
+      message:
+        'Opportunities with source category "Inherited" use upstream Opportunity Qualification handover intelligence and are not eligible for Initial Opportunity Context Summary generation.'
+    };
+  }
+
+  if (authoritativeSource !== 'Created') {
+    return {
+      valid: false,
+      sourceCategory: authoritativeSource,
+      code: 'UNSUPPORTED_SOURCE_CATEGORY',
+      message: `Unsupported source category "${authoritativeSource}". Only opportunities with authoritative source category "Created" are eligible.`
+    };
+  }
+
+  return {
+    valid: true,
+    sourceCategory: 'Created',
+    code: 'ELIGIBLE_CREATED',
+    message: 'Authoritative source category validated as "Created".'
+  };
+};
+
+const verifyCreatedOpportunityAuthorization = async (
+  req: Request,
+  supabase: any,
+  pipelineOpp: any
+): Promise<{
+  authorized: boolean;
+  status: number;
+  error?: string;
+  actorUserId?: string | null;
+  actorEmail?: string | null;
+}> => {
+  const authHeader = req.headers.get('authorization') || req.headers.get('Authorization') || '';
+  const token = authHeader.replace(/^Bearer\s+/i, '').trim();
+  const anonKey = getEnv('SUPABASE_ANON_KEY').trim();
+  const serviceRoleKey = getEnv('SUPABASE_SERVICE_ROLE_KEY').trim();
+
+  // Trusted service-to-service invocation
+  if (serviceRoleKey && token && token === serviceRoleKey) {
+    return { authorized: true, status: 200, actorUserId: null, actorEmail: null };
+  }
+
+  const hasUserJwt = Boolean(token && token !== anonKey && token.split('.').length === 3);
+
+  if (hasUserJwt) {
+    const { data: userRes, error: authErr } = await supabase.auth.getUser(token);
+    const user = userRes?.user || null;
+    if (authErr || !user) {
+      return {
+        authorized: false,
+        status: 401,
+        error: 'Unauthorized: invalid or expired authentication token.'
+      };
+    }
+
+    const oppCreatorId = normalizeTextField(pipelineOpp?.created_by);
+    const oppOwnerEmail = normalizeTextField(pipelineOpp?.owner_email).toLowerCase();
+    const userEmail = normalizeTextField(user.email).toLowerCase();
+
+    if (oppCreatorId && oppCreatorId !== user.id) {
+      let hasPrivilegedRole = false;
+      if (oppOwnerEmail && userEmail && oppOwnerEmail === userEmail) {
+        hasPrivilegedRole = true;
+      } else {
+        try {
+          const { data: profileRow } = await supabase
+            .from('profiles')
+            .select('role, tenant_id')
+            .eq('id', user.id)
+            .maybeSingle();
+          const role = normalizeTextField(profileRow?.role).toLowerCase();
+          if (
+            role === 'super admin' ||
+            role === 'revos admin' ||
+            role === 'workspace admin' ||
+            role === 'enterprise executive'
+          ) {
+            hasPrivilegedRole = true;
+          }
+        } catch (_e) {
+          // Non-fatal if profiles lookup unavailable
+        }
+      }
+
+      if (!hasPrivilegedRole) {
+        return {
+          authorized: false,
+          status: 403,
+          error:
+            'Forbidden: you do not have permission to generate or view summaries for an opportunity owned by another user.'
+        };
+      }
+    }
+
+    return {
+      authorized: true,
+      status: 200,
+      actorUserId: user.id,
+      actorEmail: user.email || null
+    };
+  }
+
+  // Unauthenticated / anon-key-only callers cannot access opportunities owned by a specific authenticated user
+  if (normalizeTextField(pipelineOpp?.created_by)) {
+    return {
+      authorized: false,
+      status: 401,
+      error:
+        'Authentication required to generate summaries for user-owned opportunities.'
+    };
+  }
+
+  return { authorized: true, status: 200, actorUserId: null, actorEmail: null };
+};
+
+const assembleInitialContextSummaryInput = async (
+  pipelineOpp: any,
+  formRecord: any,
+  handoverRow: any
+): Promise<{
+  structuredInput: Record<string, any>;
+  inputHash: string;
+  providedFields: string[];
+  missingOrUnprovidedFields: string[];
+}> => {
+  const ctxFromHandover =
+    handoverRow?.initial_opportunity_context &&
+    typeof handoverRow.initial_opportunity_context === 'object'
+      ? handoverRow.initial_opportunity_context
+      : {};
+  const ctxFromOpp =
+    pipelineOpp?.initial_context && typeof pipelineOpp.initial_context === 'object'
+      ? pipelineOpp.initial_context
+      : pipelineOpp?.metadata?.initial_context &&
+          typeof pipelineOpp.metadata.initial_context === 'object'
+        ? pipelineOpp.metadata.initial_context
+        : {};
+  const ctxFromForm =
+    formRecord?.initial_context && typeof formRecord.initial_context === 'object'
+      ? formRecord.initial_context
+      : {};
+
+  // Merge strictly from persisted authoritative database structures (stripped of technical IDs/tokens)
+  const mergedCtx: Record<string, unknown> = {
+    ...ctxFromForm,
+    ...ctxFromOpp,
+    ...ctxFromHandover
+  };
+
+  const pick = (...candidates: unknown[]): string => {
+    for (const c of candidates) {
+      const s = normalizeTextField(c);
+      if (s) return s;
+    }
+    return '';
+  };
+
+  const estimatedRevenueRaw =
+    mergedCtx.estimated_revenue ??
+    pipelineOpp?.deal_value ??
+    formRecord?.deal_value ??
+    null;
+  const estimatedRevenue =
+    estimatedRevenueRaw !== null &&
+    estimatedRevenueRaw !== undefined &&
+    Number.isFinite(Number(estimatedRevenueRaw)) &&
+    Number(estimatedRevenueRaw) > 0
+      ? Number(estimatedRevenueRaw)
+      : null;
+
+  const opportunityIdentity = {
+    pipeline_id: pick(pipelineOpp?.pipeline_id),
+    source_category: 'Created',
+    opportunity_name: pick(
+      mergedCtx.opportunity_name,
+      pipelineOpp?.opportunity_name,
+      formRecord?.opportunity_name
+    ),
+    company_name: pick(
+      mergedCtx.company_name,
+      pipelineOpp?.customer_name,
+      formRecord?.company_name
+    ),
+    industry: pick(
+      mergedCtx.industry,
+      pipelineOpp?.industry_name,
+      formRecord?.industry,
+      pipelineOpp?.industry_id
+    ),
+    revenue_motion: pick(
+      mergedCtx.revenue_motion,
+      pipelineOpp?.revenue_motion_name,
+      formRecord?.revenue_motion,
+      pipelineOpp?.revenue_motion_id
+    ),
+    opportunity_owner: pick(
+      mergedCtx.opportunity_owner,
+      pipelineOpp?.opportunity_owner,
+      formRecord?.opportunity_owner
+    ),
+    country: pick(
+      mergedCtx.country,
+      pipelineOpp?.country,
+      formRecord?.country,
+      pipelineOpp?.metadata?.country
+    ),
+    business_segment: pick(
+      mergedCtx.business_segment,
+      pipelineOpp?.business_segment,
+      formRecord?.business_segment,
+      handoverRow?.business_segment,
+      pipelineOpp?.metadata?.business_segment
+    ),
+    creation_date: pick(
+      mergedCtx.creation_date,
+      pipelineOpp?.creation_date,
+      formRecord?.creation_date,
+      handoverRow?.creation_date,
+      pipelineOpp?.metadata?.creation_date,
+      handoverRow?.canonical_classification?.opportunity_identity?.creation_date
+    )
+  };
+
+  const opportunityDescription = {
+    opportunity_overview: pick(mergedCtx.opportunity_overview),
+    customer_business_problem: pick(mergedCtx.customer_business_problem),
+    proposed_solution: pick(mergedCtx.proposed_solution),
+    expected_business_outcomes: pick(mergedCtx.expected_business_outcomes),
+    opportunity_origin_background: pick(mergedCtx.opportunity_origin_background)
+  };
+
+  const commercialContext = {
+    estimated_revenue: estimatedRevenue,
+    currency: pick(mergedCtx.currency, pipelineOpp?.currency),
+    currency_symbol: pick(mergedCtx.currency_symbol, formRecord?.currency_symbol),
+    expected_closing_date: pick(
+      mergedCtx.expected_closing_date,
+      pipelineOpp?.expected_close_date,
+      formRecord?.expected_close_date
+    ),
+    pipeline_stage: pick(
+      mergedCtx.pipeline_stage,
+      pipelineOpp?.pipeline_stage,
+      formRecord?.pipeline_stage
+    ),
+    opportunity_stage: pick(
+      mergedCtx.opportunity_stage,
+      pipelineOpp?.sales_stage,
+      formRecord?.opportunity_stage
+    ),
+    commercial_model: pick(
+      mergedCtx.commercial_model,
+      pipelineOpp?.commercial_model,
+      formRecord?.commercial_model,
+      pipelineOpp?.metadata?.commercial_model
+    )
+  };
+
+  const customerEngagementAndStakeholders = {
+    current_engagement_status: pick(mergedCtx.current_engagement_status),
+    known_customer_stakeholders: pick(mergedCtx.known_customer_stakeholders),
+    known_decision_maker: pick(mergedCtx.known_decision_maker),
+    internal_champion: pick(mergedCtx.internal_champion),
+    recent_customer_interaction: pick(mergedCtx.recent_customer_interaction),
+    known_competitors: pick(mergedCtx.known_competitors)
+  };
+
+  const additionalContext = {
+    known_customer_priorities: pick(mergedCtx.known_customer_priorities),
+    known_constraints_challenges: pick(mergedCtx.known_constraints_challenges),
+    additional_information: pick(mergedCtx.additional_information)
+  };
+
+  const fieldInventory: Array<[string, unknown]> = [
+    ['opportunity_name', opportunityIdentity.opportunity_name],
+    ['company_name', opportunityIdentity.company_name],
+    ['industry', opportunityIdentity.industry],
+    ['revenue_motion', opportunityIdentity.revenue_motion],
+    ['opportunity_owner', opportunityIdentity.opportunity_owner],
+    ['country', opportunityIdentity.country],
+    ['business_segment', opportunityIdentity.business_segment],
+    ['creation_date', opportunityIdentity.creation_date],
+    ['opportunity_overview', opportunityDescription.opportunity_overview],
+    ['customer_business_problem', opportunityDescription.customer_business_problem],
+    ['proposed_solution', opportunityDescription.proposed_solution],
+    ['expected_business_outcomes', opportunityDescription.expected_business_outcomes],
+    ['opportunity_origin_background', opportunityDescription.opportunity_origin_background],
+    ['estimated_revenue', commercialContext.estimated_revenue],
+    ['currency', commercialContext.currency],
+    ['expected_closing_date', commercialContext.expected_closing_date],
+    ['pipeline_stage', commercialContext.pipeline_stage],
+    ['opportunity_stage', commercialContext.opportunity_stage],
+    ['commercial_model', commercialContext.commercial_model],
+    ['current_engagement_status', customerEngagementAndStakeholders.current_engagement_status],
+    ['known_customer_stakeholders', customerEngagementAndStakeholders.known_customer_stakeholders],
+    ['known_decision_maker', customerEngagementAndStakeholders.known_decision_maker],
+    ['internal_champion', customerEngagementAndStakeholders.internal_champion],
+    ['recent_customer_interaction', customerEngagementAndStakeholders.recent_customer_interaction],
+    ['known_competitors', customerEngagementAndStakeholders.known_competitors],
+    ['known_customer_priorities', additionalContext.known_customer_priorities],
+    ['known_constraints_challenges', additionalContext.known_constraints_challenges],
+    ['additional_information', additionalContext.additional_information]
+  ];
+
+  const providedFields: string[] = [];
+  const missingOrUnprovidedFields: string[] = [];
+  for (const [label, val] of fieldInventory) {
+    if (val === null || val === undefined || String(val).trim() === '') {
+      missingOrUnprovidedFields.push(label);
+    } else {
+      providedFields.push(label);
+    }
+  }
+
+  // Deterministic input object EXCLUDING volatile metadata so hashes are stable on unchanged creation inputs
+  const canonicalContentForHash = {
+    opportunity_identity: opportunityIdentity,
+    opportunity_description: opportunityDescription,
+    commercial_context: commercialContext,
+    customer_engagement_and_stakeholders: customerEngagementAndStakeholders,
+    additional_context: additionalContext
+  };
+  const inputHash = await computeSha256Hex(stableCanonicalJson(canonicalContentForHash));
+
+  const structuredInput = {
+    provenance: {
+      source_category: 'Created',
+      entry_origin: 'RevOS_Pipeline_Direct_Creation',
+      information_status: 'user_provided_initial_creation_context',
+      verified_customer_evidence_attached: false,
+      note: 'All values represent user-submitted initial creation context and must not be treated as independently verified customer evidence.'
+    },
+    ...canonicalContentForHash,
+    data_completeness: {
+      provided_fields: providedFields,
+      missing_or_unprovided_fields: missingOrUnprovidedFields
+    }
+  };
+
+  return {
+    structuredInput,
+    inputHash,
+    providedFields,
+    missingOrUnprovidedFields
+  };
+};
+
+const validateGeneratedInitialContextSummary = (
+  rawCandidate: any,
+  meta: {
+    pipelineId: string;
+    generatedAt: string;
+    version: number;
+    modelIdentifier: string;
+    inputHash: string;
+    industry?: string;
+    industryId?: string;
+    revenueMotion?: string;
+    revenueMotionId?: string;
+  }
+) => {
+  if (!rawCandidate || typeof rawCandidate !== 'object' || Array.isArray(rawCandidate)) {
+    throw new Error('MALFORMED_SUMMARY_JSON: Gemini response did not return a JSON object.');
+  }
+
+  const rawSections =
+    rawCandidate.summary_sections && typeof rawCandidate.summary_sections === 'object'
+      ? rawCandidate.summary_sections
+      : rawCandidate;
+
+  const validatedSections: Record<string, string> = {};
+  const missingOrEmptyKeys: string[] = [];
+
+  for (const key of INITIAL_CONTEXT_SUMMARY_REQUIRED_SECTION_KEYS) {
+    const val = typeof rawSections[key] === 'string' ? rawSections[key].trim() : '';
+    if (!val || val.length < 2) {
+      missingOrEmptyKeys.push(key);
+    } else {
+      validatedSections[key] = val;
+    }
+  }
+
+  if (missingOrEmptyKeys.length > 0) {
+    throw new Error(
+      `INCOMPLETE_SUMMARY_RESPONSE: Missing or empty required summary section(s): ${missingOrEmptyKeys.join(', ')}`
+    );
+  }
+
+  return {
+    summary_metadata: {
+      summary_type: 'initial_opportunity_context_summary' as const,
+      generation_status: 'ready' as const,
+      generated_at: meta.generatedAt,
+      source_category: 'Created' as const,
+      opportunity_id: meta.pipelineId,
+      version: meta.version,
+      prompt_version: INITIAL_CONTEXT_SUMMARY_PROMPT_VERSION,
+      model_identifier: meta.modelIdentifier,
+      input_hash: meta.inputHash,
+      evidence_status: 'not_independent_verified_evidence' as const,
+      provenance_note: INITIAL_CONTEXT_SUMMARY_PROVENANCE_NOTE,
+      ...(meta.industry ? { industry: meta.industry } : {}),
+      ...(meta.industryId ? { industry_id: meta.industryId } : {}),
+      ...(meta.revenueMotion ? { revenue_motion: meta.revenueMotion } : {}),
+      ...(meta.revenueMotionId ? { revenue_motion_id: meta.revenueMotionId } : {})
+    },
+    summary_sections: validatedSections
+  };
+};
+
+// =========================================================================
+// SOURCE-AWARE INITIAL INTELLIGENCE SELECTION & PROVENANCE (PA REASONING)
+// Governs dynamic selection of Initial Opportunity Intelligence for:
+//   - "Inherited" -> Lead Qualification inheritance baseline
+//   - "Created"   -> Initial Opportunity Context Summary
+// Preserves a single unified PADF methodology with zero source-based bias.
+// =========================================================================
+
+export type OpportunitySourceCategory = 'Inherited' | 'Created';
+
+export interface InitialIntelligenceProvenanceRecord {
+  opportunity_source_category: OpportunitySourceCategory;
+  initial_intelligence_source_type:
+    | 'inherited_lead_qualification'
+    | 'initial_opportunity_context_summary'
+    | 'unavailable';
+  intended_source_type:
+    | 'inherited_lead_qualification'
+    | 'initial_opportunity_context_summary';
+  availability_status:
+    | 'AVAILABLE'
+    | 'READY'
+    | 'READY_STALE_WARNING'
+    | 'UNAVAILABLE_FAILED'
+    | 'UNAVAILABLE_MISSING';
+  source_record_id: string | null;
+  summary_version: number | null;
+  summary_generated_at: string | null;
+  summary_input_hash: string | null;
+  summary_model_identifier: string | null;
+  summary_prompt_version: string | null;
+  summary_error: string | null;
+  is_stale: boolean;
+  is_independently_verified_evidence: boolean;
+  client_override_ignored: boolean;
+  provenance_note: string;
+}
+
+const SOURCE_AWARE_SUMMARY_SECTION_LABELS: ReadonlyArray<[string, string]> = [
+  ['opportunity_overview', 'Opportunity Overview'],
+  ['customer_context', 'Customer Context'],
+  ['business_problem_and_customer_needs', 'Business Problem & Customer Needs'],
+  ['proposed_solution_and_value_proposition', 'Proposed Solution & Value Proposition'],
+  ['expected_business_outcomes', 'Expected Business Outcomes'],
+  ['commercial_context', 'Commercial Context'],
+  ['customer_engagement_and_stakeholder_context', 'Customer Engagement & Stakeholder Context'],
+  ['competitive_context', 'Competitive Context'],
+  ['known_constraints_and_challenges', 'Known Constraints & Challenges'],
+  ['missing_or_unconfirmed_information', 'Missing or Unconfirmed Information']
+];
+
+const isValidInitialContextSummaryObject = (candidate: any): boolean => {
+  if (!candidate || typeof candidate !== 'object' || Array.isArray(candidate)) {
+    return false;
+  }
+  const sections = candidate.summary_sections;
+  if (!sections || typeof sections !== 'object' || Array.isArray(sections)) {
+    return false;
+  }
+  return INITIAL_CONTEXT_SUMMARY_REQUIRED_SECTION_KEYS.some(
+    (k) => normalizeTextField(sections[k]).length > 0
+  );
+};
+
+export const resolveAuthoritativeOpportunitySourceCategory = (
+  pipelineOpp: any,
+  body: any
+):
+  | {
+      valid: true;
+      sourceCategory: OpportunitySourceCategory;
+      clientOverrideIgnored: boolean;
+      clientSuppliedSource: string | null;
+    }
+  | {
+      valid: false;
+      code: 'MISSING_SOURCE_CATEGORY' | 'UNSUPPORTED_SOURCE_CATEGORY';
+      message: string;
+      persistedValue: string | null;
+    } => {
+  // Authoritative source category must come ONLY from persisted database fields,
+  // never inferred from inheritance rows, summary rows, lead IDs, or client inputs.
+  const persistedRaw =
+    normalizeTextField(pipelineOpp?.source) ||
+    normalizeTextField(pipelineOpp?.metadata?.source);
+
+  const clientSuppliedRaw = normalizeTextField(
+    body?.opportunity_source_category ?? body?.source_category ?? body?.source
+  );
+
+  if (!persistedRaw) {
+    return {
+      valid: false,
+      code: 'MISSING_SOURCE_CATEGORY',
+      message:
+        'Authoritative Opportunity Source Category ("Inherited" or "Created") is missing on this opportunity record. Populate source or run the source field migration before executing Pipeline Assessment.',
+      persistedValue: null
+    };
+  }
+
+  let canonicalSource: OpportunitySourceCategory | null = null;
+  if (persistedRaw.toLowerCase() === 'inherited') canonicalSource = 'Inherited';
+  else if (persistedRaw.toLowerCase() === 'created') canonicalSource = 'Created';
+
+  if (!canonicalSource) {
+    return {
+      valid: false,
+      code: 'UNSUPPORTED_SOURCE_CATEGORY',
+      message: `Unsupported Opportunity Source Category "${persistedRaw}". Only canonical values "Inherited" and "Created" are supported.`,
+      persistedValue: persistedRaw
+    };
+  }
+
+  const clientOverrideIgnored = Boolean(
+    clientSuppliedRaw && clientSuppliedRaw.toLowerCase() !== canonicalSource.toLowerCase()
+  );
+  if (clientOverrideIgnored) {
+    console.warn(
+      `[Source-Aware PA Guard] Ignored client-supplied source category "${clientSuppliedRaw}" for ${pipelineOpp?.pipeline_id}; authoritative persisted source "${canonicalSource}" controls selection.`
+    );
+  }
+
+  return {
+    valid: true,
+    sourceCategory: canonicalSource,
+    clientOverrideIgnored,
+    clientSuppliedSource: clientSuppliedRaw || null
+  };
+};
+
+const selectLatestValidSummaryFromHandover = (
+  handoverRow: any
+): {
+  summary: any | null;
+  version: number | null;
+  generatedAt: string | null;
+  inputHash: string | null;
+  modelIdentifier: string | null;
+  promptVersion: string | null;
+} => {
+  const lifecycleMeta = handoverRow?.padif_package?.initial_context_summary_lifecycle || {};
+  const primarySummary = handoverRow?.initial_opportunity_context_summary || null;
+  const primaryValid = isValidInitialContextSummaryObject(primarySummary);
+  const primaryVersionRaw =
+    handoverRow?.summary_version ??
+    primarySummary?.summary_metadata?.version ??
+    lifecycleMeta?.summary_version ??
+    (primaryValid ? 1 : null);
+  const primaryVersion =
+    primaryVersionRaw !== null && primaryVersionRaw !== undefined && Number(primaryVersionRaw) > 0
+      ? Number(primaryVersionRaw)
+      : null;
+
+  const historyList: any[] = Array.isArray(handoverRow?.summary_history)
+    ? handoverRow.summary_history
+    : Array.isArray(lifecycleMeta?.summary_history)
+      ? lifecycleMeta.summary_history
+      : [];
+
+  let bestCandidate: {
+    summary: any;
+    version: number;
+    generatedAt: string | null;
+    inputHash: string | null;
+    modelIdentifier: string | null;
+    promptVersion: string | null;
+  } | null = null;
+
+  if (primaryValid) {
+    bestCandidate = {
+      summary: primarySummary,
+      version: primaryVersion || 1,
+      generatedAt:
+        normalizeTextField(
+          handoverRow?.summary_generated_at || primarySummary?.summary_metadata?.generated_at
+        ) || null,
+      inputHash:
+        normalizeTextField(
+          handoverRow?.summary_input_hash ||
+            primarySummary?.summary_metadata?.input_hash ||
+            lifecycleMeta?.summary_input_hash
+        ) || null,
+      modelIdentifier:
+        normalizeTextField(
+          handoverRow?.summary_model_identifier ||
+            primarySummary?.summary_metadata?.model_identifier ||
+            lifecycleMeta?.summary_model_identifier
+        ) || null,
+      promptVersion:
+        normalizeTextField(
+          handoverRow?.summary_prompt_version ||
+            primarySummary?.summary_metadata?.prompt_version ||
+            lifecycleMeta?.summary_prompt_version
+        ) || null
+    };
+  }
+
+  for (const entry of historyList) {
+    if (!entry || !isValidInitialContextSummaryObject(entry.summary)) continue;
+    const entryVersion = Number(entry.version ?? entry.summary?.summary_metadata?.version ?? 0) || 0;
+    if (!bestCandidate || entryVersion > bestCandidate.version) {
+      bestCandidate = {
+        summary: entry.summary,
+        version: entryVersion || 1,
+        generatedAt:
+          normalizeTextField(
+            entry.generated_at || entry.summary?.summary_metadata?.generated_at
+          ) || null,
+        inputHash:
+          normalizeTextField(entry.input_hash || entry.summary?.summary_metadata?.input_hash) ||
+          null,
+        modelIdentifier:
+          normalizeTextField(
+            entry.model_identifier || entry.summary?.summary_metadata?.model_identifier
+          ) || null,
+        promptVersion:
+          normalizeTextField(
+            entry.prompt_version || entry.summary?.summary_metadata?.prompt_version
+          ) || null
+      };
+    }
+  }
+
+  return bestCandidate
+    ? bestCandidate
+    : {
+        summary: null,
+        version: null,
+        generatedAt: null,
+        inputHash: null,
+        modelIdentifier: null,
+        promptVersion: null
+      };
+};
+
+export const resolveSourceAwareInitialIntelligence = async (params: {
+  supabase: any;
+  pipelineOpp: any;
+  body: any;
+}): Promise<
+  | {
+      ok: true;
+      sourceCategory: OpportunitySourceCategory;
+      inheritance: any | null;
+      summary: any | null;
+      provenance: InitialIntelligenceProvenanceRecord;
+    }
+  | {
+      ok: false;
+      httpStatus: number;
+      code: string;
+      message: string;
+      retryable: boolean;
+      summaryStatus?: string;
+      sourceCategory?: string | null;
+    }
+> => {
+  const { supabase, pipelineOpp, body } = params;
+  const effectivePipeId = pipelineOpp.pipeline_id;
+
+  const sourceCheck = resolveAuthoritativeOpportunitySourceCategory(pipelineOpp, body);
+  if (!sourceCheck.valid) {
+    return {
+      ok: false,
+      httpStatus: 422,
+      code: sourceCheck.code,
+      message: sourceCheck.message,
+      retryable: false,
+      sourceCategory: sourceCheck.persistedValue
+    };
+  }
+
+  const { sourceCategory, clientOverrideIgnored } = sourceCheck;
+
+  // BRANCH A: INHERITED -> preserve existing Lead Qualification inheritance retrieval path
+  if (sourceCategory === 'Inherited') {
+    const { data: inheritance } = await supabase
+      .from('pipeline_inheritance')
+      .select('*')
+      .eq('pipeline_id', effectivePipeId)
+      .maybeSingle();
+
+    const available = Boolean(inheritance);
+    const provenance: InitialIntelligenceProvenanceRecord = {
+      opportunity_source_category: 'Inherited',
+      initial_intelligence_source_type: available
+        ? 'inherited_lead_qualification'
+        : 'unavailable',
+      intended_source_type: 'inherited_lead_qualification',
+      availability_status: available ? 'AVAILABLE' : 'UNAVAILABLE_MISSING',
+      source_record_id:
+        inheritance?.inheritance_id || inheritance?.id || effectivePipeId,
+      summary_version: null,
+      summary_generated_at: inheritance?.inherited_at || null,
+      summary_input_hash: null,
+      summary_model_identifier: null,
+      summary_prompt_version: inheritance?.framework_version || null,
+      summary_error: null,
+      is_stale: false,
+      is_independently_verified_evidence: false,
+      client_override_ignored: clientOverrideIgnored,
+      provenance_note: available
+        ? 'Upstream Lead Qualification handover intelligence (PADIF / pipeline_inheritance). Weigh alongside PA evidence using uniform PADF standards without automatic winability bonus.'
+        : 'Opportunity source category is "Inherited", but no pipeline_inheritance payload record was attached. Proceed using current PA state and collected PA evidence without fabricating inherited qualification facts.'
+    };
+
+    return {
+      ok: true,
+      sourceCategory: 'Inherited',
+      inheritance: inheritance || null,
+      summary: null,
+      provenance
+    };
+  }
+
+  // BRANCH B: CREATED -> never use Lead Qualification as initial intelligence; retrieve latest valid Initial Context Summary
+  const [{ data: handoverRow }, { data: formRecord }] = await Promise.all([
+    supabase
+      .from('pipeline_opportunity_handover_details')
+      .select('*')
+      .eq('pipeline_id', effectivePipeId)
+      .maybeSingle(),
+    supabase
+      .from('pipeline_form_records')
+      .select('*')
+      .eq('pipeline_id', effectivePipeId)
+      .maybeSingle()
+  ]);
+
+  const lifecycleMeta = handoverRow?.padif_package?.initial_context_summary_lifecycle || {};
+  const rawSummaryStatus = normalizeTextField(
+    handoverRow?.summary_status || lifecycleMeta?.summary_status
+  ).toUpperCase();
+  const hasStoredSummary = isValidInitialContextSummaryObject(
+    handoverRow?.initial_opportunity_context_summary
+  );
+  const resolvedSummaryStatus =
+    rawSummaryStatus || (hasStoredSummary ? 'READY' : 'NOT_GENERATED');
+
+  // Scenario B: GENERATING -> never treat unfinished summary content as complete
+  if (resolvedSummaryStatus === 'GENERATING') {
+    return {
+      ok: false,
+      httpStatus: 409,
+      code: 'INITIAL_CONTEXT_SUMMARY_GENERATING',
+      message:
+        'Initial Opportunity Context Summary generation is currently in progress for this Created opportunity. Wait for generation to finish and retry Pipeline Assessment.',
+      retryable: true,
+      summaryStatus: 'GENERATING',
+      sourceCategory: 'Created'
+    };
+  }
+
+  const summaryErrorText =
+    normalizeTextField(handoverRow?.summary_error || lifecycleMeta?.summary_error) || null;
+
+  // Scenario C: FAILED -> do NOT fabricate summary and do NOT fall back to Lead Qualification
+  if (resolvedSummaryStatus === 'FAILED') {
+    return {
+      ok: true,
+      sourceCategory: 'Created',
+      inheritance: null,
+      summary: null,
+      provenance: {
+        opportunity_source_category: 'Created',
+        initial_intelligence_source_type: 'unavailable',
+        intended_source_type: 'initial_opportunity_context_summary',
+        availability_status: 'UNAVAILABLE_FAILED',
+        source_record_id: handoverRow?.id || effectivePipeId,
+        summary_version: null,
+        summary_generated_at: null,
+        summary_input_hash: null,
+        summary_model_identifier: null,
+        summary_prompt_version: null,
+        summary_error: summaryErrorText || 'Initial Opportunity Context Summary generation failed.',
+        is_stale: false,
+        is_independently_verified_evidence: false,
+        client_override_ignored: clientOverrideIgnored,
+        provenance_note:
+          'Initial Opportunity Context Summary generation failed for this Created opportunity. Initial context intelligence is unavailable; assess strictly on PA current state and collected PA evidence without fabricating missing context or treating unavailability as negative evidence.'
+      }
+    };
+  }
+
+  const latestValid = selectLatestValidSummaryFromHandover(handoverRow);
+
+  // Scenario D: Missing / NOT_GENERATED / no valid summary
+  if (resolvedSummaryStatus !== 'READY' || !latestValid.summary) {
+    return {
+      ok: true,
+      sourceCategory: 'Created',
+      inheritance: null,
+      summary: null,
+      provenance: {
+        opportunity_source_category: 'Created',
+        initial_intelligence_source_type: 'unavailable',
+        intended_source_type: 'initial_opportunity_context_summary',
+        availability_status: 'UNAVAILABLE_MISSING',
+        source_record_id: handoverRow?.id || effectivePipeId,
+        summary_version: null,
+        summary_generated_at: null,
+        summary_input_hash: null,
+        summary_model_identifier: null,
+        summary_prompt_version: null,
+        summary_error: summaryErrorText,
+        is_stale: false,
+        is_independently_verified_evidence: false,
+        client_override_ignored: clientOverrideIgnored,
+        provenance_note:
+          'No Initial Opportunity Context Summary has been generated yet for this Created opportunity. Proceed strictly on PA current state and collected PA evidence without inferring Inherited status, inventing missing context, or penalizing opportunity strength.'
+      }
+    };
+  }
+
+  // Scenario A & E: READY (check freshness hash against current persisted creation inputs)
+  let isStale = false;
+  if (latestValid.inputHash) {
+    try {
+      const assembled = await assembleInitialContextSummaryInput(
+        pipelineOpp,
+        formRecord,
+        handoverRow
+      );
+      isStale = Boolean(assembled?.inputHash && assembled.inputHash !== latestValid.inputHash);
+    } catch (_hashErr) {
+      isStale = false;
+    }
+  }
+
+  return {
+    ok: true,
+    sourceCategory: 'Created',
+    inheritance: null,
+    summary: latestValid.summary,
+    provenance: {
+      opportunity_source_category: 'Created',
+      initial_intelligence_source_type: 'initial_opportunity_context_summary',
+      intended_source_type: 'initial_opportunity_context_summary',
+      availability_status: isStale ? 'READY_STALE_WARNING' : 'READY',
+      source_record_id: handoverRow?.id || effectivePipeId,
+      summary_version: latestValid.version,
+      summary_generated_at: latestValid.generatedAt,
+      summary_input_hash: latestValid.inputHash,
+      summary_model_identifier: latestValid.modelIdentifier,
+      summary_prompt_version:
+        latestValid.promptVersion || INITIAL_CONTEXT_SUMMARY_PROMPT_VERSION,
+      summary_error: null,
+      is_stale: isStale,
+      is_independently_verified_evidence: false,
+      client_override_ignored: clientOverrideIgnored,
+      provenance_note: INITIAL_CONTEXT_SUMMARY_PROVENANCE_NOTE
+    }
+  };
+};
+
+export const formatSourceAwareInitialIntelligencePromptBlock = (resolution: {
+  sourceCategory: OpportunitySourceCategory;
+  inheritance: any | null;
+  summary: any | null;
+  provenance: InitialIntelligenceProvenanceRecord;
+}): string => {
+  const { sourceCategory, inheritance, summary, provenance } = resolution;
+
+  if (sourceCategory === 'Inherited') {
+    const inheritedPayload = inheritance?.inherited_payload || {};
+    const decisionText =
+      inheritance?.qualification_decision ||
+      (inheritance ? 'QUALIFIED' : 'Not recorded');
+    const qipScoreText =
+      inheritance?.qualification_score !== null &&
+      inheritance?.qualification_score !== undefined
+        ? `${inheritance.qualification_score}/100`
+        : 'Not recorded';
+    const qipConfText =
+      inheritance?.qualification_confidence !== null &&
+      inheritance?.qualification_confidence !== undefined
+        ? `${inheritance.qualification_confidence}%`
+        : 'Not recorded';
+
+    return `=== LAYER 1: INITIAL OPPORTUNITY INTELLIGENCE (SOURCE: INHERITED — LEAD QUALIFICATION) ===
+- Opportunity Source Category: Inherited (Upstream Opportunity Qualification Handover)
+- Initial Intelligence Source Type: ${provenance.initial_intelligence_source_type}
+- Availability Status: ${provenance.availability_status}
+- Source Record ID: ${provenance.source_record_id || 'N/A'}
+- Qualification Decision: ${decisionText}
+- Qualification Score (QIP): ${qipScoreText}
+- Inherited Confidence: ${qipConfText}
+- Provenance & Limitations: ${provenance.provenance_note}
+- Inherited Payload Summary (PADIF): ${inheritance ? JSON.stringify(inheritedPayload).slice(0, 2000) : 'No inherited Lead Qualification payload stored.'}`;
+  }
+
+  if (summary && isValidInitialContextSummaryObject(summary)) {
+    const sections = summary.summary_sections || {};
+    const sectionLines = SOURCE_AWARE_SUMMARY_SECTION_LABELS.map(([key, label]) => {
+      const text = normalizeTextField(sections[key]) || 'Not provided.';
+      return `  * ${label}: ${text}`;
+    }).join('\n');
+    const summaryMeta = summary.summary_metadata || {};
+    const lockedSummaryIndustry = normalizeTextField(
+      summaryMeta.industry || summaryMeta.industry_id
+    );
+    const lockedSummaryMotion = normalizeTextField(
+      summaryMeta.revenue_motion || summaryMeta.revenue_motion_id
+    );
+
+    return `=== LAYER 1: INITIAL OPPORTUNITY INTELLIGENCE (SOURCE: CREATED — INITIAL OPPORTUNITY CONTEXT SUMMARY) ===
+- Opportunity Source Category: Created (Direct Creation inside Pipeline Assessment)
+- Initial Intelligence Source Type: ${provenance.initial_intelligence_source_type}
+- Availability Status: ${provenance.availability_status}${provenance.is_stale ? ' (Creation inputs were edited after this summary was generated; prioritize current PA state and collected PA evidence where newer)' : ''}
+- Summary Version: v${provenance.summary_version ?? 1}
+- Generated At: ${provenance.summary_generated_at || 'N/A'}
+- Source Record ID: ${provenance.source_record_id || 'N/A'}${lockedSummaryIndustry ? `\n- Locked Industry Classification: ${lockedSummaryIndustry}` : ''}${lockedSummaryMotion ? `\n- Locked Revenue Motion Classification: ${lockedSummaryMotion}` : ''}
+- Provenance & Limitations: ${provenance.provenance_note} Do NOT treat this summary as independent verified customer evidence or count it as an additional evidence object alongside Layer 3 collected evidence.
+- Synthesized Initial Opportunity Context Summary Sections:
+${sectionLines}`;
+  }
+
+  return `=== LAYER 1: INITIAL OPPORTUNITY INTELLIGENCE (SOURCE: CREATED — INITIAL SUMMARY UNAVAILABLE) ===
+- Opportunity Source Category: Created (Direct Creation inside Pipeline Assessment)
+- Initial Intelligence Source Type: ${provenance.initial_intelligence_source_type}
+- Intended Source Type: ${provenance.intended_source_type}
+- Availability Status: ${provenance.availability_status}
+- Source Record ID: ${provenance.source_record_id || 'N/A'}
+- Failure / Unavailability Detail: ${provenance.summary_error || 'Initial Opportunity Context Summary has not been generated or is unavailable.'}
+- Provenance & Critical Constraint: ${provenance.provenance_note}`;
+};
+
+export const buildSourceAwareSystemInstructionAddendum = (resolution: {
+  sourceCategory: OpportunitySourceCategory;
+  provenance: InitialIntelligenceProvenanceRecord;
+}): string => {
+  const { sourceCategory, provenance } = resolution;
+  return `
+6. SOURCE-AWARE INITIAL INTELLIGENCE & PROVENANCE GOVERNANCE:
+   - Authoritative Opportunity Source Category for this assessment is "${sourceCategory}" (Initial Intelligence Source: "${provenance.initial_intelligence_source_type}", Status: "${provenance.availability_status}"${provenance.summary_version ? `, Summary Version: v${provenance.summary_version}` : ''}).
+   - For "Inherited" opportunities: interpret supplied Lead Qualification intelligence strictly according to its original qualification provenance and limitations.
+   - For "Created" opportunities: interpret any Initial Opportunity Context Summary strictly as an AI synthesis of user-provided opportunity creation information — NOT as independently verified customer evidence and NOT as a second independent evidence item alongside submitted PA evidence.
+   - Never assume that missing initial context, fewer initial fields, or an unavailable initial summary means an opportunity is weak, and never treat missing information as negative evidence.
+   - Never fabricate missing customer facts, stakeholder roles, buying processes, commercial terms, financial metrics, or competitive intelligence.
+   - Explicitly distinguish customer-confirmed evidence, inherited qualification context, user-provided creation information, assumptions, and unknowns wherever supported by source data.
+   - Apply the exact same PADF assessment methodology, evidence-quality standards, and strategic rigor regardless of opportunity source category.
+   - Base conclusions strictly on the quality, relevance, and substance of available evidence and context — NEVER apply any automatic bonus or penalty based on "Inherited" vs "Created" source category.`;
+};
+
+// =========================================================================
 // MAIN EDGE FUNCTION HANDLER
 // =========================================================================
 
@@ -1897,64 +3013,139 @@ ${records.slice(0, 20).map((r: any) => `- [${r.evidence_object_id}] Confirmed=${
       if (!pipelineOpp) throw new Error(`Pipeline opportunity not found for identifier: ${targetId}`);
       const effectivePipeId = pipelineOpp.pipeline_id;
 
-      // 2. Fetch Inheritance Data
-      const { data: inheritance } = await supabase
-        .from('pipeline_inheritance')
-        .select('*')
-        .eq('pipeline_id', effectivePipeId)
-        .maybeSingle();
+      // 1b. Enforce ownership & access authorization
+      const authCheck = await verifyCreatedOpportunityAuthorization(req, supabase, pipelineOpp);
+      if (!authCheck.authorized) {
+        return new Response(
+          JSON.stringify({
+            error: authCheck.error,
+            code: authCheck.status === 401 ? 'UNAUTHORIZED' : 'FORBIDDEN',
+            pipeline_id: effectivePipeId
+          }),
+          {
+            status: authCheck.status,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          }
+        );
+      }
 
-      // 3. Fetch All Submitted Evidence
+      // 2. Source-Aware Conditional Initial Intelligence Retrieval
+      // Reads authoritative persisted source category ("Inherited" vs "Created") and selects
+      // either Lead Qualification inheritance data OR the latest valid Initial Opportunity Context Summary.
+      const resolvedInit = await resolveSourceAwareInitialIntelligence({
+        supabase,
+        pipelineOpp,
+        body
+      });
+      if (!resolvedInit.ok) {
+        return new Response(
+          JSON.stringify({
+            error: resolvedInit.message,
+            code: resolvedInit.code,
+            retryable: resolvedInit.retryable,
+            summary_status: resolvedInit.summaryStatus || null,
+            source_category: resolvedInit.sourceCategory ?? null,
+            pipeline_id: effectivePipeId
+          }),
+          {
+            status: resolvedInit.httpStatus,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          }
+        );
+      }
+
+      const inheritance = resolvedInit.inheritance;
+
+      // 3. Fetch All Submitted Evidence (Layer 3 — unified across both source categories)
       const { data: evidenceRecords, error: evError } = await supabase
         .from('pipeline_evidence')
         .select('*')
         .eq('pipeline_id', effectivePipeId);
       if (evError) throw evError;
 
-      // 4. Resolve Context & Active 16 SWOT Factors
-      const revMotion = pipelineOpp.revenue_motion_id || pipelineOpp.revenue_motion_name || 'RM01_Digital_Solution_Selling';
-      const industry = pipelineOpp.industry_id || pipelineOpp.industry_name || 'IND_SaaS_Software';
+      // 4. Resolve Context & Active 16 SWOT Factors (Layer 4)
+      // Locked Industry & Revenue Motion from Created Summary / Handover / Pipeline Opportunity govern Assessment reasoning
+      const summaryMetaForClassification =
+        resolvedInit.sourceCategory === 'Created'
+          ? resolvedInit.summary?.summary_metadata || {}
+          : {};
+      const revMotion =
+        pipelineOpp.revenue_motion_id ||
+        pipelineOpp.revenue_motion_name ||
+        summaryMetaForClassification.revenue_motion_id ||
+        summaryMetaForClassification.revenue_motion ||
+        handoverRow?.revenue_motion_id ||
+        handoverRow?.revenue_motion ||
+        'RM01_Digital_Solution_Selling';
+      const industry =
+        pipelineOpp.industry_id ||
+        pipelineOpp.industry_name ||
+        summaryMetaForClassification.industry_id ||
+        summaryMetaForClassification.industry ||
+        handoverRow?.industry_id ||
+        handoverRow?.industry ||
+        'IND_SaaS_Software';
       const active16SWOTFactors = resolveActive16SWOTFactors(revMotion, industry);
 
-      // 5. Run Deterministic Scoring + Fetch Prior Relationships & Assessments
-      const deterministic = calculateDeterministicAssessment(evidenceRecords || [], inheritance || {});
+      // 5. Run Deterministic Scoring + Fetch Prior Relationships & Assessments (Layer 5)
+      // For "Created" opportunities, pass neutral {} so Lead Qualification baselines are never consulted.
+      const deterministic = calculateDeterministicAssessment(
+        evidenceRecords || [],
+        resolvedInit.sourceCategory === 'Inherited' ? (inheritance || {}) : {}
+      );
       const { data: relationshipRows } = await supabase
         .from('pipeline_evidence_relationships')
         .select('*')
         .eq('pipeline_id', effectivePipeId);
 
-      // Fetch previous assessments to enforce 1 consolidated assessment per calendar day and compute prior-day PADF deltas
+      // Fetch previous assessments to compute historical PADF deltas and protect historical versions
+      // when Initial Opportunity Context Summary has been regenerated.
       const todayDateKey = new Date().toISOString().slice(0, 10);
       const { data: prevAssessList } = await supabase
         .from('pipeline_assessments')
-        .select('assessment_id, assessment_sequence, completed_at, created_at')
+        .select('assessment_id, assessment_sequence, completed_at, created_at, raw_reasoning_output')
         .eq('pipeline_id', effectivePipeId)
         .order('assessment_sequence', { ascending: false });
 
-      const sameDayAssessments = (prevAssessList || []).filter((a: any) => {
+      const currentSourceSignature = `${resolvedInit.sourceCategory}::${resolvedInit.provenance.initial_intelligence_source_type}::${resolvedInit.provenance.summary_version ?? 'none'}::${resolvedInit.provenance.availability_status}`;
+
+      const getAssessmentSourceSignature = (row: any): string => {
+        const prov = row?.raw_reasoning_output?.initial_intelligence_provenance;
+        if (!prov || typeof prov !== 'object') {
+          return 'Inherited::inherited_lead_qualification::none::AVAILABLE';
+        }
+        return `${prov.opportunity_source_category || 'Inherited'}::${prov.initial_intelligence_source_type || 'inherited_lead_qualification'}::${prov.summary_version ?? 'none'}::${prov.availability_status || 'AVAILABLE'}`;
+      };
+
+      // Only consolidate same-day re-runs when the initial intelligence signature is unchanged.
+      // When a Created opportunity regenerates its Initial Context Summary (e.g. v1 -> v2),
+      // prior assessments remain intact and distinguishable in history.
+      const sameDaySameSourceAssessments = (prevAssessList || []).filter((a: any) => {
         const dKey = String(a.completed_at || a.created_at || '').slice(0, 10);
-        return dKey === todayDateKey;
+        return dKey === todayDateKey && getAssessmentSourceSignature(a) === currentSourceSignature;
       });
-      const priorDayAssessments = (prevAssessList || []).filter((a: any) => {
-        const dKey = String(a.completed_at || a.created_at || '').slice(0, 10);
-        return dKey !== todayDateKey;
-      });
+      const sameDayConsolidateIdSet = new Set(
+        sameDaySameSourceAssessments.map((a: any) => a.assessment_id).filter(Boolean)
+      );
+      const preservedHistoricalAssessments = (prevAssessList || []).filter(
+        (a: any) => !sameDayConsolidateIdSet.has(a.assessment_id)
+      );
 
       let prevPadfByDim: Record<string, number> = {};
-      if (priorDayAssessments[0]?.assessment_id) {
+      if (preservedHistoricalAssessments[0]?.assessment_id) {
         const { data: prevPadf } = await supabase
           .from('pipeline_padf_results')
           .select('dimension_id, dimension_score')
-          .eq('assessment_id', priorDayAssessments[0].assessment_id);
+          .eq('assessment_id', preservedHistoricalAssessments[0].assessment_id);
         (prevPadf || []).forEach((p: any) => {
           prevPadfByDim[p.dimension_id] = p.dimension_score;
         });
       }
 
-      // 6. Format Gemini Prompt using Gemini Pipeline Reasoning System Prompt v1.1
+      // 6. Format Gemini Prompt using Gemini Pipeline Reasoning System Prompt v1.1 + Source-Aware Addendum
       const systemInstruction = `You are the Pipeline Assessment Intelligence Engine of RevOS.
 Your responsibility is to continuously assess the winability, health, risks, strategic position, and required next actions of qualified B2B sales opportunities.
-You operate after an opportunity has successfully passed through the RevOS Opportunity Qualification module and entered the Pipeline Assessment lifecycle.
+You operate on opportunities that entered the RevOS Pipeline Assessment lifecycle either via Opportunity Qualification handover ("Inherited") or via direct opportunity creation inside Pipeline Assessment ("Created").
 You adhere strictly to the Gemini Pipeline Reasoning System Prompt v1.1 and Pipeline Reasoning Strategy Specification v1.1.
 
 IMPORTANT GOVERNANCE BOUNDARIES:
@@ -1974,32 +3165,42 @@ IMPORTANT GOVERNANCE BOUNDARIES:
    - Formal risks & evidence gaps
    - Prioritized actions (priority_actions + recommended_next_actions)
 4. Active SWOT Factors: Exactly 16 factors are active (8 Universal Baseline + 4 Revenue Motion + 4 Industry). Evaluate each using ordinal scales (1 to 5).
-5. Synthesize TOWS Strategic Intelligence (SO, WO, ST, WT) and concrete enterprise-grade recommendations ('CRITICAL', 'HIGH', 'MEDIUM').`;
+5. Synthesize TOWS Strategic Intelligence (SO, WO, ST, WT) and concrete enterprise-grade recommendations ('CRITICAL', 'HIGH', 'MEDIUM').${buildSourceAwareSystemInstructionAddendum(resolvedInit)}`;
 
-      const inheritedPayload: any = inheritance?.inherited_payload || {};
       const relByInstance: Record<string, any[]> = {};
       (relationshipRows || []).forEach((rel: any) => {
         if (!relByInstance[rel.evidence_instance_id]) relByInstance[rel.evidence_instance_id] = [];
         relByInstance[rel.evidence_instance_id].push(rel);
       });
 
+      const layer1InitialIntelligenceBlock = formatSourceAwareInitialIntelligencePromptBlock(resolvedInit);
+      const historicalLayer5Block =
+        Object.keys(prevPadfByDim).length > 0
+          ? `\n=== LAYER 5: HISTORICAL EVOLUTION BASELINE (PRIOR ASSESSMENT SEQ #${preservedHistoricalAssessments[0]?.assessment_sequence ?? 'N/A'}) ===\n${deterministic.dimensionResults.map(d => {
+              const priorScore = prevPadfByDim[d.dimension_code];
+              return typeof priorScore === 'number'
+                ? `- [${d.dimension_code}] Prior Score: ${priorScore}/100 -> Current Score: ${d.score}/100 (Delta: ${d.score - priorScore >= 0 ? '+' : ''}${d.score - priorScore})`
+                : null;
+            }).filter(Boolean).join('\n') || '- Prior historical comparison baseline recorded.'}\n`
+          : '';
+
       const prompt = `
-=== PIPELINE OPPORTUNITY CONTEXT ===
+${layer1InitialIntelligenceBlock}
+
+=== LAYER 2: PIPELINE CURRENT STATE & OPPORTUNITY CONTEXT ===
+- Opportunity Source Category: ${resolvedInit.sourceCategory}
 - Opportunity Name: ${pipelineOpp.opportunity_name}
 - Company: ${pipelineOpp.customer_name}
 - Revenue Motion: ${revMotion}
 - Industry: ${industry}
-- Deal Value: ${pipelineOpp.currency || 'USD'} ${pipelineOpp.deal_value?.toLocaleString() || '150,000'}
+- Country: ${pipelineOpp.country || pipelineOpp.metadata?.country || 'N/A'}
+- Business Segment: ${pipelineOpp.business_segment || pipelineOpp.metadata?.business_segment || 'N/A'}
+- Product / Solution: ${pipelineOpp.product_solution || pipelineOpp.metadata?.product_solution || 'N/A'}
+- Deal Value: ${pipelineOpp.currency || 'USD'} ${pipelineOpp.deal_value?.toLocaleString() || '0'}
 - Target Close Date: ${pipelineOpp.expected_close_date || 'N/A'}
 - Pipeline Stage: ${pipelineOpp.pipeline_stage || 'Active Assessment'}
 
-=== UPSTREAM INHERITED QUALIFICATION BASELINE (PADIF v1.0) ===
-- Qualification Decision: ${inheritance?.qualification_decision || 'QUALIFIED'}
-- Qualification Score (QIP): ${inheritance?.qualification_score ?? 78}/100
-- Inherited Confidence: ${inheritance?.qualification_confidence ?? 75}%
-- Inherited Payload Summary: ${JSON.stringify(inheritedPayload).slice(0, 2000)}
-
-=== DETERMINISTIC PADF DIMENSION SCORES (AUTHORITATIVE) ===
+=== LAYER 3: DETERMINISTIC PADF DIMENSION SCORES (AUTHORITATIVE) ===
 ${deterministic.dimensionResults.map(d => `- [${d.dimension_code}] ${d.dimension_name}: Score ${d.score}/100 | Conf: ${d.confidence}% | Strength: ${d.evidence_strength} | Weight: ${Math.round(d.weight * 100)}%`).join('\n')}
 
 - Base Winability: ${deterministic.baseWinability}/100
@@ -2028,11 +3229,10 @@ ${(evidenceRecords || []).map(ev => {
 `;
 }).join('\n')}
 
-=== 16 ACTIVE SWOT FACTORS TO EVALUATE ===
-${active16SWOTFactors.map(f => `- [${f.id}] (${f.classification} - ${f.layer}): ${f.name} (Category: ${f.category})`).join('\n')}
-
+=== LAYER 4: 16 ACTIVE SWOT FACTORS TO EVALUATE ===
+${active16SWOTFactors.map(f => `- [${f.id}] (${f.classification} - ${f.layer}): ${f.name} (Category: ${f.category})`).join('\n')}${historicalLayer5Block}
 === REASONING TASK ===
-1. Generate primary_reason (1-2 sharp sentences summarizing the core winability driver/constraint), executive_summary (overall assessment answering likelihood to close won), and why_this_assessment causal 4-step chain (evidence, interpretation, assessment, business_implication).
+1. Generate primary_reason (1-2 sharp sentences summarizing the core winability driver/constraint), executive_summary (overall assessment answering likelihood to close won), and why_this_assessment causal 4-step chain (evidence, interpretation, assessment, business_implication). Respect source provenance for Layer 1 ("${resolvedInit.sourceCategory}" -> "${resolvedInit.provenance.initial_intelligence_source_type}").
 2. Populate positive_drivers, critical_constraints, priority_actions (top 3-5 actions), and evidence_gaps.
 3. Produce padf_dimension_narratives for ALL 8 dimensions (PA1..PA8), including short_interpretation, strengths, weaknesses, contradictory_qualifying_evidence, related_swot_factors, evidence_gaps, risks, ai_reasoning, business_impact, improvement_direction, and recommended_actions.
 4. Produce observed_supporting_evidence selecting up to 6 strongest positive supporting evidence findings from the submitted evidence objects above. For each item include evidence_object_id, title, dimension_code (e.g., PA1..PA8), source_type, verification_status, and "finding_summary": a concrete 2-3 sentence Gemini reasoning explaining WHY this observed evidence credibly substantiates deal strength in natural executive prose without raw source codes or single-word status tags.
@@ -2340,8 +3540,14 @@ ${idx + 1}. ID: ${ev.evidence_object_id} | Title: ${def?.name || ev.evidence_obj
       const aiResult = JSON.parse(response.text || '{}');
       const executionDurationMs = Date.now() - startTime;
 
-      // 7. Determine daily assessment_sequence & create assessment_id matching SQL schema
-      const nextSequence = (priorDayAssessments[0]?.assessment_sequence || 0) + 1;
+      // 7. Determine monotonic assessment_sequence & create assessment_id matching SQL schema
+      const maxExistingSeq = Math.max(
+        0,
+        ...(prevAssessList || [])
+          .filter((a: any) => !sameDayConsolidateIdSet.has(a.assessment_id))
+          .map((a: any) => Number(a.assessment_sequence || 0))
+      );
+      const nextSequence = maxExistingSeq + 1;
       const assessmentId = `ASSESS_${effectivePipeId}_v${nextSequence}_${Date.now()}`;
       const mappedHealth = deterministic.healthStatus === 'Strong'
         ? 'STRONG'
@@ -2635,7 +3841,9 @@ ${idx + 1}. ID: ${ev.evidence_object_id} | Title: ${def?.name || ev.evidence_obj
           business_implication: priorityActionsList[0] || 'Execute targeted validation to protect closing velocity.'
         },
         longitudinal_trend: aiResult.longitudinal_trend || 'Initial Baseline Established',
-        reasoning_duration_ms: executionDurationMs
+        reasoning_duration_ms: executionDurationMs,
+        source_category: resolvedInit.sourceCategory,
+        initial_intelligence_provenance: resolvedInit.provenance
       };
 
       // 6b. Dedicated Winning Strategy Engine Synthesis (Call C: fed by Evidence -> SWOT -> PADF/Risks -> TOWS)
@@ -2675,6 +3883,7 @@ You are the RevOS Winning Strategy Engine executing Rules Phase 8 for a specific
 === OPPORTUNITY & COMPETITIVE CONTEXT ===
 - Customer: ${pipelineOpp.customer_name}
 - Opportunity: ${pipelineOpp.opportunity_name}
+- Source Category: ${resolvedInit.sourceCategory} | Initial Intelligence: ${resolvedInit.provenance.initial_intelligence_source_type} (${resolvedInit.provenance.availability_status}${resolvedInit.provenance.summary_version ? `, Summary v${resolvedInit.provenance.summary_version}` : ''})
 - Industry: ${industry} | Revenue Motion: ${revMotion}
 - Deal Value: ${pipelineOpp.currency || 'USD'} ${pipelineOpp.deal_value?.toLocaleString() || '0'} | Target Close: ${pipelineOpp.expected_close_date || 'Unscheduled'} | Pipeline Stage: ${pipelineOpp.pipeline_stage || 'Active Assessment'}
 - Base Winability: ${deterministic.baseWinability}% | Formal Risk Penalty: -${deterministic.riskPenalty} pts | Risk-Adjusted Winability: ${deterministic.riskAdjustedWinability}% | Health: ${deterministic.healthStatus} | Confidence: ${deterministic.numericConfidence}%
@@ -2967,6 +4176,8 @@ ${conciseEvidenceContext.map((ev: any) => `- [${ev.evidence_object_id}] ${ev.evi
         ...aiResult,
         primary_reason: aiResult.primary_reason || aiResult.executive_summary,
         health_indicator: deterministic.healthIndicator,
+        opportunity_source_category: resolvedInit.sourceCategory,
+        initial_intelligence_provenance: resolvedInit.provenance,
         executive_summary_v2: executiveSummaryPayload,
         padf_dimension_narratives: enrichedPadfNarratives,
         evidence_assessments: hydratedEvidenceAssessments,
@@ -2984,9 +4195,10 @@ ${conciseEvidenceContext.map((ev: any) => `- [${ev.evidence_object_id}] ${ev.evi
         recommended_next_actions: recommendedNextActions
       };
 
-      // Remove earlier same-day assessment rows (ON DELETE CASCADE cleans same-day PADF/SWOT/Risks/Strategies/Snapshots)
-      if (sameDayAssessments.length > 0) {
-        const sameDayIds = sameDayAssessments.map((a: any) => a.assessment_id).filter(Boolean);
+      // Remove only earlier same-day assessment rows whose initial intelligence signature is identical.
+      // Assessments from earlier summary versions (e.g. v1 vs regenerated v2) are always preserved intact.
+      if (sameDaySameSourceAssessments.length > 0) {
+        const sameDayIds = sameDaySameSourceAssessments.map((a: any) => a.assessment_id).filter(Boolean);
         for (const oldId of sameDayIds) {
           await supabase
             .from('pipeline_actions')
@@ -2999,40 +4211,61 @@ ${conciseEvidenceContext.map((ev: any) => `- [${ev.evidence_object_id}] ${ev.evi
           .from('pipeline_assessments')
           .delete()
           .in('assessment_id', sameDayIds);
+
+        await supabase
+          .from('pipeline_assessment_snapshots')
+          .delete()
+          .in('assessment_id', sameDayIds);
       }
 
-      // Ensure at most 1 snapshot exists for today's date (cleans up any legacy same-day snapshots)
-      await supabase
-        .from('pipeline_assessment_snapshots')
-        .delete()
-        .eq('pipeline_id', effectivePipeId)
-        .gte('snapshot_timestamp', `${todayDateKey}T00:00:00.000Z`)
-        .lte('snapshot_timestamp', `${todayDateKey}T23:59:59.999Z`);
+      const completedAtIso = new Date().toISOString();
+      const baseAssessmentRow = {
+        assessment_id: assessmentId,
+        pipeline_id: effectivePipeId,
+        assessment_sequence: nextSequence,
+        assessment_status: 'COMPLETED',
+        trigger_type: nextSequence === 1 ? 'INITIAL_ASSESSMENT' : 'REASSESSMENT',
+        base_winability: deterministic.baseWinability,
+        risk_adjusted_winability: deterministic.riskAdjustedWinability,
+        pipeline_health: mappedHealth,
+        assessment_confidence: numericConfidence,
+        configuration_version: 'v1.1',
+        evidence_kb_version: 'v1.1',
+        rules_version: 'v1.1',
+        reasoning_prompt_version: 'v1.1',
+        model_identifier: 'gemini-3.1-flash-lite',
+        raw_reasoning_output: enrichedRawReasoningOutput,
+        executive_summary: executiveSummaryPayload,
+        created_by: 'Pipeline Assessment Engine',
+        completed_at: completedAtIso
+      };
 
-      const { data: assessmentRecord, error: assessInsertError } = await supabase
+      const extendedAssessmentRow = {
+        ...baseAssessmentRow,
+        opportunity_source_category: resolvedInit.sourceCategory,
+        initial_intelligence_source_type: resolvedInit.provenance.initial_intelligence_source_type,
+        initial_intelligence_source_id: resolvedInit.provenance.source_record_id,
+        initial_intelligence_summary_version: resolvedInit.provenance.summary_version,
+        initial_intelligence_status: resolvedInit.provenance.availability_status,
+        initial_intelligence_provenance: resolvedInit.provenance
+      };
+
+      let { data: assessmentRecord, error: assessInsertError } = await supabase
         .from('pipeline_assessments')
-        .insert({
-          assessment_id: assessmentId,
-          pipeline_id: effectivePipeId,
-          assessment_sequence: nextSequence,
-          assessment_status: 'COMPLETED',
-          trigger_type: nextSequence === 1 ? 'INITIAL_ASSESSMENT' : 'REASSESSMENT',
-          base_winability: deterministic.baseWinability,
-          risk_adjusted_winability: deterministic.riskAdjustedWinability,
-          pipeline_health: mappedHealth,
-          assessment_confidence: numericConfidence,
-          configuration_version: 'v1.1',
-          evidence_kb_version: 'v1.1',
-          rules_version: 'v1.1',
-          reasoning_prompt_version: 'v1.1',
-          model_identifier: 'gemini-3.1-flash-lite',
-          raw_reasoning_output: enrichedRawReasoningOutput,
-          executive_summary: executiveSummaryPayload,
-          created_by: 'Pipeline Assessment Engine',
-          completed_at: new Date().toISOString()
-        })
+        .insert(extendedAssessmentRow)
         .select()
         .single();
+
+      // Backward-compatible fallback if 20261122_pipeline_assessments_source_provenance.sql has not yet been applied
+      if (assessInsertError && isMissingSummaryLifecycleColumnError(assessInsertError)) {
+        const retryAssess = await supabase
+          .from('pipeline_assessments')
+          .insert(baseAssessmentRow)
+          .select()
+          .single();
+        assessmentRecord = retryAssess.data;
+        assessInsertError = retryAssess.error;
+      }
 
       if (assessInsertError) throw assessInsertError;
 
@@ -3146,13 +4379,16 @@ ${conciseEvidenceContext.map((ev: any) => `- [${ev.evidence_object_id}] ${ev.evi
         await supabase.from('pipeline_actions').insert(actionRows);
       }
 
-      // 13. Update Pipeline Opportunity Master Table (storing metrics cleanly in metadata without overwriting commercial pipeline_stage)
+      // 13. Update Pipeline Opportunity Master Table (storing metrics & source provenance cleanly in metadata without overwriting commercial pipeline_stage)
       await supabase
         .from('pipeline_opportunities')
         .update({
           metadata: {
             ...(pipelineOpp.metadata || {}),
             latest_assessment_id: assessmentId,
+            latest_source_category: resolvedInit.sourceCategory,
+            latest_initial_intelligence_source_type: resolvedInit.provenance.initial_intelligence_source_type,
+            latest_initial_intelligence_summary_version: resolvedInit.provenance.summary_version,
             base_winability: deterministic.baseWinability,
             risk_penalty: deterministic.riskPenalty,
             risk_adjusted_winability: deterministic.riskAdjustedWinability,
@@ -3165,7 +4401,7 @@ ${conciseEvidenceContext.map((ev: any) => `- [${ev.evidence_object_id}] ${ev.evi
         })
         .eq('pipeline_id', effectivePipeId);
 
-      // 14. Create Trimmed Snapshot (core assessment trajectory + 8 PADF scores only for Supabase storage savings)
+      // 14. Create Trimmed Snapshot (core assessment trajectory + source provenance + 8 PADF scores)
       const trimmedSnapshotPayload = {
         assessment: {
           assessment_id: assessmentRecord.assessment_id,
@@ -3181,6 +4417,12 @@ ${conciseEvidenceContext.map((ev: any) => `- [${ev.evidence_object_id}] ${ev.evi
           evidence_kb_version: assessmentRecord.evidence_kb_version,
           rules_version: assessmentRecord.rules_version,
           reasoning_prompt_version: assessmentRecord.reasoning_prompt_version,
+          opportunity_source_category: resolvedInit.sourceCategory,
+          initial_intelligence_source_type: resolvedInit.provenance.initial_intelligence_source_type,
+          initial_intelligence_source_id: resolvedInit.provenance.source_record_id,
+          initial_intelligence_summary_version: resolvedInit.provenance.summary_version,
+          initial_intelligence_status: resolvedInit.provenance.availability_status,
+          initial_intelligence_provenance: resolvedInit.provenance,
           completed_at: assessmentRecord.completed_at,
           updated_at: assessmentRecord.updated_at
         },
@@ -3206,6 +4448,8 @@ ${conciseEvidenceContext.map((ev: any) => `- [${ev.evidence_object_id}] ${ev.evi
         pipeline_id: effectivePipeId,
         assessment_id: assessmentId,
         sequence: nextSequence,
+        opportunity_source_category: resolvedInit.sourceCategory,
+        initial_intelligence_provenance: resolvedInit.provenance,
         base_winability: deterministic.baseWinability,
         risk_penalty: deterministic.riskPenalty,
         risk_adjusted_winability: deterministic.riskAdjustedWinability,
@@ -3272,8 +4516,19 @@ ${conciseEvidenceContext.map((ev: any) => `- [${ev.evidence_object_id}] ${ev.evi
         supabase.from('pipeline_assessment_snapshots').select('*').eq('pipeline_id', assessmentData.pipeline_id).order('snapshot_sequence', { ascending: true })
       ]);
 
+      const derivedProvenance =
+        assessmentData.initial_intelligence_provenance ||
+        assessmentData.raw_reasoning_output?.initial_intelligence_provenance ||
+        null;
+
       return new Response(JSON.stringify({
         assessment: assessmentData,
+        opportunity_source_category:
+          assessmentData.opportunity_source_category ||
+          derivedProvenance?.opportunity_source_category ||
+          pipelineOpp?.source ||
+          null,
+        initial_intelligence_provenance: derivedProvenance,
         padf_results: padfRes.data || [],
         swot_results: swotRes.data || [],
         risks: risksRes.data || [],
@@ -3328,6 +4583,10 @@ ${conciseEvidenceContext.map((ev: any) => `- [${ev.evidence_object_id}] ${ev.evi
             .select('dimension_id, dimension_name, dimension_score, assessment_state')
             .eq('assessment_id', assessment_id);
 
+      const savedProv =
+        updatedAssessment.initial_intelligence_provenance ||
+        updatedAssessment.raw_reasoning_output?.initial_intelligence_provenance ||
+        null;
       const trimmedAssessmentSummary = {
         assessment_id: updatedAssessment.assessment_id,
         pipeline_id: updatedAssessment.pipeline_id,
@@ -3342,6 +4601,27 @@ ${conciseEvidenceContext.map((ev: any) => `- [${ev.evidence_object_id}] ${ev.evi
         evidence_kb_version: updatedAssessment.evidence_kb_version,
         rules_version: updatedAssessment.rules_version,
         reasoning_prompt_version: updatedAssessment.reasoning_prompt_version,
+        opportunity_source_category:
+          updatedAssessment.opportunity_source_category ||
+          savedProv?.opportunity_source_category ||
+          null,
+        initial_intelligence_source_type:
+          updatedAssessment.initial_intelligence_source_type ||
+          savedProv?.initial_intelligence_source_type ||
+          null,
+        initial_intelligence_source_id:
+          updatedAssessment.initial_intelligence_source_id ||
+          savedProv?.source_record_id ||
+          null,
+        initial_intelligence_summary_version:
+          updatedAssessment.initial_intelligence_summary_version ??
+          savedProv?.summary_version ??
+          null,
+        initial_intelligence_status:
+          updatedAssessment.initial_intelligence_status ||
+          savedProv?.availability_status ||
+          null,
+        initial_intelligence_provenance: savedProv,
         completed_at: updatedAssessment.completed_at,
         updated_at: nowIso
       };
@@ -3416,6 +4696,10 @@ ${conciseEvidenceContext.map((ev: any) => `- [${ev.evidence_object_id}] ${ev.evi
           .eq('assessment_id', assessment_id)
       ]);
 
+      const snapProv =
+        assessment?.initial_intelligence_provenance ||
+        assessment?.raw_reasoning_output?.initial_intelligence_provenance ||
+        null;
       const trimmedPayload = {
         assessment: assessment ? {
           assessment_id: assessment.assessment_id,
@@ -3431,6 +4715,27 @@ ${conciseEvidenceContext.map((ev: any) => `- [${ev.evidence_object_id}] ${ev.evi
           evidence_kb_version: assessment.evidence_kb_version,
           rules_version: assessment.rules_version,
           reasoning_prompt_version: assessment.reasoning_prompt_version,
+          opportunity_source_category:
+            assessment.opportunity_source_category ||
+            snapProv?.opportunity_source_category ||
+            null,
+          initial_intelligence_source_type:
+            assessment.initial_intelligence_source_type ||
+            snapProv?.initial_intelligence_source_type ||
+            null,
+          initial_intelligence_source_id:
+            assessment.initial_intelligence_source_id ||
+            snapProv?.source_record_id ||
+            null,
+          initial_intelligence_summary_version:
+            assessment.initial_intelligence_summary_version ??
+            snapProv?.summary_version ??
+            null,
+          initial_intelligence_status:
+            assessment.initial_intelligence_status ||
+            snapProv?.availability_status ||
+            null,
+          initial_intelligence_provenance: snapProv,
           completed_at: assessment.completed_at,
           updated_at: assessment.updated_at
         } : {},
@@ -4144,6 +5449,616 @@ ${serializedContext}`;
       }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       });
+    }
+
+    // -----------------------------------------------------------------------
+    // ACTION 10: GET INITIAL OPPORTUNITY CONTEXT SUMMARY STATUS (CREATED ONLY)
+    // -----------------------------------------------------------------------
+    if (action === 'get-initial-opportunity-context-summary') {
+      const targetId = normalizeTextField(body.pipeline_id || body.pipeline_opportunity_id);
+      if (!targetId) {
+        return new Response(JSON.stringify({ error: 'pipeline_id is required.' }), {
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        });
+      }
+
+      const pipelineOpp = await resolvePipelineOpportunity(targetId);
+      if (!pipelineOpp) {
+        return new Response(
+          JSON.stringify({ error: `Opportunity not found for identifier: ${targetId}` }),
+          { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      const authCheck = await verifyCreatedOpportunityAuthorization(req, supabase, pipelineOpp);
+      if (!authCheck.authorized) {
+        return new Response(JSON.stringify({ error: authCheck.error }), {
+          status: authCheck.status,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        });
+      }
+
+      const effectivePipeId = pipelineOpp.pipeline_id;
+      const [{ data: handoverRow }, { data: formRecord }] = await Promise.all([
+        supabase
+          .from('pipeline_opportunity_handover_details')
+          .select('*')
+          .eq('pipeline_id', effectivePipeId)
+          .maybeSingle(),
+        supabase
+          .from('pipeline_form_records')
+          .select('*')
+          .eq('pipeline_id', effectivePipeId)
+          .maybeSingle()
+      ]);
+
+      const sourceCheck = validateSourceCategoryForSummary(pipelineOpp, handoverRow);
+      if (!sourceCheck.valid) {
+        return new Response(
+          JSON.stringify({
+            error: sourceCheck.message,
+            code: sourceCheck.code,
+            source_category: sourceCheck.sourceCategory
+          }),
+          { status: 422, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      const assembled = await assembleInitialContextSummaryInput(
+        pipelineOpp,
+        formRecord,
+        handoverRow
+      );
+
+      const storedSummary = handoverRow?.initial_opportunity_context_summary || null;
+      const lifecycleMeta = handoverRow?.padif_package?.initial_context_summary_lifecycle || {};
+      const storedHash =
+        normalizeTextField(handoverRow?.summary_input_hash) ||
+        normalizeTextField(storedSummary?.summary_metadata?.input_hash) ||
+        normalizeTextField(lifecycleMeta?.summary_input_hash);
+      const summaryStatus =
+        normalizeTextField(handoverRow?.summary_status || lifecycleMeta?.summary_status) ||
+        'NOT_GENERATED';
+      const summaryVersion =
+        Number(
+          handoverRow?.summary_version ??
+            storedSummary?.summary_metadata?.version ??
+            lifecycleMeta?.summary_version ??
+            0
+        ) || 0;
+      const isStale = Boolean(
+        storedSummary &&
+          summaryStatus === 'READY' &&
+          storedHash &&
+          storedHash !== assembled.inputHash
+      );
+
+      return new Response(
+        JSON.stringify({
+          status: 'success',
+          pipeline_id: effectivePipeId,
+          source_category: 'Created',
+          summary_status: summaryStatus,
+          summary_version: summaryVersion,
+          is_stale: isStale,
+          current_input_hash: assembled.inputHash,
+          summary_input_hash: storedHash || null,
+          summary_generated_at: handoverRow?.summary_generated_at || null,
+          summary_error: handoverRow?.summary_error || null,
+          summary: storedSummary,
+          summary_history: []
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // -----------------------------------------------------------------------
+    // ACTION 11: GENERATE INITIAL OPPORTUNITY CONTEXT SUMMARY (CREATED ONLY)
+    // Strictly isolated from PADF, Winability, Risks, SWOT/TOWS, and Inherited deals.
+    // -----------------------------------------------------------------------
+    if (action === 'generate-initial-opportunity-context-summary') {
+      const targetId = normalizeTextField(body.pipeline_id || body.pipeline_opportunity_id);
+      const forceRegenerate = Boolean(body.force_regenerate || body.force || body.retry);
+
+      if (!targetId) {
+        return new Response(
+          JSON.stringify({
+            error: 'pipeline_id is required to generate an Initial Opportunity Context Summary.',
+            code: 'MISSING_PIPELINE_ID'
+          }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      // 1. Retrieve authoritative opportunity record from Supabase
+      const pipelineOpp = await resolvePipelineOpportunity(targetId);
+      if (!pipelineOpp) {
+        return new Response(
+          JSON.stringify({
+            error: `Opportunity record not found in Supabase for pipeline_id: ${targetId}`,
+            code: 'OPPORTUNITY_NOT_FOUND'
+          }),
+          { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      // 2. Enforce authentication & resource-ownership authorization
+      const authCheck = await verifyCreatedOpportunityAuthorization(req, supabase, pipelineOpp);
+      if (!authCheck.authorized) {
+        return new Response(
+          JSON.stringify({
+            error: authCheck.error,
+            code: authCheck.status === 401 ? 'UNAUTHORIZED' : 'FORBIDDEN'
+          }),
+          { status: authCheck.status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      const effectivePipeId = pipelineOpp.pipeline_id;
+      const [{ data: handoverRow }, { data: formRecord }] = await Promise.all([
+        supabase
+          .from('pipeline_opportunity_handover_details')
+          .select('*')
+          .eq('pipeline_id', effectivePipeId)
+          .maybeSingle(),
+        supabase
+          .from('pipeline_form_records')
+          .select('*')
+          .eq('pipeline_id', effectivePipeId)
+          .maybeSingle()
+      ]);
+
+      // 3. Authoritatively validate Source Category === "Created"
+      const sourceCheck = validateSourceCategoryForSummary(pipelineOpp, handoverRow);
+      if (!sourceCheck.valid) {
+        return new Response(
+          JSON.stringify({
+            error: sourceCheck.message,
+            code: sourceCheck.code,
+            pipeline_id: effectivePipeId,
+            source_category: sourceCheck.sourceCategory
+          }),
+          { status: 422, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      // 4. Assemble structured Gemini input strictly from authoritative DB records
+      const assembled = await assembleInitialContextSummaryInput(
+        pipelineOpp,
+        formRecord,
+        handoverRow
+      );
+
+      const lifecycleMeta = handoverRow?.padif_package?.initial_context_summary_lifecycle || {};
+      const currentStatus =
+        normalizeTextField(handoverRow?.summary_status || lifecycleMeta?.summary_status) ||
+        'NOT_GENERATED';
+      const existingSummary = handoverRow?.initial_opportunity_context_summary || null;
+      const storedHash =
+        normalizeTextField(handoverRow?.summary_input_hash) ||
+        normalizeTextField(existingSummary?.summary_metadata?.input_hash) ||
+        normalizeTextField(lifecycleMeta?.summary_input_hash);
+      const existingVersion =
+        Number(
+          handoverRow?.summary_version ??
+            existingSummary?.summary_metadata?.version ??
+            lifecycleMeta?.summary_version ??
+            0
+        ) || 0;
+
+      // 5a. Prevent concurrent duplicate generation while another request is actively generating
+      if (currentStatus === 'GENERATING' && !body.retry && !forceRegenerate) {
+        const updatedAtMs = Date.parse(String(handoverRow?.updated_at || ''));
+        const ageMs = Number.isFinite(updatedAtMs) ? Date.now() - updatedAtMs : Number.MAX_SAFE_INTEGER;
+        if (ageMs >= 0 && ageMs < 90000) {
+          return new Response(
+            JSON.stringify({
+              status: 'in_progress',
+              code: 'GENERATION_IN_PROGRESS',
+              pipeline_id: effectivePipeId,
+              summary_status: 'GENERATING',
+              message:
+                'Initial Opportunity Context Summary generation is already in progress for this opportunity.'
+            }),
+            { status: 409, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+      }
+
+      // 5b. Idempotency / cache hit when Ready and source creation inputs have not changed
+      if (
+        currentStatus === 'READY' &&
+        existingSummary &&
+        storedHash === assembled.inputHash &&
+        !forceRegenerate
+      ) {
+        return new Response(
+          JSON.stringify({
+            status: 'success',
+            from_cache: true,
+            is_stale: false,
+            pipeline_id: effectivePipeId,
+            source_category: 'Created',
+            summary_status: 'READY',
+            summary_version: existingVersion || 1,
+            summary_generated_at:
+              handoverRow?.summary_generated_at ||
+              existingSummary?.summary_metadata?.generated_at ||
+              null,
+            summary: existingSummary,
+            summary_history: []
+          }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      // Overwrite prior summary content in DB: retain only the latest version (no summary_history accumulation)
+      const nextVersion =
+        existingSummary || existingVersion > 0 ? Math.max(1, existingVersion + 1) : 1;
+
+      const startIso = new Date().toISOString();
+
+      // Ensure handover detail row exists and transition summary_status -> GENERATING
+      const generatingBasePayload: Record<string, any> = {
+        pipeline_id: effectivePipeId,
+        source: 'Created',
+        source_module: handoverRow?.source_module || 'RevOS_Pipeline_Direct_Creation',
+        framework_version: handoverRow?.framework_version || 'DIRECT_CREATION_v1.0',
+        handover_lifecycle_state: handoverRow?.handover_lifecycle_state || 'CREATED',
+        initial_opportunity_context:
+          handoverRow?.initial_opportunity_context || assembled.structuredInput,
+        summary_status: 'GENERATING',
+        summary_error: null,
+        updated_at: startIso
+      };
+
+      const { error: genStartErr } = await supabase
+        .from('pipeline_opportunity_handover_details')
+        .upsert(generatingBasePayload, { onConflict: 'pipeline_id' });
+
+      if (genStartErr && isMissingSummaryLifecycleColumnError(genStartErr)) {
+        await supabase.from('pipeline_opportunity_handover_details').upsert(
+          {
+            pipeline_id: effectivePipeId,
+            source_module: handoverRow?.source_module || 'RevOS_Pipeline_Direct_Creation',
+            framework_version: handoverRow?.framework_version || 'DIRECT_CREATION_v1.0',
+            handover_lifecycle_state: handoverRow?.handover_lifecycle_state || 'CREATED',
+            padif_package: {
+              ...(handoverRow?.padif_package || {}),
+              source: 'Created',
+              initial_opportunity_context:
+                handoverRow?.initial_opportunity_context || assembled.structuredInput
+            },
+            updated_at: startIso
+          },
+          { onConflict: 'pipeline_id' }
+        );
+      }
+
+      const persistSummaryFailure = async (errMessage: string, errCode: string) => {
+        const failIso = new Date().toISOString();
+        try {
+          const { error: failUpdErr } = await supabase
+            .from('pipeline_opportunity_handover_details')
+            .update({
+              summary_status: 'FAILED',
+              summary_error: `[${errCode}] ${errMessage}`.slice(0, 1000),
+              updated_at: failIso
+            })
+            .eq('pipeline_id', effectivePipeId);
+
+          if (failUpdErr && isMissingSummaryLifecycleColumnError(failUpdErr)) {
+            await supabase
+              .from('pipeline_opportunity_handover_details')
+              .update({
+                padif_package: {
+                  ...(handoverRow?.padif_package || {}),
+                  initial_context_summary_lifecycle: {
+                    ...(lifecycleMeta || {}),
+                    summary_status: 'FAILED',
+                    summary_error: `[${errCode}] ${errMessage}`.slice(0, 1000),
+                    updated_at: failIso
+                  }
+                },
+                updated_at: failIso
+              })
+              .eq('pipeline_id', effectivePipeId);
+          }
+        } catch (persistErr) {
+          console.error('Non-fatal failure updating summary_status=FAILED:', persistErr);
+        }
+      };
+
+      // 6. Execute dedicated Gemini summary reasoning
+      const apiKey = getEnv('GEMINI_API_KEY');
+      if (!apiKey) {
+        const msg = 'GEMINI_API_KEY is not configured in Supabase Edge Function Secrets.';
+        await persistSummaryFailure(msg, 'MISSING_GEMINI_API_KEY');
+        return new Response(
+          JSON.stringify({
+            error: msg,
+            code: 'MISSING_GEMINI_API_KEY',
+            summary_status: 'FAILED',
+            retryable: true,
+            pipeline_id: effectivePipeId
+          }),
+          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      const initialContextSummarySchema = {
+        type: Type.OBJECT,
+        properties: {
+          summary_sections: {
+            type: Type.OBJECT,
+            properties: {
+              opportunity_overview: { type: Type.STRING },
+              customer_context: { type: Type.STRING },
+              business_problem_and_customer_needs: { type: Type.STRING },
+              proposed_solution_and_value_proposition: { type: Type.STRING },
+              expected_business_outcomes: { type: Type.STRING },
+              commercial_context: { type: Type.STRING },
+              customer_engagement_and_stakeholder_context: { type: Type.STRING },
+              competitive_context: { type: Type.STRING },
+              known_constraints_and_challenges: { type: Type.STRING },
+              missing_or_unconfirmed_information: { type: Type.STRING }
+            },
+            required: [...INITIAL_CONTEXT_SUMMARY_REQUIRED_SECTION_KEYS]
+          }
+        },
+        required: ['summary_sections']
+      };
+
+      const summaryUserPrompt = `Synthesize the following authoritative INITIAL_OPPORTUNITY_CONTEXT JSON payload strictly according to System Prompt ${INITIAL_CONTEXT_SUMMARY_PROMPT_VERSION}.
+Return ONLY a valid JSON object containing "summary_sections" with all 10 required categories. Do NOT invent unprovided figures, facts, customer confirmations, competitors, or stakeholder designations. Explicitly record missing/unprovided fields and unconfirmed assumptions under "missing_or_unconfirmed_information".
+
+INITIAL_OPPORTUNITY_CONTEXT:
+${JSON.stringify(assembled.structuredInput, null, 2)}`;
+
+      const ai = new GoogleGenAI({
+        apiKey,
+        httpOptions: {
+          headers: { 'User-Agent': 'aistudio-build' },
+          timeout: 24000,
+          retryOptions: { attempts: 1 }
+        }
+      });
+
+      const modelAttemptPlan: Array<{
+        model: string;
+        useSchema: boolean;
+        includeTemp: boolean;
+        timeoutMs: number;
+      }> = [
+        { model: INITIAL_CONTEXT_SUMMARY_MODEL_ID, useSchema: true, includeTemp: true, timeoutMs: 22000 },
+        { model: INITIAL_CONTEXT_SUMMARY_FALLBACK_MODEL_ID, useSchema: true, includeTemp: false, timeoutMs: 24000 },
+        { model: INITIAL_CONTEXT_SUMMARY_MODEL_ID, useSchema: false, includeTemp: true, timeoutMs: 20000 }
+      ];
+
+      let validatedSummary: ReturnType<typeof validateGeneratedInitialContextSummary> | null = null;
+      let usedModel = INITIAL_CONTEXT_SUMMARY_MODEL_ID;
+      let lastErrorMessage = 'Gemini reasoning did not produce a valid summary.';
+      let lastErrorCode = 'GEMINI_SUMMARY_FAILED';
+      const attemptLog: string[] = [];
+
+      for (let i = 0; i < modelAttemptPlan.length; i++) {
+        const plan = modelAttemptPlan[i];
+        const controller = new AbortController();
+        const abortTimer = setTimeout(() => controller.abort(), plan.timeoutMs);
+        let raceTimer: ReturnType<typeof setTimeout> | undefined;
+
+        try {
+          const genConfig: Record<string, any> = {
+            systemInstruction: INITIAL_CONTEXT_SUMMARY_SYSTEM_PROMPT_V1,
+            responseMimeType: 'application/json',
+            abortSignal: controller.signal,
+            httpOptions: {
+              headers: { 'User-Agent': 'aistudio-build' },
+              timeout: plan.timeoutMs,
+              retryOptions: { attempts: 1 }
+            }
+          };
+
+          // Strictly respect gemini-4-hydrogen parameter constraints (no temperature/topP/topK/thinkingBudget)
+          if (plan.includeTemp && plan.model !== INITIAL_CONTEXT_SUMMARY_FALLBACK_MODEL_ID) {
+            genConfig.temperature = 0.1;
+          }
+          if (plan.useSchema) {
+            genConfig.responseSchema = initialContextSummarySchema;
+          }
+
+          const genResp = await Promise.race([
+            ai.models.generateContent({
+              model: plan.model,
+              contents: summaryUserPrompt,
+              config: genConfig
+            }),
+            new Promise<never>((_, reject) => {
+              raceTimer = setTimeout(
+                () => reject(new Error(`SUMMARY_TIMEOUT: Timed out after ${Math.round(plan.timeoutMs / 1000)}s`)),
+                plan.timeoutMs + 500
+              );
+            })
+          ]);
+
+          const rawText = String(genResp?.text || '')
+            .trim()
+            .replace(/^```json\s*/i, '')
+            .replace(/```\s*$/, '');
+
+          if (!rawText) {
+            throw new Error('EMPTY_GEMINI_RESPONSE: Gemini returned an empty text payload.');
+          }
+
+          let parsedCandidate: any;
+          try {
+            parsedCandidate = JSON.parse(rawText);
+          } catch (jsonErr: any) {
+            throw new Error(`MALFORMED_SUMMARY_JSON: ${jsonErr?.message || 'Invalid JSON syntax'}`);
+          }
+
+          const generatedIso = new Date().toISOString();
+          const summaryIndustry =
+            assembled.structuredInput?.opportunity_identity?.industry ||
+            normalizeTextField(pipelineOpp?.industry_name) ||
+            '';
+          const summaryIndustryId =
+            normalizeTextField(pipelineOpp?.industry_id) ||
+            normalizeTextField(pipelineOpp?.initial_context?.industry_id) ||
+            '';
+          const summaryRevenueMotion =
+            assembled.structuredInput?.opportunity_identity?.revenue_motion ||
+            normalizeTextField(pipelineOpp?.revenue_motion_name) ||
+            '';
+          const summaryRevenueMotionId =
+            normalizeTextField(pipelineOpp?.revenue_motion_id) ||
+            normalizeTextField(pipelineOpp?.initial_context?.revenue_motion_id) ||
+            '';
+
+          validatedSummary = validateGeneratedInitialContextSummary(parsedCandidate, {
+            pipelineId: effectivePipeId,
+            generatedAt: generatedIso,
+            version: nextVersion,
+            modelIdentifier: plan.model,
+            inputHash: assembled.inputHash,
+            industry: summaryIndustry,
+            industryId: summaryIndustryId,
+            revenueMotion: summaryRevenueMotion,
+            revenueMotionId: summaryRevenueMotionId
+          });
+          usedModel = plan.model;
+          break;
+        } catch (attemptErr: any) {
+          const errMsg = String(attemptErr?.message || attemptErr || 'Unknown Gemini error');
+          lastErrorMessage = errMsg;
+          lastErrorCode = errMsg.includes('SUMMARY_TIMEOUT') || errMsg.includes('AbortError')
+            ? 'GEMINI_TIMEOUT'
+            : errMsg.includes('MALFORMED_SUMMARY_JSON')
+              ? 'MALFORMED_SUMMARY_JSON'
+              : errMsg.includes('INCOMPLETE_SUMMARY_RESPONSE')
+                ? 'INCOMPLETE_SUMMARY_RESPONSE'
+                : 'GEMINI_API_ERROR';
+          attemptLog.push(`${plan.model}: ${errMsg.slice(0, 180)}`);
+          console.warn(`Initial Context Summary attempt ${i + 1} (${plan.model}) failed:`, errMsg);
+        } finally {
+          clearTimeout(abortTimer);
+          if (raceTimer !== undefined) clearTimeout(raceTimer);
+        }
+      }
+
+      if (!validatedSummary) {
+        const compositeMsg = `${lastErrorMessage}${attemptLog.length > 1 ? ` (${attemptLog.join(' | ')})` : ''}`;
+        await persistSummaryFailure(compositeMsg, lastErrorCode);
+        return new Response(
+          JSON.stringify({
+            error: lastErrorMessage,
+            code: lastErrorCode,
+            summary_status: 'FAILED',
+            retryable: true,
+            pipeline_id: effectivePipeId
+          }),
+          {
+            status: lastErrorCode === 'GEMINI_TIMEOUT' ? 504 : 502,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          }
+        );
+      }
+
+      // 7. Persist validated summary, lifecycle metadata, locked Industry/Revenue Motion, and version history
+      const persistedAtIso = validatedSummary.summary_metadata.generated_at;
+      const persistedIndustry = validatedSummary.summary_metadata.industry || null;
+      const persistedIndustryId = validatedSummary.summary_metadata.industry_id || null;
+      const persistedRevenueMotion = validatedSummary.summary_metadata.revenue_motion || null;
+      const persistedRevenueMotionId = validatedSummary.summary_metadata.revenue_motion_id || null;
+
+      const fullUpdatePayload: Record<string, any> = {
+        source: 'Created',
+        industry: persistedIndustry,
+        industry_id: persistedIndustryId,
+        revenue_motion: persistedRevenueMotion,
+        revenue_motion_id: persistedRevenueMotionId,
+        initial_opportunity_context_summary: validatedSummary,
+        summary_status: 'READY',
+        summary_error: null,
+        summary_generated_at: persistedAtIso,
+        summary_version: nextVersion,
+        summary_history: [],
+        summary_input_hash: assembled.inputHash,
+        summary_model_identifier: usedModel,
+        summary_prompt_version: INITIAL_CONTEXT_SUMMARY_PROMPT_VERSION,
+        updated_at: persistedAtIso
+      };
+
+      let { error: persistErr } = await supabase
+        .from('pipeline_opportunity_handover_details')
+        .update(fullUpdatePayload)
+        .eq('pipeline_id', effectivePipeId);
+
+      // Graceful backward-compatible fallback if optional lifecycle/classification columns aren't deployed yet
+      if (persistErr && isMissingSummaryLifecycleColumnError(persistErr)) {
+        const coreUpdatePayload: Record<string, any> = {
+          source: 'Created',
+          initial_opportunity_context_summary: validatedSummary,
+          summary_status: 'READY',
+          summary_error: null,
+          summary_generated_at: persistedAtIso,
+          padif_package: {
+            ...(handoverRow?.padif_package || {}),
+            source: 'Created',
+            initial_context_summary_lifecycle: {
+              summary_version: nextVersion,
+              summary_history: [],
+              summary_input_hash: assembled.inputHash,
+              summary_model_identifier: usedModel,
+              summary_prompt_version: INITIAL_CONTEXT_SUMMARY_PROMPT_VERSION,
+              industry: persistedIndustry,
+              industry_id: persistedIndustryId,
+              revenue_motion: persistedRevenueMotion,
+              revenue_motion_id: persistedRevenueMotionId
+            }
+          },
+          updated_at: persistedAtIso
+        };
+
+        const retryPersist = await supabase
+          .from('pipeline_opportunity_handover_details')
+          .update(coreUpdatePayload)
+          .eq('pipeline_id', effectivePipeId);
+        persistErr = retryPersist.error;
+      }
+
+      if (persistErr) {
+        const dbMsg = `Failed to persist Initial Opportunity Context Summary: ${persistErr.message || 'Database write error'}`;
+        await persistSummaryFailure(dbMsg, 'DB_PERSISTENCE_FAILED');
+        return new Response(
+          JSON.stringify({
+            error: dbMsg,
+            code: 'DB_PERSISTENCE_FAILED',
+            summary_status: 'FAILED',
+            retryable: true,
+            pipeline_id: effectivePipeId
+          }),
+          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      return new Response(
+        JSON.stringify({
+          status: 'success',
+          from_cache: false,
+          is_stale: false,
+          pipeline_id: effectivePipeId,
+          source_category: 'Created',
+          summary_status: 'READY',
+          summary_version: nextVersion,
+          summary_generated_at: persistedAtIso,
+          model_identifier: usedModel,
+          summary: validatedSummary,
+          summary_history: []
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
     // Unknown action

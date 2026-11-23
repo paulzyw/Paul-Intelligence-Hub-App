@@ -13,7 +13,10 @@ import {
   Lock,
   Sparkles,
   Save,
-  Database
+  Database,
+  Globe,
+  Megaphone,
+  Package
 } from 'lucide-react';
 import {
   PipelineOpportunity,
@@ -21,6 +24,7 @@ import {
   PipelineFormRecord
 } from '../../types/pipeline';
 import { PipelineDataService } from '../services/PipelineDataService';
+import { STANDARD_COUNTRIES } from '../../leads/constants/countries';
 
 export interface PipelineFormProps {
   opportunity: PipelineOpportunity;
@@ -111,6 +115,21 @@ export const PipelineForm: React.FC<PipelineFormProps> = ({
       ? opportunity.expected_close_date.slice(0, 10)
       : ''
   );
+  const [country, setCountry] = useState(
+    opportunity.country || (opportunity.metadata as any)?.country || ''
+  );
+  const [campaignAssignment, setCampaignAssignment] = useState(
+    opportunity.campaign_assignment || (opportunity.metadata as any)?.campaign_assignment || ''
+  );
+  const [businessSegment, setBusinessSegment] = useState(
+    opportunity.business_segment || (opportunity.metadata as any)?.business_segment || ''
+  );
+  const [productSolution, setProductSolution] = useState(
+    opportunity.product_solution || (opportunity.metadata as any)?.product_solution || ''
+  );
+  const [source, setSource] = useState(
+    opportunity.source || (opportunity.metadata as any)?.source || 'Inherited'
+  );
 
   // Fixed Read-Only Fields Inherited from Opportunity Qualification Module
   const [industry, setIndustry] = useState(opportunity.industry_name || 'Enterprise Software');
@@ -157,6 +176,18 @@ export const PipelineForm: React.FC<PipelineFormProps> = ({
           normalizePipelineStageValue(record.pipeline_stage, opportunity.lifecycle_status)
         );
         setExpectedCloseDate(record.expected_close_date || '');
+        setCountry(record.country || '');
+        setCampaignAssignment(record.campaign_assignment || '');
+        setBusinessSegment(record.business_segment || '');
+        setProductSolution(record.product_solution || '');
+        setSource(
+          record.source ||
+            (opportunity.opportunity_id ||
+            opportunity.lead_id ||
+            opportunity.source_system === 'RevOS_Opportunity_Qualification'
+              ? 'Inherited'
+              : '')
+        );
         setIndustry(record.industry || opportunity.industry_name || 'Enterprise Software');
         setRevenueMotion(
           record.revenue_motion || opportunity.revenue_motion_name || 'Digital Solution Selling'
@@ -173,7 +204,7 @@ export const PipelineForm: React.FC<PipelineFormProps> = ({
     return () => {
       mounted = false;
     };
-  }, [opportunity.pipeline_id, handoverDetail?.updated_at]);
+  }, [opportunity.pipeline_id, handoverDetail?.updated_at, opportunity.updated_at]);
 
   const handleSave = async (e?: React.FormEvent, isDraft = false) => {
     if (e) e.preventDefault();
@@ -200,6 +231,11 @@ export const PipelineForm: React.FC<PipelineFormProps> = ({
           deal_value: numericDealValue,
           pipeline_stage: pipelineStage,
           expected_close_date: expectedCloseDate,
+          country: country.trim(),
+          campaign_assignment: campaignAssignment.trim(),
+          business_segment: businessSegment.trim(),
+          product_solution: productSolution.trim(),
+          source: source.trim(),
           industry,
           revenue_motion: revenueMotion,
           form_status: isDraft ? 'Draft' : 'Saved'
@@ -229,6 +265,10 @@ export const PipelineForm: React.FC<PipelineFormProps> = ({
     }
   };
 
+  const isCreatedSource =
+    String(source || '').trim().toLowerCase() === 'created' ||
+    opportunity.source_system === 'RevOS_Pipeline_Direct_Creation';
+
   return (
     <div className="bg-bg-surface border border-border rounded-2xl shadow-sm overflow-hidden p-6 sm:p-7 space-y-6">
       {/* Header (Title typography consistent with Opportunity Handover) */}
@@ -243,13 +283,19 @@ export const PipelineForm: React.FC<PipelineFormProps> = ({
             </span>
           </div>
           <p className="text-xs text-text-secondary mt-1 leading-relaxed">
-            Update and calibrate deal parameters inherited from Opportunity Qualification &amp; SQL Qualification. All changes are stored directly in the Supabase database.
+            {isCreatedSource
+              ? 'Update and calibrate deal parameters inherited from Opportunity Creation. All changes are stored directly in the Supabase database.'
+              : 'Update and calibrate deal parameters inherited from Opportunity Qualification & SQL Qualification. All changes are stored directly in the Supabase database.'}
           </p>
         </div>
 
         <div className="flex items-center gap-2 text-[10px] font-mono text-text-secondary bg-bg-primary/50 px-3 py-1.5 rounded-xl border border-border/60 self-start sm:self-auto shrink-0">
           <Sparkles className="h-3 w-3 text-accent" />
-          <span>Inherited from Opportunity Qualification</span>
+          <span>
+            {isCreatedSource
+              ? 'Inherited from Opportunity Creation'
+              : 'Inherited from Opportunity Qualification'}
+          </span>
         </div>
       </div>
 
@@ -441,12 +487,121 @@ export const PipelineForm: React.FC<PipelineFormProps> = ({
               </span>
             </div>
 
-            {/* 9. Industry (Inherited from Opportunity Qualification Module - Read-only) */}
+            {/* 8. Country */}
+            <div className="space-y-1.5">
+              <label className="text-[10px] uppercase font-black tracking-wider text-text-secondary flex items-center gap-1.5">
+                <Globe className="h-3 w-3 text-text-secondary/70" />
+                <span>8. Country</span>
+              </label>
+              <select
+                value={country}
+                onChange={(e) => setCountry(e.target.value)}
+                className="w-full bg-bg-primary/50 border border-border focus:border-accent/50 focus:outline-none rounded-xl px-3.5 py-2.5 text-xs font-sans cursor-pointer text-text-primary"
+              >
+                <option value="" className="bg-bg-surface text-text-secondary">
+                  Select Country
+                </option>
+                {country && !STANDARD_COUNTRIES.includes(country) && (
+                  <option value={country} className="bg-bg-surface text-text-primary">
+                    {country}
+                  </option>
+                )}
+                {STANDARD_COUNTRIES.map((countryName) => (
+                  <option key={countryName} value={countryName} className="bg-bg-surface text-text-primary">
+                    {countryName}
+                  </option>
+                ))}
+              </select>
+              <span className="text-[10px] text-text-secondary/60 font-mono block">
+                Inherited from Opportunity Qualification module
+              </span>
+            </div>
+
+            {/* 9. Campaign Assignment */}
+            <div className="space-y-1.5">
+              <label className="text-[10px] uppercase font-black tracking-wider text-text-secondary flex items-center gap-1.5">
+                <Megaphone className="h-3 w-3 text-text-secondary/70" />
+                <span>9. Campaign Assignment</span>
+              </label>
+              <input
+                type="text"
+                value={campaignAssignment}
+                onChange={(e) => setCampaignAssignment(e.target.value)}
+                placeholder="Enter Campaign Assignment"
+                className="w-full px-3.5 py-2.5 bg-bg-primary/50 border border-border focus:border-accent/50 focus:outline-none rounded-xl text-xs transition-all font-sans text-text-primary placeholder-text-secondary/40"
+              />
+              <span className="text-[10px] text-text-secondary/60 font-mono block">
+                Inherited from Opportunity Qualification module
+              </span>
+            </div>
+
+            {/* 10. Business Segment */}
+            <div className="space-y-1.5">
+              <label className="text-[10px] uppercase font-black tracking-wider text-text-secondary flex items-center gap-1.5">
+                <Briefcase className="h-3 w-3 text-text-secondary/70" />
+                <span>10. Business Segment</span>
+              </label>
+              <input
+                type="text"
+                value={businessSegment}
+                onChange={(e) => setBusinessSegment(e.target.value)}
+                placeholder="Enter Business Segment"
+                className="w-full px-3.5 py-2.5 bg-bg-primary/50 border border-border focus:border-accent/50 focus:outline-none rounded-xl text-xs transition-all font-sans text-text-primary placeholder-text-secondary/40"
+              />
+              <span className="text-[10px] text-text-secondary/60 font-mono block">
+                Inherited from Opportunity Qualification module
+              </span>
+            </div>
+
+            {/* 11. Product/Solution */}
+            <div className="space-y-1.5">
+              <label className="text-[10px] uppercase font-black tracking-wider text-text-secondary flex items-center gap-1.5">
+                <Package className="h-3 w-3 text-text-secondary/70" />
+                <span>11. Product/Solution</span>
+              </label>
+              <input
+                type="text"
+                value={productSolution}
+                onChange={(e) => setProductSolution(e.target.value)}
+                placeholder="Enter Product/Solution"
+                className="w-full px-3.5 py-2.5 bg-bg-primary/50 border border-border focus:border-accent/50 focus:outline-none rounded-xl text-xs transition-all font-sans text-text-primary placeholder-text-secondary/40"
+              />
+              <span className="text-[10px] text-text-secondary/60 font-mono block">
+                {isCreatedSource
+                  ? 'Retrieved from Proposed Solution / Offering (Opportunity Creation Form)'
+                  : 'Inherited from Opportunity Qualification module'}
+              </span>
+            </div>
+
+            {/* 12. Source (Locked - Retrieved from Database) */}
             <div className="space-y-1.5">
               <div className="flex items-center justify-between">
                 <label className="text-[10px] uppercase font-black tracking-wider text-text-secondary flex items-center gap-1.5">
                   <Lock className="h-3 w-3 text-accent" />
-                  <span>9. Industry (Inherited)</span>
+                  <span>12. Source</span>
+                </label>
+                <span className="text-[9px] font-mono text-accent bg-accent/10 px-2 py-0.5 rounded-md border border-accent/20">
+                  Database Locked
+                </span>
+              </div>
+              <input
+                type="text"
+                readOnly
+                disabled
+                value={source}
+                className="w-full px-3.5 py-2.5 bg-bg-primary/30 border border-border/60 rounded-xl text-xs font-sans text-text-secondary cursor-not-allowed select-none"
+              />
+              <span className="text-[10px] text-text-secondary/60 font-mono block">
+                Locked source value retrieved from Supabase database
+              </span>
+            </div>
+
+            {/* 13. Industry (Inherited from Opportunity Qualification Module - Read-only) */}
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between">
+                <label className="text-[10px] uppercase font-black tracking-wider text-text-secondary flex items-center gap-1.5">
+                  <Lock className="h-3 w-3 text-accent" />
+                  <span>13. Industry (Inherited)</span>
                 </label>
                 <span className="text-[9px] font-mono text-accent bg-accent/10 px-2 py-0.5 rounded-md border border-accent/20">
                   OQ Module Locked
@@ -464,12 +619,12 @@ export const PipelineForm: React.FC<PipelineFormProps> = ({
               </span>
             </div>
 
-            {/* 10. Revenue Motion (Inherited from Opportunity Qualification Module - Read-only) */}
-            <div className="space-y-1.5 md:col-span-2">
+            {/* 14. Revenue Motion (Inherited from Opportunity Qualification Module - Read-only) */}
+            <div className="space-y-1.5">
               <div className="flex items-center justify-between">
                 <label className="text-[10px] uppercase font-black tracking-wider text-text-secondary flex items-center gap-1.5">
                   <Lock className="h-3 w-3 text-accent" />
-                  <span>10. Revenue Motion (Inherited)</span>
+                  <span>14. Revenue Motion (Inherited)</span>
                 </label>
                 <span className="text-[9px] font-mono text-accent bg-accent/10 px-2 py-0.5 rounded-md border border-accent/20">
                   OQ Module Locked

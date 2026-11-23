@@ -22,14 +22,32 @@ import {
   PipelineInheritance,
   PipelineAssessment,
   PipelineOpportunityHandoverDetail,
-  PADFDimensionId
+  PADFDimensionId,
+  InitialOpportunityContextSummaryHistoryEntry,
+  InitialOpportunityContextSummaryPayload,
+  InitialSummaryStatus
 } from '../../types/pipeline';
 import { PipelineDataService } from '../services/PipelineDataService';
 import { PipelineConfigService, ActiveFactorResolutionResult } from '../services/PipelineConfigService';
+import { CanvasColumnKey, invalidatePipelinePortfolioCache } from '../services/pipelinePortfolioLoader';
 import { PipelineAssessmentForm } from './PipelineAssessmentForm';
 import { PipelineIntelligenceWorkspace } from './PipelineIntelligenceWorkspace';
 import { OpportunityHandoverDetail } from './OpportunityHandoverDetail';
+import { InitialOpportunityContextSummary } from './InitialOpportunityContextSummary';
 import { PipelineForm } from './PipelineForm';
+
+const resolveIsCreatedSource = (
+  opp?: PipelineOpportunity | null,
+  handover?: PipelineOpportunityHandoverDetail | null
+): boolean => {
+  if (!opp && !handover) return false;
+  const rawSource = String(
+    opp?.source || (opp?.metadata as any)?.source || handover?.source || ''
+  )
+    .trim()
+    .toLowerCase();
+  return rawSource === 'created' || opp?.source_system === 'RevOS_Pipeline_Direct_Creation';
+};
 
 export interface OpportunityToPipelineProps {
   opportunityIdOverride?: string;
@@ -64,6 +82,20 @@ export const OpportunityToPipeline: React.FC<OpportunityToPipelineProps> = ({
 
   const [swotExpanded, setSwotExpanded] = useState(false);
   const [swotLayerTab, setSwotLayerTab] = useState<'all' | 'universal_baseline' | 'revenue_motion_override' | 'industry_override'>('all');
+  const [summaryStatus, setSummaryStatus] = useState<InitialSummaryStatus>('NOT_GENERATED');
+  const [summaryPayload, setSummaryPayload] =
+    useState<InitialOpportunityContextSummaryPayload | null>(null);
+  const [summaryVersion, setSummaryVersion] = useState<number>(0);
+  const [summaryGeneratedAt, setSummaryGeneratedAt] = useState<string | null>(null);
+  const [summaryHistory, setSummaryHistory] = useState<
+    InitialOpportunityContextSummaryHistoryEntry[]
+  >([]);
+  const [summaryIsStale, setSummaryIsStale] = useState(false);
+  const [summaryError, setSummaryError] = useState<string | null>(null);
+  const [submittingSummary, setSubmittingSummary] = useState(false);
+  const [savingSummary, setSavingSummary] = useState(false);
+  const [savedSummaryMessage, setSavedSummaryMessage] = useState<string | null>(null);
+  const [saveSummaryError, setSaveSummaryError] = useState<string | null>(null);
   const [assessmentFormOpen, setAssessmentFormOpen] = useState(false);
   const [targetEvidenceDimension, setTargetEvidenceDimension] = useState<PADFDimensionId | undefined>(undefined);
   const assessmentFormRef = useRef<HTMLDivElement>(null);
@@ -127,6 +159,8 @@ export const OpportunityToPipeline: React.FC<OpportunityToPipelineProps> = ({
         setInheritance(inh);
         setIsNewRecord(isNew);
 
+        const createdSource = resolveIsCreatedSource(opportunity, null);
+
         // 2. Resolve Active 16 SWOT Factors (8 Universal + 4 Motion + 4 Industry)
         const swot = PipelineConfigService.resolveActiveSWOTFactors(
           opportunity.revenue_motion_id || opportunity.revenue_motion_name,
@@ -134,18 +168,80 @@ export const OpportunityToPipeline: React.FC<OpportunityToPipelineProps> = ({
         );
         setSwotResolution(swot);
 
-        // 3. Hydrate Dedicated & Isolated Opportunity Handover Detail (PADIF v1.0) & Existing Evidence Check
-        const [handoverRes, latest, existingEvidence] = await Promise.all([
-          PipelineDataService.getOrSyncOpportunityHandoverDetail(opportunity, inh).catch((e) => {
-            console.warn('Opportunity Handover hydration warning:', e);
-            return null;
-          }),
+        // 3. Hydrate Handover / Initial Opportunity Context Summary & Existing Evidence Check
+        const [handoverRes, summaryRes, latest, existingEvidence] = await Promise.all([
+          createdSource
+            ? PipelineDataService.getOpportunityHandoverDetail(opportunity.pipeline_id).catch((e) => {
+                console.warn('Created opportunity context detail hydration warning:', e);
+                return null;
+              })
+            : PipelineDataService.getOrSyncOpportunityHandoverDetail(opportunity, inh).catch((e) => {
+                console.warn('Opportunity Handover hydration warning:', e);
+                return null;
+              }),
+          createdSource
+            ? PipelineDataService.getInitialOpportunityContextSummaryStatus(
+                opportunity.pipeline_id
+              ).catch((e) => {
+                console.warn('Initial Opportunity Context Summary hydration warning:', e);
+                return null;
+              })
+            : Promise.resolve(null),
           PipelineDataService.getLatestAssessment(opportunity.pipeline_id),
           PipelineDataService.listEvidence(opportunity.pipeline_id).catch(() => [])
         ]);
 
         if (!mounted) return;
-        if (handoverRes) setHandoverDetail(handoverRes);
+        setHandoverDetail(handoverRes || null);
+
+        if (createdSource || resolveIsCreatedSource(opportunity, handoverRes)) {
+          const resolvedPayload =
+            summaryRes?.summary ??
+            (handoverRes?.initial_opportunity_context_summary as InitialOpportunityContextSummaryPayload | null) ??
+            null;
+          const resolvedStatus: InitialSummaryStatus =
+            summaryRes?.summary_status ||
+            handoverRes?.summary_status ||
+            (resolvedPayload?.summary_sections ? 'READY' : 'NOT_GENERATED');
+
+          setSummaryStatus(resolvedStatus);
+          setSummaryPayload(resolvedPayload);
+          setSummaryVersion(
+            Number(
+              summaryRes?.summary_version ??
+                handoverRes?.summary_version ??
+                resolvedPayload?.summary_metadata?.version ??
+                0
+            )
+          );
+          setSummaryGeneratedAt(
+            summaryRes?.summary_generated_at ??
+              handoverRes?.summary_generated_at ??
+              resolvedPayload?.summary_metadata?.generated_at ??
+              null
+          );
+          setSummaryHistory(
+            Array.isArray(summaryRes?.summary_history)
+              ? summaryRes.summary_history
+              : Array.isArray(handoverRes?.summary_history)
+                ? handoverRes.summary_history
+                : []
+          );
+          setSummaryIsStale(Boolean(summaryRes?.is_stale ?? handoverRes?.is_stale));
+          setSummaryError(summaryRes?.summary_error ?? handoverRes?.summary_error ?? null);
+          setSavedSummaryMessage(null);
+          setSaveSummaryError(null);
+        } else {
+          setSummaryStatus('NOT_GENERATED');
+          setSummaryPayload(null);
+          setSummaryVersion(0);
+          setSummaryGeneratedAt(null);
+          setSummaryHistory([]);
+          setSummaryIsStale(false);
+          setSummaryError(null);
+          setSavedSummaryMessage(null);
+          setSaveSummaryError(null);
+        }
 
         // Auto-open Pipeline Assessment Form if any saved evidence or assessment exists in Supabase under this pipeline
         setAssessmentFormOpen(
@@ -205,6 +301,135 @@ export const OpportunityToPipeline: React.FC<OpportunityToPipelineProps> = ({
     } finally {
       setRevalidatingHandover(false);
     }
+  };
+
+  const isCreatedSource = useMemo(
+    () => resolveIsCreatedSource(pipelineOpp, handoverDetail),
+    [pipelineOpp, handoverDetail]
+  );
+
+  const handleGenerateOrRetrySummary = async (options?: {
+    forceRegenerate?: boolean;
+    retry?: boolean;
+  }) => {
+    if (!pipelineOpp?.pipeline_id || submittingSummary) return;
+    setSubmittingSummary(true);
+    setSummaryStatus('GENERATING');
+    setSummaryError(null);
+    setSavedSummaryMessage(null);
+    setSaveSummaryError(null);
+    try {
+      const result = await PipelineDataService.generateInitialOpportunityContextSummary(
+        pipelineOpp.pipeline_id,
+        {
+          forceRegenerate: Boolean(options?.forceRegenerate),
+          retry: Boolean(options?.retry || summaryStatus === 'FAILED')
+        }
+      );
+
+      setSummaryStatus(result.summary_status || 'READY');
+      setSummaryPayload(result.summary || null);
+      setSummaryVersion(Number(result.summary_version || 1));
+      setSummaryGeneratedAt(
+        result.summary_generated_at || result.summary?.summary_metadata?.generated_at || null
+      );
+      setSummaryHistory(Array.isArray(result.summary_history) ? result.summary_history : []);
+      setSummaryIsStale(Boolean(result.is_stale));
+      setSummaryError(null);
+
+      const refreshedHandover = await PipelineDataService.getOpportunityHandoverDetail(
+        pipelineOpp.pipeline_id
+      ).catch(() => null);
+      if (refreshedHandover) setHandoverDetail(refreshedHandover);
+
+      invalidatePipelinePortfolioCache();
+      PipelineDataService.emitPortfolioUpdated();
+    } catch (err: any) {
+      if (err?.code === 'GENERATION_IN_PROGRESS' || err?.httpStatus === 409) {
+        setSummaryStatus('GENERATING');
+        setSummaryError(
+          'Summary generation is already running in the backend. Your created opportunity remains safely saved.'
+        );
+      } else {
+        setSummaryStatus('FAILED');
+        setSummaryError(
+          err?.message ||
+            'Initial Opportunity Context Summary generation failed. Your opportunity record remains safely saved and you can retry.'
+        );
+      }
+    } finally {
+      setSubmittingSummary(false);
+    }
+  };
+
+  const handleSaveSummary = async (
+    summaryToSave: InitialOpportunityContextSummaryPayload,
+    versionToSave: number
+  ) => {
+    if (!pipelineOpp?.pipeline_id || savingSummary || submittingSummary) return;
+    setSavingSummary(true);
+    setSavedSummaryMessage(null);
+    setSaveSummaryError(null);
+    try {
+      const resolvedIndustry = (
+        pipelineOpp.industry_name ||
+        handoverDetail?.industry ||
+        summaryToSave.summary_metadata?.industry ||
+        ''
+      ).trim();
+      const resolvedMotion = (
+        pipelineOpp.revenue_motion_name ||
+        handoverDetail?.revenue_motion ||
+        summaryToSave.summary_metadata?.revenue_motion ||
+        ''
+      ).trim();
+      const { canonicalId: canonicalIndustryId } =
+        PipelineConfigService.normalizeIndustryId(resolvedIndustry);
+      const canonicalMotionId =
+        PipelineConfigService.normalizeRevenueMotionId(resolvedMotion);
+
+      const { summaryVersion: persistedVersion } =
+        await PipelineDataService.saveInitialOpportunityContextSummary(
+          pipelineOpp.pipeline_id,
+          summaryToSave,
+          {
+            summaryVersion: versionToSave,
+            summaryGeneratedAt:
+              summaryToSave.summary_metadata?.generated_at || summaryGeneratedAt,
+            summaryHistory,
+            industry: resolvedIndustry,
+            industryId: canonicalIndustryId,
+            revenueMotion: resolvedMotion,
+            revenueMotionId: canonicalMotionId
+          }
+        );
+      setSummaryPayload(summaryToSave);
+      setSummaryVersion(persistedVersion);
+      invalidatePipelinePortfolioCache();
+      PipelineDataService.emitPortfolioUpdated();
+      setSavedSummaryMessage(
+        `Initial Opportunity Context Summary (v${persistedVersion}) saved to Supabase (${pipelineOpp.pipeline_id}).`
+      );
+    } catch (err: any) {
+      setSaveSummaryError(
+        err?.message || 'Failed to save Initial Opportunity Context Summary to Supabase.'
+      );
+    } finally {
+      setSavingSummary(false);
+    }
+  };
+
+  const handleOpenPipelineCanvas = (
+    _targetColumn: CanvasColumnKey,
+    targetPipelineId?: string | null
+  ) => {
+    invalidatePipelinePortfolioCache();
+    PipelineDataService.emitPortfolioUpdated();
+    navigate(
+      targetPipelineId
+        ? `/product/revos/pipeline?highlight=${encodeURIComponent(targetPipelineId)}`
+        : '/product/revos/pipeline'
+    );
   };
 
   const displayedSwotFactors = useMemo(() => {
@@ -421,142 +646,182 @@ export const OpportunityToPipeline: React.FC<OpportunityToPipelineProps> = ({
         )}
       </div>
 
-      {/* Opportunity Handover Detail (PADIF v1.0 — Dedicated & Isolated Persistence) */}
-      <OpportunityHandoverDetail
-        opportunity={pipelineOpp}
-        inheritance={inheritance}
-        handoverDetail={handoverDetail}
-        syncing={syncingHandover}
-        revalidating={revalidatingHandover}
-        onSyncUpstream={handleSyncHandover}
-        onRevalidateHandover={handleRevalidateHandover}
-      />
+      {isCreatedSource ? (
+        /* Initial Opportunity Context Summary (Shown when Opportunity Source is "Created") */
+        <InitialOpportunityContextSummary
+          pipelineId={pipelineOpp.pipeline_id}
+          opportunityName={pipelineOpp.opportunity_name}
+          companyName={pipelineOpp.customer_name}
+          pipelineStage={pipelineOpp.pipeline_stage}
+          industry={
+            pipelineOpp.industry_name ||
+            handoverDetail?.industry ||
+            summaryPayload?.summary_metadata?.industry ||
+            ''
+          }
+          revenueMotion={
+            pipelineOpp.revenue_motion_name ||
+            handoverDetail?.revenue_motion ||
+            summaryPayload?.summary_metadata?.revenue_motion ||
+            ''
+          }
+          summaryStatus={summaryStatus}
+          summaryPayload={summaryPayload}
+          summaryVersion={summaryVersion}
+          summaryGeneratedAt={summaryGeneratedAt}
+          summaryHistory={summaryHistory}
+          isStale={summaryIsStale}
+          summaryError={summaryError}
+          hasUnsavedChanges={false}
+          submittingSummary={submittingSummary}
+          savingSummary={savingSummary}
+          savedSummaryMessage={savedSummaryMessage}
+          saveSummaryError={saveSummaryError}
+          onSaveSummary={handleSaveSummary}
+          onRetry={() => void handleGenerateOrRetrySummary({ retry: true })}
+          onRegenerate={() => void handleGenerateOrRetrySummary({ forceRegenerate: true })}
+          onOpenPipelineCanvas={handleOpenPipelineCanvas}
+        />
+      ) : (
+        <>
+          {/* Opportunity Handover Detail (PADIF v1.0 — Shown when Opportunity Source is "Inherited") */}
+          <OpportunityHandoverDetail
+            opportunity={pipelineOpp}
+            inheritance={inheritance}
+            handoverDetail={handoverDetail}
+            syncing={syncingHandover}
+            revalidating={revalidatingHandover}
+            onSyncUpstream={handleSyncHandover}
+            onRevalidateHandover={handleRevalidateHandover}
+          />
 
-      {/* Active 16 SWOT Factor Matrix (8 Universal + 4 Motion + 4 Industry) */}
-      {swotResolution && (
-        <div className="bg-bg-surface border border-border rounded-2xl">
-          <button
-            type="button"
-            onClick={() => setSwotExpanded((prev) => !prev)}
-            className={`w-full px-5 sm:px-6 py-4 flex items-center justify-between gap-4 text-left hover:bg-bg-primary/40 transition-colors cursor-pointer ${
-              swotExpanded ? 'rounded-t-2xl' : 'rounded-2xl'
-            }`}
-          >
-            <div className="flex items-center gap-3">
-              <GitBranch className="h-4 w-4 text-accent shrink-0" />
-              <div>
-                <h2 className="text-sm font-bold text-text-primary">
-                  SWOT Factor Matrix ({swotResolution.universalFactors.length} Universal +{' '}
-                  {swotResolution.revenueMotionFactors.length} Motion +{' '}
-                  {swotResolution.industryFactors.length} Industry)
-                </h2>
-                <p className="text-xs text-text-secondary">
-                  Canonical {swotResolution.canonicalRevenueMotionId} &amp; {swotResolution.canonicalIndustryId}
-                </p>
-              </div>
-            </div>
-            {swotExpanded ? (
-              <ChevronUp className="h-4 w-4 text-text-secondary shrink-0" />
-            ) : (
-              <ChevronDown className="h-4 w-4 text-text-secondary shrink-0" />
-            )}
-          </button>
-
-          {swotExpanded && (
-            <div className="px-5 sm:px-6 pb-6 pt-2 border-t border-border/60 space-y-3">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                <div className="text-xs font-semibold text-text-primary">
-                  Active 16 SWOT Factor Matrix ({swotResolution.universalFactors.length} Universal +{' '}
-                  {swotResolution.revenueMotionFactors.length} Motion +{' '}
-                  {swotResolution.industryFactors.length} Industry)
+          {/* Active 16 SWOT Factor Matrix (8 Universal + 4 Motion + 4 Industry) */}
+          {swotResolution && (
+            <div className="bg-bg-surface border border-border rounded-2xl">
+              <button
+                type="button"
+                onClick={() => setSwotExpanded((prev) => !prev)}
+                className={`w-full px-5 sm:px-6 py-4 flex items-center justify-between gap-4 text-left hover:bg-bg-primary/40 transition-colors cursor-pointer ${
+                  swotExpanded ? 'rounded-t-2xl' : 'rounded-2xl'
+                }`}
+              >
+                <div className="flex items-center gap-3">
+                  <GitBranch className="h-4 w-4 text-accent shrink-0" />
+                  <div>
+                    <h2 className="text-sm font-bold text-text-primary">
+                      SWOT Factor Matrix ({swotResolution.universalFactors.length} Universal +{' '}
+                      {swotResolution.revenueMotionFactors.length} Motion +{' '}
+                      {swotResolution.industryFactors.length} Industry)
+                    </h2>
+                    <p className="text-xs text-text-secondary">
+                      Canonical {swotResolution.canonicalRevenueMotionId} &amp; {swotResolution.canonicalIndustryId}
+                    </p>
+                  </div>
                 </div>
-                <div className="flex items-center gap-1 p-1 bg-bg-primary border border-border rounded-lg self-start sm:self-auto">
-                  {[
-                    { key: 'all', label: `All (${swotResolution.active16Factors.length})` },
-                    { key: 'universal_baseline', label: 'Universal (8)' },
-                    { key: 'revenue_motion_override', label: 'Motion (4)' },
-                    { key: 'industry_override', label: 'Industry (4)' }
-                  ].map((tab) => (
-                    <button
-                      key={tab.key}
-                      type="button"
-                      onClick={() => setSwotLayerTab(tab.key as any)}
-                      className={`px-2.5 py-1 text-[11px] font-medium rounded-md transition-colors whitespace-nowrap cursor-pointer ${
-                        swotLayerTab === tab.key
-                          ? 'bg-accent text-black font-semibold'
-                          : 'text-text-secondary hover:text-text-primary'
-                      }`}
-                    >
-                      {tab.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
+                {swotExpanded ? (
+                  <ChevronUp className="h-4 w-4 text-text-secondary shrink-0" />
+                ) : (
+                  <ChevronDown className="h-4 w-4 text-text-secondary shrink-0" />
+                )}
+              </button>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-                {displayedSwotFactors.map((factor, idx) => {
-                  const clsColor =
-                    factor.factor_classification === 'strength'
-                      ? 'text-emerald-400'
-                      : factor.factor_classification === 'weakness'
-                        ? 'text-amber-400'
-                        : factor.factor_classification === 'opportunity'
-                          ? 'text-sky-400'
-                          : 'text-red-400';
-
-                  const smAlign = idx % 2 === 0 ? 'sm:left-0 sm:right-auto' : 'sm:right-0 sm:left-auto';
-                  const lgAlign =
-                    idx % 4 === 0
-                      ? 'lg:left-0 lg:right-auto lg:translate-x-0'
-                      : idx % 4 === 3
-                        ? 'lg:right-0 lg:left-auto lg:translate-x-0'
-                        : 'lg:left-1/2 lg:right-auto lg:-translate-x-1/2';
-
-                  return (
-                    <div
-                      key={factor.factor_type_id}
-                      className="relative group p-3 bg-bg-primary border border-border/70 rounded-xl space-y-1 hover:border-accent/40 transition-colors"
-                    >
-                      <div className="flex items-center justify-between gap-2 text-[10px] font-mono">
-                        <span className={`uppercase font-bold ${clsColor}`}>
-                          {factor.factor_classification}
-                        </span>
-                        <span className="text-text-secondary truncate">{factor.factor_type_id}</span>
-                      </div>
-                      <div className="text-xs font-semibold text-text-primary leading-snug line-clamp-1">
-                        {factor.factor_name}
-                      </div>
-                      <p className="text-[11px] text-text-secondary leading-relaxed line-clamp-2">
-                        {factor.factor_description}
-                      </p>
-
-                      {/* Hover Tooltip showing full untruncated factor card text */}
-                      <div
-                        role="tooltip"
-                        className={`pointer-events-none absolute bottom-full mb-2 left-0 right-0 sm:w-80 ${smAlign} ${lgAlign} p-3.5 bg-bg-surface border border-border rounded-xl shadow-2xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-150 z-30 space-y-1.5`}
-                      >
-                        <div className="flex items-center justify-between gap-2 text-[10px] font-mono">
-                          <span className={`uppercase font-bold ${clsColor}`}>
-                            {factor.factor_classification}
-                          </span>
-                          <span className="text-text-secondary break-all text-right">
-                            {factor.factor_type_id}
-                          </span>
-                        </div>
-                        <div className="text-xs font-semibold text-text-primary leading-snug">
-                          {factor.factor_name}
-                        </div>
-                        <p className="text-[11px] text-text-secondary leading-relaxed">
-                          {factor.factor_description}
-                        </p>
-                      </div>
+              {swotExpanded && (
+                <div className="px-5 sm:px-6 pb-6 pt-2 border-t border-border/60 space-y-3">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                    <div className="text-xs font-semibold text-text-primary">
+                      Active 16 SWOT Factor Matrix ({swotResolution.universalFactors.length} Universal +{' '}
+                      {swotResolution.revenueMotionFactors.length} Motion +{' '}
+                      {swotResolution.industryFactors.length} Industry)
                     </div>
-                  );
-                })}
-              </div>
+                    <div className="flex items-center gap-1 p-1 bg-bg-primary border border-border rounded-lg self-start sm:self-auto">
+                      {[
+                        { key: 'all', label: `All (${swotResolution.active16Factors.length})` },
+                        { key: 'universal_baseline', label: 'Universal (8)' },
+                        { key: 'revenue_motion_override', label: 'Motion (4)' },
+                        { key: 'industry_override', label: 'Industry (4)' }
+                      ].map((tab) => (
+                        <button
+                          key={tab.key}
+                          type="button"
+                          onClick={() => setSwotLayerTab(tab.key as any)}
+                          className={`px-2.5 py-1 text-[11px] font-medium rounded-md transition-colors whitespace-nowrap cursor-pointer ${
+                            swotLayerTab === tab.key
+                              ? 'bg-accent text-black font-semibold'
+                              : 'text-text-secondary hover:text-text-primary'
+                          }`}
+                        >
+                          {tab.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                    {displayedSwotFactors.map((factor, idx) => {
+                      const clsColor =
+                        factor.factor_classification === 'strength'
+                          ? 'text-emerald-400'
+                          : factor.factor_classification === 'weakness'
+                            ? 'text-amber-400'
+                            : factor.factor_classification === 'opportunity'
+                              ? 'text-sky-400'
+                              : 'text-red-400';
+
+                      const smAlign = idx % 2 === 0 ? 'sm:left-0 sm:right-auto' : 'sm:right-0 sm:left-auto';
+                      const lgAlign =
+                        idx % 4 === 0
+                          ? 'lg:left-0 lg:right-auto lg:translate-x-0'
+                          : idx % 4 === 3
+                            ? 'lg:right-0 lg:left-auto lg:translate-x-0'
+                            : 'lg:left-1/2 lg:right-auto lg:-translate-x-1/2';
+
+                      return (
+                        <div
+                          key={factor.factor_type_id}
+                          className="relative group p-3 bg-bg-primary border border-border/70 rounded-xl space-y-1 hover:border-accent/40 transition-colors"
+                        >
+                          <div className="flex items-center justify-between gap-2 text-[10px] font-mono">
+                            <span className={`uppercase font-bold ${clsColor}`}>
+                              {factor.factor_classification}
+                            </span>
+                            <span className="text-text-secondary truncate">{factor.factor_type_id}</span>
+                          </div>
+                          <div className="text-xs font-semibold text-text-primary leading-snug line-clamp-1">
+                            {factor.factor_name}
+                          </div>
+                          <p className="text-[11px] text-text-secondary leading-relaxed line-clamp-2">
+                            {factor.factor_description}
+                          </p>
+
+                          {/* Hover Tooltip showing full untruncated factor card text */}
+                          <div
+                            role="tooltip"
+                            className={`pointer-events-none absolute bottom-full mb-2 left-0 right-0 sm:w-80 ${smAlign} ${lgAlign} p-3.5 bg-bg-surface border border-border rounded-xl shadow-2xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-150 z-30 space-y-1.5`}
+                          >
+                            <div className="flex items-center justify-between gap-2 text-[10px] font-mono">
+                              <span className={`uppercase font-bold ${clsColor}`}>
+                                {factor.factor_classification}
+                              </span>
+                              <span className="text-text-secondary break-all text-right">
+                                {factor.factor_type_id}
+                              </span>
+                            </div>
+                            <div className="text-xs font-semibold text-text-primary leading-snug">
+                              {factor.factor_name}
+                            </div>
+                            <p className="text-[11px] text-text-secondary leading-relaxed">
+                              {factor.factor_description}
+                            </p>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
             </div>
           )}
-        </div>
+        </>
       )}
 
       {/* Pipeline Form (After Active 16 SWOT Factor Matrix — Supabase Persistence) */}

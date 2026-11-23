@@ -9,7 +9,7 @@ import {
   getIsolatedPipelineCardEdits
 } from '../components/PipelineCard';
 
-const PORTFOLIO_CACHE_STORAGE_KEY = 'revos_cached_pipeline_portfolio_v1';
+const PORTFOLIO_CACHE_STORAGE_KEY = 'revos_cached_pipeline_portfolio_v2';
 const PORTFOLIO_FRESH_WINDOW_MS = 15_000;
 
 let memoryPortfolioCache: { items: PipelineCardItem[]; fetchedAt: number } | null = null;
@@ -150,6 +150,39 @@ export function isPipelineItemClosed(item: Pick<PipelineCardItem, 'pipeline_stag
   );
 }
 
+export function isCreatedOpportunityReadyForCanvas(
+  opp: Pick<PipelineOpportunity, 'pipeline_id'> & { latest_assessment?: PipelineAssessment },
+  handoverRow?: {
+    summary_status?: string | null;
+    initial_opportunity_context_summary?: any;
+    padif_package?: any;
+  } | null
+): boolean {
+  if (opp.latest_assessment) {
+    return true;
+  }
+  if (!handoverRow) {
+    return true;
+  }
+  if (handoverRow.summary_status === 'READY') {
+    return true;
+  }
+  if (
+    handoverRow.initial_opportunity_context_summary?.summary_sections ||
+    handoverRow.padif_package?.initial_opportunity_context_summary?.summary_sections
+  ) {
+    return true;
+  }
+  if (
+    handoverRow.summary_status === 'NOT_GENERATED' ||
+    handoverRow.summary_status === 'GENERATING' ||
+    handoverRow.summary_status === 'FAILED'
+  ) {
+    return false;
+  }
+  return true;
+}
+
 export function applyIsolatedEdits(item: PipelineCardItem): PipelineCardItem {
   const isolated = getIsolatedPipelineCardEdits(item.id);
   if (!isolated) return item;
@@ -201,7 +234,8 @@ async function executeLoadCanonicalPipelinePortfolio(): Promise<PipelineCardItem
     formRes,
     leadsRes,
     sqlHandoverRes,
-    pipeFormRes
+    pipeFormRes,
+    pipeHandoverRes
   ] = await Promise.all([
     PipelineDataService.listPipelineOpportunities(),
     supabase
@@ -223,7 +257,10 @@ async function executeLoadCanonicalPipelinePortfolio(): Promise<PipelineCardItem
       .select('opportunity_id, sql_qip_package, editable_fields'),
     supabase
       .from('pipeline_form_records')
-      .select('pipeline_id, opportunity_id, expected_close_date, opportunity_owner')
+      .select('*'),
+    supabase
+      .from('pipeline_opportunity_handover_details')
+      .select('pipeline_id, summary_status, initial_opportunity_context_summary, padif_package')
   ]);
 
   if (leadsRes.error) {
@@ -324,6 +361,15 @@ async function executeLoadCanonicalPipelinePortfolio(): Promise<PipelineCardItem
     if (pf.pipeline_id) pipeFormByKey.set(pf.pipeline_id, pf);
     if (pf.opportunity_id) pipeFormByKey.set(pf.opportunity_id, pf);
   });
+
+  const pipeHandoverByPipeId = new Map<string, any>();
+  if (!pipeHandoverRes.error) {
+    (pipeHandoverRes.data || []).forEach((ph: any) => {
+      if (ph?.pipeline_id) {
+        pipeHandoverByPipeId.set(ph.pipeline_id, ph);
+      }
+    });
+  }
 
   let deletedLeadIds = new Set<string>();
   let deletedOppIds = new Set<string>();
@@ -518,6 +564,11 @@ async function executeLoadCanonicalPipelinePortfolio(): Promise<PipelineCardItem
         form.opportunity_stage,
         parsedDesc.opportunity_stage
       ),
+      source:
+        linkedPipe?.source ||
+        pipeForm?.source ||
+        (linkedPipe?.metadata as any)?.source ||
+        'Inherited',
       pipeline_opp: linkedPipe
     };
 
@@ -601,13 +652,20 @@ async function executeLoadCanonicalPipelinePortfolio(): Promise<PipelineCardItem
         linkedPipe?.sales_stage,
         form.opportunity_stage
       ),
+      source:
+        linkedPipe?.source ||
+        pipeForm?.source ||
+        (linkedPipe?.metadata as any)?.source ||
+        'Inherited',
       pipeline_opp: linkedPipe
     };
 
     mergedItems.push(applyIsolatedEdits(baseItem));
   });
 
-  // Direct pipeline_opportunities records without upstream match (only for non-Initial Pipeline stages unless in Lead Canvas Opportunity Column)
+  const readyCreatedItems: PipelineCardItem[] = [];
+
+  // Direct pipeline_opportunities records without upstream match (only for non-Initial Pipeline stages unless in Lead Canvas Opportunity Column or Source = 'Created' with READY summary)
   pipeList.forEach((p) => {
     const candidateId = p.opportunity_id || p.pipeline_id;
     const resolvedLeadId =
@@ -638,18 +696,47 @@ async function executeLoadCanonicalPipelinePortfolio(): Promise<PipelineCardItem
       company_name: p.customer_name,
       opportunity_name: p.opportunity_name,
       industry: p.industry_name,
-      business_segment: resolveBusinessSegment(p.opportunity_id, resolvedLeadId, p.industry_name),
+      business_segment:
+        p.business_segment ||
+        pipeForm?.business_segment ||
+        (p.metadata as any)?.business_segment ||
+        (p.initial_context as any)?.business_segment ||
+        resolveBusinessSegment(p.opportunity_id, resolvedLeadId, p.industry_name),
       revenue_motion: p.revenue_motion_name,
       estimated_value: p.deal_value || 0,
       expected_close_date: pipeForm?.expected_close_date || p.expected_close_date || undefined,
       opportunity_owner: pipeForm?.opportunity_owner || p.opportunity_owner || 'Senior Enterprise AE',
-      pipeline_stage: normalizePipelineStage(p.pipeline_stage, p.lifecycle_status),
-      opportunity_stage: normalizeOpportunityStage(p.sales_stage),
+      pipeline_stage: normalizePipelineStage(
+        p.pipeline_stage,
+        p.lifecycle_status,
+        pipeForm?.pipeline_stage
+      ),
+      opportunity_stage: normalizeOpportunityStage(p.sales_stage, pipeForm?.opportunity_stage),
+      source:
+        p.source ||
+        pipeForm?.source ||
+        (p.metadata as any)?.source ||
+        (p.opportunity_id || p.lead_id || p.source_system === 'RevOS_Opportunity_Qualification'
+          ? 'Inherited'
+          : ''),
       pipeline_opp: p
     };
 
     const finalItem = applyIsolatedEdits(baseItem);
-    if (resolveCanvasColumn(finalItem) === 'Initial Pipeline' && !isInLeadCanvasOppColumn) {
+    const resolvedItemSource = String(finalItem.source || '').trim().toLowerCase();
+    const isCreatedDirect =
+      resolvedItemSource === 'created' ||
+      p.source_system === 'RevOS_Pipeline_Direct_Creation';
+
+    if (isCreatedDirect) {
+      const handoverRow = pipeHandoverByPipeId.get(p.pipeline_id);
+      if (!isCreatedOpportunityReadyForCanvas(p, handoverRow)) {
+        return;
+      }
+    } else if (
+      resolveCanvasColumn(finalItem) === 'Initial Pipeline' &&
+      !isInLeadCanvasOppColumn
+    ) {
       return;
     }
 
@@ -657,10 +744,17 @@ async function executeLoadCanonicalPipelinePortfolio(): Promise<PipelineCardItem
     seenPipeIds.add(p.pipeline_id);
     markMatchingPipesSeen(p.opportunity_id, resolvedLeadId);
 
-    mergedItems.push(finalItem);
+    if (isCreatedDirect) {
+      readyCreatedItems.push(finalItem);
+    } else {
+      mergedItems.push(finalItem);
+    }
   });
 
-  persistPortfolioCache(mergedItems);
+  const combinedItems =
+    readyCreatedItems.length > 0 ? [...readyCreatedItems, ...mergedItems] : mergedItems;
 
-  return mergedItems;
+  persistPortfolioCache(combinedItems);
+
+  return combinedItems;
 }

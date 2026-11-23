@@ -1,10 +1,13 @@
 import React, { useState, useEffect } from 'react';
+import { supabase } from '@/src/lib/supabase';
 import { OpportunityDataService } from '../services/opportunityDataService';
 import { SQLDataService } from '../services/sqlDataService';
+import { STANDARD_COUNTRIES, parseLegacyLocationToCountryAndState } from '../constants/countries';
 import { 
   Building2, Briefcase, User, TrendingUp, Calendar, 
   DollarSign, CheckCircle2, AlertCircle, RefreshCw, 
-  Layers, Lock, Sparkles, Check, Save, FileEdit
+  Layers, Lock, Sparkles, Save, FileEdit,
+  Globe, Megaphone, Package
 } from 'lucide-react';
 
 interface OpportunityFormProps {
@@ -32,6 +35,10 @@ export const OpportunityForm: React.FC<OpportunityFormProps> = ({
   const [currencySymbol, setCurrencySymbol] = useState('$');
   const [pipelineStage, setPipelineStage] = useState('Qualification');
   const [expectedCloseDate, setExpectedCloseDate] = useState('');
+  const [country, setCountry] = useState(opportunity?.country || '');
+  const [campaignAssignment, setCampaignAssignment] = useState(opportunity?.campaign_assignment || '');
+  const [businessSegment, setBusinessSegment] = useState(opportunity?.business_segment || '');
+  const [productSolution, setProductSolution] = useState(opportunity?.product_solution || '');
   
   // Inherited from SQL Qualification Module (Read-only)
   const [industry, setIndustry] = useState(opportunity?.industry || 'Enterprise Software');
@@ -80,8 +87,16 @@ export const OpportunityForm: React.FC<OpportunityFormProps> = ({
       if (!opportunity?.id) return;
       setLoading(true);
       try {
+        let parsedOppDesc: any = {};
+        if (typeof opportunity?.description === 'string' && opportunity.description.trim().startsWith('{')) {
+          try {
+            parsedOppDesc = JSON.parse(opportunity.description);
+          } catch {}
+        }
+
         // 1. Fetch any persisted form data or handover data from Supabase
         const existingFormData = await OpportunityDataService.getOpportunityFormData(opportunity.id);
+        let rawSql: any = null;
 
         if (existingFormData) {
           if (existingFormData.company_name) setCompanyName(existingFormData.company_name);
@@ -104,7 +119,7 @@ export const OpportunityForm: React.FC<OpportunityFormProps> = ({
           }
         } else {
           // 2. Fallback to SQL reasoning session or parent opportunity properties
-          const rawSql = await SQLDataService.getSavedQualificationResult(opportunity.id);
+          rawSql = await SQLDataService.getSavedQualificationResult(opportunity.id);
           if (rawSql?.customer_context) {
             if (rawSql.customer_context.company_name) setCompanyName(rawSql.customer_context.company_name);
             if (rawSql.customer_context.opportunity_name) setOpportunityName(rawSql.customer_context.opportunity_name);
@@ -116,6 +131,84 @@ export const OpportunityForm: React.FC<OpportunityFormProps> = ({
             }
           }
         }
+
+        // 3. Resolve Country, Campaign Assignment, Business Segment, Product/Solution from SQL -> Opportunity -> MQL fallback
+        let resolvedCountry =
+          existingFormData?.country ||
+          opportunity?.country ||
+          parsedOppDesc?.country ||
+          rawSql?.customer_context?.country ||
+          '';
+        let resolvedCampaign =
+          existingFormData?.campaign_assignment ||
+          opportunity?.campaign_assignment ||
+          parsedOppDesc?.campaign_assignment ||
+          rawSql?.customer_context?.campaign_assignment ||
+          '';
+        let resolvedSegment =
+          existingFormData?.business_segment ||
+          opportunity?.business_segment ||
+          parsedOppDesc?.business_segment ||
+          rawSql?.customer_context?.business_segment ||
+          '';
+        let resolvedProduct =
+          existingFormData?.product_solution ||
+          opportunity?.product_solution ||
+          parsedOppDesc?.product_solution ||
+          rawSql?.customer_context?.product_solution ||
+          '';
+
+        if ((!resolvedCountry || !resolvedCampaign || !resolvedSegment || !resolvedProduct) && opportunity?.mql_reference_id) {
+          let mqlExtra: any = {};
+          if (typeof window !== 'undefined') {
+            try {
+              const rawExtra = localStorage.getItem(`mql_lead_extra_${opportunity.mql_reference_id}`);
+              if (rawExtra) mqlExtra = JSON.parse(rawExtra);
+            } catch {}
+          }
+
+          try {
+            const { data: mqlLead } = await supabase
+              .from('mql_leads')
+              .select('*')
+              .eq('id', opportunity.mql_reference_id)
+              .maybeSingle();
+
+            let campaignName = '';
+            if (mqlLead?.campaign_id) {
+              const { data: campaignRow } = await supabase
+                .from('mql_campaigns')
+                .select('name')
+                .eq('id', mqlLead.campaign_id)
+                .maybeSingle();
+              campaignName = campaignRow?.name || '';
+            }
+
+            if (!resolvedCountry) {
+              resolvedCountry =
+                mqlLead?.country ||
+                mqlExtra?.country ||
+                parseLegacyLocationToCountryAndState(mqlLead?.location || mqlExtra?.location).country ||
+                '';
+            }
+            if (!resolvedCampaign) {
+              resolvedCampaign = campaignName;
+            }
+            if (!resolvedSegment) {
+              resolvedSegment = mqlLead?.lead_industry || mqlExtra?.lead_industry || '';
+            }
+            if (!resolvedProduct) {
+              resolvedProduct = mqlLead?.product_solution || mqlExtra?.product_solution || '';
+            }
+          } catch (mqlErr) {
+            console.warn('Non-blocking MQL fallback lookup failed:', mqlErr);
+          }
+        }
+
+        setCountry(resolvedCountry);
+        setCampaignAssignment(resolvedCampaign);
+        setBusinessSegment(resolvedSegment);
+        setProductSolution(resolvedProduct);
       } catch (err) {
         console.error('Error loading opportunity form data:', err);
       } finally {
@@ -145,6 +238,10 @@ export const OpportunityForm: React.FC<OpportunityFormProps> = ({
         estimated_revenue: formattedRevenue,
         pipeline_stage: pipelineStage,
         expected_close_date: expectedCloseDate,
+        country: country.trim(),
+        campaign_assignment: campaignAssignment.trim(),
+        business_segment: businessSegment.trim(),
+        product_solution: productSolution.trim(),
         industry: industry,
         revenue_motion: revenueMotion,
         strategic_note: strategicNote,
@@ -379,12 +476,88 @@ export const OpportunityForm: React.FC<OpportunityFormProps> = ({
               <span className="text-[10px] text-text-secondary/60 font-mono block">Anticipated contract execution date</span>
             </div>
 
-            {/* 9. Industry (Inherited from SQL Module - Read-only) */}
+            {/* 8. Country */}
+            <div className="space-y-1.5">
+              <label className="text-[10px] uppercase font-black tracking-wider text-text-secondary flex items-center gap-1.5">
+                <Globe className="h-3 w-3 text-text-secondary/70" />
+                <span>8. Country</span>
+              </label>
+              <select
+                value={country}
+                onChange={(e) => setCountry(e.target.value)}
+                className="w-full bg-bg-primary/50 border border-border focus:border-accent/50 focus:outline-none rounded-xl px-3.5 py-2.5 text-xs font-sans cursor-pointer text-text-primary"
+              >
+                <option value="" className="bg-bg-surface text-text-secondary">
+                  Select Country
+                </option>
+                {country && !STANDARD_COUNTRIES.includes(country) && (
+                  <option value={country} className="bg-bg-surface text-text-primary">
+                    {country}
+                  </option>
+                )}
+                {STANDARD_COUNTRIES.map((countryName) => (
+                  <option key={countryName} value={countryName} className="bg-bg-surface text-text-primary">
+                    {countryName}
+                  </option>
+                ))}
+              </select>
+              <span className="text-[10px] text-text-secondary/60 font-mono block">Inherited from SQL Qualification module</span>
+            </div>
+
+            {/* 9. Campaign Assignment */}
+            <div className="space-y-1.5">
+              <label className="text-[10px] uppercase font-black tracking-wider text-text-secondary flex items-center gap-1.5">
+                <Megaphone className="h-3 w-3 text-text-secondary/70" />
+                <span>9. Campaign Assignment</span>
+              </label>
+              <input
+                type="text"
+                value={campaignAssignment}
+                onChange={(e) => setCampaignAssignment(e.target.value)}
+                placeholder="Enter Campaign Assignment"
+                className="w-full px-3.5 py-2.5 bg-bg-primary/50 border border-border focus:border-accent/50 focus:outline-none rounded-xl text-xs transition-all font-sans text-text-primary placeholder-text-secondary/40"
+              />
+              <span className="text-[10px] text-text-secondary/60 font-mono block">Inherited from SQL Qualification module</span>
+            </div>
+
+            {/* 10. Business Segment */}
+            <div className="space-y-1.5">
+              <label className="text-[10px] uppercase font-black tracking-wider text-text-secondary flex items-center gap-1.5">
+                <Briefcase className="h-3 w-3 text-text-secondary/70" />
+                <span>10. Business Segment</span>
+              </label>
+              <input
+                type="text"
+                value={businessSegment}
+                onChange={(e) => setBusinessSegment(e.target.value)}
+                placeholder="Enter Business Segment"
+                className="w-full px-3.5 py-2.5 bg-bg-primary/50 border border-border focus:border-accent/50 focus:outline-none rounded-xl text-xs transition-all font-sans text-text-primary placeholder-text-secondary/40"
+              />
+              <span className="text-[10px] text-text-secondary/60 font-mono block">Inherited from SQL Qualification module</span>
+            </div>
+
+            {/* 11. Product/Solution */}
+            <div className="space-y-1.5">
+              <label className="text-[10px] uppercase font-black tracking-wider text-text-secondary flex items-center gap-1.5">
+                <Package className="h-3 w-3 text-text-secondary/70" />
+                <span>11. Product/Solution</span>
+              </label>
+              <input
+                type="text"
+                value={productSolution}
+                onChange={(e) => setProductSolution(e.target.value)}
+                placeholder="Enter Product/Solution"
+                className="w-full px-3.5 py-2.5 bg-bg-primary/50 border border-border focus:border-accent/50 focus:outline-none rounded-xl text-xs transition-all font-sans text-text-primary placeholder-text-secondary/40"
+              />
+              <span className="text-[10px] text-text-secondary/60 font-mono block">Inherited from SQL Qualification module</span>
+            </div>
+
+            {/* 12. Industry (Inherited from SQL Module - Read-only) */}
             <div className="space-y-1.5">
               <div className="flex items-center justify-between">
                 <label className="text-[10px] uppercase font-black tracking-wider text-text-secondary flex items-center gap-1.5">
                   <Lock className="h-3 w-3 text-accent" />
-                  <span>9. Industry (Inherited)</span>
+                  <span>12. Industry (Inherited)</span>
                 </label>
                 <span className="text-[9px] font-mono text-accent bg-accent/10 px-2 py-0.5 rounded-md border border-accent/20">
                   SQL Module Locked
@@ -402,12 +575,12 @@ export const OpportunityForm: React.FC<OpportunityFormProps> = ({
               <span className="text-[10px] text-text-secondary/60 font-mono block">Inherited from SQL Qualification entity</span>
             </div>
 
-            {/* 10. Revenue Motion (Inherited from SQL Module - Read-only) */}
+            {/* 13. Revenue Motion (Inherited from SQL Module - Read-only) */}
             <div className="space-y-1.5 md:col-span-2">
               <div className="flex items-center justify-between">
                 <label className="text-[10px] uppercase font-black tracking-wider text-text-secondary flex items-center gap-1.5">
                   <Lock className="h-3 w-3 text-accent" />
-                  <span>10. Revenue Motion (Inherited)</span>
+                  <span>13. Revenue Motion (Inherited)</span>
                 </label>
                 <span className="text-[9px] font-mono text-accent bg-accent/10 px-2 py-0.5 rounded-md border border-accent/20">
                   SQL Module Locked

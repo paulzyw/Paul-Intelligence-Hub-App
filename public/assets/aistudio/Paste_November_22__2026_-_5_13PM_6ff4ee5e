@@ -1,0 +1,1036 @@
+In the next, please help me build the Gemini reasoning which is dedicated for generating the "Initial Opportunity Context Summary" its running is triggered by clicking on the Submit button in the Opportunity Creation Form.
+Regarding the Gemini reasoning edge function, please do not build an indepedent edge function, please add the relevant code in the existing edge function at path "/supabase/functions/pipeline-assessment/index.ts"
+
+The following content is the specific requirement about this dedicated Gemini reasoning:
+
+You are working on RevOS, an AI-native Revenue Operating System.
+RevOS Pipeline Assessment (PA) is an evidence-driven opportunity assessment and winability optimization engine.
+The Pipeline Assessment engine already has an established Supabase Edge Function containing the backend Gemini reasoning implementation and supporting assessment workflows.
+A new capability is now being introduced: users will be able to create opportunities directly inside Pipeline Assessment without first going through the Lead Qualification engine.
+These opportunities will be assigned the source category:
+Created
+To support this new opportunity creation path, RevOS requires an AI-generated Initial Opportunity Context Summary.
+The summary will synthesize the information provided by the user during direct opportunity creation into a structured, concise and meaningful representation of the opportunity's initial business and commercial context.
+Important Architectural Decision
+The new summary-generation capability must be implemented inside the existing Pipeline Assessment Supabase Edge Function.
+Do NOT create another dedicated Supabase Edge Function for Initial Opportunity Context Summary generation.
+The existing Edge Function will contain both:
+1.	Existing Pipeline Assessment Gemini reasoning and assessment functionality.
+2.	New Initial Opportunity Context Summary generation functionality.
+However, these two capabilities must remain logically separated, independently executable and appropriately organized within the existing Edge Function.
+The new summary-generation capability must not interfere with the existing Pipeline Assessment reasoning and assessment execution flow.
+________________________________________
+2. Primary Implementation Objective
+Extend the existing Pipeline Assessment Edge Function by introducing a new Gemini reasoning operation that generates the Initial Opportunity Context Summary for directly created opportunities.
+The new functionality must:
+1.	Receive a request to generate an Initial Opportunity Context Summary.
+2.	Retrieve the relevant opportunity information from the authoritative database record.
+3.	Validate that the opportunity belongs to the Created source category.
+4.	Assemble the available opportunity information into a structured Gemini reasoning input.
+5.	Execute a dedicated Gemini reasoning process for summary generation.
+6.	Generate the structured Initial Opportunity Context Summary.
+7.	Validate the generated response.
+8.	Persist the summary using the appropriate existing or newly established database structure.
+9.	Maintain generation status, versioning and provenance where supported by the architecture.
+10.	Handle errors and retries without compromising the original opportunity record.
+The summary-generation capability must be independently callable from the existing opportunity creation workflow.
+________________________________________
+3. Mandatory Phase 0 — Audit Existing Codebase
+Before writing or modifying code, inspect the existing implementation.
+Do not assume the current Edge Function structure, database schema, Gemini integration or naming conventions.
+A. Existing Pipeline Assessment Edge Function
+Inspect:
+•	The existing Edge Function entry point.
+•	Its request routing and operation handling.
+•	Existing Gemini API integration.
+•	Existing Gemini system prompts and reasoning functions.
+•	Existing input assembly mechanisms.
+•	Existing response validation and parsing.
+•	Existing database access patterns.
+•	Existing error-handling and logging.
+•	Existing authentication and authorization.
+•	Existing opportunity retrieval and update mechanisms.
+Identify the safest way to introduce a separate summary-generation operation inside this Edge Function.
+B. Opportunity Data Model
+Inspect the actual opportunity database schema.
+Identify:
+•	Opportunity table.
+•	Primary key.
+•	Opportunity ownership and organization relationships.
+•	Opportunity Source Category field.
+•	Existing opportunity information fields.
+•	Existing opportunity creation workflow.
+•	Existing data validation and persistence mechanisms.
+The new generation operation must use the actual persisted opportunity information.
+Do not rely exclusively on client-supplied opportunity information if the authoritative database record is available.
+C. Opportunity Source Category
+The opportunity source category has two values:
+•	Inherited: Transferred from Lead Qualification.
+•	Created: Created directly by the user inside Pipeline Assessment.
+The summary-generation operation is specifically intended for Created opportunities.
+Verify the actual implementation of this field and its persistence.
+If it has not yet been implemented, identify this dependency rather than inventing a schema.
+D. Existing Summary Implementation
+Inspect whether an Initial Opportunity Context Summary table, field, JSON structure or generation mechanism already exists.
+If an implementation already exists, extend it.
+If it does not exist, propose the smallest compatible database structure needed to persist the summary.
+Do not create duplicate storage structures.
+E. Audit Deliverable
+Before implementation, provide a concise audit report describing:
+•	Existing Edge Function architecture.
+•	Existing Gemini integration.
+•	Existing opportunity schema.
+•	Existing source category implementation.
+•	Existing summary persistence, if any.
+•	Proposed integration approach.
+•	Files and database structures requiring modification.
+Then proceed with implementation.
+________________________________________
+4. Edge Function Architecture — New Generation Operation
+Introduce a new independently executable operation within the existing Edge Function.
+The operation should be conceptually similar to:
+generate_initial_opportunity_context_summary
+This is a proposed operation name. Follow the existing operation naming and request-routing conventions if different.
+The existing Edge Function should distinguish between:
+•	Existing Pipeline Assessment operations.
+•	New Initial Opportunity Context Summary generation operation.
+Conceptual architecture:
+Existing Pipeline Assessment Edge Function
+                  |
+                  ▼
+          Request Router
+                  |
+          ┌───────┴────────┐
+          ▼                ▼
+   Existing PA         New Summary
+   Operations          Generation
+          |                |
+          ▼                ▼
+ Existing Gemini      Retrieve Created
+ Reasoning            Opportunity
+          |                |
+          ▼                ▼
+ Existing PA          Assemble Summary
+ Assessment           Generation Input
+          |                |
+          ▼                ▼
+ Existing PA          Dedicated Gemini
+ Processing            Summary Reasoning
+                           |
+                           ▼
+                     Validate Output
+                           |
+                           ▼
+                     Persist Summary
+                           |
+                           ▼
+                     Return Status
+This is a conceptual architecture.
+Use the existing code organization and conventions.
+Mandatory separation requirements
+1.	The new operation must not accidentally execute the existing PADF assessment workflow.
+2.	Existing assessment requests must not execute summary generation.
+3.	Summary-generation requests must not trigger winability or Risk Intelligence calculations.
+4.	The new Gemini system prompt must be separate from the existing Pipeline Assessment system prompt.
+5.	Summary generation must have its own input assembly, response validation and persistence logic.
+6.	Shared utilities, such as Gemini API clients, authentication and logging, may be reused where appropriate.
+7.	Existing PA functionality must remain unchanged unless a modification is strictly necessary for integration.
+Do not introduce an entirely new Edge Function.
+________________________________________
+5. Initial Opportunity Context Summary — Input Information
+The summary must be generated using the information provided during direct opportunity creation.
+Inspect the actual Create Opportunity implementation and use the actual field names and persisted data structures.
+The expected information categories include:
+Step 1 — Basic Opportunity Information
+•	Opportunity Name.
+•	Customer / Account Name.
+•	Industry.
+•	Revenue Motion.
+•	Opportunity Owner.
+•	Geography / Region.
+•	Opportunity Overview.
+•	Customer's Business Problem.
+•	Proposed Solution / Offering.
+•	Expected Business Outcomes.
+•	Opportunity Origin / Background.
+Step 2 — Additional Opportunity Context
+•	Opportunity Value.
+•	Currency.
+•	Expected Closing Date.
+•	Current Sales Stage.
+•	Commercial Model.
+•	Current Engagement Status.
+•	Known Customer Stakeholders.
+•	Known Decision Maker.
+•	Internal Champion.
+•	Recent Customer Interaction.
+•	Known Competitors.
+•	Known Customer Priorities.
+•	Known Constraints / Challenges.
+•	Additional Information.
+These are conceptual categories.
+Use only fields actually implemented in the Create Opportunity data model.
+Input Assembly Requirements
+Before sending information to Gemini:
+1.	Retrieve the opportunity record.
+2.	Validate its source category.
+3.	Retrieve the available opportunity creation information.
+4.	Preserve the original values and provenance.
+5.	Identify missing or unavailable information.
+6.	Assemble a structured input object.
+7.	Exclude irrelevant technical metadata and sensitive information that is not needed for summary generation.
+Do not fabricate missing information.
+Do not treat optional fields as mandatory.
+The summary must reflect the actual information available at the time of generation.
+________________________________________
+6. Dedicated Gemini Reasoning for Summary Generation
+Implement a dedicated Gemini reasoning process inside the existing Edge Function.
+This process must use its own system prompt and structured output requirements.
+It must not reuse the PADF assessment prompt as its primary generation instruction.
+6.1 Gemini's Role
+Gemini should synthesize the opportunity creation information into a concise, structured Initial Opportunity Context Summary.
+The objective is to create a useful initial understanding of:
+•	The opportunity.
+•	The customer.
+•	The business problem.
+•	The proposed solution.
+•	The expected value.
+•	The commercial context.
+•	The known stakeholders.
+•	The competitive environment.
+•	The known challenges.
+•	The information that remains unknown.
+The summary should be useful as an initial context input for subsequent Pipeline Assessment Gemini reasoning.
+6.2 Required Summary Structure
+Generate the summary using the following ten categories.
+1. Opportunity Overview
+Summarize:
+•	What the opportunity is about.
+•	The nature and scope of the proposed business engagement.
+•	The opportunity's general commercial direction.
+2. Customer Context
+Summarize:
+•	Customer / account background based on supplied information.
+•	Industry and business environment.
+•	Geography or relevant operational context.
+Do not invent external company information.
+3. Business Problem and Customer Needs
+Summarize:
+•	The business problem identified.
+•	Customer challenges.
+•	Operational, financial or strategic needs.
+•	The problem's stated urgency, if known.
+Distinguish explicitly confirmed customer needs from the user's own descriptions where the source data permits.
+4. Proposed Solution and Value Proposition
+Summarize:
+•	Proposed products, services or solutions.
+•	How the proposal addresses the identified problem.
+•	The expected value proposition.
+Do not assume solution alignment has been validated.
+5. Expected Business Outcomes
+Summarize:
+•	Expected customer outcomes.
+•	Operational improvements.
+•	Financial or commercial benefits.
+•	Strategic benefits.
+Do not invent financial results or quantified benefits.
+6. Commercial Context
+Summarize available information concerning:
+•	Opportunity value.
+•	Currency.
+•	Commercial model.
+•	Expected closing date.
+•	Current sales stage.
+•	Known budget or procurement context, if supplied.
+Explicitly identify unknown commercial information where relevant.
+7. Customer Engagement and Stakeholder Context
+Summarize:
+•	Current engagement status.
+•	Known stakeholders.
+•	Decision-maker information.
+•	Internal champion information.
+•	Recent customer interactions.
+Do not assume that a named contact is a decision-maker or champion unless the supplied information supports that designation.
+8. Competitive Context
+Summarize:
+•	Known competitors.
+•	Alternative solutions.
+•	Known competitive considerations.
+•	Existing customer preferences, if supplied.
+Do not invent competitors or competitive positioning.
+9. Known Constraints and Challenges
+Summarize:
+•	Commercial constraints.
+•	Technical constraints.
+•	Operational challenges.
+•	Customer-side limitations.
+•	Known delivery or implementation concerns.
+10. Missing or Unconfirmed Information
+Identify important information that:
+•	Was not provided.
+•	Remains unknown.
+•	Has not been confirmed.
+•	Is potentially contradictory.
+•	Requires further customer discovery.
+This section is particularly important.
+The summary should help subsequent Pipeline Assessment reasoning understand the limitations of the initial opportunity context.
+6.3 Summary Quality Requirements
+The generated summary must be:
+•	Concise.
+•	Structured.
+•	Contextual.
+•	Professionally written.
+•	Non-repetitive.
+•	Factually grounded in supplied information.
+•	Useful for subsequent Pipeline Assessment reasoning.
+Do not merely copy the original form fields.
+Synthesize related information into meaningful business context.
+Avoid unnecessarily lengthy descriptions.
+Avoid generic sales language that adds no meaningful information.
+________________________________________
+7. Evidence, Provenance and Information Integrity
+The Initial Opportunity Context Summary is an AI-generated synthesis of information provided during opportunity creation.
+It is not an independent evidence source.
+This distinction is mandatory.
+Gemini must:
+1.	Never invent customer facts.
+2.	Never invent financial figures.
+3.	Never invent stakeholder roles.
+4.	Never invent customer confirmation.
+5.	Never invent buying-process information.
+6.	Never assume budget availability.
+7.	Never assume decision-maker access.
+8.	Never assume competitive advantage.
+9.	Never interpret missing information as negative evidence.
+10.	Distinguish confirmed information, user-provided information, assumptions and unknowns wherever supported by the source data.
+The summary must not be treated as independently verified evidence in subsequent PA reasoning.
+It must preserve the provenance of its underlying source information.
+In particular, subsequent Gemini reasoning must understand that the summary is derived from user-provided opportunity creation information and not independently verified customer evidence.
+Do not create duplicate evidence records from summary statements.
+________________________________________
+8. Structured Gemini Output
+The Gemini response must follow a structured output format suitable for persistence and later retrieval.
+Use the actual project's existing JSON validation and serialization conventions.
+A conceptual example:
+{
+  "summary_metadata": {
+    "summary_type": "initial_opportunity_context_summary",
+    "generation_status": "ready",
+    "generated_at": "...",
+    "source_category": "Created"
+  },
+  "summary_sections": {
+    "opportunity_overview": "...",
+    "customer_context": "...",
+    "business_problem_and_customer_needs": "...",
+    "proposed_solution_and_value_proposition": "...",
+    "expected_business_outcomes": "...",
+    "commercial_context": "...",
+    "customer_engagement_and_stakeholder_context": "...",
+    "competitive_context": "...",
+    "known_constraints_and_challenges": "...",
+    "missing_or_unconfirmed_information": "..."
+  }
+}
+This is an illustrative structure, not an instruction to replace existing production schemas.
+Before implementation, determine whether the existing application expects a specific summary structure.
+The final output must:
+•	Be valid JSON if JSON is the established storage format.
+•	Include all ten summary categories.
+•	Handle unavailable categories explicitly.
+•	Avoid unsupported statements.
+•	Pass server-side validation before persistence.
+If Gemini returns malformed or incomplete JSON, handle it safely.
+Do not persist an invalid summary as Ready.
+________________________________________
+9. Summary Persistence and Lifecycle Management
+The generated summary must be associated with its original opportunity.
+Inspect the actual database structure and reuse existing storage where appropriate.
+If new persistence is required, implement the smallest compatible extension.
+The persistence architecture should support:
+A. Generation Status
+Support the lifecycle states required by the actual application.
+Conceptually:
+•	Generating.
+•	Ready.
+•	Failed.
+Use existing status conventions if available.
+B. Summary Versioning
+The system should be able to distinguish successive summary generations.
+A regenerated summary must not silently overwrite historical context needed by previous assessments.
+Use an existing versioning or snapshot mechanism where possible.
+C. Generation Metadata
+Where supported, preserve:
+•	Opportunity ID.
+•	Source category.
+•	Generation timestamp.
+•	Summary version or identifier.
+•	Generation status.
+•	Source information or source version context.
+•	Error information where relevant.
+D. Source Data Changes
+If relevant opportunity creation information changes after summary generation:
+•	Identify that the existing summary may be outdated.
+•	Follow the existing application lifecycle for triggering regeneration.
+•	Do not silently present an outdated summary as current.
+The summary-generation operation should be idempotent or otherwise protected against unintended duplicate generation.
+E. Failure Handling
+If Gemini generation fails:
+•	Preserve the original opportunity record.
+•	Record the generation failure appropriately.
+•	Do not persist partial or malformed output as a Ready summary.
+•	Allow a controlled retry.
+The success or failure of summary generation must not determine whether the opportunity itself can be created.
+________________________________________
+10. Request Handling and Integration with Opportunity Creation
+The new summary-generation operation must be callable from the existing Create Opportunity workflow.
+The expected lifecycle is:
+User Creates Opportunity
+          |
+          ▼
+Persist Opportunity Record
+          |
+          ▼
+Assign Source Category = Created
+          |
+          ▼
+Trigger Summary Generation
+          |
+          ▼
+Existing Pipeline Assessment Edge Function
+          |
+          ▼
+New Summary Generation Operation
+          |
+          ▼
+Retrieve Opportunity Information
+          |
+          ▼
+Gemini Summary Reasoning
+          |
+          ▼
+Validate Structured Output
+          |
+          ▼
+Persist Initial Opportunity Context Summary
+          |
+          ▼
+Update Generation Status
+          |
+          ▼
+Summary Available in PA Workspace
+Important requirements:
+1.	Opportunity creation must succeed independently of summary generation.
+2.	Summary generation should be triggered after successful opportunity persistence.
+3.	The triggering mechanism must follow existing application architecture.
+4.	Avoid blocking the opportunity creation UI unnecessarily while Gemini generates the summary.
+5.	Ensure authorization is checked before accessing opportunity information.
+6.	Ensure users cannot generate summaries for opportunities they are not authorized to access.
+7.	Prevent unintended repeated Gemini calls.
+8.	Provide a controlled retry mechanism for failed generation.
+If the current Edge Function request architecture does not support asynchronous processing, inspect the available options and implement the most compatible approach without introducing another Edge Function.
+Do not assume a background execution mechanism exists without verifying it.
+________________________________________
+11. Separation from Existing Pipeline Assessment Reasoning
+This requirement is critical.
+The new summary-generation operation must remain logically independent of the existing PA assessment operation.
+The existing PA assessment workflow must continue to work exactly as intended.
+Do not:
+•	Execute PADF assessment during summary generation.
+•	Generate winability scores during summary generation.
+•	Generate Risk Intelligence during summary generation.
+•	Generate Pipeline Health during summary generation.
+•	Generate SWOT/TOWS assessments during summary generation.
+•	Modify the existing assessment rules.
+•	Modify the existing scoring logic.
+•	Change the existing inherited opportunity reasoning path.
+•	Replace the existing PA Gemini system prompt with the new summary-generation prompt.
+The two operations may reuse common infrastructure, such as:
+•	Gemini API client.
+•	Authentication utilities.
+•	Database utilities.
+•	Logging.
+•	Shared error-handling utilities.
+However, their reasoning instructions, input assembly, output validation and execution flow must remain appropriately separated.
+________________________________________
+12. Security, Reliability and Performance
+Implement according to existing production security standards.
+Verify:
+•	Opportunity ownership and organization authorization.
+•	Supabase Row Level Security.
+•	Server-side validation.
+•	Secure Gemini API key management.
+•	No exposure of privileged credentials.
+•	No unauthorized cross-tenant data access.
+•	Proper handling of malformed Gemini responses.
+•	Appropriate timeouts and retry controls.
+•	No unnecessary repeated database queries.
+•	No duplicate generation caused by repeated requests.
+•	Appropriate logging without exposing sensitive customer information.
+Reuse existing security and infrastructure patterns.
+Do not bypass established authorization controls for implementation convenience.
+________________________________________
+13. Testing Requirements
+Implement and execute tests covering the following scenarios.
+Test Group A — Successful Generation
+1.	Created opportunity with all basic fields populated.
+2.	Created opportunity with optional fields populated.
+3.	Created opportunity with only required fields populated.
+4.	Created opportunity with some missing commercial information.
+5.	Created opportunity with incomplete stakeholder information.
+Verify that the summary is generated and persisted correctly.
+Test Group B — Information Integrity
+1.	Missing customer business problem details.
+2.	Missing expected business outcomes.
+3.	Missing opportunity value.
+4.	Missing decision-maker information.
+5.	Missing competitor information.
+6.	Unconfirmed customer information.
+7.	Contradictory information in user-provided fields.
+Verify that Gemini identifies unknown or unconfirmed information rather than fabricating details.
+Test Group C — Source Category Validation
+1.	Created opportunity.
+2.	Inherited opportunity.
+3.	Missing source category.
+4.	Unsupported source category.
+The summary-generation operation should only process opportunities with the authoritative category Created.
+Do not generate this summary for inherited opportunities.
+Test Group D — Generation Failures
+1.	Gemini API failure.
+2.	Timeout.
+3.	Malformed JSON response.
+4.	Incomplete summary response.
+5.	Database persistence failure.
+6.	Repeated generation request.
+7.	Retry after previous failure.
+Verify correct status handling and data integrity.
+Test Group E — Existing Pipeline Assessment Regression
+Verify that introducing the new operation does not affect:
+•	Existing PA Gemini reasoning.
+•	Existing inherited opportunity assessment.
+•	PADF.
+•	Evidence Intelligence.
+•	Winability.
+•	Risk Intelligence.
+•	SWOT/TOWS.
+•	Winning Strategy.
+•	Historical assessment.
+•	Existing API request handling.
+________________________________________
+14. Implementation Deliverables
+After implementation, provide:
+A. Architecture Audit
+Explain the existing Edge Function structure and how the new generation operation was integrated.
+B. Modified Code Files
+List all modified and newly created files, explaining the purpose of each.
+The primary Edge Function must remain the existing Pipeline Assessment Edge Function.
+C. Database Changes
+List any migrations, tables, fields, indexes, policies or database changes.
+Explain why each was required.
+D. Gemini Reasoning Implementation
+Explain:
+•	Summary-generation system prompt.
+•	Input assembly.
+•	Gemini API invocation.
+•	Structured output validation.
+•	Persistence logic.
+E. Integration
+Explain how the Create Opportunity workflow triggers summary generation.
+F. Error Handling
+Explain generation status, failure handling, retries and duplicate prevention.
+G. Testing Results
+Provide actual test results and identify unresolved issues.
+H. Deployment Instructions
+Identify the required deployment and migration steps.
+Do not claim successful deployment or testing unless actually completed.
+________________________________________
+15. Mandatory Implementation Governance
+Throughout implementation:
+1.	Work from the actual existing codebase.
+2.	Do not create a new dedicated Edge Function.
+3.	Integrate the summary-generation operation into the existing Pipeline Assessment Edge Function.
+4.	Maintain logical separation between summary generation and PA assessment.
+5.	Reuse existing infrastructure where appropriate.
+6.	Do not duplicate Gemini API clients or infrastructure unnecessarily.
+7.	Do not invent database schemas or fields.
+8.	Preserve all existing PA assessment functionality.
+9.	Preserve the existing inherited opportunity workflow.
+10.	Do not introduce changes to PADF, scoring, winability or Risk Intelligence.
+11.	Do not treat generated summaries as independent evidence.
+12.	Implement robust validation and error handling.
+13.	Test the new functionality and existing regression paths.
+14.	Identify unresolved dependencies explicitly.
+If the existing codebase lacks a required dependency, explain the gap and implement only what can be safely completed.
+Do not conceal incomplete integration behind mock implementations or assumptions.
+________________________________________
+16. Final Architectural Principle
+The implementation must follow this principle:
+One existing Pipeline Assessment Edge Function, multiple logically separated reasoning operations, and independent execution workflows.
+The new Initial Opportunity Context Summary generation capability must be integrated into the existing Edge Function without becoming part of the PADF assessment execution itself.
+The objective is to centralize the management of Pipeline Assessment backend reasoning while maintaining clean functional separation, reliability and extensibility.
+Begin with the codebase audit, then implement and test the complete capability.
+
+Please let me know step-by-step guidance on how I would finaize this implementation, including re-deploy edge function, running SQL code in supabase etc.
+
+Please keep the part not related to this update unchanged!
+
+=====================================
+In the next, as we introduced Source-aware intelligence which will have effect on the Gemini reasoning for the PADF assessment, therefore, I would like you to help update something in the exisiting Gemini reasoing for the PADF assessment in the exisiting edge function at path "/supabase/functions/pipeline-assessment/index.ts" based on the following requirements and information:
+
+1. Project Background
+You are working on RevOS, an AI-native Revenue Operating System.
+RevOS Pipeline Assessment (PA) is an evidence-driven opportunity assessment and winability optimization engine.
+The existing Pipeline Assessment system already has an implemented Gemini reasoning workflow within Supabase Edge Functions.
+Currently, the reasoning workflow supports opportunities inherited from the Lead Qualification engine.
+A new capability is now being introduced: users can create opportunities directly inside Pipeline Assessment without first going through Lead Qualification.
+To support this new capability, the opportunity data model is being extended with a formal field called:
+Opportunity Source Category
+It has two possible values:
+•	Inherited: Opportunities transferred from Lead Qualification.
+•	Created: Opportunities created directly by users inside Pipeline Assessment.
+This new source category requires an update to the existing Gemini reasoning workflow.
+The objective is to make the reasoning workflow source-aware so that it selects the appropriate initial opportunity intelligence according to the opportunity's source category.
+This is an extension of the existing reasoning architecture, not a redesign of the Pipeline Assessment engine.
+________________________________________
+2. Primary Implementation Objective
+Update the existing Pipeline Assessment Gemini reasoning implementation so that it dynamically selects the initial opportunity intelligence input according to the opportunity's source category.
+The required behavior is:
+2.1 Inherited Opportunities
+For opportunities with:
+opportunity_source_category = Inherited
+The Gemini reasoning workflow must continue using the existing inherited Lead Qualification intelligence.
+This includes preserving the existing mechanism for:
+•	Retrieving inherited opportunity information.
+•	Accessing relevant Lead Qualification data.
+•	Passing inherited intelligence into Gemini reasoning.
+•	Preserving source provenance.
+•	Handling existing inherited-data structures and relationships.
+Critical requirement:
+The existing inherited-opportunity reasoning path must remain functionally intact.
+Do not replace the inherited intelligence mechanism with the new Initial Opportunity Context Summary.
+Do not unnecessarily change existing inherited-data retrieval, transformation, interpretation or reasoning logic.
+2.2 Created Opportunities
+For opportunities with:
+opportunity_source_category = Created
+The Gemini reasoning workflow must retrieve and use the latest valid Initial Opportunity Context Summary generated during the Create Opportunity process.
+This summary is produced by a separate Supabase Edge Function.
+The summary represents the initial business and commercial context of the opportunity, synthesized from the information provided by the user during opportunity creation.
+It should become the initial opportunity intelligence input for Gemini reasoning.
+The reasoning workflow must:
+1.	Retrieve the opportunity's source category.
+2.	Identify that the opportunity was directly created.
+3.	Retrieve its latest valid Initial Opportunity Context Summary.
+4.	Validate that the summary is available and usable.
+5.	Integrate the summary into the existing Gemini reasoning input.
+6.	Preserve its source and version information wherever supported by the existing architecture.
+Do not attempt to retrieve inherited Lead Qualification intelligence for a Created opportunity as its initial intelligence source.
+________________________________________
+3. Mandatory Phase 0 — Existing Codebase and Architecture Audit
+Before modifying any code, conduct a comprehensive audit of the current implementation.
+Do not begin implementation based on assumptions.
+Inspect the actual Supabase Edge Function codebase and identify:
+A. Existing Gemini Reasoning Architecture
+•	Which Edge Function currently executes Pipeline Assessment Gemini reasoning?
+•	Where does the reasoning workflow retrieve opportunity information?
+•	Where does it retrieve inherited Lead Qualification data?
+•	How is inherited intelligence transformed and assembled?
+•	Where is the Gemini prompt constructed?
+•	How are different reasoning input layers assembled?
+•	How are Gemini responses validated and processed?
+•	Where are assessment results persisted?
+•	How are retries, errors and historical assessment records handled?
+B. Existing Opportunity Data Model
+Inspect the actual database schema and identify:
+•	The opportunity table and primary key.
+•	Existing opportunity-source or provenance fields, if any.
+•	The existing relationship between Pipeline Assessment opportunities and Lead Qualification records.
+•	The actual location and structure of inherited intelligence.
+•	The existing opportunity ownership and authorization model.
+Identify how Opportunity Source Category is currently implemented or planned.
+If the field does not yet exist in the database, document this as a dependency. Do not silently invent a column name or assume that the frontend implementation guarantees its existence.
+C. Initial Opportunity Context Summary
+Inspect the actual implementation of the Initial Opportunity Context Summary generation workflow.
+Identify:
+•	The Edge Function responsible for generating the summary.
+•	Where the generated summary is persisted.
+•	Its database table and relationship to the opportunity.
+•	Its actual data structure.
+•	Its generation status and error-handling mechanism.
+•	Whether versioning or update timestamps are available.
+•	How the latest valid summary can be identified.
+•	Whether summary regeneration is supported.
+Do not assume the summary's table name, column names, JSON structure or status values.
+Use the actual implementation.
+D. Existing Reasoning Input Structure
+Map all current reasoning input layers and identify where the initial opportunity intelligence enters the Gemini reasoning workflow.
+The existing architecture may include:
+1.	Initial Opportunity Intelligence.
+2.	Pipeline Current State Data.
+3.	Pipeline Evidence Intelligence.
+4.	Industry Intelligence.
+5.	Historical Evolution Intelligence.
+Verify these layers against the actual codebase.
+Produce an implementation audit report containing:
+•	Existing architecture and execution flow.
+•	Relevant Edge Functions and supporting modules.
+•	Relevant database tables and relationships.
+•	Existing inherited intelligence retrieval mechanism.
+•	Initial Summary retrieval mechanism.
+•	Exact files and functions that require modification.
+•	Dependencies, risks and backward-compatibility considerations.
+Only after completing this audit should implementation begin.
+________________________________________
+4. Required Architecture — Conditional Initial Intelligence Selection
+Introduce a source-aware initial intelligence selection mechanism within the existing reasoning workflow.
+The architecture should follow this conceptual structure:
+Pipeline Assessment Gemini Reasoning
+                 |
+                 ▼
+       Retrieve Opportunity
+                 |
+                 ▼
+       Read Source Category
+                 |
+          ┌──────┴──────┐
+          ▼             ▼
+      Inherited       Created
+          |             |
+          ▼             ▼
+ Retrieve Existing   Retrieve Latest
+ Lead Qualification  Initial Opportunity
+ Intelligence         Context Summary
+          |             |
+          ▼             ▼
+ Validate Existing   Validate Summary
+ Inherited Data      Availability
+          |             |
+          └──────┬──────┘
+                 |
+                 ▼
+       Build Unified Initial
+       Opportunity Intelligence
+                 |
+                 ▼
+       Assemble Remaining
+       Reasoning Input Layers
+                 |
+                 ▼
+       Existing Gemini Reasoning
+                 |
+                 ▼
+       Existing PA Processing
+This is a conceptual architecture. Implement it using the existing code organization and conventions.
+4.1 Source Category Must Be Authoritative
+The source category must be retrieved from the authoritative opportunity record.
+Do not infer the category based on:
+•	Whether inherited data exists.
+•	Whether a Lead Qualification ID exists.
+•	Whether a summary exists.
+•	Whether particular fields are populated.
+•	The opportunity creation route or frontend state.
+The persisted source category is the authoritative selector.
+Do not allow the frontend or Gemini model to override the persisted source category.
+If the category is missing or invalid:
+•	Do not guess the category.
+•	Do not silently fall back to another source path.
+•	Return an explicit, traceable error or use an existing controlled compatibility mechanism if one is already established.
+•	Preserve backward compatibility for legacy records through an explicit migration or controlled fallback, not implicit inference.
+4.2 Inherited Path
+When the category is Inherited:
+•	Execute the existing inherited intelligence retrieval mechanism.
+•	Preserve existing data relationships and transformations.
+•	Preserve the existing inherited intelligence structure supplied to Gemini.
+•	Maintain source provenance.
+•	Do not require an Initial Opportunity Context Summary.
+•	Do not accidentally substitute Created opportunity logic.
+The inherited path should behave as it did before this enhancement, except for any necessary source-category validation.
+4.3 Created Path
+When the category is Created:
+•	Retrieve the latest valid Initial Opportunity Context Summary associated with the opportunity.
+•	Validate its status and availability using the actual summary-generation implementation.
+•	Retrieve the appropriate summary content and relevant metadata.
+•	Pass it into Gemini as initial opportunity intelligence.
+•	Preserve the fact that the summary was generated from user-provided opportunity creation information.
+•	Do not retrieve inherited Lead Qualification intelligence as a substitute.
+If multiple summary records or versions exist, use the existing versioning and status rules to identify the latest valid summary.
+Do not simply select the latest database row if its status indicates failure, invalidity or incomplete generation.
+________________________________________
+5. Unified Gemini Reasoning Input
+Both source paths must converge into the existing reasoning workflow.
+The initial opportunity intelligence should be assembled into a consistent conceptual input layer.
+For example:
+{
+  "opportunity_source_category": "Created",
+  "initial_opportunity_intelligence": {
+    "source_type": "initial_opportunity_context_summary",
+    "content": "...",
+    "status": "Ready",
+    "version": "..."
+  }
+}
+For inherited opportunities, the corresponding source metadata should identify the Lead Qualification origin and preserve the actual inherited information structure.
+This JSON is illustrative only.
+Do not replace existing production schemas or introduce duplicate structures unnecessarily.
+Use the actual existing data contracts and naming conventions.
+Important requirements
+1.	Gemini must understand which initial intelligence source it is receiving.
+2.	Gemini must understand the provenance and limitations of that information.
+3.	The reasoning workflow must not treat a generated summary as independently verified customer evidence.
+4.	A summary must not become a second independent evidence item simply because it synthesizes the original user-provided information.
+5.	Preserve the distinction between user-provided information, inherited qualification information, customer-confirmed information and assumptions wherever the source data supports those distinctions.
+6.	Do not fabricate missing information.
+7.	Do not interpret missing information as negative evidence.
+________________________________________
+6. Integration with Existing Reasoning Input Layers
+The source-aware initial intelligence selection must not disrupt the remaining reasoning input layers.
+Retain the existing mechanisms for retrieving and assembling:
+Layer 1 — Initial Opportunity Intelligence
+Conditional selection:
+•	Inherited: Lead Qualification inherited intelligence.
+•	Created: Initial Opportunity Context Summary.
+Layer 2 — Pipeline Current State Data
+Continue using the existing Pipeline Assessment data retrieval mechanism.
+Layer 3 — Pipeline Evidence Intelligence
+Continue using the existing Evidence Framework and Evidence Intelligence implementation.
+Preserve evidence provenance, quality, relevance, reliability, recency and confidence handling as already defined in the existing architecture.
+Layer 4 — Industry Intelligence
+Continue using the existing industry-specific configuration and intelligence retrieval mechanisms.
+Layer 5 — Historical Evolution Intelligence
+Continue using the existing historical assessment and evolution mechanisms.
+Do not remove, bypass or duplicate any existing input layer.
+If the actual codebase has additional reasoning layers, preserve them.
+________________________________________
+7. Initial Summary Availability and Failure Handling
+The Initial Opportunity Context Summary is generated asynchronously.
+Therefore, the reasoning Edge Function must handle its availability correctly.
+Scenario A — Summary Ready
+Use the latest valid summary as the Created opportunity's initial intelligence input.
+Scenario B — Summary Generating
+Do not use incomplete summary content.
+Follow the existing system's appropriate retry, pending or controlled response mechanism.
+Do not silently treat an unfinished summary as complete.
+Scenario C — Summary Failed
+Do not fabricate a summary or fall back to inherited Lead Qualification data.
+Where the existing reasoning architecture permits, continue with other valid PA inputs while explicitly identifying the unavailable initial context.
+Otherwise, return a controlled error that allows the user or system to retry.
+Scenario D — Summary Missing
+Handle this as an unavailable initial intelligence layer.
+Do not invent a summary.
+Do not infer that the opportunity is Inherited.
+Where technically and methodologically valid, allow the existing reasoning process to proceed with other available information while recording the missing context.
+Scenario E — Summary Updated or Regenerated
+The reasoning workflow must retrieve the latest valid summary according to the established summary versioning and status rules.
+Do not use a stale summary silently when a newer version is available.
+Ensure that historical assessment records preserve sufficient information to identify which summary version was used, consistent with the existing historical assessment architecture.
+________________________________________
+8. Critical Assessment Methodology Preservation
+This enhancement changes initial intelligence retrieval only.
+It must NOT change the methodology or authoritative calculation mechanisms of Pipeline Assessment.
+Preserve all existing implementations and approved specifications relating to:
+•	PADF.
+•	Data Inheritance Framework.
+•	Evidence Framework.
+•	Evidence Intelligence.
+•	Gemini reasoning strategy.
+•	Deterministic Assessment Rules Engine.
+•	Winability Engine.
+•	Base Winability.
+•	Confidence-Adjusted Winability.
+•	Risk-Adjusted Winability.
+•	Pipeline Health.
+•	Risk Intelligence.
+•	SWOT.
+•	TOWS.
+•	Winning Strategy.
+•	Recommendations and Actions.
+•	Historical Assessment and Evolution.
+No Source-Based Scoring Adjustment
+Do not introduce:
+•	An automatic winability bonus for Inherited opportunities.
+•	An automatic winability penalty for Created opportunities.
+•	A fixed weighting for inherited information.
+•	A fixed weighting for generated summaries.
+•	Source-category-based risk adjustments.
+•	Different PADF assessment standards.
+•	Different evidence-quality requirements.
+Assessment results must be based on the actual available information and its quality, not simply the opportunity's source category.
+For example:
+If an Inherited opportunity and a Created opportunity have equivalent relevant evidence, evidence quality, recency, reliability and completeness, they should be assessed using the same methodology.
+Inherited intelligence may provide useful initial context, but it does not automatically establish that the opportunity is stronger.
+Likewise, less initial information in a Created opportunity must not automatically be interpreted as negative evidence.
+Preserve the distinction between:
+•	Opportunity strength.
+•	Assessment completeness.
+•	Assessment confidence.
+________________________________________
+9. Gemini System Prompt and Reasoning Instruction Updates
+Inspect the existing Gemini system prompt and reasoning prompt construction.
+If necessary, update the relevant instructions so Gemini understands the two initial intelligence sources.
+Add the following conceptual rules:
+1.	The opportunity source category identifies the provenance of the initial opportunity intelligence.
+2.	For Inherited opportunities, interpret the supplied Lead Qualification intelligence according to its original provenance and limitations.
+3.	For Created opportunities, interpret the Initial Opportunity Context Summary as a synthesis of user-provided opportunity information, not as independently verified evidence.
+4.	Do not assume that missing information means an opportunity is weak.
+5.	Do not fabricate missing customer information, stakeholder details, buying processes, commercial information or competitive intelligence.
+6.	Distinguish confirmed information, user-provided information, assumptions and unknowns wherever supported by the source data.
+7.	Apply the same PADF assessment methodology and evidence standards regardless of opportunity source.
+8.	Base assessment conclusions on the quality and relevance of available information rather than the source category itself.
+Do not rewrite the entire Gemini system prompt unless the audit demonstrates that this is necessary.
+Preserve all existing approved reasoning instructions.
+________________________________________
+10. Historical Assessment and Traceability
+The updated reasoning workflow must preserve traceability.
+For every new assessment, retain or make available through the existing historical assessment architecture:
+•	Opportunity Source Category at the time of assessment.
+•	Initial intelligence source type.
+•	Relevant source record or relationship identifiers.
+•	Summary version or identifier when applicable.
+•	Assessment rules/configuration version.
+•	Relevant reasoning and assessment execution metadata.
+Use the existing database schema and snapshot architecture wherever possible.
+Do not overwrite historical assessments simply because the Initial Opportunity Context Summary has been regenerated.
+A subsequent assessment using a newer summary must remain distinguishable from previous assessments.
+If the current snapshot structure does not support the necessary provenance, identify the gap and propose the smallest compatible extension.
+________________________________________
+11. Security, Data Integrity and Performance
+The implementation must follow existing production security practices.
+Verify:
+•	Opportunity ownership and access authorization.
+•	Supabase Row Level Security requirements.
+•	Server-side access to inherited and summary records.
+•	No unauthorized cross-user or cross-organization data retrieval.
+•	No exposure of Gemini API keys or privileged credentials.
+•	No client-supplied source category overriding authoritative database data.
+•	Appropriate error handling and logging.
+•	No unnecessary repeated database queries.
+•	No unnecessary duplicate Gemini calls.
+•	No unnecessary summary regeneration.
+•	No regression in existing inherited-opportunity performance.
+Use existing authentication, authorization and database-access patterns.
+Do not introduce privileged access that bypasses established security controls without a documented and justified requirement.
+________________________________________
+12. Required Regression and Integration Testing
+Implement and execute tests covering both source categories.
+Test Group A — Inherited Opportunities
+1.	Existing inherited opportunity with complete inherited intelligence.
+2.	Inherited opportunity with partially available inherited information.
+3.	Inherited opportunity with missing optional inherited information.
+4.	Inherited opportunity without an Initial Opportunity Context Summary.
+5.	Inherited opportunity with existing historical assessments.
+Expected result:
+The existing inherited reasoning path remains operational and produces results using the existing methodology.
+Test Group B — Created Opportunities
+1.	Created opportunity with a Ready Initial Opportunity Context Summary.
+2.	Created opportunity with a Generating summary.
+3.	Created opportunity with a Failed summary.
+4.	Created opportunity with no summary.
+5.	Created opportunity with a regenerated summary.
+6.	Created opportunity with historical assessments.
+Expected result:
+The reasoning workflow selects the appropriate summary and handles its availability correctly.
+Test Group C — Source Category Integrity
+1.	Opportunity category is Inherited.
+2.	Opportunity category is Created.
+3.	Opportunity category is missing.
+4.	Opportunity category contains an unsupported value.
+5.	Client attempts to provide a category inconsistent with the persisted record.
+Expected result:
+The persisted source category controls selection. Missing or invalid categories are handled explicitly without guessing.
+Test Group D — Methodology Consistency
+Verify that both categories use the same:
+•	PADF.
+•	Evidence Framework.
+•	Evidence Intelligence.
+•	Assessment Rules.
+•	Winability calculation.
+•	Risk Intelligence.
+•	SWOT/TOWS methodology.
+•	Winning Strategy generation.
+Verify that no source-category-specific scoring adjustment has been introduced.
+Test Group E — Historical Integrity
+Verify:
+•	The correct initial intelligence source is recorded.
+•	The correct summary version is identifiable.
+•	Previous assessments remain unchanged.
+•	New assessments can use regenerated summaries.
+•	Historical comparisons remain valid.
+Test Group F — Regression
+Run relevant existing tests for the inherited opportunity workflow.
+Verify that the enhancement does not break:
+•	Opportunity retrieval.
+•	Existing Gemini reasoning.
+•	Evidence processing.
+•	Assessment persistence.
+•	Winability.
+•	Risk Intelligence.
+•	Historical assessment.
+•	Existing frontend-to-Edge-Function integrations.
+________________________________________
+13. Implementation Deliverables
+After implementation, provide a clear report containing:
+A. Architecture Audit
+•	Existing reasoning workflow.
+•	Relevant Edge Functions and modules.
+•	Relevant database tables and relationships.
+•	Existing inherited intelligence retrieval mechanism.
+•	Initial Opportunity Context Summary retrieval mechanism.
+B. Code Changes
+For every modified or created file, provide:
+•	File path.
+•	Purpose of modification.
+•	Main implementation changes.
+•	Any relevant database dependencies.
+C. Source-Aware Reasoning Flow
+Show how the system now selects the appropriate initial intelligence for each opportunity category.
+D. Gemini Input Changes
+Explain how the two initial intelligence sources are passed into Gemini and how the remaining input layers are preserved.
+E. Historical and Provenance Handling
+Explain how source category and selected initial intelligence are traceable in assessment records.
+F. Testing Results
+Provide:
+•	Tests executed.
+•	Pass/fail results.
+•	Regression test results.
+•	Any outstanding issues.
+G. Deployment Requirements
+Identify:
+•	Required database migrations, if any.
+•	Required Edge Function deployment.
+•	Required environment variables, if any.
+•	Dependencies on the Create Opportunity and Initial Opportunity Context Summary implementations.
+•	Any required frontend integration changes.
+Do not claim deployment or successful testing unless actually completed.
+________________________________________
+14. Implementation Governance — Mandatory Rules
+Follow these rules throughout implementation:
+1.	Audit the existing codebase before modifying it.
+2.	Use the actual database schema and existing code conventions.
+3.	Preserve the existing inherited opportunity reasoning path.
+4.	Extend the existing Gemini reasoning Edge Function rather than creating separate reasoning engines.
+5.	Introduce conditional initial intelligence selection based on the authoritative Opportunity Source Category.
+6.	Use the Initial Opportunity Context Summary for Created opportunities.
+7.	Preserve all remaining existing reasoning input layers.
+8.	Do not duplicate or redesign existing PA functionality.
+9.	Do not modify PADF, Evidence Framework, scoring methodology or authoritative calculation logic as part of this task.
+10.	Do not invent database tables, fields, status values or JSON structures.
+11.	Do not silently fall back between the two source paths.
+12.	Do not treat generated summaries as independently verified evidence.
+13.	Preserve historical assessment integrity and source provenance.
+14.	Maintain backward compatibility for existing inherited opportunities.
+15.	Implement and test the complete workflow, not merely the prompt changes.
+If a required dependency has not yet been implemented, identify it explicitly and distinguish completed work from pending integration.
+Do not conceal unresolved issues by implementing assumptions.
+________________________________________
+15. Final Architectural Principle
+The implementation must follow this principle:
+One Pipeline Assessment reasoning engine, two initial opportunity intelligence sources, and one unified assessment methodology.
+•	Inherited opportunities receive initial intelligence from Lead Qualification.
+•	Created opportunities receive initial intelligence from the Initial Opportunity Context Summary.
+•	Both paths converge into the same existing Pipeline Assessment Gemini reasoning workflow.
+•	Both use the same PADF, Evidence Framework, assessment rules, winability and risk methodologies.
+The objective is to extend RevOS Pipeline Assessment to support both opportunity creation paths without fragmenting its architecture or compromising assessment consistency.
+Proceed with the architecture audit first, then implement the required changes in the existing codebase.
+
+Please let me know step-by-step guidance on how I would finaize this implementation, including re-deploy edge function, running SQL code in supabase etc.
+
+Please keep the part not related to this update unchanged!

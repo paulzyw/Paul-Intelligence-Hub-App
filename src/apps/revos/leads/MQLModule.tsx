@@ -16,6 +16,7 @@ import { SQLDataService } from './services/sqlDataService';
 import { PromotionDataService } from './services/promotionDataService';
 import { MQLConfigService } from './services/mqlConfigLoader';
 import { MQLCampaign, MQLLead, MQLQualificationResult } from '../types/mql';
+import { STANDARD_COUNTRIES, parseLegacyLocationToCountryAndState } from './constants/countries';
 import { Plus, FolderOpen, Cpu, Users, Settings, PlusCircle, ArrowLeft, Bot, Sparkles, Activity, Check, ChevronDown, ChevronUp, Trash, Trash2, Download, RefreshCw, AlertTriangle } from 'lucide-react';
 
 const MiniScorePieChart: React.FC<{ score: number; status?: string }> = ({ score, status }) => {
@@ -102,7 +103,10 @@ export const MQLModule: React.FC = () => {
     lead_industry: '',
     employee_size: '',
     location: '',
+    country: '',
+    state_province: '',
     annual_revenue: '',
+    product_solution: '',
     phone: '',
     department: '',
     lead_date: ''
@@ -255,6 +259,14 @@ export const MQLModule: React.FC = () => {
         }
       }
       
+      const rawLocation = initialLeadData.location || extra.location || '';
+      const rawCountry = initialLeadData.country || extra.country || '';
+      const rawStateProvince = initialLeadData.state_province || extra.state_province || '';
+      const parsedLegacyLocation =
+        !rawCountry && !rawStateProvince
+          ? parseLegacyLocationToCountryAndState(rawLocation)
+          : { country: '', state_province: '' };
+
       setNewLead({
         name: `${initialLeadData.first_name || ''} ${initialLeadData.last_name || ''}`.trim(),
         email: initialLeadData.email || '',
@@ -263,8 +275,11 @@ export const MQLModule: React.FC = () => {
         website: initialLeadData.website || extra.website || '',
         lead_industry: initialLeadData.lead_industry || extra.lead_industry || '',
         employee_size: initialLeadData.employee_size || extra.employee_size || '',
-        location: initialLeadData.location || extra.location || '',
+        location: rawLocation,
+        country: rawCountry || parsedLegacyLocation.country,
+        state_province: rawStateProvince || parsedLegacyLocation.state_province,
         annual_revenue: initialLeadData.annual_revenue || extra.annual_revenue || '',
+        product_solution: initialLeadData.product_solution || extra.product_solution || '',
         phone: initialLeadData.phone || extra.phone || '',
         department: initialLeadData.department || extra.department || '',
         lead_date: initialLeadData.lead_date || extra.lead_date || ''
@@ -331,12 +346,19 @@ export const MQLModule: React.FC = () => {
       const first_name = nameParts[0] || '';
       const last_name = nameParts.slice(1).join(' ') || '';
 
+      const combinedLocation =
+        [newLead.state_province.trim(), newLead.country.trim()].filter(Boolean).join(', ') ||
+        newLead.location;
+
       const extraData = {
         website: newLead.website,
         lead_industry: newLead.lead_industry,
         employee_size: newLead.employee_size,
-        location: newLead.location,
+        location: combinedLocation,
+        country: newLead.country,
+        state_province: newLead.state_province,
         annual_revenue: newLead.annual_revenue,
+        product_solution: newLead.product_solution,
         phone: newLead.phone,
         department: newLead.department,
         lead_date: newLead.lead_date,
@@ -353,8 +375,11 @@ export const MQLModule: React.FC = () => {
             website: newLead.website,
             lead_industry: newLead.lead_industry,
             employee_size: newLead.employee_size,
-            location: newLead.location,
+            location: combinedLocation,
+            country: newLead.country,
+            state_province: newLead.state_province,
             annual_revenue: newLead.annual_revenue,
+            product_solution: newLead.product_solution,
             phone: newLead.phone,
             department: newLead.department,
             lead_date: newLead.lead_date,
@@ -379,8 +404,11 @@ export const MQLModule: React.FC = () => {
           website: newLead.website,
           lead_industry: newLead.lead_industry,
           employee_size: newLead.employee_size,
-          location: newLead.location,
+          location: combinedLocation,
+          country: newLead.country,
+          state_province: newLead.state_province,
           annual_revenue: newLead.annual_revenue,
+          product_solution: newLead.product_solution,
           phone: newLead.phone,
           department: newLead.department,
           lead_date: newLead.lead_date,
@@ -405,8 +433,11 @@ export const MQLModule: React.FC = () => {
           website: newLead.website,
           lead_industry: newLead.lead_industry,
           employee_size: newLead.employee_size,
-          location: newLead.location,
+          location: combinedLocation,
+          country: newLead.country,
+          state_province: newLead.state_province,
           annual_revenue: newLead.annual_revenue,
+          product_solution: newLead.product_solution,
           phone: newLead.phone,
           department: newLead.department,
           lead_date: newLead.lead_date,
@@ -589,7 +620,10 @@ export const MQLModule: React.FC = () => {
                 lead_industry: '',
                 employee_size: '',
                 location: '',
+                country: '',
+                state_province: '',
                 annual_revenue: '',
+                product_solution: '',
                 phone: '',
                 department: '',
                 lead_date: ''
@@ -1016,7 +1050,9 @@ export const MQLModule: React.FC = () => {
                           setNewLead({
                             name: '', email: '', company_name: '', job_title: '',
                             website: '', lead_industry: '', employee_size: '', location: '',
-                            annual_revenue: '', phone: '', department: '', lead_date: ''
+                            country: '', state_province: '',
+                            annual_revenue: '', product_solution: '',
+                            phone: '', department: '', lead_date: ''
                           });
                           if (campaignFilterId !== 'all') {
                             setTargetCampaignId(campaignFilterId);
@@ -1513,7 +1549,10 @@ export const MQLModule: React.FC = () => {
                         lead_industry: '',
                         employee_size: '',
                         location: '',
+                        country: '',
+                        state_province: '',
                         annual_revenue: '',
+                        product_solution: '',
                         phone: '',
                         department: '',
                         lead_date: ''
@@ -1718,16 +1757,39 @@ export const MQLModule: React.FC = () => {
                       placeholder="1000"
                     />
                   </div>
-                  <div>
-                    <label className="block text-xs font-bold text-text-primary mb-1.5 font-sans">Location</label>
-                    <input 
-                      disabled={isSaved}
-                      type="text" 
-                      className="w-full bg-bg-primary/40 disabled:opacity-75 disabled:cursor-not-allowed border border-border focus:border-accent/40 rounded-xl px-3.5 py-3 text-xs text-text-primary focus:outline-none placeholder-text-secondary/40 font-sans shadow-inner" 
-                      value={formValues.location} 
-                      onChange={e => setNewLead({...newLead, location: e.target.value})} 
-                      placeholder="City, Country"
-                    />
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-xs font-bold text-text-primary mb-1.5 font-sans">Country</label>
+                      <select
+                        disabled={isSaved}
+                        className="w-full bg-bg-primary/40 disabled:opacity-75 disabled:cursor-not-allowed border border-border focus:border-accent/40 rounded-xl px-3.5 py-3 text-xs text-text-primary focus:outline-none font-sans shadow-inner cursor-pointer"
+                        value={formValues.country}
+                        onChange={e => setNewLead({...newLead, country: e.target.value})}
+                      >
+                        <option value="" className="bg-bg-surface text-text-secondary">Select Country</option>
+                        {formValues.country && !STANDARD_COUNTRIES.includes(formValues.country) && (
+                          <option value={formValues.country} className="bg-bg-surface text-text-primary">
+                            {formValues.country}
+                          </option>
+                        )}
+                        {STANDARD_COUNTRIES.map((countryName) => (
+                          <option key={countryName} value={countryName} className="bg-bg-surface text-text-primary">
+                            {countryName}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-text-primary mb-1.5 font-sans">State/Province</label>
+                      <input
+                        disabled={isSaved}
+                        type="text"
+                        className="w-full bg-bg-primary/40 disabled:opacity-75 disabled:cursor-not-allowed border border-border focus:border-accent/40 rounded-xl px-3.5 py-3 text-xs text-text-primary focus:outline-none placeholder-text-secondary/40 font-sans shadow-inner"
+                        value={formValues.state_province}
+                        onChange={e => setNewLead({...newLead, state_province: e.target.value})}
+                        placeholder="State / Province"
+                      />
+                    </div>
                   </div>
                   <div>
                     <label className="block text-xs font-bold text-text-primary mb-1.5 font-sans">Annual Revenue</label>
@@ -1738,6 +1800,17 @@ export const MQLModule: React.FC = () => {
                       value={formValues.annual_revenue} 
                       onChange={e => setNewLead({...newLead, annual_revenue: e.target.value})} 
                       placeholder="$100,000,000"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-text-primary mb-1.5 font-sans">Product/Solution</label>
+                    <input
+                      disabled={isSaved}
+                      type="text"
+                      className="w-full bg-bg-primary/40 disabled:opacity-75 disabled:cursor-not-allowed border border-border focus:border-accent/40 rounded-xl px-3.5 py-3 text-xs text-text-primary focus:outline-none placeholder-text-secondary/40 font-sans shadow-inner"
+                      value={formValues.product_solution}
+                      onChange={e => setNewLead({...newLead, product_solution: e.target.value})}
+                      placeholder="e.g. Cloud Data Platform, Enterprise Security Suite"
                     />
                   </div>
                 </div>
@@ -1877,12 +1950,21 @@ export const MQLModule: React.FC = () => {
       const lead_industry = selectedLead.lead_industry || extra.lead_industry;
       const employee_size = selectedLead.employee_size || extra.employee_size;
       const location = selectedLead.location || extra.location;
+      const rawCountry = selectedLead.country || extra.country || '';
+      const rawStateProvince = selectedLead.state_province || extra.state_province || '';
+      const parsedLegacyLocation =
+        !rawCountry && !rawStateProvince
+          ? parseLegacyLocationToCountryAndState(location)
+          : { country: '', state_province: '' };
+      const country = rawCountry || parsedLegacyLocation.country;
+      const state_province = rawStateProvince || parsedLegacyLocation.state_province;
       const annual_revenue = selectedLead.annual_revenue || extra.annual_revenue;
+      const product_solution = selectedLead.product_solution || extra.product_solution;
       const phone = selectedLead.phone || extra.phone;
       const department = selectedLead.department || extra.department;
       const lead_date = selectedLead.lead_date || extra.lead_date;
 
-      const hasMetadata = website || lead_industry || employee_size || location || annual_revenue || phone || department || lead_date;
+      const hasMetadata = website || lead_industry || employee_size || country || state_province || location || annual_revenue || product_solution || phone || department || lead_date;
 
       return (
         <div className="space-y-6">
@@ -1923,7 +2005,19 @@ export const MQLModule: React.FC = () => {
                     <span className="text-text-primary font-bold mt-0.5 block">{employee_size}</span>
                   </div>
                 )}
-                {location && (
+                {country && (
+                  <div>
+                    <span className="text-[10px] font-mono text-text-secondary uppercase block">Country</span>
+                    <span className="text-text-primary font-bold mt-0.5 block">{country}</span>
+                  </div>
+                )}
+                {state_province && (
+                  <div>
+                    <span className="text-[10px] font-mono text-text-secondary uppercase block">State/Province</span>
+                    <span className="text-text-primary font-bold mt-0.5 block">{state_province}</span>
+                  </div>
+                )}
+                {!country && !state_province && location && (
                   <div>
                     <span className="text-[10px] font-mono text-text-secondary uppercase block">Location</span>
                     <span className="text-text-primary font-bold mt-0.5 block">{location}</span>
@@ -1933,6 +2027,12 @@ export const MQLModule: React.FC = () => {
                   <div>
                     <span className="text-[10px] font-mono text-text-secondary uppercase block">Annual Revenue</span>
                     <span className="text-text-primary font-bold mt-0.5 block">{annual_revenue}</span>
+                  </div>
+                )}
+                {product_solution && (
+                  <div>
+                    <span className="text-[10px] font-mono text-text-secondary uppercase block">Product/Solution</span>
+                    <span className="text-text-primary font-bold mt-0.5 block">{product_solution}</span>
                   </div>
                 )}
                 {phone && (

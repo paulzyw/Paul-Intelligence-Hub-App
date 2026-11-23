@@ -7,6 +7,10 @@ export interface SQLOpportunity {
   industry: string;
   revenue_motion: string;
   opportunity_name: string;
+  country?: string;
+  campaign_assignment?: string;
+  business_segment?: string;
+  product_solution?: string;
   description?: string;
   source?: string;
   mql_reference_id?: string;
