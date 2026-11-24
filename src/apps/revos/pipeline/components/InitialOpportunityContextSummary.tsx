@@ -5,8 +5,10 @@ import {
   CheckCircle2,
   ChevronDown,
   ChevronUp,
+  Eye,
   Layers,
   Lock,
+  Pencil,
   RefreshCw,
   Save,
   Sparkles,
@@ -43,8 +45,9 @@ export interface InitialOpportunityContextSummaryProps {
     summaryToSave: InitialOpportunityContextSummaryPayload,
     version: number
   ) => void;
+  isAssessmentLocked?: boolean;
+  onEditOpportunity?: () => void;
   onRetry: () => void;
-  onRegenerate: () => void;
   onOpenPipelineCanvas: (targetColumn: CanvasColumnKey, pipelineId?: string | null) => void;
 }
 
@@ -119,8 +122,9 @@ export const InitialOpportunityContextSummary: React.FC<
   savedSummaryMessage = null,
   saveSummaryError = null,
   onSaveSummary,
+  isAssessmentLocked = false,
+  onEditOpportunity,
   onRetry,
-  onRegenerate,
   onOpenPipelineCanvas
 }) => {
   const [expanded, setExpanded] = useState(true);
@@ -241,19 +245,36 @@ export const InitialOpportunityContextSummary: React.FC<
               </button>
             )}
 
-          {summaryStatus === 'READY' && pipelineId && !hasUnsavedChanges && (
+          {onEditOpportunity && pipelineId && (
             <button
               type="button"
-              disabled={submittingSummary}
-              onClick={onRegenerate}
-              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-bg-primary border border-border hover:border-accent/60 text-text-primary text-xs font-semibold transition-colors cursor-pointer disabled:opacity-40 whitespace-nowrap"
+              onClick={onEditOpportunity}
+              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-bg-primary border border-border hover:border-accent/60 text-text-primary text-xs font-semibold transition-colors cursor-pointer whitespace-nowrap"
+              title={
+                isAssessmentLocked
+                  ? 'Open Opportunity Creation Form in read-only review mode'
+                  : 'Edit Created Opportunity in Opportunity Creation Form'
+              }
             >
-              <RefreshCw className={`h-3.5 w-3.5 ${submittingSummary ? 'animate-spin' : ''}`} />
-              <span>New Version</span>
+              {isAssessmentLocked ? (
+                <>
+                  <Eye className="h-3.5 w-3.5 text-[#00a3ff]" />
+                  <span>Review</span>
+                </>
+              ) : (
+                <>
+                  <Pencil className="h-3.5 w-3.5 text-accent" />
+                  <span>Edit</span>
+                </>
+              )}
             </button>
           )}
 
-          {summaryStatus === 'READY' && activeSummary?.summary_sections && pipelineId && onSaveSummary && (
+          {summaryStatus === 'READY' &&
+            activeSummary?.summary_sections &&
+            pipelineId &&
+            onSaveSummary &&
+            !isAssessmentLocked && (
             <button
               type="button"
               disabled={savingSummary || submittingSummary}
@@ -429,7 +450,8 @@ export const InitialOpportunityContextSummary: React.FC<
             <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />
             <span>
               Opportunity inputs changed after version {summaryVersion || 1} was generated. Save any
-              pending changes and click <strong>New Version</strong> to update the summary.
+              pending changes and click <strong>Re-Submit</strong> on Section E in the Opportunity
+              Creation Form to update the summary.
             </span>
           </div>
         )}

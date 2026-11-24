@@ -758,6 +758,8 @@ export interface CreatedOpportunityDraftRecord {
   saved_sections?: Array<'A' | 'B' | 'C' | 'D' | 'E'>;
   initial_context: Partial<CreatedOpportunityContextPayload>;
   summary_status: InitialSummaryStatus;
+  assessment_started?: boolean;
+  assessment_locked?: boolean;
 }
 
 export interface PipelineOpportunityHandoverDetail {

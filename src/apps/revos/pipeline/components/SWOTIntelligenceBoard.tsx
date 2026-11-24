@@ -124,10 +124,36 @@ export const SWOTIntelligenceBoard: React.FC<SWOTIntelligenceBoardProps> = ({
     }));
   }, [swotResults, resolvedBaseline]);
 
+  const getFactorLayerCategory = (
+    f: PipelineSWOTResult
+  ): 'universal_baseline' | 'revenue_motion_override' | 'industry_override' => {
+    const fl = String(f.factor_layer || '').trim().toLowerCase();
+    const fid = String(f.factor_id || '').trim();
+    if (
+      fl.includes('motion') ||
+      fl.includes('revenue_motion') ||
+      fid.startsWith('RM0') ||
+      fid.startsWith('SWOT_RM_') ||
+      fid.includes('_RM_')
+    ) {
+      return 'revenue_motion_override';
+    }
+    if (
+      fl.includes('industry') ||
+      fid.startsWith('IND_') ||
+      fid.startsWith('SWOT_IND_') ||
+      fid.includes('_IND_')
+    ) {
+      return 'industry_override';
+    }
+    return 'universal_baseline';
+  };
+
   const filteredFactors = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
     return normalizedFactors.filter((f) => {
-      if (layerFilter !== 'all' && f.factor_layer !== layerFilter) return false;
+      const cat = getFactorLayerCategory(f);
+      if (layerFilter !== 'all' && cat !== layerFilter) return false;
       if (q) {
         return (
           f.factor_name.toLowerCase().includes(q) ||
@@ -148,9 +174,10 @@ export const SWOTIntelligenceBoard: React.FC<SWOTIntelligenceBoardProps> = ({
     return map;
   }, [evidence]);
 
-  const layerLabel = (layer: PipelineSWOTResult['factor_layer']) => {
-    if (layer === 'universal_baseline') return 'Universal';
-    if (layer === 'revenue_motion_override') return 'Motion';
+  const layerLabel = (factor: PipelineSWOTResult) => {
+    const cat = getFactorLayerCategory(factor);
+    if (cat === 'universal_baseline') return 'Universal';
+    if (cat === 'revenue_motion_override') return 'Motion';
     return 'Industry';
   };
 
@@ -272,7 +299,7 @@ export const SWOTIntelligenceBoard: React.FC<SWOTIntelligenceBoardProps> = ({
                       >
                         <div className="flex items-center justify-between gap-2 text-[11px] font-mono">
                           <span className="text-text-secondary truncate">
-                            {factor.factor_id} · {layerLabel(factor.factor_layer)}
+                            {factor.factor_id} · {layerLabel(factor)}
                           </span>
                           <span className={`font-semibold shrink-0 ${st.color}`}>
                             {st.text}
@@ -363,7 +390,7 @@ export const SWOTIntelligenceBoard: React.FC<SWOTIntelligenceBoardProps> = ({
                           {selectedFactor.factor_type}
                         </span>
                         <span className="text-[10px] font-mono text-text-secondary">
-                          {selectedFactor.factor_id} · {layerLabel(selectedFactor.factor_layer)}
+                          {selectedFactor.factor_id} · {layerLabel(selectedFactor)}
                         </span>
                         <span className={`text-[10px] font-mono font-bold ${stateLabel(selectedFactor.assessment_state).color}`}>
                           · {stateLabel(selectedFactor.assessment_state).text}

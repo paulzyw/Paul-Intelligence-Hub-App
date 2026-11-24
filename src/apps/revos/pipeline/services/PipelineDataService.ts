@@ -603,15 +603,46 @@ export class PipelineDataService {
     strategies: PipelineStrategy[];
     actions: PipelineAction[];
   }> {
-    const { data: assessment } = await supabase
-      .from('pipeline_assessments')
-      .select('*')
-      .eq('pipeline_id', pipelineId)
-      .order('assessment_sequence', { ascending: false })
-      .limit(1)
-      .maybeSingle();
+    try {
+      const { data: assessment, error: assessErr } = await supabase
+        .from('pipeline_assessments')
+        .select('*')
+        .eq('pipeline_id', pipelineId)
+        .order('assessment_sequence', { ascending: false })
+        .limit(1)
+        .maybeSingle();
 
-    if (!assessment) {
+      if (assessErr || !assessment) {
+        return {
+          assessment: null,
+          padf_results: [],
+          swot_results: [],
+          risks: [],
+          strategies: [],
+          actions: []
+        };
+      }
+
+      const assessmentId = assessment.assessment_id;
+
+      const [padfRes, swotRes, risksRes, stratRes, actRes] = await Promise.all([
+        supabase.from('pipeline_padf_results').select('*').eq('assessment_id', assessmentId),
+        supabase.from('pipeline_swot_results').select('*').eq('assessment_id', assessmentId),
+        supabase.from('pipeline_risks').select('*').eq('assessment_id', assessmentId),
+        supabase.from('pipeline_strategies').select('*').eq('assessment_id', assessmentId),
+        supabase.from('pipeline_actions').select('*').eq('pipeline_id', pipelineId)
+      ]);
+
+      return {
+        assessment: assessment as PipelineAssessment,
+        padf_results: (padfRes.data || []) as PipelinePADFResult[],
+        swot_results: (swotRes.data || []) as PipelineSWOTResult[],
+        risks: (risksRes.data || []) as PipelineRisk[],
+        strategies: (stratRes.data || []) as PipelineStrategy[],
+        actions: (actRes.data || []) as PipelineAction[]
+      };
+    } catch (e) {
+      console.warn('getLatestAssessment network warning:', e);
       return {
         assessment: null,
         padf_results: [],
@@ -621,25 +652,6 @@ export class PipelineDataService {
         actions: []
       };
     }
-
-    const assessmentId = assessment.assessment_id;
-
-    const [padfRes, swotRes, risksRes, stratRes, actRes] = await Promise.all([
-      supabase.from('pipeline_padf_results').select('*').eq('assessment_id', assessmentId),
-      supabase.from('pipeline_swot_results').select('*').eq('assessment_id', assessmentId),
-      supabase.from('pipeline_risks').select('*').eq('assessment_id', assessmentId),
-      supabase.from('pipeline_strategies').select('*').eq('assessment_id', assessmentId),
-      supabase.from('pipeline_actions').select('*').eq('pipeline_id', pipelineId)
-    ]);
-
-    return {
-      assessment: assessment as PipelineAssessment,
-      padf_results: (padfRes.data || []) as PipelinePADFResult[],
-      swot_results: (swotRes.data || []) as PipelineSWOTResult[],
-      risks: (risksRes.data || []) as PipelineRisk[],
-      strategies: (stratRes.data || []) as PipelineStrategy[],
-      actions: (actRes.data || []) as PipelineAction[]
-    };
   }
 
   /**
@@ -648,7 +660,7 @@ export class PipelineDataService {
   static async addEvidence(evidence: Omit<PipelineEvidence, 'id' | 'created_at' | 'updated_at'>): Promise<PipelineEvidence> {
     const { data, error } = await supabase
       .from('pipeline_evidence')
-      .insert([evidence])
+      .insert(evidence)
       .select()
       .single();
 
@@ -663,34 +675,44 @@ export class PipelineDataService {
    * 5. Evidence Management: List Evidence for Pipeline Opportunity
    */
   static async listEvidence(pipelineId: string): Promise<PipelineEvidence[]> {
-    const { data, error } = await supabase
-      .from('pipeline_evidence')
-      .select('*')
-      .eq('pipeline_id', pipelineId)
-      .order('created_at', { ascending: false });
+    try {
+      const { data, error } = await supabase
+        .from('pipeline_evidence')
+        .select('*')
+        .eq('pipeline_id', pipelineId)
+        .order('created_at', { ascending: false });
 
-    if (error) {
-      console.error('Error fetching pipeline_evidence:', error);
+      if (error) {
+        console.warn('Error fetching pipeline_evidence:', error.message || error);
+        return [];
+      }
+      return (data || []) as PipelineEvidence[];
+    } catch (e) {
+      console.warn('listEvidence network warning:', e);
       return [];
     }
-    return (data || []) as PipelineEvidence[];
   }
 
   /**
    * 6. Historical Assessment Snapshots Retrieval
    */
   static async getAssessmentSnapshots(pipelineId: string): Promise<PipelineAssessmentSnapshot[]> {
-    const { data, error } = await supabase
-      .from('pipeline_assessment_snapshots')
-      .select('*')
-      .eq('pipeline_id', pipelineId)
-      .order('snapshot_sequence', { ascending: true });
+    try {
+      const { data, error } = await supabase
+        .from('pipeline_assessment_snapshots')
+        .select('*')
+        .eq('pipeline_id', pipelineId)
+        .order('snapshot_sequence', { ascending: true });
 
-    if (error) {
-      console.error('Error fetching pipeline_assessment_snapshots:', error);
+      if (error) {
+        console.warn('Error fetching pipeline_assessment_snapshots:', error.message || error);
+        return [];
+      }
+      return (data || []) as PipelineAssessmentSnapshot[];
+    } catch (e) {
+      console.warn('getAssessmentSnapshots network warning:', e);
       return [];
     }
-    return (data || []) as PipelineAssessmentSnapshot[];
   }
 
   /**
@@ -2671,6 +2693,7 @@ export class PipelineDataService {
       industry: string;
       revenue_motion: string;
       form_status: 'Draft' | 'Saved';
+      assessment_started?: boolean;
     }
   ): Promise<{
     formRecord: PipelineFormRecord;
@@ -2762,13 +2785,25 @@ export class PipelineDataService {
           ? 'CLOSED_LOST'
           : 'ACTIVE';
 
+    const existingAssessmentStarted = Boolean((opportunity.metadata as any)?.assessment_started);
+    const assessmentStarted = Boolean(formInput.assessment_started || existingAssessmentStarted);
+    const assessmentStartedAt =
+      (opportunity.metadata as any)?.assessment_started_at ||
+      (assessmentStarted ? nowIso : undefined);
+
     const nextMetadata: Record<string, unknown> = {
       ...(opportunity.metadata || {}),
       country: formInput.country || '',
       campaign_assignment: formInput.campaign_assignment || '',
       business_segment: formInput.business_segment || '',
       product_solution: formInput.product_solution || '',
-      source: resolvedSourceVal
+      source: resolvedSourceVal,
+      ...(assessmentStarted
+        ? {
+            assessment_started: true,
+            assessment_started_at: assessmentStartedAt || nowIso
+          }
+        : {})
     };
 
     const baseOppUpdatePayload: Record<string, unknown> = {
@@ -2982,8 +3017,43 @@ export class PipelineDataService {
     const dbOpportunityName = initialContextPayload.opportunity_name || 'Draft Opportunity';
     const isDraftSave = Boolean(input.is_draft);
 
+    let existingOppMeta: Record<string, unknown> = {};
+    if (!isNew) {
+      const [{ data: existingOppRow }, { data: existingAssessRows }, { data: existingEvidenceRows }] =
+        await Promise.all([
+          supabase
+            .from('pipeline_opportunities')
+            .select('metadata')
+            .eq('pipeline_id', pipelineId)
+            .maybeSingle(),
+          supabase
+            .from('pipeline_assessments')
+            .select('pipeline_id')
+            .eq('pipeline_id', pipelineId)
+            .limit(1),
+          supabase
+            .from('pipeline_evidence')
+            .select('pipeline_id')
+            .eq('pipeline_id', pipelineId)
+            .limit(1)
+        ]);
+
+      existingOppMeta = ((existingOppRow as any)?.metadata || {}) as Record<string, unknown>;
+      const isLocked =
+        Boolean(existingOppMeta.assessment_started) ||
+        (Array.isArray(existingAssessRows) && existingAssessRows.length > 0) ||
+        (Array.isArray(existingEvidenceRows) && existingEvidenceRows.length > 0);
+
+      if (isLocked) {
+        throw new Error(
+          'This Created opportunity has already entered the assessment process ("Start Assessment" clicked) and is locked from editing.'
+        );
+      }
+    }
+
     // 1. Upsert into public.pipeline_opportunities (canonical listing & lifecycle record)
     const oppMetadata: Record<string, unknown> = {
+      ...existingOppMeta,
       source: 'Created',
       creation_origin: 'RevOS_Pipeline_Direct_Creation',
       is_draft: isDraftSave,
@@ -3182,6 +3252,7 @@ export class PipelineDataService {
       padf_dimension_mapping: []
     };
 
+    let persistedSummaryStatus: import('../../types/pipeline').InitialSummaryStatus = 'NOT_GENERATED';
     try {
       const existingHandover = !isNew
         ? await this.getOpportunityHandoverDetail(pipelineId)
@@ -3191,6 +3262,7 @@ export class PipelineDataService {
         existingHandover?.summary_status && existingHandover.summary_status !== 'NOT_GENERATED'
           ? existingHandover.summary_status
           : 'NOT_GENERATED';
+      persistedSummaryStatus = preservedStatus as import('../../types/pipeline').InitialSummaryStatus;
 
       const handoverPayload: Record<string, unknown> = {
         pipeline_id: pipelineId,
@@ -3295,20 +3367,24 @@ export class PipelineDataService {
 
     if (typeof window !== 'undefined') {
       try {
-        localStorage.setItem(
-          `revos_created_opp_draft_${pipelineId}`,
-          JSON.stringify({
-            pipeline_id: pipelineId,
-            updated_at: nowIso,
-            company_name: initialContextPayload.company_name,
-            opportunity_name: initialContextPayload.opportunity_name,
-            last_saved_section: input.last_saved_section || 'A',
-            saved_sections: Array.isArray(input.saved_sections) ? input.saved_sections : [],
-            initial_context: initialContextPayload,
-            summary_status: 'NOT_GENERATED'
-          })
-        );
-        localStorage.setItem('revos_latest_created_draft_id', pipelineId);
+        if (persistedSummaryStatus === 'READY') {
+          this.clearCreatedOpportunityDraftCache(pipelineId);
+        } else {
+          localStorage.setItem(
+            `revos_created_opp_draft_${pipelineId}`,
+            JSON.stringify({
+              pipeline_id: pipelineId,
+              updated_at: nowIso,
+              company_name: initialContextPayload.company_name,
+              opportunity_name: initialContextPayload.opportunity_name,
+              last_saved_section: input.last_saved_section || 'A',
+              saved_sections: Array.isArray(input.saved_sections) ? input.saved_sections : [],
+              initial_context: initialContextPayload,
+              summary_status: persistedSummaryStatus
+            })
+          );
+          localStorage.setItem('revos_latest_created_draft_id', pipelineId);
+        }
       } catch {}
     }
 
@@ -3332,37 +3408,63 @@ export class PipelineDataService {
     const excludedPipelineIds = new Set<string>();
 
     try {
-      const [{ data: oppRows }, { data: handoverRows }, { data: formRows }] = await Promise.all([
-        supabase
+      let { data: oppRows, error: oppListErr } = await supabase
+        .from('pipeline_opportunities')
+        .select('*')
+        .or('source_system.eq.RevOS_Pipeline_Direct_Creation,source.eq.Created')
+        .order('updated_at', { ascending: false })
+        .limit(50);
+
+      if (oppListErr) {
+        const fallbackOppRes = await supabase
           .from('pipeline_opportunities')
           .select('*')
           .eq('source_system', 'RevOS_Pipeline_Direct_Creation')
           .order('updated_at', { ascending: false })
-          .limit(25),
-        supabase
-          .from('pipeline_opportunity_handover_details')
-          .select(
-            'pipeline_id, summary_status, initial_opportunity_context, padif_package, updated_at'
-          )
-          .eq('source_module', 'RevOS_Pipeline_Direct_Creation')
-          .order('updated_at', { ascending: false })
-          .limit(25),
-        supabase
-          .from('pipeline_form_records')
-          .select('pipeline_id, form_status, initial_context, updated_at')
-          .eq('source', 'Created')
-          .limit(25)
-      ]);
+          .limit(50);
+        oppRows = fallbackOppRes.data;
+      }
 
+      const candidateIds = (oppRows || []).map((o: any) => o?.pipeline_id).filter(Boolean);
       const handoverMap = new Map<string, any>();
-      (handoverRows || []).forEach((h: any) => {
-        if (h?.pipeline_id) handoverMap.set(h.pipeline_id, h);
-      });
-
       const formMap = new Map<string, any>();
-      (formRows || []).forEach((f: any) => {
-        if (f?.pipeline_id) formMap.set(f.pipeline_id, f);
-      });
+      const assessedIdSet = new Set<string>();
+      const evidenceIdSet = new Set<string>();
+
+      if (candidateIds.length > 0) {
+        const [{ data: handoverRows }, { data: formRows }, { data: assessRows }, { data: evRows }] =
+          await Promise.all([
+            supabase
+              .from('pipeline_opportunity_handover_details')
+              .select('*')
+              .in('pipeline_id', candidateIds),
+            supabase
+              .from('pipeline_form_records')
+              .select('*')
+              .in('pipeline_id', candidateIds),
+            supabase
+              .from('pipeline_assessments')
+              .select('pipeline_id')
+              .in('pipeline_id', candidateIds),
+            supabase
+              .from('pipeline_evidence')
+              .select('pipeline_id')
+              .in('pipeline_id', candidateIds)
+          ]);
+
+        (handoverRows || []).forEach((h: any) => {
+          if (h?.pipeline_id) handoverMap.set(h.pipeline_id, h);
+        });
+        (formRows || []).forEach((f: any) => {
+          if (f?.pipeline_id) formMap.set(f.pipeline_id, f);
+        });
+        (assessRows || []).forEach((r: any) => {
+          if (r?.pipeline_id) assessedIdSet.add(r.pipeline_id);
+        });
+        (evRows || []).forEach((r: any) => {
+          if (r?.pipeline_id) evidenceIdSet.add(r.pipeline_id);
+        });
+      }
 
       const userEmail = authUser?.email?.toLowerCase();
       const userId = authUser?.id;
@@ -3382,35 +3484,57 @@ export class PipelineDataService {
 
         const handover = handoverMap.get(opp.pipeline_id);
         const form = formMap.get(opp.pipeline_id);
-        const summaryStatus = (handover?.summary_status || 'NOT_GENERATED') as any;
-
-        // Once summary generation succeeds (READY), opportunity lives on Pipeline Canvas instead of Drafts
-        if (summaryStatus === 'READY') {
-          excludedPipelineIds.add(opp.pipeline_id);
-          return;
-        }
-
+        const summaryStatus = (handover?.summary_status ||
+          handover?.padif_package?.initial_context_summary_lifecycle?.summary_status ||
+          (handover?.initial_opportunity_context_summary?.summary_sections
+            ? 'READY'
+            : 'NOT_GENERATED')) as any;
         const meta = (opp.metadata || {}) as Record<string, any>;
-        const ctx =
-          (handover?.initial_opportunity_context &&
-          Object.keys(handover.initial_opportunity_context).length > 0
+        const rawCtx = {
+          ...(form?.initial_context && typeof form.initial_context === 'object'
+            ? form.initial_context
+            : {}),
+          ...(handover?.padif_package?.initial_opportunity_context &&
+          typeof handover.padif_package.initial_opportunity_context === 'object'
+            ? handover.padif_package.initial_opportunity_context
+            : {}),
+          ...(meta.initial_context && typeof meta.initial_context === 'object'
+            ? meta.initial_context
+            : {}),
+          ...(opp.initial_context && typeof opp.initial_context === 'object'
+            ? opp.initial_context
+            : {}),
+          ...(handover?.initial_opportunity_context &&
+          typeof handover.initial_opportunity_context === 'object'
             ? handover.initial_opportunity_context
-            : opp.initial_context ||
-              meta.initial_context ||
-              form?.initial_context ||
-              handover?.padif_package?.initial_opportunity_context ||
-              {}) as Record<string, any>;
+            : {})
+        } as Record<string, any>;
 
-        const isDraftRow =
-          meta.is_draft === true ||
-          form?.form_status === 'Draft' ||
-          summaryStatus === 'NOT_GENERATED' ||
-          summaryStatus === 'FAILED';
+        const ctx = {
+          company_name: opp.customer_name === 'Draft Account' ? '' : opp.customer_name || '',
+          opportunity_name:
+            opp.opportunity_name === 'Draft Opportunity' ? '' : opp.opportunity_name || '',
+          industry: opp.industry_name || '',
+          revenue_motion: opp.revenue_motion_name || '',
+          opportunity_owner: opp.opportunity_owner || '',
+          country: opp.country || meta.country || '',
+          business_segment: opp.business_segment || meta.business_segment || '',
+          creation_date: opp.creation_date || meta.creation_date || '',
+          estimated_revenue: Number(opp.deal_value) || 0,
+          currency: opp.currency || 'USD',
+          expected_closing_date: opp.expected_close_date || '',
+          pipeline_stage: opp.pipeline_stage || '',
+          opportunity_stage: opp.sales_stage || '',
+          commercial_model: opp.commercial_model || meta.commercial_model || '',
+          proposed_solution: opp.product_solution || meta.product_solution || '',
+          ...rawCtx
+        };
 
-        if (!isDraftRow) {
-          excludedPipelineIds.add(opp.pipeline_id);
-          return;
-        }
+        const assessmentStarted = Boolean(meta.assessment_started);
+        const assessmentLocked =
+          assessmentStarted ||
+          assessedIdSet.has(opp.pipeline_id) ||
+          evidenceIdSet.has(opp.pipeline_id);
 
         draftsById.set(opp.pipeline_id, {
           pipeline_id: opp.pipeline_id,
@@ -3422,7 +3546,9 @@ export class PipelineDataService {
           last_saved_section: meta.last_saved_section || 'A',
           saved_sections: Array.isArray(meta.saved_sections) ? meta.saved_sections : [],
           initial_context: ctx,
-          summary_status: summaryStatus
+          summary_status: summaryStatus,
+          assessment_started: assessmentStarted,
+          assessment_locked: assessmentLocked
         });
       });
     } catch (err) {
@@ -3463,33 +3589,56 @@ export class PipelineDataService {
   ): Promise<import('../../types/pipeline').CreatedOpportunityDraftRecord | null> {
     if (!pipelineId) return null;
     try {
-      const [{ data: opp }, { data: handover }, { data: form }] = await Promise.all([
-        supabase
-          .from('pipeline_opportunities')
-          .select('*')
-          .eq('pipeline_id', pipelineId)
-          .maybeSingle(),
-        supabase
-          .from('pipeline_opportunity_handover_details')
-          .select('summary_status, initial_opportunity_context, padif_package, updated_at')
-          .eq('pipeline_id', pipelineId)
-          .maybeSingle(),
-        supabase
-          .from('pipeline_form_records')
-          .select('form_status, initial_context, updated_at')
-          .eq('pipeline_id', pipelineId)
-          .maybeSingle()
-      ]);
+      const [{ data: opp }, { data: handover }, { data: form }, { data: assessRows }, { data: evRows }] =
+        await Promise.all([
+          supabase
+            .from('pipeline_opportunities')
+            .select('*')
+            .eq('pipeline_id', pipelineId)
+            .maybeSingle(),
+          supabase
+            .from('pipeline_opportunity_handover_details')
+            .select('*')
+            .eq('pipeline_id', pipelineId)
+            .maybeSingle(),
+          supabase
+            .from('pipeline_form_records')
+            .select('*')
+            .eq('pipeline_id', pipelineId)
+            .maybeSingle(),
+          supabase
+            .from('pipeline_assessments')
+            .select('pipeline_id')
+            .eq('pipeline_id', pipelineId)
+            .limit(1),
+          supabase
+            .from('pipeline_evidence')
+            .select('pipeline_id')
+            .eq('pipeline_id', pipelineId)
+            .limit(1)
+        ]);
 
       if (opp || handover || form) {
         const meta = ((opp as any)?.metadata || {}) as Record<string, any>;
-        const rawCtx =
-          (handover as any)?.initial_opportunity_context ||
-          (opp as any)?.initial_context ||
-          meta.initial_context ||
-          (form as any)?.initial_context ||
-          (handover as any)?.padif_package?.initial_opportunity_context ||
-          {};
+        const rawCtx = {
+          ...((form as any)?.initial_context && typeof (form as any).initial_context === 'object'
+            ? (form as any).initial_context
+            : {}),
+          ...((handover as any)?.padif_package?.initial_opportunity_context &&
+          typeof (handover as any).padif_package.initial_opportunity_context === 'object'
+            ? (handover as any).padif_package.initial_opportunity_context
+            : {}),
+          ...(meta.initial_context && typeof meta.initial_context === 'object'
+            ? meta.initial_context
+            : {}),
+          ...((opp as any)?.initial_context && typeof (opp as any).initial_context === 'object'
+            ? (opp as any).initial_context
+            : {}),
+          ...((handover as any)?.initial_opportunity_context &&
+          typeof (handover as any).initial_opportunity_context === 'object'
+            ? (handover as any).initial_opportunity_context
+            : {})
+        };
         const ctx = {
           ...(opp
             ? {
@@ -3518,6 +3667,16 @@ export class PipelineDataService {
             : {}),
           ...rawCtx
         };
+        const assessmentStarted = Boolean(meta.assessment_started);
+        const assessmentLocked =
+          assessmentStarted ||
+          (Array.isArray(assessRows) && assessRows.length > 0) ||
+          (Array.isArray(evRows) && evRows.length > 0);
+        const resolvedSummaryStatus = ((handover as any)?.summary_status ||
+          (handover as any)?.padif_package?.initial_context_summary_lifecycle?.summary_status ||
+          ((handover as any)?.initial_opportunity_context_summary?.summary_sections
+            ? 'READY'
+            : 'NOT_GENERATED')) as any;
         return {
           pipeline_id: pipelineId,
           updated_at:
@@ -3537,7 +3696,9 @@ export class PipelineDataService {
           last_saved_section: meta.last_saved_section || 'A',
           saved_sections: Array.isArray(meta.saved_sections) ? meta.saved_sections : [],
           initial_context: ctx,
-          summary_status: ((handover as any)?.summary_status || 'NOT_GENERATED') as any
+          summary_status: resolvedSummaryStatus,
+          assessment_started: assessmentStarted,
+          assessment_locked: assessmentLocked
         };
       }
     } catch (err) {

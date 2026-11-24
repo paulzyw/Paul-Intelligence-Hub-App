@@ -23,6 +23,7 @@ export const PipelineModule: React.FC = () => {
           const nextParams = new URLSearchParams(searchParams);
           nextParams.delete('create');
           nextParams.delete('draftId');
+          nextParams.delete('pipelineId');
           setSearchParams(nextParams, { replace: true });
         }}
       />

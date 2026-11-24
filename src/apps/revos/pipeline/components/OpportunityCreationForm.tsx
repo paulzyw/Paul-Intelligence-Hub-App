@@ -23,7 +23,8 @@ import {
   Sparkles,
   Send,
   X,
-  RotateCcw
+  RotateCcw,
+  Eye
 } from 'lucide-react';
 import { useAuth } from '../../../../context/AuthContext';
 import { STANDARD_COUNTRIES } from '../../leads/constants/countries';
@@ -246,8 +247,11 @@ export const OpportunityCreationForm: React.FC<OpportunityCreationFormProps> = (
   const [loadingDraft, setLoadingDraft] = useState<boolean>(false);
   const [resumedDraftNotice, setResumedDraftNotice] = useState<string | null>(null);
   const [savedSections, setSavedSections] = useState<SectionKey[]>([]);
+  const [isLockedReview, setIsLockedReview] = useState<boolean>(false);
+  const [openedFromWorkspace, setOpenedFromWorkspace] = useState<boolean>(false);
   const userEditedRef = useRef<boolean>(false);
   const draftBootstrappedRef = useRef<boolean>(false);
+  const lastBootstrappedUrlIdRef = useRef<string | null>(null);
 
   const defaultOwnerForAuth = useCallback(() => {
     return (
@@ -514,6 +518,7 @@ export const OpportunityCreationForm: React.FC<OpportunityCreationFormProps> = (
   ]);
 
   const isCurrentSectionNextEnabled = validation.completeBySection[activeSection];
+  const canAdvanceSection = isLockedReview || isCurrentSectionNextEnabled;
   const isSaveEnabled = hasAnySaveableInput && !saving && !submittingSummary;
   const isSubmitEnabled =
     validation.allComplete &&
@@ -552,10 +557,11 @@ export const OpportunityCreationForm: React.FC<OpportunityCreationFormProps> = (
       setExpectedBusinessOutcomes(ctx.expected_business_outcomes || '');
       setOpportunityOriginBackground(ctx.opportunity_origin_background || '');
 
-      const nextRev =
-        typeof ctx.estimated_revenue === 'number' && ctx.estimated_revenue > 0
-          ? String(ctx.estimated_revenue)
-          : '';
+      const parsedRevNum =
+        typeof ctx.estimated_revenue === 'number'
+          ? ctx.estimated_revenue
+          : parseFloat(String(ctx.estimated_revenue ?? '').replace(/[^0-9.]/g, '')) || 0;
+      const nextRev = parsedRevNum > 0 ? String(parsedRevNum) : '';
       const nextCurrency = ctx.currency || '';
       const nextClosingDate = ctx.expected_closing_date || '';
       const nextPipeStage = ctx.pipeline_stage || '';
@@ -583,6 +589,8 @@ export const OpportunityCreationForm: React.FC<OpportunityCreationFormProps> = (
           ? draft.saved_sections
           : ['A']
       );
+      const lockedFlag = Boolean(draft.assessment_locked);
+      setIsLockedReview(lockedFlag);
       setHasUnsavedChanges(false);
       setSaveError(null);
       setSaveSuccess(null);
@@ -612,36 +620,76 @@ export const OpportunityCreationForm: React.FC<OpportunityCreationFormProps> = (
         setActiveSection('B');
       } else if (!cDone) {
         setActiveSection('C');
+      } else if (draft.summary_status === 'READY' || lockedFlag) {
+        setActiveSection('A');
       } else {
         setActiveSection(draft.last_saved_section || 'E');
       }
 
       if (typeof window !== 'undefined') {
         try {
-          localStorage.setItem('revos_latest_created_draft_id', draft.pipeline_id);
+          if (!lockedFlag && draft.summary_status !== 'READY') {
+            localStorage.setItem('revos_latest_created_draft_id', draft.pipeline_id);
+          } else {
+            PipelineDataService.clearCreatedOpportunityDraftCache(draft.pipeline_id);
+          }
         } catch {}
       }
 
       if (showNotice) {
         const label = nextOppName || nextCompany || draft.pipeline_id;
-        setResumedDraftNotice(
-          `Resumed saved draft "${label}" (${draft.pipeline_id}). Previously saved fields are restored; fill any remaining blank items and save or submit.`
-        );
+        if (lockedFlag) {
+          setResumedDraftNotice(
+            `Read-Only Review: "${label}" (${draft.pipeline_id}) has already entered the assessment process ("Start Assessment" clicked). All fields are locked from editing.`
+          );
+        } else if (draft.summary_status === 'READY') {
+          setResumedDraftNotice(
+            `Editing Created opportunity "${label}" (${draft.pipeline_id}). Update any fields (including Industry & Revenue Motion), save changes, and click Re-Submit on Section E to overwrite the summary.`
+          );
+        } else {
+          setResumedDraftNotice(
+            `Resumed saved draft "${label}" (${draft.pipeline_id}). Previously saved fields are restored; fill any remaining blank items and save or submit.`
+          );
+        }
       }
 
-      if (draft.summary_status && draft.summary_status !== 'NOT_GENERATED') {
+      if (draft.pipeline_id) {
         try {
           const statusRes = await PipelineDataService.getInitialOpportunityContextSummaryStatus(
             draft.pipeline_id
           );
-          setSummaryStatus(statusRes.summary_status || 'NOT_GENERATED');
+          const resolvedStatus: InitialSummaryStatus =
+            statusRes.summary_status && statusRes.summary_status !== 'NOT_GENERATED'
+              ? statusRes.summary_status
+              : statusRes.summary?.summary_sections
+                ? 'READY'
+                : 'NOT_GENERATED';
+          setSummaryStatus(resolvedStatus);
           setSummaryPayload(statusRes.summary || null);
-          setSummaryVersion(Number(statusRes.summary_version || 0));
-          setSummaryGeneratedAt(statusRes.summary_generated_at || null);
+          setSummaryVersion(
+            Number(
+              statusRes.summary_version ||
+                statusRes.summary?.summary_metadata?.version ||
+                0
+            )
+          );
+          setSummaryGeneratedAt(
+            statusRes.summary_generated_at ||
+              statusRes.summary?.summary_metadata?.generated_at ||
+              null
+          );
           setSummaryHistory(Array.isArray(statusRes.summary_history) ? statusRes.summary_history : []);
           setSummaryIsStale(Boolean(statusRes.is_stale));
           setSummaryError(statusRes.summary_error || null);
-        } catch {}
+        } catch {
+          setSummaryStatus('NOT_GENERATED');
+          setSummaryPayload(null);
+          setSummaryVersion(0);
+          setSummaryGeneratedAt(null);
+          setSummaryHistory([]);
+          setSummaryIsStale(false);
+          setSummaryError(null);
+        }
       } else {
         setSummaryStatus('NOT_GENERATED');
         setSummaryPayload(null);
@@ -657,6 +705,8 @@ export const OpportunityCreationForm: React.FC<OpportunityCreationFormProps> = (
 
   const handleStartFreshForm = () => {
     userEditedRef.current = false;
+    lastBootstrappedUrlIdRef.current = '';
+    draftBootstrappedRef.current = true;
     setSavedPipelineId(null);
     setHasUnsavedChanges(false);
     setSavedSections([]);
@@ -707,38 +757,58 @@ export const OpportunityCreationForm: React.FC<OpportunityCreationFormProps> = (
     setSummaryError(null);
     setSavedSummaryMessage(null);
     setSaveSummaryError(null);
+    setIsLockedReview(false);
+    setOpenedFromWorkspace(false);
     setActiveSection('A');
 
     PipelineDataService.clearCreatedOpportunityDraftCache(null);
-    if (searchParams.has('draftId')) {
+    if (searchParams.has('draftId') || searchParams.has('pipelineId')) {
       const next = new URLSearchParams(searchParams);
       next.delete('draftId');
+      next.delete('pipelineId');
       setSearchParams(next, { replace: true });
     }
   };
 
   useEffect(() => {
+    const urlPipelineId = searchParams.get('pipelineId') || '';
+    const urlDraftId = searchParams.get('draftId') || urlPipelineId;
+
+    if (urlDraftId && urlDraftId !== lastBootstrappedUrlIdRef.current) {
+      draftBootstrappedRef.current = false;
+      userEditedRef.current = false;
+    }
+
     if (authLoading || draftBootstrappedRef.current) return;
     draftBootstrappedRef.current = true;
+    lastBootstrappedUrlIdRef.current = urlDraftId;
 
     let mounted = true;
-    const urlDraftId = searchParams.get('draftId') || searchParams.get('pipelineId') || '';
+    let completed = false;
+    setOpenedFromWorkspace(Boolean(urlPipelineId));
 
     const loadDraftsAndResume = async () => {
       setLoadingDraft(true);
       try {
         const drafts = await PipelineDataService.listCreatedOpportunityDrafts(user);
         if (!mounted) return;
-        setAvailableDrafts(drafts);
-
-        if (userEditedRef.current) return;
 
         let targetDraft: CreatedOpportunityDraftRecord | null = null;
         if (urlDraftId) {
           targetDraft =
             drafts.find((d) => d.pipeline_id === urlDraftId) ||
             (await PipelineDataService.getCreatedOpportunityDraft(urlDraftId));
+          if (
+            mounted &&
+            targetDraft &&
+            !drafts.some((d) => d.pipeline_id === targetDraft!.pipeline_id)
+          ) {
+            setAvailableDrafts([targetDraft, ...drafts]);
+          } else if (mounted) {
+            setAvailableDrafts(drafts);
+          }
         } else {
+          setAvailableDrafts(drafts);
           let storedDraftId = '';
           if (typeof window !== 'undefined') {
             try {
@@ -750,12 +820,24 @@ export const OpportunityCreationForm: React.FC<OpportunityCreationFormProps> = (
               drafts.find((d) => d.pipeline_id === storedDraftId) ||
               (await PipelineDataService.getCreatedOpportunityDraft(storedDraftId));
           } else if (drafts.length > 0) {
-            targetDraft = drafts[0];
+            targetDraft =
+              drafts.find((d) => d.summary_status !== 'READY' && !d.assessment_locked) || null;
           }
         }
 
-        if (mounted && targetDraft && targetDraft.summary_status !== 'READY' && !userEditedRef.current) {
+        if (!mounted) return;
+
+        const shouldHydrate = Boolean(
+          targetDraft &&
+            (Boolean(urlDraftId) ||
+              (targetDraft.summary_status !== 'READY' && !targetDraft.assessment_locked))
+        );
+
+        if (mounted && targetDraft && shouldHydrate && !userEditedRef.current) {
           await hydrateFormFromDraft(targetDraft, true);
+        }
+        if (mounted) {
+          completed = true;
         }
       } catch (err) {
         console.warn('Unable to load saved opportunity drafts:', err);
@@ -767,11 +849,19 @@ export const OpportunityCreationForm: React.FC<OpportunityCreationFormProps> = (
     void loadDraftsAndResume();
     return () => {
       mounted = false;
+      if (!completed) {
+        draftBootstrappedRef.current = false;
+      }
     };
   }, [authLoading, user, searchParams, hydrateFormFromDraft]);
 
   const handleCloseForm = () => {
-    if (typeof window !== 'undefined' && savedPipelineId && summaryStatus !== 'READY') {
+    if (
+      typeof window !== 'undefined' &&
+      savedPipelineId &&
+      summaryStatus !== 'READY' &&
+      !isLockedReview
+    ) {
       try {
         localStorage.setItem('revos_latest_created_draft_id', savedPipelineId);
       } catch {}
@@ -809,7 +899,7 @@ export const OpportunityCreationForm: React.FC<OpportunityCreationFormProps> = (
   };
 
   const handleNextSection = () => {
-    if (!isCurrentSectionNextEnabled) return;
+    if (!canAdvanceSection) return;
     const order: SectionKey[] = ['A', 'B', 'C', 'D', 'E'];
     const idx = order.indexOf(activeSection);
     if (idx >= 0 && idx < order.length - 1) {
@@ -818,7 +908,7 @@ export const OpportunityCreationForm: React.FC<OpportunityCreationFormProps> = (
   };
 
   const handleSaveToSupabase = async () => {
-    if (!hasAnySaveableInput || saving || submittingSummary) return;
+    if (isLockedReview || !hasAnySaveableInput || saving || submittingSummary) return;
 
     setSaving(true);
     setSaveError(null);
@@ -887,10 +977,12 @@ export const OpportunityCreationForm: React.FC<OpportunityCreationFormProps> = (
           last_saved_section: activeSection,
           saved_sections: mergedSavedSections,
           initial_context: payload,
-          summary_status: summaryStatus
+          summary_status: summaryStatus,
+          assessment_started: false,
+          assessment_locked: false
         };
         const remaining = prev.filter((d) => d.pipeline_id !== opportunity.pipeline_id);
-        return summaryStatus === 'READY' ? remaining : [updatedRecord, ...remaining];
+        return [updatedRecord, ...remaining];
       });
 
       const displayLabel =
@@ -901,11 +993,15 @@ export const OpportunityCreationForm: React.FC<OpportunityCreationFormProps> = (
           ? `Section ${activeSection} saved as draft ("${displayLabel}" · ${opportunity.pipeline_id}). You can continue filling blank items in other sections or close and resume later.`
           : isNew
             ? `Opportunity "${displayLabel}" saved to Supabase (${opportunity.pipeline_id}) with Source = "Created".`
-            : `Opportunity "${displayLabel}" updated in Supabase (${opportunity.pipeline_id}).`
+            : summaryStatus === 'READY'
+              ? `Opportunity "${displayLabel}" updated in Supabase (${opportunity.pipeline_id}). Navigate to Section E and click Re-Submit to regenerate and overwrite the summary.`
+              : `Opportunity "${displayLabel}" updated in Supabase (${opportunity.pipeline_id}).`
       );
 
-      // Re-check staleness / summary status if updating an existing Created opportunity
+      // Refresh Canvas & re-check staleness when updating an existing READY Created opportunity
       if (!isNew && summaryStatus === 'READY') {
+        invalidatePipelinePortfolioCache();
+        PipelineDataService.emitPortfolioUpdated();
         try {
           const statusRes = await PipelineDataService.getInitialOpportunityContextSummaryStatus(
             opportunity.pipeline_id
@@ -929,7 +1025,8 @@ export const OpportunityCreationForm: React.FC<OpportunityCreationFormProps> = (
     forceRegenerate?: boolean;
     retry?: boolean;
   }) => {
-    if (!savedPipelineId || !validation.allComplete || hasUnsavedChanges || saving) return;
+    if (isLockedReview || !savedPipelineId || !validation.allComplete || hasUnsavedChanges || saving)
+      return;
     if (submitInFlightRef.current || submittingSummary) return;
 
     submitInFlightRef.current = true;
@@ -964,9 +1061,15 @@ export const OpportunityCreationForm: React.FC<OpportunityCreationFormProps> = (
       setSummaryIsStale(Boolean(result.is_stale));
       setSummaryError(null);
 
-      // Refresh Pipeline Canvas portfolio so the created opportunity appears immediately in its stage column
+      // Refresh Pipeline Canvas portfolio and update selector entry status to READY
       PipelineDataService.clearCreatedOpportunityDraftCache(savedPipelineId);
-      setAvailableDrafts((prev) => prev.filter((d) => d.pipeline_id !== savedPipelineId));
+      setAvailableDrafts((prev) =>
+        prev.map((d) =>
+          d.pipeline_id === savedPipelineId
+            ? { ...d, summary_status: 'READY', updated_at: new Date().toISOString() }
+            : d
+        )
+      );
       setResumedDraftNotice(null);
       invalidatePipelinePortfolioCache();
       PipelineDataService.emitPortfolioUpdated();
@@ -998,9 +1101,9 @@ export const OpportunityCreationForm: React.FC<OpportunityCreationFormProps> = (
   };
 
   const handleSubmit = () => {
-    if (!isSubmitEnabled) return;
+    if (isLockedReview || !isSubmitEnabled) return;
     void triggerInitialSummaryGeneration({
-      forceRegenerate: summaryIsStale,
+      forceRegenerate: Boolean(summaryStatus === 'READY' || summaryIsStale),
       retry: summaryStatus === 'FAILED'
     });
   };
@@ -1009,7 +1112,7 @@ export const OpportunityCreationForm: React.FC<OpportunityCreationFormProps> = (
     summaryToSave: InitialOpportunityContextSummaryPayload,
     versionToSave: number
   ) => {
-    if (!savedPipelineId || savingSummary || submittingSummary) return;
+    if (isLockedReview || !savedPipelineId || savingSummary || submittingSummary) return;
     setSavingSummary(true);
     setSavedSummaryMessage(null);
     setSaveSummaryError(null);
@@ -1101,8 +1204,25 @@ export const OpportunityCreationForm: React.FC<OpportunityCreationFormProps> = (
           <div className="flex items-center gap-2.5 self-start sm:self-auto shrink-0">
             <div className="flex items-center gap-2 text-[10px] font-mono text-[#00a3ff] bg-[#00a3ff]/10 px-3 py-1.5 rounded-xl border border-[#00a3ff]/30">
               <Lock className="h-3 w-3" />
-              <span className="font-bold">Source: Created</span>
+              <span className="font-bold">
+                {isLockedReview ? 'Review Only (Locked)' : 'Source: Created'}
+              </span>
             </div>
+
+            {openedFromWorkspace && savedPipelineId && (
+              <button
+                type="button"
+                onClick={() =>
+                  navigate(
+                    `/product/revos/pipeline?opportunityId=${encodeURIComponent(savedPipelineId)}`
+                  )
+                }
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-accent/15 border border-accent/35 hover:bg-accent/25 text-xs font-semibold text-accent transition-colors cursor-pointer whitespace-nowrap"
+              >
+                <ArrowLeft className="h-3.5 w-3.5" />
+                <span>Back to Assessment</span>
+              </button>
+            )}
 
             <button
               type="button"
@@ -1117,30 +1237,55 @@ export const OpportunityCreationForm: React.FC<OpportunityCreationFormProps> = (
           </div>
         </div>
 
-        {/* Saved Drafts & Resumption Strip */}
-        {(loadingDraft || resumedDraftNotice || availableDrafts.length > 0) && (
-          <div className="px-4 py-3 rounded-xl bg-bg-primary/50 border border-border/80 flex flex-col md:flex-row md:items-center justify-between gap-3 text-xs">
-            <div className="flex items-start md:items-center gap-2.5 text-text-secondary min-w-0">
-              {loadingDraft ? (
-                <>
-                  <RefreshCw className="h-3.5 w-3.5 text-accent animate-spin shrink-0 mt-0.5 md:mt-0" />
-                  <span>Checking for saved opportunity drafts...</span>
-                </>
-              ) : (
-                <>
-                  <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500 shrink-0 mt-0.5 md:mt-0" />
-                  <span className="leading-relaxed">
-                    {resumedDraftNotice ||
-                      `${availableDrafts.length} saved draft${availableDrafts.length === 1 ? '' : 's'} available. Select one to resume or continue editing.`}
-                  </span>
-                </>
-              )}
-            </div>
+        {/* Saved Drafts & Created Opportunity Selector Strip */}
+        <div className="px-4 py-3 rounded-xl bg-bg-primary/50 border border-border/80 flex flex-col md:flex-row md:items-center justify-between gap-3 text-xs">
+          <div className="flex items-start md:items-center gap-2.5 text-text-secondary min-w-0">
+            {loadingDraft ? (
+              <>
+                <RefreshCw className="h-3.5 w-3.5 text-accent animate-spin shrink-0 mt-0.5 md:mt-0" />
+                <span>Loading saved Created opportunities & drafts...</span>
+              </>
+            ) : isLockedReview ? (
+              <>
+                <Eye className="h-3.5 w-3.5 text-[#00a3ff] shrink-0 mt-0.5 md:mt-0" />
+                <span className="leading-relaxed text-text-primary">
+                  {resumedDraftNotice ||
+                    'Assessment started — this Created opportunity is open in Read-Only Review mode.'}
+                </span>
+              </>
+            ) : availableDrafts.length > 0 ? (
+              <>
+                <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500 shrink-0 mt-0.5 md:mt-0" />
+                <span className="leading-relaxed">
+                  {resumedDraftNotice ||
+                    `${availableDrafts.length} Created opportunit${availableDrafts.length === 1 ? 'y' : 'ies'} available. Select one to edit, resume draft, or review.`}
+                </span>
+              </>
+            ) : (
+              <>
+                <Briefcase className="h-3.5 w-3.5 text-text-secondary shrink-0 mt-0.5 md:mt-0" />
+                <span className="leading-relaxed">
+                  {resumedDraftNotice ||
+                    'No saved Created opportunities or drafts yet for your account. Complete the form below to create one.'}
+                </span>
+              </>
+            )}
+          </div>
 
-            <div className="flex flex-wrap items-center gap-2 shrink-0">
-              {availableDrafts.length > 0 && (
+          <div className="flex flex-wrap items-center gap-2 shrink-0">
+            {availableDrafts.length > 0 && (() => {
+              const draftsGroup = availableDrafts.filter(
+                (d) => d.summary_status !== 'READY' && !d.assessment_locked
+              );
+              const editableCreatedGroup = availableDrafts.filter(
+                (d) => d.summary_status === 'READY' && !d.assessment_locked
+              );
+              const lockedReviewGroup = availableDrafts.filter((d) =>
+                Boolean(d.assessment_locked)
+              );
+              return (
                 <select
-                  aria-label="Select saved opportunity draft"
+                  aria-label="Select Created opportunity or draft"
                   value={savedPipelineId || ''}
                   onChange={(e) => {
                     const selectedId = e.target.value;
@@ -1153,34 +1298,55 @@ export const OpportunityCreationForm: React.FC<OpportunityCreationFormProps> = (
                       void hydrateFormFromDraft(found, true);
                     }
                   }}
-                  className="px-2.5 py-1.5 rounded-lg bg-bg-surface border border-border text-[11px] text-text-primary focus:outline-none focus:border-accent cursor-pointer max-w-[230px]"
+                  className="px-2.5 py-1.5 rounded-lg bg-bg-surface border border-border text-[11px] text-text-primary focus:outline-none focus:border-accent cursor-pointer max-w-[320px] sm:max-w-[360px]"
                 >
                   <option value="">
-                    -- New Blank Form ({availableDrafts.length} draft
-                    {availableDrafts.length === 1 ? '' : 's'} saved) --
+                    -- New Blank Form ({availableDrafts.length} saved) --
                   </option>
-                  {availableDrafts.map((draft) => (
-                    <option key={draft.pipeline_id} value={draft.pipeline_id}>
-                      {draft.opportunity_name || draft.company_name || 'Untitled Draft'} (
-                      {draft.last_saved_section || 'A'})
-                    </option>
-                  ))}
+                  {editableCreatedGroup.length > 0 && (
+                    <optgroup label="Saved Created Opportunities (Editable)">
+                      {editableCreatedGroup.map((item) => (
+                        <option key={item.pipeline_id} value={item.pipeline_id}>
+                          {item.opportunity_name || item.company_name || item.pipeline_id} (Editable)
+                        </option>
+                      ))}
+                    </optgroup>
+                  )}
+                  {draftsGroup.length > 0 && (
+                    <optgroup label="In-Progress Drafts (Editable)">
+                      {draftsGroup.map((draft) => (
+                        <option key={draft.pipeline_id} value={draft.pipeline_id}>
+                          {draft.opportunity_name || draft.company_name || 'Untitled Draft'} (
+                          {draft.last_saved_section || 'A'})
+                        </option>
+                      ))}
+                    </optgroup>
+                  )}
+                  {lockedReviewGroup.length > 0 && (
+                    <optgroup label="In Assessment — Locked (Review Only)">
+                      {lockedReviewGroup.map((item) => (
+                        <option key={item.pipeline_id} value={item.pipeline_id}>
+                          {item.opportunity_name || item.company_name || item.pipeline_id} (Review Only)
+                        </option>
+                      ))}
+                    </optgroup>
+                  )}
                 </select>
-              )}
+              );
+            })()}
 
-              {savedPipelineId && (
-                <button
-                  type="button"
-                  onClick={handleStartFreshForm}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-bg-surface border border-border hover:border-accent/60 text-[11px] font-semibold text-text-primary transition-colors cursor-pointer whitespace-nowrap"
-                >
-                  <RotateCcw className="h-3 w-3" />
-                  <span>Start New</span>
-                </button>
-              )}
-            </div>
+            {savedPipelineId && (
+              <button
+                type="button"
+                onClick={handleStartFreshForm}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-bg-surface border border-border hover:border-accent/60 text-[11px] font-semibold text-text-primary transition-colors cursor-pointer whitespace-nowrap"
+              >
+                <RotateCcw className="h-3 w-3" />
+                <span>Start New</span>
+              </button>
+            )}
           </div>
-        )}
+        </div>
 
         {/* Horizontal Tab Bar for Sections A to E */}
         <div className="p-3.5 rounded-2xl bg-bg-primary/40 border border-border/80">
@@ -1272,6 +1438,16 @@ export const OpportunityCreationForm: React.FC<OpportunityCreationFormProps> = (
           </div>
         )}
 
+        {/* Read-Only Lock Banner when opportunity has entered Assessment Process */}
+        {isLockedReview && (
+          <div className="p-3.5 bg-[#00a3ff]/10 border border-[#00a3ff]/30 text-text-primary text-xs rounded-xl flex items-center gap-2.5">
+            <Lock className="h-4 w-4 text-[#00a3ff] shrink-0" />
+            <span>
+              <strong>Read-Only Review Mode:</strong> You clicked <strong>Start Assessment</strong> on this opportunity, so all creation fields across Sections A–E are locked from editing. Use the section tabs or Next/Back to inspect your submission.
+            </span>
+          </div>
+        )}
+
         {/* Section Subtitle Banner */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2 border-b border-border/50">
           <div>
@@ -1287,6 +1463,10 @@ export const OpportunityCreationForm: React.FC<OpportunityCreationFormProps> = (
           )}
         </div>
 
+        <fieldset
+          disabled={isLockedReview}
+          className={`border-0 p-0 m-0 min-w-0 ${isLockedReview ? 'opacity-90' : ''}`}
+        >
         {/* SECTION A: Opportunity Identity */}
         {activeSection === 'A' && (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-5 sm:gap-6">
@@ -2156,6 +2336,7 @@ export const OpportunityCreationForm: React.FC<OpportunityCreationFormProps> = (
             )}
           </div>
         )}
+        </fieldset>
 
         {/* Form Actions Footer */}
         <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-5 border-t border-border/70">
@@ -2189,77 +2370,80 @@ export const OpportunityCreationForm: React.FC<OpportunityCreationFormProps> = (
               </button>
             )}
 
-            {/* Save Button: enabled section-by-section so users can save progress and resume later */}
-            <button
-              type="button"
-              onClick={handleSaveToSupabase}
-              disabled={!isSaveEnabled}
-              className="px-5 py-2.5 bg-accent/20 hover:bg-accent/30 text-accent border border-accent/40 font-black uppercase text-xs rounded-xl transition-all flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed whitespace-nowrap"
-            >
-              {saving ? (
-                <>
-                  <RefreshCw className="h-3.5 w-3.5 animate-spin" />
-                  <span>Saving...</span>
-                </>
-              ) : (
-                <>
-                  <Save className="h-3.5 w-3.5" />
-                  <span>
-                    {!validation.allComplete
-                      ? `Save Section ${activeSection}`
-                      : savedPipelineId
-                        ? 'Save Changes'
-                        : 'Save'}
-                  </span>
-                </>
-              )}
-            </button>
+            {/* Save Button: enabled section-by-section before Start Assessment; hidden in Read-Only Review mode */}
+            {!isLockedReview && (
+              <button
+                type="button"
+                onClick={handleSaveToSupabase}
+                disabled={!isSaveEnabled}
+                className="px-5 py-2.5 bg-accent/20 hover:bg-accent/30 text-accent border border-accent/40 font-black uppercase text-xs rounded-xl transition-all flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed whitespace-nowrap"
+              >
+                {saving ? (
+                  <>
+                    <RefreshCw className="h-3.5 w-3.5 animate-spin" />
+                    <span>Saving...</span>
+                  </>
+                ) : (
+                  <>
+                    <Save className="h-3.5 w-3.5" />
+                    <span>
+                      {!validation.allComplete
+                        ? `Save Section ${activeSection}`
+                        : savedPipelineId
+                          ? 'Save Changes'
+                          : 'Save'}
+                    </span>
+                  </>
+                )}
+              </button>
+            )}
 
-            {/* Sections A-D: Next Button (enabled only when current section's required fields have input) */}
+            {/* Sections A-D: Next Button */}
             {activeSection !== 'E' ? (
               <button
                 type="button"
                 onClick={handleNextSection}
-                disabled={!isCurrentSectionNextEnabled}
+                disabled={!canAdvanceSection}
                 className="px-6 py-2.5 bg-accent hover:bg-accent-hover text-black font-black uppercase text-xs rounded-xl transition-all shadow-md shadow-accent/15 flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed whitespace-nowrap"
               >
                 <span>Next</span>
                 <ArrowRight className="h-3.5 w-3.5" />
               </button>
             ) : (
-              /* Last Section (Section E) Right-Bottom Corner: Submit Button */
-              /* Triggers dedicated Initial Opportunity Context Summary Gemini reasoning in pipeline-assessment Edge Function */
-              <button
-                type="button"
-                onClick={handleSubmit}
-                disabled={!isSubmitEnabled}
-                className="px-6 py-2.5 bg-accent hover:bg-accent-hover text-black font-black uppercase text-xs rounded-xl transition-all shadow-md shadow-accent/15 flex items-center justify-center gap-2 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed whitespace-nowrap"
-              >
-                {submittingSummary ? (
-                  <>
-                    <RefreshCw className="h-3.5 w-3.5 animate-spin" />
-                    <span>Generating Summary...</span>
-                  </>
-                ) : (
-                  <>
-                    <Send className="h-3.5 w-3.5" />
-                    <span>
-                      {summaryStatus === 'FAILED'
-                        ? 'Retry Submit'
-                        : summaryStatus === 'READY' && summaryIsStale
-                          ? 'Re-Submit Summary'
-                          : 'Submit'}
-                    </span>
-                  </>
-                )}
-              </button>
+              /* Last Section (Section E) Right-Bottom Corner: Submit / Re-Submit Button (hidden in Read-Only Review mode) */
+              !isLockedReview && (
+                <button
+                  type="button"
+                  onClick={handleSubmit}
+                  disabled={!isSubmitEnabled}
+                  className="px-6 py-2.5 bg-accent hover:bg-accent-hover text-black font-black uppercase text-xs rounded-xl transition-all shadow-md shadow-accent/15 flex items-center justify-center gap-2 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed whitespace-nowrap"
+                >
+                  {submittingSummary ? (
+                    <>
+                      <RefreshCw className="h-3.5 w-3.5 animate-spin" />
+                      <span>Generating Summary...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Send className="h-3.5 w-3.5" />
+                      <span>
+                        {summaryStatus === 'FAILED'
+                          ? 'Retry Submit'
+                          : summaryStatus === 'READY'
+                            ? 'Re-Submit'
+                            : 'Submit'}
+                      </span>
+                    </>
+                  )}
+                </button>
+              )
             )}
           </div>
         </div>
       </div>
 
       {/* Standalone Initial Opportunity Context Summary displayed directly below the Opportunity Creation Form */}
-      {summaryStatus !== 'NOT_GENERATED' && (
+      {(summaryStatus !== 'NOT_GENERATED' || Boolean(summaryPayload?.summary_sections)) && (
         <div ref={summarySectionRef}>
           <InitialOpportunityContextSummary
             pipelineId={savedPipelineId}
@@ -2280,9 +2464,9 @@ export const OpportunityCreationForm: React.FC<OpportunityCreationFormProps> = (
             savingSummary={savingSummary}
             savedSummaryMessage={savedSummaryMessage}
             saveSummaryError={saveSummaryError}
+            isAssessmentLocked={isLockedReview}
             onSaveSummary={handleSaveSummary}
             onRetry={() => triggerInitialSummaryGeneration({ retry: true })}
-            onRegenerate={() => triggerInitialSummaryGeneration({ forceRegenerate: true })}
             onOpenPipelineCanvas={handleOpenCanvasAtColumn}
           />
         </div>

@@ -105,3 +105,91 @@ test('PipelineDataService supports partial section-by-section draft persistence 
     'Excludes already-READY or non-owned drafts from localStorage fallback merge'
   );
 });
+
+test('InitialOpportunityContextSummary removes New Version button and switches Edit to Review when assessment is locked', () => {
+  const summarySrc = readWorkspaceFile('src/apps/revos/pipeline/components/InitialOpportunityContextSummary.tsx');
+  const workspaceSrc = readWorkspaceFile('src/apps/revos/pipeline/components/opportunity-to-pipeline.tsx');
+
+  assert.ok(
+    !summarySrc.includes('New Version') && !summarySrc.includes('onRegenerate'),
+    'New Version button and onRegenerate action are completely removed from InitialOpportunityContextSummary'
+  );
+  assert.ok(
+    summarySrc.includes('onEditOpportunity && pipelineId') &&
+      summarySrc.includes("<span>Review</span>") &&
+      summarySrc.includes("<span>Edit</span>") &&
+      summarySrc.includes('!isAssessmentLocked'),
+    'Summary renders Edit before assessment and transitions to Review + hides manual Save when locked'
+  );
+  assert.ok(
+    workspaceSrc.includes('isAssessmentLocked={') &&
+      workspaceSrc.includes('onEditOpportunity={() => {') &&
+      workspaceSrc.includes('/product/revos/pipeline?create=true&pipelineId='),
+    'Assessment Workspace passes isAssessmentLocked and Edit/Review navigation to OpportunityCreationForm'
+  );
+});
+
+test('PipelineForm Start Assessment sets assessment_started lock and PipelineDataService enforces write protection', () => {
+  const pipelineFormSrc = readWorkspaceFile('src/apps/revos/pipeline/components/PipelineForm.tsx');
+  const serviceSrc = readWorkspaceFile('src/apps/revos/pipeline/services/PipelineDataService.ts');
+  const moduleSrc = readWorkspaceFile('src/apps/revos/pipeline/PipelineModule.tsx');
+
+  assert.ok(
+    pipelineFormSrc.includes('assessment_started: !isDraft ? true : undefined'),
+    'Clicking Start Assessment in PipelineForm sets assessment_started: true'
+  );
+  assert.ok(
+    serviceSrc.includes('Boolean(existingOppMeta.assessment_started)') &&
+      serviceSrc.includes("from('pipeline_assessments')") &&
+      serviceSrc.includes("from('pipeline_evidence')") &&
+      serviceSrc.includes('if (isLocked)'),
+    'PipelineDataService blocks Created opportunity mutations once assessment has started or evidence/assessments exist'
+  );
+  assert.ok(
+    moduleSrc.includes("nextParams.delete('pipelineId');"),
+    'Closing OpportunityCreationForm cleans pipelineId query param as well'
+  );
+});
+
+test('OpportunityCreationForm supports editable pre-assessment Re-Submit, grouped selector, and locked Review mode', () => {
+  const formSrc = readWorkspaceFile('src/apps/revos/pipeline/components/OpportunityCreationForm.tsx');
+
+  assert.ok(
+    formSrc.includes('<fieldset') &&
+      formSrc.includes('disabled={isLockedReview}') &&
+      formSrc.includes("? 'Re-Submit'"),
+    'Form wraps Sections A-E in fieldset disabled when locked and keeps Re-Submit reachable on Section E'
+  );
+  assert.ok(
+    formSrc.includes('Saved Created Opportunities (Editable)') &&
+      formSrc.includes('In-Progress Drafts (Editable)') &&
+      formSrc.includes('In Assessment — Locked (Review Only)'),
+    'Opportunity Creation Form selector groups editable Created opportunities, drafts, and locked review items'
+  );
+  assert.ok(
+    formSrc.includes('Back to Assessment') &&
+      formSrc.includes('!isLockedReview && ('),
+    'Form exposes Back to Assessment navigation and hides Save / Re-Submit controls in Review mode'
+  );
+});
+
+test('OpportunityCreationForm handles StrictMode remounts cleanly and always hydrates latest saved summary', () => {
+  const formSrc = readWorkspaceFile('src/apps/revos/pipeline/components/OpportunityCreationForm.tsx');
+  const serviceSrc = readWorkspaceFile('src/apps/revos/pipeline/services/PipelineDataService.ts');
+
+  assert.ok(
+    formSrc.includes('if (!completed) {\n        draftBootstrappedRef.current = false;\n      }'),
+    'Resets draftBootstrappedRef when StrictMode cleanup aborts before async bootstrap completes'
+  );
+  assert.ok(
+    formSrc.includes('if (draft.pipeline_id) {') &&
+      formSrc.includes('getInitialOpportunityContextSummaryStatus(\n            draft.pipeline_id'),
+    'Unconditionally fetches the latest Initial Opportunity Context Summary whenever hydrating an opportunity'
+  );
+  assert.ok(
+    serviceSrc.includes(".from('pipeline_opportunity_handover_details')\n              .select('*')\n              .in('pipeline_id', candidateIds)"),
+    'listCreatedOpportunityDrafts fetches handover details scoped by candidateIds without limit mismatch'
+  );
+});
+
+

@@ -238,7 +238,8 @@ export const PipelineForm: React.FC<PipelineFormProps> = ({
           source: source.trim(),
           industry,
           revenue_motion: revenueMotion,
-          form_status: isDraft ? 'Draft' : 'Saved'
+          form_status: isDraft ? 'Draft' : 'Saved',
+          assessment_started: !isDraft ? true : undefined
         }
       );
 

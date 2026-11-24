@@ -96,6 +96,7 @@ export const OpportunityToPipeline: React.FC<OpportunityToPipelineProps> = ({
   const [savingSummary, setSavingSummary] = useState(false);
   const [savedSummaryMessage, setSavedSummaryMessage] = useState<string | null>(null);
   const [saveSummaryError, setSaveSummaryError] = useState<string | null>(null);
+  const [hasEvidence, setHasEvidence] = useState(false);
   const [assessmentFormOpen, setAssessmentFormOpen] = useState(false);
   const [targetEvidenceDimension, setTargetEvidenceDimension] = useState<PADFDimensionId | undefined>(undefined);
   const assessmentFormRef = useRef<HTMLDivElement>(null);
@@ -243,10 +244,12 @@ export const OpportunityToPipeline: React.FC<OpportunityToPipelineProps> = ({
           setSaveSummaryError(null);
         }
 
-        // Auto-open Pipeline Assessment Form if any saved evidence or assessment exists in Supabase under this pipeline
-        setAssessmentFormOpen(
-          (Array.isArray(existingEvidence) && existingEvidence.length > 0) || Boolean(latest?.assessment)
-        );
+        const hasExistingEvidence = Array.isArray(existingEvidence) && existingEvidence.length > 0;
+        const startedFlag = Boolean((opportunity.metadata as any)?.assessment_started);
+        setHasEvidence(hasExistingEvidence);
+
+        // Auto-open Pipeline Assessment Form if Start Assessment was clicked or any saved evidence/assessment exists
+        setAssessmentFormOpen(startedFlag || hasExistingEvidence || Boolean(latest?.assessment));
 
         // 4. Check for existing completed Pipeline Assessment
         if (latest?.assessment) {
@@ -678,8 +681,18 @@ export const OpportunityToPipeline: React.FC<OpportunityToPipelineProps> = ({
           savedSummaryMessage={savedSummaryMessage}
           saveSummaryError={saveSummaryError}
           onSaveSummary={handleSaveSummary}
+          isAssessmentLocked={
+            Boolean((pipelineOpp.metadata as any)?.assessment_started) ||
+            Boolean(latestAssessment) ||
+            hasEvidence ||
+            assessmentFormOpen
+          }
+          onEditOpportunity={() => {
+            navigate(
+              `/product/revos/pipeline?create=true&pipelineId=${encodeURIComponent(pipelineOpp.pipeline_id)}`
+            );
+          }}
           onRetry={() => void handleGenerateOrRetrySummary({ retry: true })}
-          onRegenerate={() => void handleGenerateOrRetrySummary({ forceRegenerate: true })}
           onOpenPipelineCanvas={handleOpenPipelineCanvas}
         />
       ) : (
