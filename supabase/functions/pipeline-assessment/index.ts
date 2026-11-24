@@ -3004,7 +3004,13 @@ ${records.slice(0, 20).map((r: any) => `- [${r.evidence_object_id}] Confirmed=${
 
       const apiKey = Deno.env.get('GEMINI_API_KEY');
       if (!apiKey) throw new Error('GEMINI_API_KEY is not set');
-      const ai = new GoogleGenAI({ apiKey });
+      const ai = new GoogleGenAI({
+        apiKey,
+        httpOptions: {
+          headers: { 'User-Agent': 'aistudio-build' },
+          retryOptions: { attempts: 1 }
+        }
+      });
 
       const startTime = Date.now();
 
@@ -3260,186 +3266,325 @@ ${active16SWOTFactors.map(f => `- [${f.id}] (${f.classification} - ${f.layer}): 
         return !/^(verified|unverified|confirmed|supported|supports|positive|negative|neutral|n\/a)\.?$/i.test(cleaned);
       };
 
-      const strategicCallPromise = ai.models.generateContent({
-        model: 'gemini-3.1-flash-lite',
+      const sleepMs = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+      const extractCleanModelError = (err: any): { message: string; isTransient: boolean } => {
+        const rawMsg = String(err?.message || err || 'Unknown Gemini error');
+        let resolvedMsg = rawMsg;
+        let statusStr = '';
+        let codeNum = Number(err?.status || err?.code || 0) || 0;
+
+        try {
+          const jsonMatch = rawMsg.match(/\{[\s\S]*\}/);
+          if (jsonMatch) {
+            const parsed = JSON.parse(jsonMatch[0]);
+            if (parsed?.error) {
+              resolvedMsg = String(parsed.error.message || resolvedMsg);
+              statusStr = String(parsed.error.status || '');
+              codeNum = Number(parsed.error.code || codeNum) || codeNum;
+            }
+          }
+        } catch (_parseErr) {
+          // Keep original rawMsg if not JSON-wrapped
+        }
+
+        const lower = `${resolvedMsg} ${statusStr}`.toLowerCase();
+        const isTransient =
+          codeNum === 503 ||
+          codeNum === 429 ||
+          codeNum === 500 ||
+          codeNum === 502 ||
+          codeNum === 504 ||
+          lower.includes('503') ||
+          lower.includes('unavailable') ||
+          lower.includes('high demand') ||
+          lower.includes('resource_exhausted') ||
+          lower.includes('429') ||
+          lower.includes('overloaded') ||
+          lower.includes('timed out') ||
+          lower.includes('timeout') ||
+          lower.includes('empty_gemini_response');
+
+        return { message: resolvedMsg, isTransient };
+      };
+
+      const generateAssessmentJsonWithFallback = async (params: {
+        label: string;
+        contents: string;
+        systemInstruction: string;
+        responseSchema: Record<string, any>;
+        maxOutputTokens?: number;
+        temperature?: number;
+        timeoutMs?: number;
+      }): Promise<{ parsed: any; usedModel: string }> => {
+        const timeoutMs = params.timeoutMs ?? 28000;
+        const attemptPlan: Array<{
+          model: string;
+          includeTemp: boolean;
+          delayBeforeMs: number;
+          timeoutMs: number;
+        }> = [
+          { model: 'gemini-3.1-flash-lite', includeTemp: true, delayBeforeMs: 0, timeoutMs },
+          { model: 'gemini-4-hydrogen', includeTemp: false, delayBeforeMs: 400, timeoutMs },
+          { model: 'gemini-3.1-flash-lite', includeTemp: true, delayBeforeMs: 1100, timeoutMs }
+        ];
+
+        let lastMessage = 'Gemini reasoning failed.';
+        let sawTransient = false;
+
+        for (let i = 0; i < attemptPlan.length; i++) {
+          const plan = attemptPlan[i];
+          if (plan.delayBeforeMs > 0) {
+            await sleepMs(plan.delayBeforeMs);
+          }
+
+          const controller = new AbortController();
+          const abortTimer = setTimeout(() => controller.abort(), plan.timeoutMs);
+          let raceTimer: ReturnType<typeof setTimeout> | undefined;
+
+          try {
+            const genConfig: Record<string, any> = {
+              maxOutputTokens: params.maxOutputTokens ?? 16384,
+              systemInstruction: params.systemInstruction,
+              responseMimeType: 'application/json',
+              responseSchema: params.responseSchema,
+              abortSignal: controller.signal,
+              httpOptions: {
+                headers: { 'User-Agent': 'aistudio-build' },
+                timeout: plan.timeoutMs,
+                retryOptions: { attempts: 1 }
+              }
+            };
+
+            // Respect gemini-4-hydrogen parameter constraints (no temperature/topP/topK/thinkingBudget)
+            if (plan.includeTemp && plan.model !== 'gemini-4-hydrogen' && typeof params.temperature === 'number') {
+              genConfig.temperature = params.temperature;
+            }
+
+            const genResp = await Promise.race([
+              ai.models.generateContent({
+                model: plan.model,
+                contents: params.contents,
+                config: genConfig
+              }),
+              new Promise<never>((_, reject) => {
+                raceTimer = setTimeout(
+                  () => reject(new Error(`Timed out after ${Math.round(plan.timeoutMs / 1000)}s`)),
+                  plan.timeoutMs + 500
+                );
+              })
+            ]);
+
+            const rawText = String(genResp?.text || '')
+              .trim()
+              .replace(/^```json\s*/i, '')
+              .replace(/```\s*$/, '');
+
+            if (!rawText) {
+              throw new Error('EMPTY_GEMINI_RESPONSE: Gemini returned an empty payload.');
+            }
+
+            const parsed = JSON.parse(rawText);
+            return { parsed, usedModel: plan.model };
+          } catch (attemptErr: any) {
+            const info = extractCleanModelError(attemptErr);
+            lastMessage = info.message;
+            if (info.isTransient) sawTransient = true;
+            console.warn(
+              `[run-pipeline-assessment:${params.label}] Attempt ${i + 1} (${plan.model}) failed:`,
+              info.message
+            );
+          } finally {
+            clearTimeout(abortTimer);
+            if (raceTimer !== undefined) {
+              clearTimeout(raceTimer);
+            }
+          }
+        }
+
+        const err: any = new Error(lastMessage);
+        err.isTransient = sawTransient;
+        throw err;
+      };
+
+      const strategicCallPromise = generateAssessmentJsonWithFallback({
+        label: 'strategic-reasoning',
         contents: prompt,
-        config: {
-          temperature: 0.1,
-          maxOutputTokens: 16384,
-          systemInstruction,
-          responseMimeType: "application/json",
-          responseSchema: {
-            type: Type.OBJECT,
-            properties: {
-              primary_reason: { type: Type.STRING },
-              executive_summary: { type: Type.STRING },
-              qualification_continuity_summary: { type: Type.STRING },
-              why_this_assessment: {
+        systemInstruction,
+        temperature: 0.1,
+        maxOutputTokens: 16384,
+        timeoutMs: 32000,
+        responseSchema: {
+          type: Type.OBJECT,
+          properties: {
+            primary_reason: { type: Type.STRING },
+            executive_summary: { type: Type.STRING },
+            qualification_continuity_summary: { type: Type.STRING },
+            why_this_assessment: {
+              type: Type.OBJECT,
+              properties: {
+                evidence: { type: Type.STRING },
+                interpretation: { type: Type.STRING },
+                assessment: { type: Type.STRING },
+                business_implication: { type: Type.STRING }
+              },
+              required: ["evidence", "interpretation", "assessment", "business_implication"]
+            },
+            positive_drivers: { type: Type.ARRAY, items: { type: Type.STRING } },
+            critical_constraints: { type: Type.ARRAY, items: { type: Type.STRING } },
+            priority_actions: { type: Type.ARRAY, items: { type: Type.STRING } },
+            longitudinal_trend: { type: Type.STRING },
+            ai_cognitive_reasoning_summary: { type: Type.STRING },
+            swot_evaluations: {
+              type: Type.ARRAY,
+              items: {
                 type: Type.OBJECT,
                 properties: {
-                  evidence: { type: Type.STRING },
+                  swot_factor_id: { type: Type.STRING },
+                  factor_name: { type: Type.STRING },
+                  classification: { type: Type.STRING },
+                  category: { type: Type.STRING },
+                  layer: { type: Type.STRING },
+                  strategic_impact: { type: Type.INTEGER },
+                  evidence_confidence: { type: Type.INTEGER },
+                  relevance: { type: Type.INTEGER },
+                  urgency: { type: Type.INTEGER },
+                  manageability: { type: Type.INTEGER },
+                  winability_influence: { type: Type.INTEGER },
                   interpretation: { type: Type.STRING },
-                  assessment: { type: Type.STRING },
-                  business_implication: { type: Type.STRING }
+                  business_impact: { type: Type.STRING },
+                  uncertainty: { type: Type.STRING },
+                  supporting_evidence_ids: { type: Type.ARRAY, items: { type: Type.STRING } }
                 },
-                required: ["evidence", "interpretation", "assessment", "business_implication"]
-              },
-              positive_drivers: { type: Type.ARRAY, items: { type: Type.STRING } },
-              critical_constraints: { type: Type.ARRAY, items: { type: Type.STRING } },
-              priority_actions: { type: Type.ARRAY, items: { type: Type.STRING } },
-              longitudinal_trend: { type: Type.STRING },
-              ai_cognitive_reasoning_summary: { type: Type.STRING },
-              swot_evaluations: {
-                type: Type.ARRAY,
-                items: {
-                  type: Type.OBJECT,
-                  properties: {
-                    swot_factor_id: { type: Type.STRING },
-                    factor_name: { type: Type.STRING },
-                    classification: { type: Type.STRING },
-                    category: { type: Type.STRING },
-                    layer: { type: Type.STRING },
-                    strategic_impact: { type: Type.INTEGER },
-                    evidence_confidence: { type: Type.INTEGER },
-                    relevance: { type: Type.INTEGER },
-                    urgency: { type: Type.INTEGER },
-                    manageability: { type: Type.INTEGER },
-                    winability_influence: { type: Type.INTEGER },
-                    interpretation: { type: Type.STRING },
-                    business_impact: { type: Type.STRING },
-                    uncertainty: { type: Type.STRING },
-                    supporting_evidence_ids: { type: Type.ARRAY, items: { type: Type.STRING } }
-                  },
-                  required: [
-                    "swot_factor_id", "factor_name", "classification", "category", "layer",
-                    "strategic_impact", "evidence_confidence", "relevance", "urgency",
-                    "manageability", "winability_influence", "interpretation", "business_impact", "uncertainty"
-                  ]
-                }
-              },
-              padf_dimension_narratives: {
-                type: Type.ARRAY,
-                items: {
-                  type: Type.OBJECT,
-                  properties: {
-                    dimension_code: { type: Type.STRING },
-                    dimension_name: { type: Type.STRING },
-                    short_interpretation: { type: Type.STRING },
-                    strengths: { type: Type.ARRAY, items: { type: Type.STRING } },
-                    weaknesses: { type: Type.ARRAY, items: { type: Type.STRING } },
-                    contradictory_qualifying_evidence: { type: Type.ARRAY, items: { type: Type.STRING } },
-                    related_swot_factors: { type: Type.ARRAY, items: { type: Type.STRING } },
-                    evidence_gaps: { type: Type.ARRAY, items: { type: Type.STRING } },
-                    risks: { type: Type.ARRAY, items: { type: Type.STRING } },
-                    ai_reasoning: { type: Type.STRING },
-                    business_impact: { type: Type.STRING },
-                    improvement_direction: { type: Type.STRING },
-                    recommended_actions: { type: Type.ARRAY, items: { type: Type.STRING } }
-                  },
-                  required: [
-                    "dimension_code", "dimension_name", "short_interpretation",
-                    "strengths", "weaknesses", "contradictory_qualifying_evidence",
-                    "related_swot_factors", "evidence_gaps", "risks", "ai_reasoning",
-                    "business_impact", "improvement_direction", "recommended_actions"
-                  ]
-                }
-              },
-              observed_supporting_evidence: {
-                type: Type.ARRAY,
-                items: {
-                  type: Type.OBJECT,
-                  properties: {
-                    evidence_object_id: { type: Type.STRING },
-                    title: { type: Type.STRING },
-                    dimension_code: { type: Type.STRING },
-                    source_type: { type: Type.STRING },
-                    verification_status: { type: Type.STRING },
-                    finding_summary: { type: Type.STRING }
-                  },
-                  required: [
-                    "evidence_object_id", "title", "dimension_code", "finding_summary"
-                  ]
-                }
-              },
-              tows_strategies: {
-                type: Type.ARRAY,
-                items: {
-                  type: Type.OBJECT,
-                  properties: {
-                    strategy_id: { type: Type.STRING },
-                    tows_type: { type: Type.STRING },
-                    title: { type: Type.STRING },
-                    strategic_objective: { type: Type.STRING },
-                    strategic_rationale: { type: Type.STRING },
-                    contributing_swot_factor_ids: { type: Type.ARRAY, items: { type: Type.STRING } },
-                    supporting_evidence_ids: { type: Type.ARRAY, items: { type: Type.STRING } },
-                    expected_winability_impact: { type: Type.STRING },
-                    feasibility_considerations: { type: Type.STRING },
-                    priority: { type: Type.STRING },
-                    execution_timeframe: { type: Type.STRING }
-                  },
-                  required: [
-                    "strategy_id", "tows_type", "title", "strategic_objective",
-                    "strategic_rationale", "contributing_swot_factor_ids", "expected_winability_impact", "priority", "execution_timeframe"
-                  ]
-                }
-              },
-              risks: {
-                type: Type.ARRAY,
-                items: {
-                  type: Type.OBJECT,
-                  properties: {
-                    risk_id: { type: Type.STRING },
-                    risk_title: { type: Type.STRING },
-                    category: { type: Type.STRING },
-                    severity: { type: Type.STRING },
-                    trigger_description: { type: Type.STRING },
-                    business_impact: { type: Type.STRING },
-                    mitigation_strategy: { type: Type.STRING }
-                  },
-                  required: ["risk_id", "risk_title", "category", "severity", "trigger_description", "business_impact", "mitigation_strategy"]
-                }
-              },
-              actions: {
-                type: Type.ARRAY,
-                items: {
-                  type: Type.OBJECT,
-                  properties: {
-                    action_title: { type: Type.STRING },
-                    action_description: { type: Type.STRING },
-                    priority: { type: Type.STRING },
-                    related_dimension: { type: Type.STRING },
-                    expected_impact: { type: Type.STRING },
-                    owner_role: { type: Type.STRING },
-                    timeframe: { type: Type.STRING },
-                    success_criteria: { type: Type.STRING },
-                    dependencies: { type: Type.STRING }
-                  },
-                  required: ["action_title", "action_description", "priority", "owner_role", "timeframe", "success_criteria"]
-                }
-              },
-              evidence_gaps: {
-                type: Type.ARRAY,
-                items: {
-                  type: Type.OBJECT,
-                  properties: {
-                    gap_type: { type: Type.STRING },
-                    description: { type: Type.STRING },
-                    affected_dimension: { type: Type.STRING },
-                    recommended_action: { type: Type.STRING }
-                  },
-                  required: ["gap_type", "description", "affected_dimension", "recommended_action"]
-                }
+                required: [
+                  "swot_factor_id", "factor_name", "classification", "category", "layer",
+                  "strategic_impact", "evidence_confidence", "relevance", "urgency",
+                  "manageability", "winability_influence", "interpretation", "business_impact", "uncertainty"
+                ]
               }
             },
-            required: [
-              "primary_reason", "executive_summary", "qualification_continuity_summary",
-              "why_this_assessment", "positive_drivers", "critical_constraints",
-              "priority_actions", "longitudinal_trend", "ai_cognitive_reasoning_summary",
-              "swot_evaluations", "padf_dimension_narratives",
-              "observed_supporting_evidence", "tows_strategies", "risks", "actions"
-            ]
-          }
+            padf_dimension_narratives: {
+              type: Type.ARRAY,
+              items: {
+                type: Type.OBJECT,
+                properties: {
+                  dimension_code: { type: Type.STRING },
+                  dimension_name: { type: Type.STRING },
+                  short_interpretation: { type: Type.STRING },
+                  strengths: { type: Type.ARRAY, items: { type: Type.STRING } },
+                  weaknesses: { type: Type.ARRAY, items: { type: Type.STRING } },
+                  contradictory_qualifying_evidence: { type: Type.ARRAY, items: { type: Type.STRING } },
+                  related_swot_factors: { type: Type.ARRAY, items: { type: Type.STRING } },
+                  evidence_gaps: { type: Type.ARRAY, items: { type: Type.STRING } },
+                  risks: { type: Type.ARRAY, items: { type: Type.STRING } },
+                  ai_reasoning: { type: Type.STRING },
+                  business_impact: { type: Type.STRING },
+                  improvement_direction: { type: Type.STRING },
+                  recommended_actions: { type: Type.ARRAY, items: { type: Type.STRING } }
+                },
+                required: [
+                  "dimension_code", "dimension_name", "short_interpretation",
+                  "strengths", "weaknesses", "contradictory_qualifying_evidence",
+                  "related_swot_factors", "evidence_gaps", "risks", "ai_reasoning",
+                  "business_impact", "improvement_direction", "recommended_actions"
+                ]
+              }
+            },
+            observed_supporting_evidence: {
+              type: Type.ARRAY,
+              items: {
+                type: Type.OBJECT,
+                properties: {
+                  evidence_object_id: { type: Type.STRING },
+                  title: { type: Type.STRING },
+                  dimension_code: { type: Type.STRING },
+                  source_type: { type: Type.STRING },
+                  verification_status: { type: Type.STRING },
+                  finding_summary: { type: Type.STRING }
+                },
+                required: [
+                  "evidence_object_id", "title", "dimension_code", "finding_summary"
+                ]
+              }
+            },
+            tows_strategies: {
+              type: Type.ARRAY,
+              items: {
+                type: Type.OBJECT,
+                properties: {
+                  strategy_id: { type: Type.STRING },
+                  tows_type: { type: Type.STRING },
+                  title: { type: Type.STRING },
+                  strategic_objective: { type: Type.STRING },
+                  strategic_rationale: { type: Type.STRING },
+                  contributing_swot_factor_ids: { type: Type.ARRAY, items: { type: Type.STRING } },
+                  supporting_evidence_ids: { type: Type.ARRAY, items: { type: Type.STRING } },
+                  expected_winability_impact: { type: Type.STRING },
+                  feasibility_considerations: { type: Type.STRING },
+                  priority: { type: Type.STRING },
+                  execution_timeframe: { type: Type.STRING }
+                },
+                required: [
+                  "strategy_id", "tows_type", "title", "strategic_objective",
+                  "strategic_rationale", "contributing_swot_factor_ids", "expected_winability_impact", "priority", "execution_timeframe"
+                ]
+              }
+            },
+            risks: {
+              type: Type.ARRAY,
+              items: {
+                type: Type.OBJECT,
+                properties: {
+                  risk_id: { type: Type.STRING },
+                  risk_title: { type: Type.STRING },
+                  category: { type: Type.STRING },
+                  severity: { type: Type.STRING },
+                  trigger_description: { type: Type.STRING },
+                  business_impact: { type: Type.STRING },
+                  mitigation_strategy: { type: Type.STRING }
+                },
+                required: ["risk_id", "risk_title", "category", "severity", "trigger_description", "business_impact", "mitigation_strategy"]
+              }
+            },
+            actions: {
+              type: Type.ARRAY,
+              items: {
+                type: Type.OBJECT,
+                properties: {
+                  action_title: { type: Type.STRING },
+                  action_description: { type: Type.STRING },
+                  priority: { type: Type.STRING },
+                  related_dimension: { type: Type.STRING },
+                  expected_impact: { type: Type.STRING },
+                  owner_role: { type: Type.STRING },
+                  timeframe: { type: Type.STRING },
+                  success_criteria: { type: Type.STRING },
+                  dependencies: { type: Type.STRING }
+                },
+                required: ["action_title", "action_description", "priority", "owner_role", "timeframe", "success_criteria"]
+              }
+            },
+            evidence_gaps: {
+              type: Type.ARRAY,
+              items: {
+                type: Type.OBJECT,
+                properties: {
+                  gap_type: { type: Type.STRING },
+                  description: { type: Type.STRING },
+                  affected_dimension: { type: Type.STRING },
+                  recommended_action: { type: Type.STRING }
+                },
+                required: ["gap_type", "description", "affected_dimension", "recommended_action"]
+              }
+            }
+          },
+          required: [
+            "primary_reason", "executive_summary", "qualification_continuity_summary",
+            "why_this_assessment", "positive_drivers", "critical_constraints",
+            "priority_actions", "longitudinal_trend", "ai_cognitive_reasoning_summary",
+            "swot_evaluations", "padf_dimension_narratives",
+            "observed_supporting_evidence", "tows_strategies", "risks", "actions"
+          ]
         }
       });
 
@@ -3486,39 +3631,36 @@ ${idx + 1}. ID: ${ev.evidence_object_id} | Title: ${def?.name || ev.evidence_obj
    Score each item 0-100 calibrated to its statement substance, confirmation status, source reliability, and PADF Dimension Score (NOT raw Validation Confidence %). Set "matched_type" to 'positive' (>=70), 'neutral' (45-69), or 'negative' (<45).`;
 
         try {
-          const batchResp = await ai.models.generateContent({
-            model: 'gemini-3.1-flash-lite',
+          const { parsed } = await generateAssessmentJsonWithFallback({
+            label: 'evidence-audit-batch',
             contents: batchPrompt,
-            config: {
-              temperature: 0.15,
-              maxOutputTokens: 16384,
-              systemInstruction: 'You are an enterprise B2B pipeline strategist writing clear, concise, natural-language evidence audit assessments. Return complete JSON covering 100% of requested evidence IDs without omission.',
-              responseMimeType: "application/json",
-              responseSchema: {
-                type: Type.OBJECT,
-                properties: {
-                  evidence_assessments: {
-                    type: Type.ARRAY,
-                    items: {
-                      type: Type.OBJECT,
-                      properties: {
-                        evidence_object_id: { type: Type.STRING },
-                        signal_score: { type: Type.INTEGER },
-                        matched_type: { type: Type.STRING },
-                        identification_assessment: { type: Type.STRING }
-                      },
-                      required: [
-                        "evidence_object_id", "signal_score", "matched_type", "identification_assessment"
-                      ]
-                    }
+            temperature: 0.15,
+            maxOutputTokens: 16384,
+            timeoutMs: 26000,
+            systemInstruction: 'You are an enterprise B2B pipeline strategist writing clear, concise, natural-language evidence audit assessments. Return complete JSON covering 100% of requested evidence IDs without omission.',
+            responseSchema: {
+              type: Type.OBJECT,
+              properties: {
+                evidence_assessments: {
+                  type: Type.ARRAY,
+                  items: {
+                    type: Type.OBJECT,
+                    properties: {
+                      evidence_object_id: { type: Type.STRING },
+                      signal_score: { type: Type.INTEGER },
+                      matched_type: { type: Type.STRING },
+                      identification_assessment: { type: Type.STRING }
+                    },
+                    required: [
+                      "evidence_object_id", "signal_score", "matched_type", "identification_assessment"
+                    ]
                   }
-                },
-                required: ["evidence_assessments"]
-              }
+                }
+              },
+              required: ["evidence_assessments"]
             }
           });
-          const parsed = JSON.parse(batchResp.text || '{}');
-          return Array.isArray(parsed.evidence_assessments) ? parsed.evidence_assessments : [];
+          return Array.isArray(parsed?.evidence_assessments) ? parsed.evidence_assessments : [];
         } catch (_batchErr) {
           return [];
         }
@@ -3532,12 +3674,36 @@ ${idx + 1}. ID: ${ev.evidence_object_id} | Title: ${def?.name || ev.evidence_obj
         evidenceBatches.push(allRecords.slice(i, i + BATCH_SIZE));
       }
 
-      const [response, ...batchAuditArrays] = await Promise.all([
-        strategicCallPromise,
-        ...evidenceBatches.map(batch => runEvidenceAuditBatch(batch))
-      ]);
+      let strategicOutcome: { parsed: any; usedModel: string };
+      let batchAuditArrays: any[][];
+      try {
+        const [stratRes, ...auditRes] = await Promise.all([
+          strategicCallPromise,
+          ...evidenceBatches.map(batch => runEvidenceAuditBatch(batch))
+        ]);
+        strategicOutcome = stratRes;
+        batchAuditArrays = auditRes;
+      } catch (stratErr: any) {
+        const info = extractCleanModelError(stratErr);
+        if (stratErr?.isTransient || info.isTransient) {
+          return new Response(
+            JSON.stringify({
+              error: 'The AI assessment models are temporarily experiencing high demand. Please wait a few seconds and try running the assessment again.',
+              code: 'MODEL_UNAVAILABLE',
+              retryable: true,
+              pipeline_id: effectivePipeId
+            }),
+            {
+              status: 503,
+              headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+            }
+          );
+        }
+        throw stratErr;
+      }
 
-      const aiResult = JSON.parse(response.text || '{}');
+      const aiResult = strategicOutcome.parsed || {};
+      const usedStrategicModel = strategicOutcome.usedModel || 'gemini-3.1-flash-lite';
       const executionDurationMs = Date.now() - startTime;
 
       // 7. Determine monotonic assessment_sequence & create assessment_id matching SQL schema
@@ -3922,112 +4088,109 @@ ${conciseEvidenceContext.map((ev: any) => `- [${ev.evidence_object_id}] ${ev.evi
       let generatedWinningStrategies: any[] = [];
 
       try {
-        const wsResp = await ai.models.generateContent({
-          model: 'gemini-3.1-flash-lite',
+        const { parsed: wsParsed } = await generateAssessmentJsonWithFallback({
+          label: 'winning-strategy',
           contents: winningStrategyPrompt,
-          config: {
-            temperature: 0.15,
-            maxOutputTokens: 16384,
-            systemInstruction: 'You are an elite B2B enterprise deal strategist synthesizing actionable, evidence-grounded Winning Strategies. Output valid JSON strictly adhering to the schema with directional-only expected impact and zero generic filler.',
-            responseMimeType: "application/json",
-            responseSchema: {
-              type: Type.OBJECT,
-              properties: {
-                winning_strategy_summary: {
+          temperature: 0.15,
+          maxOutputTokens: 16384,
+          timeoutMs: 28000,
+          systemInstruction: 'You are an elite B2B enterprise deal strategist synthesizing actionable, evidence-grounded Winning Strategies. Output valid JSON strictly adhering to the schema with directional-only expected impact and zero generic filler.',
+          responseSchema: {
+            type: Type.OBJECT,
+            properties: {
+              winning_strategy_summary: {
+                type: Type.OBJECT,
+                properties: {
+                  customer_objectives_and_outcomes: { type: Type.STRING },
+                  opportunity_business_conditions: { type: Type.STRING },
+                  competitive_circumstances: { type: Type.STRING },
+                  primary_winning_thesis: { type: Type.STRING },
+                  top_strategy_id: { type: Type.STRING },
+                  winability_context_note: { type: Type.STRING }
+                },
+                required: [
+                  "customer_objectives_and_outcomes",
+                  "opportunity_business_conditions",
+                  "competitive_circumstances",
+                  "primary_winning_thesis",
+                  "top_strategy_id",
+                  "winability_context_note"
+                ]
+              },
+              winning_strategies: {
+                type: Type.ARRAY,
+                items: {
                   type: Type.OBJECT,
                   properties: {
-                    customer_objectives_and_outcomes: { type: Type.STRING },
-                    opportunity_business_conditions: { type: Type.STRING },
-                    competitive_circumstances: { type: Type.STRING },
-                    primary_winning_thesis: { type: Type.STRING },
-                    top_strategy_id: { type: Type.STRING },
-                    winability_context_note: { type: Type.STRING }
-                  },
-                  required: [
-                    "customer_objectives_and_outcomes",
-                    "opportunity_business_conditions",
-                    "competitive_circumstances",
-                    "primary_winning_thesis",
-                    "top_strategy_id",
-                    "winability_context_note"
-                  ]
-                },
-                winning_strategies: {
-                  type: Type.ARRAY,
-                  items: {
-                    type: Type.OBJECT,
-                    properties: {
-                      strategy_id: { type: Type.STRING },
-                      title: { type: Type.STRING },
-                      strategic_objective: { type: Type.STRING },
-                      condition_to_change: { type: Type.STRING },
-                      why_condition_important: { type: Type.STRING },
-                      tows_category: { type: Type.STRING },
-                      linked_tows_strategy_ids: { type: Type.ARRAY, items: { type: Type.STRING } },
-                      linked_padf_dimensions: { type: Type.ARRAY, items: { type: Type.STRING } },
-                      supporting_swot_factor_ids: { type: Type.ARRAY, items: { type: Type.STRING } },
-                      supporting_evidence_ids: { type: Type.ARRAY, items: { type: Type.STRING } },
-                      related_risk_ids: { type: Type.ARRAY, items: { type: Type.STRING } },
-                      strategic_rationale: { type: Type.STRING },
-                      expected_impact: { type: Type.STRING },
-                      probability_and_quality_influence: { type: Type.STRING },
-                      feasibility: { type: Type.STRING },
-                      feasibility_notes: { type: Type.STRING },
-                      dependencies: { type: Type.ARRAY, items: { type: Type.STRING } },
-                      priority: { type: Type.STRING },
-                      recommended_actions: {
-                        type: Type.ARRAY,
-                        items: {
-                          type: Type.OBJECT,
-                          properties: {
-                            action_title: { type: Type.STRING },
-                            action_description: { type: Type.STRING },
-                            owner_role: { type: Type.STRING },
-                            timeframe: { type: Type.STRING },
-                            expected_outcome: { type: Type.STRING }
-                          },
-                          required: ["action_title", "action_description", "owner_role", "timeframe", "expected_outcome"]
-                        }
-                      },
-                      expected_evidence_of_improvement: { type: Type.ARRAY, items: { type: Type.STRING } },
-                      causal_chain: {
+                    strategy_id: { type: Type.STRING },
+                    title: { type: Type.STRING },
+                    strategic_objective: { type: Type.STRING },
+                    condition_to_change: { type: Type.STRING },
+                    why_condition_important: { type: Type.STRING },
+                    tows_category: { type: Type.STRING },
+                    linked_tows_strategy_ids: { type: Type.ARRAY, items: { type: Type.STRING } },
+                    linked_padf_dimensions: { type: Type.ARRAY, items: { type: Type.STRING } },
+                    supporting_swot_factor_ids: { type: Type.ARRAY, items: { type: Type.STRING } },
+                    supporting_evidence_ids: { type: Type.ARRAY, items: { type: Type.STRING } },
+                    related_risk_ids: { type: Type.ARRAY, items: { type: Type.STRING } },
+                    strategic_rationale: { type: Type.STRING },
+                    expected_impact: { type: Type.STRING },
+                    probability_and_quality_influence: { type: Type.STRING },
+                    feasibility: { type: Type.STRING },
+                    feasibility_notes: { type: Type.STRING },
+                    dependencies: { type: Type.ARRAY, items: { type: Type.STRING } },
+                    priority: { type: Type.STRING },
+                    recommended_actions: {
+                      type: Type.ARRAY,
+                      items: {
                         type: Type.OBJECT,
                         properties: {
-                          assessment_weakness_or_threat: { type: Type.STRING },
-                          evidence_and_business_implication: { type: Type.STRING },
-                          strategic_objective: { type: Type.STRING },
-                          tows_response: { type: Type.STRING },
-                          existing_risk_and_winability_context: { type: Type.STRING },
-                          recommended_action: { type: Type.STRING },
-                          expected_evidence_of_improvement: { type: Type.STRING }
+                          action_title: { type: Type.STRING },
+                          action_description: { type: Type.STRING },
+                          owner_role: { type: Type.STRING },
+                          timeframe: { type: Type.STRING },
+                          expected_outcome: { type: Type.STRING }
                         },
-                        required: [
-                          "assessment_weakness_or_threat",
-                          "evidence_and_business_implication",
-                          "strategic_objective",
-                          "tows_response",
-                          "existing_risk_and_winability_context",
-                          "recommended_action",
-                          "expected_evidence_of_improvement"
-                        ]
+                        required: ["action_title", "action_description", "owner_role", "timeframe", "expected_outcome"]
                       }
                     },
-                    required: [
-                      "strategy_id", "title", "strategic_objective", "condition_to_change",
-                      "why_condition_important", "tows_category", "supporting_swot_factor_ids",
-                      "supporting_evidence_ids", "related_risk_ids", "strategic_rationale",
-                      "expected_impact", "probability_and_quality_influence", "feasibility",
-                      "dependencies", "priority", "recommended_actions",
-                      "expected_evidence_of_improvement", "causal_chain"
-                    ]
-                  }
+                    expected_evidence_of_improvement: { type: Type.ARRAY, items: { type: Type.STRING } },
+                    causal_chain: {
+                      type: Type.OBJECT,
+                      properties: {
+                        assessment_weakness_or_threat: { type: Type.STRING },
+                        evidence_and_business_implication: { type: Type.STRING },
+                        strategic_objective: { type: Type.STRING },
+                        tows_response: { type: Type.STRING },
+                        existing_risk_and_winability_context: { type: Type.STRING },
+                        recommended_action: { type: Type.STRING },
+                        expected_evidence_of_improvement: { type: Type.STRING }
+                      },
+                      required: [
+                        "assessment_weakness_or_threat",
+                        "evidence_and_business_implication",
+                        "strategic_objective",
+                        "tows_response",
+                        "existing_risk_and_winability_context",
+                        "recommended_action",
+                        "expected_evidence_of_improvement"
+                      ]
+                    }
+                  },
+                  required: [
+                    "strategy_id", "title", "strategic_objective", "condition_to_change",
+                    "why_condition_important", "tows_category", "supporting_swot_factor_ids",
+                    "supporting_evidence_ids", "related_risk_ids", "strategic_rationale",
+                    "expected_impact", "probability_and_quality_influence", "feasibility",
+                    "dependencies", "priority", "recommended_actions",
+                    "expected_evidence_of_improvement", "causal_chain"
+                  ]
                 }
-              },
-              required: ["winning_strategy_summary", "winning_strategies"]
-            }
+              }
+            },
+            required: ["winning_strategy_summary", "winning_strategies"]
           }
         });
-        const wsParsed = JSON.parse(wsResp.text || '{}');
         if (wsParsed?.winning_strategy_summary) {
           generatedWinningSummary = wsParsed.winning_strategy_summary;
         }
@@ -4233,7 +4396,7 @@ ${conciseEvidenceContext.map((ev: any) => `- [${ev.evidence_object_id}] ${ev.evi
         evidence_kb_version: 'v1.1',
         rules_version: 'v1.1',
         reasoning_prompt_version: 'v1.1',
-        model_identifier: 'gemini-3.1-flash-lite',
+        model_identifier: usedStrategicModel,
         raw_reasoning_output: enrichedRawReasoningOutput,
         executive_summary: executiveSummaryPayload,
         created_by: 'Pipeline Assessment Engine',

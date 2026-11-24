@@ -1137,44 +1137,113 @@ export class PipelineDataService {
       .eq('pipeline_id', pipelineId)
       .maybeSingle();
 
-    const { data, error } = await supabase.functions.invoke('pipeline-assessment', {
-      body: {
-        action: 'run-pipeline-assessment',
-        pipeline_id: pipelineId,
-        pipeline_opportunity_id: pipelineId
-      }
-    });
-    if (error) {
-      let parsedErr: any = null;
-      try {
-        if ((error as any).context && typeof (error as any).context.json === 'function') {
-          parsedErr = await (error as any).context.json();
-        } else if ((error as any).context && typeof (error as any).context.text === 'function') {
-          const txt = await (error as any).context.text();
-          parsedErr = JSON.parse(txt);
-        }
-      } catch {}
+    const extractErrorInfo = (rawMsg: string, httpStatus?: number, rawCode?: string) => {
+      let cleanMsg = String(rawMsg || 'Pipeline Assessment execution failed.');
+      let detectedCode = rawCode || 'PIPELINE_ASSESSMENT_FAILED';
+      let statusNum = httpStatus || 0;
 
-      const msg =
-        parsedErr?.error ||
-        parsedErr?.message ||
-        (error as any).message ||
-        'Pipeline Assessment execution failed.';
-      const wrapped: any = new Error(msg);
-      wrapped.code = parsedErr?.code || 'PIPELINE_ASSESSMENT_FAILED';
-      wrapped.retryable = Boolean(parsedErr?.retryable);
-      wrapped.summary_status = parsedErr?.summary_status;
-      wrapped.source_category = parsedErr?.source_category;
-      wrapped.httpStatus = (error as any)?.context?.status;
-      throw wrapped;
-    }
-    if (data?.error) {
-      const wrapped: any = new Error(data.error);
-      wrapped.code = data.code || 'PIPELINE_ASSESSMENT_FAILED';
-      wrapped.retryable = Boolean(data.retryable);
-      wrapped.summary_status = data.summary_status;
-      wrapped.source_category = data.source_category;
-      throw wrapped;
+      try {
+        const jsonMatch = cleanMsg.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+          const nested = JSON.parse(jsonMatch[0]);
+          if (nested?.error) {
+            cleanMsg = String(nested.error.message || cleanMsg);
+            statusNum = Number(nested.error.code || statusNum) || statusNum;
+            if (nested.error.status === 'UNAVAILABLE') {
+              detectedCode = 'MODEL_UNAVAILABLE';
+            }
+          }
+        }
+      } catch {
+        // Keep cleanMsg as-is
+      }
+
+      const lower = cleanMsg.toLowerCase();
+      const isTransient =
+        statusNum === 503 ||
+        statusNum === 429 ||
+        statusNum === 502 ||
+        statusNum === 504 ||
+        detectedCode === 'MODEL_UNAVAILABLE' ||
+        lower.includes('high demand') ||
+        lower.includes('unavailable') ||
+        lower.includes('503') ||
+        lower.includes('resource_exhausted') ||
+        lower.includes('429');
+
+      if (isTransient) {
+        detectedCode = 'MODEL_UNAVAILABLE';
+        if (cleanMsg.trim().startsWith('{') || lower.includes('spikes in demand')) {
+          cleanMsg =
+            'The AI assessment model is temporarily experiencing high demand (503 UNAVAILABLE). Automatic retries did not clear the spike — please wait a few seconds and click Run Assessment again.';
+        }
+      }
+
+      return { cleanMsg, detectedCode, isTransient, statusNum };
+    };
+
+    const MAX_ATTEMPTS = 3;
+    let data: any = null;
+
+    for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+      const { data: invokeData, error } = await supabase.functions.invoke('pipeline-assessment', {
+        body: {
+          action: 'run-pipeline-assessment',
+          pipeline_id: pipelineId,
+          pipeline_opportunity_id: pipelineId
+        }
+      });
+
+      if (error) {
+        let parsedErr: any = null;
+        try {
+          if ((error as any).context && typeof (error as any).context.json === 'function') {
+            parsedErr = await (error as any).context.json();
+          } else if ((error as any).context && typeof (error as any).context.text === 'function') {
+            const txt = await (error as any).context.text();
+            parsedErr = JSON.parse(txt);
+          }
+        } catch {}
+
+        const rawMsg =
+          parsedErr?.error ||
+          parsedErr?.message ||
+          (error as any).message ||
+          'Pipeline Assessment execution failed.';
+        const httpStatus = (error as any)?.context?.status;
+        const info = extractErrorInfo(rawMsg, httpStatus, parsedErr?.code);
+
+        if (info.isTransient && attempt < MAX_ATTEMPTS) {
+          await new Promise((resolve) => setTimeout(resolve, attempt * 1500));
+          continue;
+        }
+
+        const wrapped: any = new Error(info.cleanMsg);
+        wrapped.code = info.detectedCode;
+        wrapped.retryable = Boolean(parsedErr?.retryable) || info.isTransient;
+        wrapped.summary_status = parsedErr?.summary_status;
+        wrapped.source_category = parsedErr?.source_category;
+        wrapped.httpStatus = info.statusNum || httpStatus;
+        throw wrapped;
+      }
+
+      if (invokeData?.error) {
+        const info = extractErrorInfo(invokeData.error, undefined, invokeData.code);
+        if (info.isTransient && attempt < MAX_ATTEMPTS) {
+          await new Promise((resolve) => setTimeout(resolve, attempt * 1500));
+          continue;
+        }
+
+        const wrapped: any = new Error(info.cleanMsg);
+        wrapped.code = info.detectedCode;
+        wrapped.retryable = Boolean(invokeData.retryable) || info.isTransient;
+        wrapped.summary_status = invokeData.summary_status;
+        wrapped.source_category = invokeData.source_category;
+        throw wrapped;
+      }
+
+      data = invokeData;
+      break;
     }
 
     // Preserve any real commercial Pipeline Stage so evidence intake / reassessment never overwrites it
