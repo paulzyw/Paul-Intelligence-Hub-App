@@ -329,9 +329,9 @@ export function Footer() {
                 r="240"
                 gradientUnits="userSpaceOnUse"
               >
-                <stop offset="0%" stopColor="var(--accent)" stopOpacity={0.36} />
-                <stop offset="45%" stopColor="var(--accent)" stopOpacity={0.15} />
-                <stop offset="100%" stopColor="var(--accent)" stopOpacity={0} />
+                <stop offset="0%" stopColor="var(--text-hero-primary)" stopOpacity={0.36} />
+                <stop offset="45%" stopColor="var(--text-hero-primary)" stopOpacity={0.15} />
+                <stop offset="100%" stopColor="var(--text-hero-primary)" stopOpacity={0} />
               </radialGradient>
 
               <radialGradient
@@ -344,8 +344,8 @@ export function Footer() {
                 r="230"
                 gradientUnits="userSpaceOnUse"
               >
-                <stop offset="0%" stopColor="var(--accent)" stopOpacity={1} />
-                <stop offset="50%" stopColor="var(--accent)" stopOpacity={0.45} />
+                <stop offset="0%" stopColor="var(--accent)" stopOpacity={0.5} />
+                <stop offset="50%" stopColor="var(--accent)" stopOpacity={0.25} />
                 <stop offset="100%" stopColor="var(--accent)" stopOpacity={0} />
               </radialGradient>
             </defs>
