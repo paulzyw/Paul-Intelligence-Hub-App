@@ -445,7 +445,7 @@ export function TermsOfService() {
                 These Terms and any dispute or claim arising out of or in connection with them or their subject matter shall be governed by and construed in accordance with the laws of the jurisdiction of Apprevos Technology’s registered establishment, without giving effect to conflict of law principles.
               </p>
               <p>
-                Before initiating formal legal proceedings, the parties agree to make good-faith efforts to resolve any dispute through informal executive consultation by contacting <a href="mailto:paul.zy.wang@hotmail.com" className="text-accent hover:underline">paul.zy.wang@hotmail.com</a>. If the dispute is not resolved within forty-five (45) days, either party may seek resolution before the competent courts of the platform operator's registered seat.
+                Before initiating formal legal proceedings, the parties agree to make good-faith efforts to resolve any dispute through informal executive consultation by <Link to="/about/contact" className="text-accent hover:underline">online contacting</Link>. If the dispute is not resolved within forty-five (45) days, either party may seek resolution before the competent courts of the platform operator's registered seat.
               </p>
             </section>
 
@@ -466,7 +466,7 @@ export function TermsOfService() {
                   <div className="mt-2 p-3.5 rounded-xl border border-border bg-bg-surface font-mono text-xs">
                     Apprevos Technology (RevOS)<br />
                     Attn: Commercial Legal &amp; Compliance<br />
-                    Email: paul.zy.wang@hotmail.com<br />
+                    {/*Email: paul.zy.wang@hotmail.com<br />*/}
                     Online: /about/contact
                   </div>
                 </li>

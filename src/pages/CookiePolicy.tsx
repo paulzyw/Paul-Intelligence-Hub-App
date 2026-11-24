@@ -592,9 +592,9 @@ export function CookiePolicy() {
             <div className="p-5 rounded-2xl border border-border bg-bg-surface space-y-2 text-xs sm:text-sm">
               <div className="font-semibold text-text-primary">Apprevos Technology</div>
               <div>Platform: <strong>RevOS (AI-Native Revenue Operating System)</strong></div>
-              <div>
+              {/*<div>
                 Direct Inquiries: <a href="mailto:paul.zy.wang@hotmail.com" className="text-accent hover:underline">paul.zy.wang@hotmail.com</a>
-              </div>
+              </div>*/}
               <div>
                 Online Contact Form: <Link to="/about/contact" className="text-accent hover:underline font-medium">Contact Us</Link>
               </div>

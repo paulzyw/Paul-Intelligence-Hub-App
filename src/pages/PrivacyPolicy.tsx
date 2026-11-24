@@ -151,8 +151,8 @@ export function PrivacyPolicy() {
               <div className="p-5 rounded-2xl border border-border bg-bg-surface space-y-2 text-xs sm:text-sm">
                 <div><strong>Platform Brand:</strong> RevOS</div>
                 <div><strong>Operating Entity:</strong> Apprevos Technology</div>
-                <div><strong>Founder &amp; Principal:</strong> Paul Wang</div>
-                <div><strong>Direct Contact Mailbox:</strong> <a href="mailto:paul.zy.wang@hotmail.com" className="text-accent hover:underline">paul.zy.wang@hotmail.com</a></div>
+                <div><strong>Founder &amp; Principal:</strong> Paul W.</div>
+                {/*<div><strong>Direct Contact Mailbox:</strong> <a href="mailto:paul.zy.wang@hotmail.com" className="text-accent hover:underline">paul.zy.wang@hotmail.com</a></div>*/}
                 <div><strong>Online Inquiries:</strong> <Link to="/about/contact" className="text-accent hover:underline">Contact Form (/about/contact)</Link></div>
               </div>
               <p className="text-xs italic text-text-secondary">
