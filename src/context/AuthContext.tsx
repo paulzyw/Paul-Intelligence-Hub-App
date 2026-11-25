@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useEffect, useState, useRef } from 'react';
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
 import { UserProfile, UserRole } from '../types';
+import { setActiveRevOSUserId } from '../apps/revos/utils/userIsolation';
 
 interface AuthContextType {
   user: any;
@@ -164,6 +165,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       
       if (session?.user) {
         const userId = session.user.id;
+        setActiveRevOSUserId(userId);
         setUser(session.user);
 
         // Immediate cache hydration for instantaneous usability on refresh
@@ -194,6 +196,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           if (mounted) setLoading(false);
         }
       } else {
+        setActiveRevOSUserId(null);
         lastHandledUserIdRef.current = null;
         if (mounted) {
           setUser(null);

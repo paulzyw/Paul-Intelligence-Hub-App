@@ -471,7 +471,10 @@ export function GTMOSModule() {
         setActiveStep(1);
       }
 
-      if (!supabase) {
+      if (!supabase || !profile?.id) {
+        setProjectsList([]);
+        setCurrentProjectId('');
+        setActiveStep(1);
         setIsSyncingDb(false);
         setIsInitialLoading(false);
         return;
@@ -479,15 +482,11 @@ export function GTMOSModule() {
 
       try {
         // Multi-tenant Security Check: Enforce user's creator_id filter so users only see their own strategies
-        let query = supabase.from('revos_gtmos_strategies').select('*').order('updated_at', { ascending: false });
-        if (profile?.id) {
-          query = query.eq('creator_id', profile.id);
-        } else {
-          // If Guest or Profile not loaded yet, only fetch guest strategies
-          query = query.is('creator_id', null);
-        }
-        
-        const { data, error } = await query;
+        const { data, error } = await supabase
+          .from('revos_gtmos_strategies')
+          .select('*')
+          .eq('creator_id', profile.id)
+          .order('updated_at', { ascending: false });
 
         if (error) throw error;
 
@@ -575,7 +574,7 @@ export function GTMOSModule() {
     const target = sortedProjects.find(p => p.id === targetProjId);
     if (!target) return;
 
-    if (!supabase) return;
+    if (!supabase || !profile?.id) return;
     try {
       setDbStatusMsg('Synchronizing to Cloud...');
       const { error } = await supabase
@@ -583,7 +582,7 @@ export function GTMOSModule() {
         .upsert({
           id: target.id,
           org_id: org?.id || null,
-          creator_id: profile?.id || null,
+          creator_id: profile.id,
           title: target.title,
           market_segment: target.market_segment,
           strategic_objective: target.strategic_objective,
@@ -619,19 +618,15 @@ export function GTMOSModule() {
   };
 
   const refreshProjectFromCloud = async () => {
-    if (!supabase || !currentProjectId || !currentProject) return;
+    if (!supabase || !profile?.id || !currentProjectId || !currentProject) return;
     try {
       setDbStatusMsg('Polling Live Cloud State...');
-      let refreshQuery = supabase
+      const { data, error } = await supabase
         .from('revos_gtmos_strategies')
         .select('*')
-        .eq('id', currentProjectId);
-      if (profile?.id) {
-        refreshQuery = refreshQuery.eq('creator_id', profile.id);
-      } else {
-        refreshQuery = refreshQuery.is('creator_id', null);
-      }
-      const { data, error } = await refreshQuery.single();
+        .eq('id', currentProjectId)
+        .eq('creator_id', profile.id)
+        .single();
 
       if (error) throw error;
       if (data) {
@@ -765,16 +760,14 @@ export function GTMOSModule() {
 
     try {
       if (supabase) {
-        let deleteQuery = supabase
+        if (!profile?.id) {
+          throw new Error('Authentication required to delete project.');
+        }
+        const { error: deleteErr } = await supabase
           .from('revos_gtmos_strategies')
           .delete()
-          .eq('id', id);
-        if (profile?.id) {
-          deleteQuery = deleteQuery.eq('creator_id', profile.id);
-        } else {
-          deleteQuery = deleteQuery.is('creator_id', null);
-        }
-        const { error: deleteErr } = await deleteQuery;
+          .eq('id', id)
+          .eq('creator_id', profile.id);
         if (deleteErr) throw deleteErr;
       }
 

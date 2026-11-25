@@ -8,14 +8,27 @@ import {
   OPPORTUNITY_STAGE_OPTIONS,
   getIsolatedPipelineCardEdits
 } from '../components/PipelineCard';
+import {
+  getActiveRevOSUserId,
+  getScopedStorageItem,
+  resolveAuthenticatedRevOSUserId,
+  setScopedStorageItem,
+  subscribeRevOSUserChange
+} from '../../utils/userIsolation';
 
 const PORTFOLIO_CACHE_STORAGE_KEY = 'revos_cached_pipeline_portfolio_v2';
 const PORTFOLIO_FRESH_WINDOW_MS = 15_000;
 
-let memoryPortfolioCache: { items: PipelineCardItem[]; fetchedAt: number } | null = null;
-let inFlightPortfolioLoad: Promise<PipelineCardItem[]> | null = null;
+let memoryPortfolioCache: { userId: string; items: PipelineCardItem[]; fetchedAt: number } | null = null;
+let inFlightPortfolioLoad: { userId: string; promise: Promise<PipelineCardItem[]> } | null = null;
 let portfolioCacheDirty = false;
 let portfolioListenersAttached = false;
+
+subscribeRevOSUserChange(() => {
+  memoryPortfolioCache = null;
+  inFlightPortfolioLoad = null;
+  portfolioCacheDirty = true;
+});
 
 function ensurePortfolioInvalidationListeners() {
   if (portfolioListenersAttached || typeof window === 'undefined') return;
@@ -28,15 +41,20 @@ function ensurePortfolioInvalidationListeners() {
   window.addEventListener('pipeline_portfolio_updated', markDirty);
 }
 
-function hydrateMemoryPortfolioFromStorage(): { items: PipelineCardItem[]; fetchedAt: number } | null {
-  if (memoryPortfolioCache) return memoryPortfolioCache;
+function hydrateMemoryPortfolioFromStorage(
+  explicitUserId?: string | null
+): { userId: string; items: PipelineCardItem[]; fetchedAt: number } | null {
+  const uid = explicitUserId ?? getActiveRevOSUserId();
+  if (!uid) return null;
+  if (memoryPortfolioCache && memoryPortfolioCache.userId === uid) return memoryPortfolioCache;
   if (typeof window === 'undefined') return null;
   try {
-    const raw = localStorage.getItem(PORTFOLIO_CACHE_STORAGE_KEY);
+    const raw = getScopedStorageItem(PORTFOLIO_CACHE_STORAGE_KEY, uid);
     if (!raw) return null;
     const parsed = JSON.parse(raw);
     if (parsed && Array.isArray(parsed.items)) {
       memoryPortfolioCache = {
+        userId: uid,
         items: parsed.items,
         fetchedAt: typeof parsed.fetchedAt === 'number' ? parsed.fetchedAt : 0
       };
@@ -46,27 +64,27 @@ function hydrateMemoryPortfolioFromStorage(): { items: PipelineCardItem[]; fetch
   return null;
 }
 
-function persistPortfolioCache(items: PipelineCardItem[]) {
-  const entry = { items, fetchedAt: Date.now() };
+function persistPortfolioCache(items: PipelineCardItem[], userId: string) {
+  if (!userId) return;
+  const entry = { userId, items, fetchedAt: Date.now() };
   memoryPortfolioCache = entry;
   portfolioCacheDirty = false;
-  if (typeof window !== 'undefined') {
-    try {
-      localStorage.setItem(PORTFOLIO_CACHE_STORAGE_KEY, JSON.stringify(entry));
-    } catch {}
-  }
+  setScopedStorageItem(PORTFOLIO_CACHE_STORAGE_KEY, JSON.stringify({ items, fetchedAt: entry.fetchedAt }), userId);
 }
 
-export function getCachedCanonicalPipelinePortfolio(): PipelineCardItem[] | null {
+export function getCachedCanonicalPipelinePortfolio(
+  explicitUserId?: string | null
+): PipelineCardItem[] | null {
   ensurePortfolioInvalidationListeners();
-  const cached = hydrateMemoryPortfolioFromStorage();
+  const uid = explicitUserId ?? getActiveRevOSUserId();
+  const cached = hydrateMemoryPortfolioFromStorage(uid);
   if (!cached) return null;
-  return cached.items.map(applyIsolatedEdits);
+  return cached.items.map((item) => applyIsolatedEdits(item, uid));
 }
 
-export function isPipelinePortfolioCacheFresh(): boolean {
+export function isPipelinePortfolioCacheFresh(explicitUserId?: string | null): boolean {
   ensurePortfolioInvalidationListeners();
-  const cached = hydrateMemoryPortfolioFromStorage();
+  const cached = hydrateMemoryPortfolioFromStorage(explicitUserId);
   if (!cached || portfolioCacheDirty) return false;
   return Date.now() - cached.fetchedAt < PORTFOLIO_FRESH_WINDOW_MS;
 }
@@ -81,10 +99,12 @@ export function invalidatePipelinePortfolioCache(): void {
 export function updateCachedCanonicalPipelinePortfolio(
   updater: (prev: PipelineCardItem[]) => PipelineCardItem[]
 ): void {
-  const cached = hydrateMemoryPortfolioFromStorage();
+  const uid = getActiveRevOSUserId();
+  if (!uid) return;
+  const cached = hydrateMemoryPortfolioFromStorage(uid);
   if (!cached) return;
   const next = updater(cached.items);
-  persistPortfolioCache(next);
+  persistPortfolioCache(next, uid);
 }
 
 export type CanvasColumnKey =
@@ -221,8 +241,11 @@ export function isCreatedOpportunityReadyForCanvas(
   return true;
 }
 
-export function applyIsolatedEdits(item: PipelineCardItem): PipelineCardItem {
-  const isolated = getIsolatedPipelineCardEdits(item.id);
+export function applyIsolatedEdits(
+  item: PipelineCardItem,
+  explicitUserId?: string | null
+): PipelineCardItem {
+  const isolated = getIsolatedPipelineCardEdits(item.id, explicitUserId);
   if (!isolated) return item;
   return {
     ...item,
@@ -245,67 +268,93 @@ export function applyIsolatedEdits(item: PipelineCardItem): PipelineCardItem {
 /**
  * Canonical Pipeline Portfolio Loader shared by Pipeline Canvas & Pipeline Dashboard
  * so Active Pipeline, Closed Outcomes, and deal valuations match 1:1.
- * Deduplicates concurrent requests and uses SWR memory + localStorage caching.
+ * Deduplicates concurrent requests and uses user-scoped SWR memory + localStorage caching.
  */
 export async function loadCanonicalPipelinePortfolio(options?: {
   forceRefresh?: boolean;
 }): Promise<PipelineCardItem[]> {
   ensurePortfolioInvalidationListeners();
 
-  if (!options?.forceRefresh && isPipelinePortfolioCacheFresh() && memoryPortfolioCache) {
-    return memoryPortfolioCache.items.map(applyIsolatedEdits);
+  const userId = await resolveAuthenticatedRevOSUserId();
+  if (!userId) return [];
+
+  if (
+    !options?.forceRefresh &&
+    isPipelinePortfolioCacheFresh(userId) &&
+    memoryPortfolioCache &&
+    memoryPortfolioCache.userId === userId
+  ) {
+    return memoryPortfolioCache.items.map((item) => applyIsolatedEdits(item, userId));
   }
 
-  if (!options?.forceRefresh && inFlightPortfolioLoad) {
-    return inFlightPortfolioLoad;
+  if (!options?.forceRefresh && inFlightPortfolioLoad?.userId === userId) {
+    return inFlightPortfolioLoad.promise;
   }
 
-  const runPromise = executeLoadCanonicalPipelinePortfolio().finally(() => {
-    if (inFlightPortfolioLoad === runPromise) {
+  const runPromise = executeLoadCanonicalPipelinePortfolio(userId).finally(() => {
+    if (inFlightPortfolioLoad?.promise === runPromise) {
       inFlightPortfolioLoad = null;
     }
   });
 
-  inFlightPortfolioLoad = runPromise;
+  inFlightPortfolioLoad = { userId, promise: runPromise };
   return runPromise;
 }
 
-async function executeLoadCanonicalPipelinePortfolio(): Promise<PipelineCardItem[]> {
-  const [
-    pipeList,
-    oppsRes,
-    promosRes,
-    mqlPromosRes,
-    formRes,
-    leadsRes,
-    sqlHandoverRes,
-    pipeFormRes,
-    pipeHandoverRes
-  ] = await Promise.all([
+async function executeLoadCanonicalPipelinePortfolio(userId: string): Promise<PipelineCardItem[]> {
+  const [pipeList, oppsRes, promosRes, mqlPromosRes, leadsRes] = await Promise.all([
     PipelineDataService.listPipelineOpportunities(),
     supabase
       .from('opportunities')
       .select(
         'id, mql_reference_id, company_name, opportunity_name, industry, revenue_motion, expected_revenue, description, created_at'
       )
+      .eq('created_by', userId)
       .order('created_at', { ascending: false }),
-    supabase.from('sql_opportunity_promotions').select('lead_id, opportunity_id'),
-    supabase.from('mql_sql_promotions').select('lead_id, opportunity_id'),
     supabase
-      .from('opportunity_form_records')
-      .select(
-        'opportunity_id, company_name, opportunity_name, estimated_revenue, industry, revenue_motion, pipeline_stage, opportunity_stage, expected_close_date, opportunity_owner'
-      ),
-    supabase.from('mql_leads').select('id, company_name, lead_industry, status'),
+      .from('sql_opportunity_promotions')
+      .select('lead_id, opportunity_id')
+      .eq('created_by', userId),
     supabase
-      .from('opportunity_sql_handover_details')
-      .select('opportunity_id, sql_qip_package, editable_fields'),
+      .from('mql_sql_promotions')
+      .select('lead_id, opportunity_id')
+      .eq('created_by', userId),
     supabase
-      .from('pipeline_form_records')
-      .select('*'),
-    supabase
-      .from('pipeline_opportunity_handover_details')
-      .select('pipeline_id, summary_status, initial_opportunity_context_summary, padif_package')
+      .from('mql_leads')
+      .select('id, company_name, lead_industry, status')
+      .eq('created_by', userId)
+  ]);
+
+  const ownedOppIds = (oppsRes.data || []).map((o: any) => o.id).filter(Boolean);
+  const ownedPipeIds = pipeList.map((p) => p.pipeline_id).filter(Boolean);
+
+  const [formRes, sqlHandoverRes, pipeFormRes, pipeHandoverRes] = await Promise.all([
+    ownedOppIds.length > 0
+      ? supabase
+          .from('opportunity_form_records')
+          .select(
+            'opportunity_id, company_name, opportunity_name, estimated_revenue, industry, revenue_motion, pipeline_stage, opportunity_stage, expected_close_date, opportunity_owner'
+          )
+          .in('opportunity_id', ownedOppIds)
+      : Promise.resolve({ data: [], error: null } as any),
+    ownedOppIds.length > 0
+      ? supabase
+          .from('opportunity_sql_handover_details')
+          .select('opportunity_id, sql_qip_package, editable_fields')
+          .in('opportunity_id', ownedOppIds)
+      : Promise.resolve({ data: [], error: null } as any),
+    ownedPipeIds.length > 0
+      ? supabase
+          .from('pipeline_form_records')
+          .select('*')
+          .in('pipeline_id', ownedPipeIds)
+      : Promise.resolve({ data: [], error: null } as any),
+    ownedPipeIds.length > 0
+      ? supabase
+          .from('pipeline_opportunity_handover_details')
+          .select('pipeline_id, summary_status, initial_opportunity_context_summary, padif_package')
+          .in('pipeline_id', ownedPipeIds)
+      : Promise.resolve({ data: [], error: null } as any)
   ]);
 
   if (leadsRes.error) {
@@ -418,26 +467,24 @@ async function executeLoadCanonicalPipelinePortfolio(): Promise<PipelineCardItem
 
   let deletedLeadIds = new Set<string>();
   let deletedOppIds = new Set<string>();
-  if (typeof window !== 'undefined') {
-    try {
-      const storedLeads = localStorage.getItem('mql_deleted_lead_ids');
-      if (storedLeads) {
-        const parsed = JSON.parse(storedLeads);
-        if (Array.isArray(parsed)) deletedLeadIds = new Set(parsed.filter(Boolean));
-      }
-    } catch {}
-    try {
-      const storedOpps = localStorage.getItem('sql_opportunity_table_deleted_ids');
-      if (storedOpps) {
-        const parsed = JSON.parse(storedOpps);
-        if (Array.isArray(parsed)) deletedOppIds = new Set(parsed.filter(Boolean));
-      }
-    } catch {}
-  }
+  try {
+    const storedLeads = getScopedStorageItem('mql_deleted_lead_ids', userId);
+    if (storedLeads) {
+      const parsed = JSON.parse(storedLeads);
+      if (Array.isArray(parsed)) deletedLeadIds = new Set(parsed.filter(Boolean));
+    }
+  } catch {}
+  try {
+    const storedOpps = getScopedStorageItem('sql_opportunity_table_deleted_ids', userId);
+    if (storedOpps) {
+      const parsed = JSON.parse(storedOpps);
+      if (Array.isArray(parsed)) deletedOppIds = new Set(parsed.filter(Boolean));
+    }
+  } catch {}
 
   const promoLeadIds = new Set<string>(
     promosRes.error
-      ? PromotionDataService.getCachedSqlOpportunityPromotedLeadIds()
+      ? PromotionDataService.getCachedSqlOpportunityPromotedLeadIds(userId)
       : (promosRes.data || []).map((p: any) => p.lead_id).filter(Boolean)
   );
   const promoLeadByOppId = new Map<string, string>();
@@ -493,14 +540,12 @@ async function executeLoadCanonicalPipelinePortfolio(): Promise<PipelineCardItem
     if (leadId) {
       const matchLead = leadById.get(leadId);
       if (matchLead?.lead_industry) return matchLead.lead_industry;
-      if (typeof window !== 'undefined') {
-        const extraJson = localStorage.getItem(`mql_lead_extra_${leadId}`);
-        if (extraJson) {
-          try {
-            const extra = JSON.parse(extraJson);
-            if (extra.lead_industry) return extra.lead_industry;
-          } catch {}
-        }
+      const extraJson = getScopedStorageItem(`mql_lead_extra_${leadId}`, userId);
+      if (extraJson) {
+        try {
+          const extra = JSON.parse(extraJson);
+          if (extra.lead_industry) return extra.lead_industry;
+        } catch {}
       }
     }
 
@@ -617,7 +662,7 @@ async function executeLoadCanonicalPipelinePortfolio(): Promise<PipelineCardItem
       pipeline_opp: linkedPipe
     };
 
-    const finalItem = applyIsolatedEdits(baseItem);
+    const finalItem = applyIsolatedEdits(baseItem, userId);
     // Column 1 (Initial Pipeline) must ONLY display items currently listed in Lead Canvas Opportunity Column
     if (resolveCanvasColumn(finalItem) === 'Initial Pipeline' && !isInLeadCanvasOppColumn) {
       return;
@@ -705,7 +750,7 @@ async function executeLoadCanonicalPipelinePortfolio(): Promise<PipelineCardItem
       pipeline_opp: linkedPipe
     };
 
-    mergedItems.push(applyIsolatedEdits(baseItem));
+    mergedItems.push(applyIsolatedEdits(baseItem, userId));
   });
 
   const readyCreatedItems: PipelineCardItem[] = [];
@@ -767,7 +812,7 @@ async function executeLoadCanonicalPipelinePortfolio(): Promise<PipelineCardItem
       pipeline_opp: p
     };
 
-    const finalItem = applyIsolatedEdits(baseItem);
+    const finalItem = applyIsolatedEdits(baseItem, userId);
     const resolvedItemSource = String(finalItem.source || '').trim().toLowerCase();
     const isCreatedDirect =
       resolvedItemSource === 'created' ||
@@ -799,7 +844,7 @@ async function executeLoadCanonicalPipelinePortfolio(): Promise<PipelineCardItem
   const combinedItems =
     readyCreatedItems.length > 0 ? [...readyCreatedItems, ...mergedItems] : mergedItems;
 
-  persistPortfolioCache(combinedItems);
+  persistPortfolioCache(combinedItems, userId);
 
   return combinedItems;
 }

@@ -1767,6 +1767,54 @@ const validateSourceCategoryForSummary = (
   };
 };
 
+const verifyAuthenticatedCaller = async (
+  req: Request,
+  supabase: any
+): Promise<{
+  authorized: boolean;
+  status: number;
+  error?: string;
+  userId?: string | null;
+  email?: string | null;
+  isServiceRole?: boolean;
+}> => {
+  const authHeader = req.headers.get('authorization') || req.headers.get('Authorization') || '';
+  const token = authHeader.replace(/^Bearer\s+/i, '').trim();
+  const anonKey = getEnv('SUPABASE_ANON_KEY').trim();
+  const serviceRoleKey = getEnv('SUPABASE_SERVICE_ROLE_KEY').trim();
+
+  if (serviceRoleKey && token && token === serviceRoleKey) {
+    return { authorized: true, status: 200, userId: null, email: null, isServiceRole: true };
+  }
+
+  const hasUserJwt = Boolean(token && token !== anonKey && token.split('.').length === 3);
+  if (!hasUserJwt) {
+    return {
+      authorized: false,
+      status: 401,
+      error: 'Unauthorized: valid user authentication is required.'
+    };
+  }
+
+  const { data: userRes, error: authErr } = await supabase.auth.getUser(token);
+  const user = userRes?.user || null;
+  if (authErr || !user) {
+    return {
+      authorized: false,
+      status: 401,
+      error: 'Unauthorized: invalid or expired authentication token.'
+    };
+  }
+
+  return {
+    authorized: true,
+    status: 200,
+    userId: user.id,
+    email: user.email || null,
+    isServiceRole: false
+  };
+};
+
 const verifyCreatedOpportunityAuthorization = async (
   req: Request,
   supabase: any,
@@ -1788,7 +1836,19 @@ const verifyCreatedOpportunityAuthorization = async (
     return { authorized: true, status: 200, actorUserId: null, actorEmail: null };
   }
 
-  const hasUserJwt = Boolean(token && token !== anonKey && token.split('.').length === 3);
+  const hasExplicitNonAnonToken = Boolean(token && token !== anonKey);
+  const hasUserJwt = Boolean(hasExplicitNonAnonToken && token.split('.').length === 3);
+
+  if (hasExplicitNonAnonToken && !hasUserJwt) {
+    return {
+      authorized: false,
+      status: 401,
+      error: 'Unauthorized: invalid authentication token format.'
+    };
+  }
+
+  const oppCreatorId = normalizeTextField(pipelineOpp?.created_by);
+  const oppOwnerEmail = normalizeTextField(pipelineOpp?.owner_email).toLowerCase();
 
   if (hasUserJwt) {
     const { data: userRes, error: authErr } = await supabase.auth.getUser(token);
@@ -1801,41 +1861,24 @@ const verifyCreatedOpportunityAuthorization = async (
       };
     }
 
-    const oppCreatorId = normalizeTextField(pipelineOpp?.created_by);
-    const oppOwnerEmail = normalizeTextField(pipelineOpp?.owner_email).toLowerCase();
-    const userEmail = normalizeTextField(user.email).toLowerCase();
-
-    if (oppCreatorId && oppCreatorId !== user.id) {
-      let hasPrivilegedRole = false;
-      if (oppOwnerEmail && userEmail && oppOwnerEmail === userEmail) {
-        hasPrivilegedRole = true;
-      } else {
-        try {
-          const { data: profileRow } = await supabase
-            .from('profiles')
-            .select('role, tenant_id')
-            .eq('id', user.id)
-            .maybeSingle();
-          const role = normalizeTextField(profileRow?.role).toLowerCase();
-          if (
-            role === 'super admin' ||
-            role === 'revos admin' ||
-            role === 'workspace admin' ||
-            role === 'enterprise executive'
-          ) {
-            hasPrivilegedRole = true;
-          }
-        } catch (_e) {
-          // Non-fatal if profiles lookup unavailable
-        }
-      }
-
-      if (!hasPrivilegedRole) {
+    // Strict per-user isolation across ALL roles (including super_admin)
+    if (oppCreatorId) {
+      if (oppCreatorId !== user.id) {
         return {
           authorized: false,
           status: 403,
           error:
-            'Forbidden: you do not have permission to generate or view summaries for an opportunity owned by another user.'
+            'Forbidden: you do not have permission to access or modify an opportunity owned by another user.'
+        };
+      }
+    } else if (oppOwnerEmail) {
+      const userEmail = normalizeTextField(user.email).toLowerCase();
+      if (!userEmail || oppOwnerEmail !== userEmail) {
+        return {
+          authorized: false,
+          status: 403,
+          error:
+            'Forbidden: you do not have permission to access or modify an opportunity owned by another user.'
         };
       }
     }
@@ -1848,13 +1891,13 @@ const verifyCreatedOpportunityAuthorization = async (
     };
   }
 
-  // Unauthenticated / anon-key-only callers cannot access opportunities owned by a specific authenticated user
-  if (normalizeTextField(pipelineOpp?.created_by)) {
+  // Unauthenticated / anon-key-only callers cannot access user-owned opportunities
+  if (oppCreatorId || oppOwnerEmail) {
     return {
       authorized: false,
       status: 401,
       error:
-        'Authentication required to generate summaries for user-owned opportunities.'
+        'Authentication required to access user-owned opportunities.'
     };
   }
 
@@ -2760,6 +2803,17 @@ serve(async (req: Request) => {
       const { pipeline_id, pipeline_opportunity_id, opportunity_id } = body;
       const pipelineOpp = await resolvePipelineOpportunity(pipeline_id || pipeline_opportunity_id, opportunity_id);
 
+      const authCheck = await verifyCreatedOpportunityAuthorization(req, supabase, pipelineOpp);
+      if (!authCheck.authorized) {
+        return new Response(
+          JSON.stringify({
+            error: authCheck.error,
+            code: authCheck.status === 401 ? 'UNAUTHORIZED' : 'FORBIDDEN'
+          }),
+          { status: authCheck.status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
       const revMotion = pipelineOpp?.revenue_motion_id || pipelineOpp?.revenue_motion_name || 'RM01_Digital_Solution_Selling';
       const industry = pipelineOpp?.industry_id || pipelineOpp?.industry_name || 'IND_SaaS_Software';
 
@@ -2783,6 +2837,18 @@ serve(async (req: Request) => {
       const { pipeline_id, pipeline_opportunity_id, revenue_motion, industry } = body;
       const resolvedId = pipeline_id || pipeline_opportunity_id;
       const pipelineOpp = resolvedId ? await resolvePipelineOpportunity(resolvedId) : null;
+
+      const authCheck = await verifyCreatedOpportunityAuthorization(req, supabase, pipelineOpp);
+      if (!authCheck.authorized) {
+        return new Response(
+          JSON.stringify({
+            error: authCheck.error,
+            code: authCheck.status === 401 ? 'UNAUTHORIZED' : 'FORBIDDEN'
+          }),
+          { status: authCheck.status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
       const effectivePipeId = pipelineOpp?.pipeline_id || resolvedId;
 
       const motionLabel = revenue_motion || pipelineOpp?.revenue_motion_name || pipelineOpp?.revenue_motion_id || 'Digital Solution Selling';
@@ -2837,6 +2903,17 @@ serve(async (req: Request) => {
       }
 
       const pipelineOpp = await resolvePipelineOpportunity(targetId);
+      const authCheck = await verifyCreatedOpportunityAuthorization(req, supabase, pipelineOpp);
+      if (!authCheck.authorized) {
+        return new Response(
+          JSON.stringify({
+            error: authCheck.error,
+            code: authCheck.status === 401 ? 'UNAUTHORIZED' : 'FORBIDDEN'
+          }),
+          { status: authCheck.status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
       const effectivePipeId = pipelineOpp?.pipeline_id || targetId;
 
       const rowsToInsert = evidence_records.map((ev: any) => {
@@ -2916,6 +2993,17 @@ serve(async (req: Request) => {
       if (!targetId) throw new Error('pipeline_id is required for evidence validation.');
 
       const pipelineOpp = await resolvePipelineOpportunity(targetId);
+      const authCheck = await verifyCreatedOpportunityAuthorization(req, supabase, pipelineOpp);
+      if (!authCheck.authorized) {
+        return new Response(
+          JSON.stringify({
+            error: authCheck.error,
+            code: authCheck.status === 401 ? 'UNAUTHORIZED' : 'FORBIDDEN'
+          }),
+          { status: authCheck.status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
       const effectivePipeId = pipelineOpp?.pipeline_id || targetId;
 
       let records = Array.isArray(evidence_records) ? evidence_records : null;
@@ -4644,7 +4732,19 @@ ${conciseEvidenceContext.map((ev: any) => `- [${ev.evidence_object_id}] ${ev.evi
         throw new Error('Either pipeline_id or assessment_id is required.');
       }
 
-      const pipelineOpp = targetId ? await resolvePipelineOpportunity(targetId) : null;
+      let pipelineOpp = targetId ? await resolvePipelineOpportunity(targetId) : null;
+      if (pipelineOpp) {
+        const earlyAuthCheck = await verifyCreatedOpportunityAuthorization(req, supabase, pipelineOpp);
+        if (!earlyAuthCheck.authorized) {
+          return new Response(
+            JSON.stringify({
+              error: earlyAuthCheck.error,
+              code: earlyAuthCheck.status === 401 ? 'UNAUTHORIZED' : 'FORBIDDEN'
+            }),
+            { status: earlyAuthCheck.status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+      }
       const effectivePipeId = pipelineOpp?.pipeline_id || targetId;
 
       let assessmentQuery = supabase.from('pipeline_assessments').select('*');
@@ -4663,6 +4763,20 @@ ${conciseEvidenceContext.map((ev: any) => `- [${ev.evidence_object_id}] ${ev.evi
         return new Response(JSON.stringify({ assessment: null }), {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' }
         });
+      }
+
+      if (!pipelineOpp && assessmentData.pipeline_id) {
+        pipelineOpp = await resolvePipelineOpportunity(assessmentData.pipeline_id);
+      }
+      const authCheck = await verifyCreatedOpportunityAuthorization(req, supabase, pipelineOpp);
+      if (!authCheck.authorized) {
+        return new Response(
+          JSON.stringify({
+            error: authCheck.error,
+            code: authCheck.status === 401 ? 'UNAUTHORIZED' : 'FORBIDDEN'
+          }),
+          { status: authCheck.status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
       }
 
       const currentAssessmentId = assessmentData.assessment_id;
@@ -4712,6 +4826,27 @@ ${conciseEvidenceContext.map((ev: any) => `- [${ev.evidence_object_id}] ${ev.evi
       const { pipeline_id, assessment_id, executive_summary, raw_reasoning_output } = body;
       if (!pipeline_id || !assessment_id) {
         throw new Error('pipeline_id and assessment_id are required.');
+      }
+      let pipelineOpp = await resolvePipelineOpportunity(pipeline_id);
+      if (!pipelineOpp) {
+        const { data: assessOwnerRow } = await supabase
+          .from('pipeline_assessments')
+          .select('pipeline_id')
+          .eq('assessment_id', assessment_id)
+          .maybeSingle();
+        if (assessOwnerRow?.pipeline_id) {
+          pipelineOpp = await resolvePipelineOpportunity(assessOwnerRow.pipeline_id);
+        }
+      }
+      const authCheck = await verifyCreatedOpportunityAuthorization(req, supabase, pipelineOpp);
+      if (!authCheck.authorized) {
+        return new Response(
+          JSON.stringify({
+            error: authCheck.error,
+            code: authCheck.status === 401 ? 'UNAUTHORIZED' : 'FORBIDDEN'
+          }),
+          { status: authCheck.status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
       }
       const nowIso = new Date().toISOString();
 
@@ -4844,6 +4979,17 @@ ${conciseEvidenceContext.map((ev: any) => `- [${ev.evidence_object_id}] ${ev.evi
       }
 
       const pipelineOpp = await resolvePipelineOpportunity(targetId);
+      const authCheck = await verifyCreatedOpportunityAuthorization(req, supabase, pipelineOpp);
+      if (!authCheck.authorized) {
+        return new Response(
+          JSON.stringify({
+            error: authCheck.error,
+            code: authCheck.status === 401 ? 'UNAUTHORIZED' : 'FORBIDDEN'
+          }),
+          { status: authCheck.status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
       const effectivePipeId = pipelineOpp?.pipeline_id || targetId;
       const nowIso = new Date().toISOString();
 
@@ -4934,7 +5080,27 @@ ${conciseEvidenceContext.map((ev: any) => `- [${ev.evidence_object_id}] ${ev.evi
     // ACTION 7: GET SAVED REVENUE INTELLIGENCE REPORT
     // -----------------------------------------------------------------------
     if (action === 'get-saved-revenue-intelligence') {
-      const effectiveUserId = String(body.user_id || 'workspace_default').trim() || 'workspace_default';
+      const caller = await verifyAuthenticatedCaller(req, supabase);
+      if (!caller.authorized) {
+        return new Response(JSON.stringify({ error: caller.error, code: 'UNAUTHORIZED' }), {
+          status: caller.status,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        });
+      }
+      const requestedUserId = String(body.user_id || '').trim();
+      if (!caller.isServiceRole && requestedUserId && (requestedUserId === 'workspace_default' || requestedUserId !== caller.userId)) {
+        return new Response(JSON.stringify({ error: 'Forbidden: user_id mismatch.', code: 'FORBIDDEN' }), {
+          status: 403,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        });
+      }
+      const effectiveUserId = caller.isServiceRole ? (requestedUserId || caller.userId || '') : String(caller.userId || '');
+      if (!effectiveUserId || effectiveUserId === 'workspace_default') {
+        return new Response(JSON.stringify({ error: 'Unauthorized: authenticated user ID is required.', code: 'UNAUTHORIZED' }), {
+          status: 401,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        });
+      }
       const scopeHash = String(body.scope_hash || '').trim();
 
       const { data: rows, error: qErr } = await supabase
@@ -4977,7 +5143,27 @@ ${conciseEvidenceContext.map((ev: any) => `- [${ev.evidence_object_id}] ${ev.evi
     // ACTION 8: SAVE REVENUE INTELLIGENCE REPORT TO SUPABASE
     // -----------------------------------------------------------------------
     if (action === 'save-revenue-intelligence') {
-      const effectiveUserId = String(body.user_id || 'workspace_default').trim() || 'workspace_default';
+      const caller = await verifyAuthenticatedCaller(req, supabase);
+      if (!caller.authorized) {
+        return new Response(JSON.stringify({ error: caller.error, code: 'UNAUTHORIZED' }), {
+          status: caller.status,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        });
+      }
+      const requestedUserId = String(body.user_id || '').trim();
+      if (!caller.isServiceRole && requestedUserId && (requestedUserId === 'workspace_default' || requestedUserId !== caller.userId)) {
+        return new Response(JSON.stringify({ error: 'Forbidden: user_id mismatch.', code: 'FORBIDDEN' }), {
+          status: 403,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        });
+      }
+      const effectiveUserId = caller.isServiceRole ? (requestedUserId || caller.userId || '') : String(caller.userId || '');
+      if (!effectiveUserId || effectiveUserId === 'workspace_default') {
+        return new Response(JSON.stringify({ error: 'Unauthorized: authenticated user ID is required.', code: 'UNAUTHORIZED' }), {
+          status: 401,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        });
+      }
       const scopeHash = String(body.scope_hash || '').trim();
       const scopeLabel = String(body.scope_label || 'Selected Portfolio').trim();
       const appliedFilters = body.applied_filters && typeof body.applied_filters === 'object' ? body.applied_filters : {};
@@ -5045,7 +5231,27 @@ ${conciseEvidenceContext.map((ev: any) => `- [${ev.evidence_object_id}] ${ev.evi
     // ACTION 9: GENERATE PORTFOLIO REVENUE INTELLIGENCE INSIGHTS (GEMINI)
     // -----------------------------------------------------------------------
     if (action === 'generate-revenue-intelligence') {
-      const effectiveUserId = String(body.user_id || 'workspace_default').trim() || 'workspace_default';
+      const caller = await verifyAuthenticatedCaller(req, supabase);
+      if (!caller.authorized) {
+        return new Response(JSON.stringify({ error: caller.error, code: 'UNAUTHORIZED' }), {
+          status: caller.status,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        });
+      }
+      const requestedUserId = String(body.user_id || '').trim();
+      if (!caller.isServiceRole && requestedUserId && (requestedUserId === 'workspace_default' || requestedUserId !== caller.userId)) {
+        return new Response(JSON.stringify({ error: 'Forbidden: user_id mismatch.', code: 'FORBIDDEN' }), {
+          status: 403,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        });
+      }
+      const effectiveUserId = caller.isServiceRole ? (requestedUserId || caller.userId || '') : String(caller.userId || '');
+      if (!effectiveUserId || effectiveUserId === 'workspace_default') {
+        return new Response(JSON.stringify({ error: 'Unauthorized: authenticated user ID is required.', code: 'UNAUTHORIZED' }), {
+          status: 401,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        });
+      }
       const scopeHash = String(body.scope_hash || '').trim();
       const forceRefresh = Boolean(body.force_refresh);
       const clientContext = body.portfolio_context;

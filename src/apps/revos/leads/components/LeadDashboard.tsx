@@ -7,6 +7,7 @@ import { SQLDataService } from '../services/sqlDataService';
 import { supabase } from '@/src/lib/supabase';
 import { QualificationIntelligenceSection } from './QualificationIntelligenceSection';
 import { QualificationDimensionIntelligence } from './QualificationDimensionIntelligence';
+import { getScopedStorageItem } from '../../utils/userIsolation';
 import { 
   TrendingUp, 
   Users, 
@@ -66,24 +67,28 @@ export const LeadDashboard: React.FC<LeadDashboardProps> = ({
           revMap, 
           promoIds, 
           sqlPromoIds,
-          opps,
-          assessListRes
+          opps
         ] = await Promise.all([
           PromotionDataService.getMqlSqlPromotions().catch(() => []),
           PromotionDataService.getSqlOpportunityPromotions().catch(() => []),
           OpportunityDataService.getOpportunityEstimatedRevenuesMap().catch(() => ({})),
           PromotionDataService.getPromotedLeadIds().catch(() => []),
           PromotionDataService.getSqlOpportunityPromotedLeadIds().catch(() => []),
-          SQLDataService.getOpportunities().catch(() => []),
-          (async () => {
-            try {
-              const res = await supabase.from('sql_assessments').select('*').order('created_at', { ascending: false });
-              return res?.data || [];
-            } catch {
-              return [];
-            }
-          })()
+          SQLDataService.getOpportunities().catch(() => [])
         ]);
+
+        const ownedOppIds = (opps || []).map((o: any) => o.id).filter(Boolean);
+        let assessListRes: any[] = [];
+        if (ownedOppIds.length > 0) {
+          try {
+            const res = await supabase
+              .from('sql_assessments')
+              .select('*')
+              .in('opportunity_id', ownedOppIds)
+              .order('created_at', { ascending: false });
+            assessListRes = res?.data || [];
+          } catch {}
+        }
         if (!isMounted) return;
         setMqlPromotions(mqlPromos || []);
         setOppPromotions(oppPromos || []);
@@ -152,7 +157,7 @@ export const LeadDashboard: React.FC<LeadDashboardProps> = ({
 
                 let resolvedOppRes = oppRes;
                 if (!resolvedOppRes && typeof window !== 'undefined') {
-                  const cached = localStorage.getItem(`oq_result_${oppId}`);
+                  const cached = getScopedStorageItem(`oq_result_${oppId}`);
                   if (cached) {
                     try {
                       const parsed = JSON.parse(cached);
@@ -254,7 +259,7 @@ export const LeadDashboard: React.FC<LeadDashboardProps> = ({
       }
     }
     if (!ticket && typeof window !== 'undefined') {
-      const stored = localStorage.getItem(`mql_handover_${lead.id}`);
+      const stored = getScopedStorageItem(`mql_handover_${lead.id}`);
       if (stored) {
         try { ticket = JSON.parse(stored); } catch {}
       }
@@ -316,7 +321,7 @@ export const LeadDashboard: React.FC<LeadDashboardProps> = ({
     oppPromoMap.has(l.id) || 
     (l as any).is_opportunity === true || 
     (l.status as string) === 'Opportunity' ||
-    (typeof window !== 'undefined' && localStorage.getItem(`sql_opp_promoted_lead_${l.id}`) === 'true')
+    (typeof window !== 'undefined' && getScopedStorageItem(`sql_opp_promoted_lead_${l.id}`) === 'true')
   );
   const qualifiedOppsCount = oppLeadsList.length;
 
@@ -351,7 +356,7 @@ export const LeadDashboard: React.FC<LeadDashboardProps> = ({
       return oppRevenueMap[lead.id];
     }
     if (typeof window !== 'undefined') {
-      const oppCardEdits = localStorage.getItem(`opp_isolated_card_edits_${lead.id}`);
+      const oppCardEdits = getScopedStorageItem(`opp_isolated_card_edits_${lead.id}`);
       if (oppCardEdits) {
         try {
           const parsed = JSON.parse(oppCardEdits);
@@ -362,7 +367,7 @@ export const LeadDashboard: React.FC<LeadDashboardProps> = ({
         } catch (e) {}
       }
 
-      const sqlCardEdits = localStorage.getItem(`sql_isolated_card_edits_${lead.id}`);
+      const sqlCardEdits = getScopedStorageItem(`sql_isolated_card_edits_${lead.id}`);
       if (sqlCardEdits) {
         try {
           const parsed = JSON.parse(sqlCardEdits);
@@ -539,7 +544,7 @@ export const LeadDashboard: React.FC<LeadDashboardProps> = ({
   const deletedOppIds: string[] = (() => {
     if (typeof window !== 'undefined') {
       try {
-        const stored = localStorage.getItem('sql_opportunity_table_deleted_ids');
+        const stored = getScopedStorageItem('sql_opportunity_table_deleted_ids');
         return stored ? JSON.parse(stored) : [];
       } catch {}
     }

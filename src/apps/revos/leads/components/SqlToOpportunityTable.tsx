@@ -6,6 +6,7 @@ import { PromotionDataService } from '../services/promotionDataService';
 import { OpportunityDataService } from '../services/opportunityDataService';
 import { SQLDataService } from '../services/sqlDataService';
 import { Search, Download, Trash, Trash2, RefreshCw, ArrowLeft } from 'lucide-react';
+import { getScopedStorageItem, setScopedStorageItem, subscribeRevOSUserChange } from '../../utils/userIsolation';
 
 const MiniScorePieChart: React.FC<{ score: number; status?: string }> = ({ score, status }) => {
   const roundedScore = Math.round(score);
@@ -115,10 +116,10 @@ export const SqlToOpportunityTable: React.FC<SqlToOpportunityTableProps> = ({
   const [showDeletedOnly, setShowDeletedOnly] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
 
-  // Soft-deleted SQL opportunity IDs inside this table
+  // Soft-deleted SQL opportunity IDs inside this table (user-scoped)
   const [deletedIds, setDeletedIds] = useState<string[]>(() => {
     try {
-      const stored = localStorage.getItem('sql_opportunity_table_deleted_ids');
+      const stored = getScopedStorageItem('sql_opportunity_table_deleted_ids');
       return stored ? JSON.parse(stored) : [];
     } catch {
       return [];
@@ -126,7 +127,18 @@ export const SqlToOpportunityTable: React.FC<SqlToOpportunityTableProps> = ({
   });
 
   useEffect(() => {
-    localStorage.setItem('sql_opportunity_table_deleted_ids', JSON.stringify(deletedIds));
+    return subscribeRevOSUserChange(() => {
+      try {
+        const stored = getScopedStorageItem('sql_opportunity_table_deleted_ids');
+        setDeletedIds(stored ? JSON.parse(stored) : []);
+      } catch {
+        setDeletedIds([]);
+      }
+    });
+  }, []);
+
+  useEffect(() => {
+    setScopedStorageItem('sql_opportunity_table_deleted_ids', JSON.stringify(deletedIds));
   }, [deletedIds]);
 
   const [promotedOppIds, setPromotedOppIds] = useState<string[]>([]);
@@ -278,7 +290,7 @@ export const SqlToOpportunityTable: React.FC<SqlToOpportunityTableProps> = ({
       const matchLead = propLeads.find(l => l.id === opp.mql_reference_id);
       if (matchLead) {
         if (matchLead.lead_industry) return matchLead.lead_industry;
-        const extraJson = typeof window !== 'undefined' ? localStorage.getItem(`mql_lead_extra_${matchLead.id}`) : null;
+        const extraJson = typeof window !== 'undefined' ? getScopedStorageItem(`mql_lead_extra_${matchLead.id}`) : null;
         if (extraJson) {
           try {
             const extra = JSON.parse(extraJson);

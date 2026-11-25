@@ -4,6 +4,11 @@ import { Download, Trash, Trash2, RefreshCw } from 'lucide-react';
 import { supabase } from '../../../../lib/supabase';
 import { PipelineCardItem } from './PipelineCard';
 import { PipelineConfigService } from '../services/PipelineConfigService';
+import {
+  getScopedStorageItem,
+  setScopedStorageItem,
+  subscribeRevOSUserChange
+} from '../../utils/userIsolation';
 
 const MiniScorePieChart: React.FC<{ score: number; status?: string }> = ({ score, status }) => {
   const roundedScore = Math.round(score);
@@ -106,7 +111,7 @@ export const PipelineDirectoryTable: React.FC<PipelineDirectoryTableProps> = ({
 
   const [deletedIds, setDeletedIds] = useState<string[]>(() => {
     try {
-      const stored = localStorage.getItem('pipeline_directory_deleted_ids');
+      const stored = getScopedStorageItem('pipeline_directory_deleted_ids');
       return stored ? JSON.parse(stored) : [];
     } catch {
       return [];
@@ -115,7 +120,7 @@ export const PipelineDirectoryTable: React.FC<PipelineDirectoryTableProps> = ({
 
   const [purgedIds, setPurgedIds] = useState<string[]>(() => {
     try {
-      const stored = localStorage.getItem('pipeline_directory_purged_ids');
+      const stored = getScopedStorageItem('pipeline_directory_purged_ids');
       return stored ? JSON.parse(stored) : [];
     } catch {
       return [];
@@ -123,15 +128,28 @@ export const PipelineDirectoryTable: React.FC<PipelineDirectoryTableProps> = ({
   });
 
   useEffect(() => {
-    try {
-      localStorage.setItem('pipeline_directory_deleted_ids', JSON.stringify(deletedIds));
-    } catch {}
+    return subscribeRevOSUserChange((uid) => {
+      try {
+        const storedDeleted = uid ? getScopedStorageItem('pipeline_directory_deleted_ids', uid) : null;
+        setDeletedIds(storedDeleted ? JSON.parse(storedDeleted) : []);
+      } catch {
+        setDeletedIds([]);
+      }
+      try {
+        const storedPurged = uid ? getScopedStorageItem('pipeline_directory_purged_ids', uid) : null;
+        setPurgedIds(storedPurged ? JSON.parse(storedPurged) : []);
+      } catch {
+        setPurgedIds([]);
+      }
+    });
+  }, []);
+
+  useEffect(() => {
+    setScopedStorageItem('pipeline_directory_deleted_ids', JSON.stringify(deletedIds));
   }, [deletedIds]);
 
   useEffect(() => {
-    try {
-      localStorage.setItem('pipeline_directory_purged_ids', JSON.stringify(purgedIds));
-    } catch {}
+    setScopedStorageItem('pipeline_directory_purged_ids', JSON.stringify(purgedIds));
   }, [purgedIds]);
 
   useEffect(() => {

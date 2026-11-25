@@ -59,6 +59,13 @@ import {
   isPipelineItemClosed
 } from '../services/pipelinePortfolioLoader';
 import {
+  getActiveRevOSUserId,
+  getScopedStorageItem,
+  resolveAuthenticatedRevOSUserId,
+  setScopedStorageItem,
+  subscribeRevOSUserChange
+} from '../../utils/userIsolation';
+import {
   PriorityInterventionsSection,
   DashboardRiskRow,
   DashboardActionRow
@@ -846,6 +853,7 @@ const DASHBOARD_BUNDLE_STORAGE_KEY = 'revos_cached_pipeline_dashboard_v1';
 const DASHBOARD_FRESH_WINDOW_MS = 15_000;
 
 interface CachedPipelineDashboardBundle {
+  userId: string;
   items: PipelineCardItem[];
   riskRows: DashboardRiskRow[];
   actionRows: DashboardActionRow[];
@@ -856,9 +864,18 @@ interface CachedPipelineDashboardBundle {
 }
 
 let memoryDashboardBundle: CachedPipelineDashboardBundle | null = null;
-let inFlightDashboardLoad: Promise<CachedPipelineDashboardBundle | null> | null = null;
+let inFlightDashboardLoad: {
+  userId: string;
+  promise: Promise<CachedPipelineDashboardBundle | null>;
+} | null = null;
 let dashboardCacheDirty = false;
 let dashboardListenersAttached = false;
+
+subscribeRevOSUserChange(() => {
+  memoryDashboardBundle = null;
+  inFlightDashboardLoad = null;
+  dashboardCacheDirty = true;
+});
 
 function ensureDashboardInvalidationListeners() {
   if (dashboardListenersAttached || typeof window === 'undefined') return;
@@ -886,58 +903,64 @@ function compactSnapshotsForStorage(
   })) as PipelineAssessmentSnapshot[];
 }
 
-function getCachedPipelineDashboardBundle(): CachedPipelineDashboardBundle | null {
+function getCachedPipelineDashboardBundle(
+  explicitUserId?: string | null
+): CachedPipelineDashboardBundle | null {
   ensureDashboardInvalidationListeners();
-  if (memoryDashboardBundle) return memoryDashboardBundle;
+  const uid = explicitUserId ?? getActiveRevOSUserId();
+  if (!uid) return null;
+  if (memoryDashboardBundle && memoryDashboardBundle.userId === uid) return memoryDashboardBundle;
   if (typeof window === 'undefined') return null;
   try {
-    const raw = localStorage.getItem(DASHBOARD_BUNDLE_STORAGE_KEY);
+    const raw = getScopedStorageItem(DASHBOARD_BUNDLE_STORAGE_KEY, uid);
     if (!raw) return null;
     const parsed = JSON.parse(raw);
     if (parsed && Array.isArray(parsed.items)) {
-      memoryDashboardBundle = parsed as CachedPipelineDashboardBundle;
+      memoryDashboardBundle = {
+        ...(parsed as CachedPipelineDashboardBundle),
+        userId: uid
+      };
       return memoryDashboardBundle;
     }
   } catch {}
   return null;
 }
 
-function isDashboardBundleFresh(): boolean {
+function isDashboardBundleFresh(explicitUserId?: string | null): boolean {
   ensureDashboardInvalidationListeners();
-  const cached = getCachedPipelineDashboardBundle();
+  const cached = getCachedPipelineDashboardBundle(explicitUserId);
   if (!cached || dashboardCacheDirty) return false;
   return Date.now() - cached.fetchedAt < DASHBOARD_FRESH_WINDOW_MS;
 }
 
 function persistDashboardBundle(bundle: Omit<CachedPipelineDashboardBundle, 'fetchedAt'>) {
+  if (!bundle.userId) return;
   const entry: CachedPipelineDashboardBundle = {
     ...bundle,
     fetchedAt: Date.now()
   };
   memoryDashboardBundle = entry;
   dashboardCacheDirty = false;
-  if (typeof window !== 'undefined') {
-    try {
-      localStorage.setItem(
-        DASHBOARD_BUNDLE_STORAGE_KEY,
-        JSON.stringify({
-          ...entry,
-          historicalSnapshots: compactSnapshotsForStorage(entry.historicalSnapshots)
-        })
-      );
-    } catch {}
-  }
+  setScopedStorageItem(
+    DASHBOARD_BUNDLE_STORAGE_KEY,
+    JSON.stringify({
+      ...entry,
+      historicalSnapshots: compactSnapshotsForStorage(entry.historicalSnapshots)
+    }),
+    bundle.userId
+  );
 }
 
 export const PipelineDashboard: React.FC = () => {
   const navigate = useNavigate();
   const { user, profile, hasRole } = useAuth();
-  const initialBundle = useMemo(() => getCachedPipelineDashboardBundle(), []);
+  const currentUserId = profile?.id || user?.id || getActiveRevOSUserId() || '';
+  const initialBundle = useMemo(() => getCachedPipelineDashboardBundle(currentUserId), [currentUserId]);
   const initialPortfolioItems = useMemo(() => {
-    const cachedPortfolio = getCachedCanonicalPipelinePortfolio();
+    const cachedPortfolio = getCachedCanonicalPipelinePortfolio(currentUserId);
     if (dashboardCacheDirty && cachedPortfolio) return cachedPortfolio;
     return initialBundle?.items || cachedPortfolio || [];
-  }, [initialBundle]);
+  }, [initialBundle, currentUserId]);
 
   const [loading, setLoading] = useState(() => !initialBundle && initialPortfolioItems.length === 0);
   const [refreshing, setRefreshing] = useState(false);
@@ -1001,7 +1024,20 @@ export const PipelineDashboard: React.FC = () => {
   const closeKpiTooltip = () => setActiveKpiTooltip(null);
 
   const loadDashboardData = async (forceRefresh = false) => {
-    const hasRenderableData = items.length > 0 || getCachedPipelineDashboardBundle() !== null;
+    const uid = await resolveAuthenticatedRevOSUserId(currentUserId);
+    if (!uid) {
+      setItems([]);
+      setRiskRows([]);
+      setActionRows([]);
+      setHistoricalAssessments([]);
+      setHistoricalSnapshots([]);
+      setOpportunityCreatedDates([]);
+      setLoading(false);
+      setRefreshing(false);
+      return;
+    }
+
+    const hasRenderableData = items.length > 0 || getCachedPipelineDashboardBundle(uid) !== null;
     if (!hasRenderableData) {
       setLoading(true);
     } else {
@@ -1015,39 +1051,55 @@ export const PipelineDashboard: React.FC = () => {
       }
 
       const fetchBundle = async (): Promise<CachedPipelineDashboardBundle | null> => {
-        const [
-          mergedItems,
-          risksRes,
-          actionsRes,
-          assessmentsRes,
-          snapshotsRes,
-          oppDatesRes
-        ] = await Promise.all([
+        const [mergedItems, oppDatesRes] = await Promise.all([
           loadCanonicalPipelinePortfolio({ forceRefresh }),
-          supabase
-            .from('pipeline_risks')
-            .select(
-              'risk_instance_id, pipeline_id, assessment_id, risk_id, severity, likelihood, impact, risk_status, risk_category, risk_description, mitigation_strategy, triggering_evidence, owner'
-            ),
-          supabase
-            .from('pipeline_actions')
-            .select(
-              'action_id, pipeline_id, action_status, action_description, strategic_objective, action_owner, priority, target_date'
-            ),
-          supabase
-            .from('pipeline_assessments')
-            .select(
-              'assessment_id, pipeline_id, assessment_sequence, assessment_status, trigger_type, base_winability, risk_adjusted_winability, pipeline_health, assessment_confidence, configuration_version, evidence_kb_version, rules_version, completed_at, created_at, updated_at'
-            )
-            .order('completed_at', { ascending: true }),
-          supabase
-            .from('pipeline_assessment_snapshots')
-            .select(
-              'snapshot_id, assessment_id, pipeline_id, snapshot_sequence, snapshot_timestamp, full_snapshot_payload, created_at'
-            )
-            .order('snapshot_timestamp', { ascending: true }),
-          supabase.from('opportunities').select('id, created_at')
+          supabase.from('opportunities').select('id, created_at').eq('created_by', uid)
         ]);
+
+        const ownedPipelineIds = Array.from(
+          new Set(
+            mergedItems
+              .map((item) => item.pipeline_opp?.pipeline_id)
+              .filter((pid): pid is string => Boolean(pid))
+          )
+        );
+
+        const [risksRes, actionsRes, assessmentsRes, snapshotsRes] =
+          ownedPipelineIds.length > 0
+            ? await Promise.all([
+                supabase
+                  .from('pipeline_risks')
+                  .select(
+                    'risk_instance_id, pipeline_id, assessment_id, risk_id, severity, likelihood, impact, risk_status, risk_category, risk_description, mitigation_strategy, triggering_evidence, owner'
+                  )
+                  .in('pipeline_id', ownedPipelineIds),
+                supabase
+                  .from('pipeline_actions')
+                  .select(
+                    'action_id, pipeline_id, action_status, action_description, strategic_objective, action_owner, priority, target_date'
+                  )
+                  .in('pipeline_id', ownedPipelineIds),
+                supabase
+                  .from('pipeline_assessments')
+                  .select(
+                    'assessment_id, pipeline_id, assessment_sequence, assessment_status, trigger_type, base_winability, risk_adjusted_winability, pipeline_health, assessment_confidence, configuration_version, evidence_kb_version, rules_version, completed_at, created_at, updated_at'
+                  )
+                  .in('pipeline_id', ownedPipelineIds)
+                  .order('completed_at', { ascending: true }),
+                supabase
+                  .from('pipeline_assessment_snapshots')
+                  .select(
+                    'snapshot_id, assessment_id, pipeline_id, snapshot_sequence, snapshot_timestamp, full_snapshot_payload, created_at'
+                  )
+                  .in('pipeline_id', ownedPipelineIds)
+                  .order('snapshot_timestamp', { ascending: true })
+              ])
+            : [
+                { data: [], error: null },
+                { data: [], error: null },
+                { data: [], error: null },
+                { data: [], error: null }
+              ];
 
         if (assessmentsRes.error || snapshotsRes.error) {
           setHistoryError(
@@ -1058,6 +1110,7 @@ export const PipelineDashboard: React.FC = () => {
         }
 
         const nextBundle: Omit<CachedPipelineDashboardBundle, 'fetchedAt'> = {
+          userId: uid,
           items: mergedItems,
           riskRows: (risksRes.data || []) as any[],
           actionRows: (actionsRes.data || []) as any[],
@@ -1075,11 +1128,16 @@ export const PipelineDashboard: React.FC = () => {
       };
 
       const activePromise =
-        !forceRefresh && inFlightDashboardLoad
-          ? inFlightDashboardLoad
-          : (inFlightDashboardLoad = fetchBundle().finally(() => {
-              inFlightDashboardLoad = null;
-            }));
+        !forceRefresh && inFlightDashboardLoad?.userId === uid
+          ? inFlightDashboardLoad.promise
+          : (inFlightDashboardLoad = {
+              userId: uid,
+              promise: fetchBundle().finally(() => {
+                if (inFlightDashboardLoad?.userId === uid) {
+                  inFlightDashboardLoad = null;
+                }
+              })
+            }).promise;
 
       const resolved = await activePromise;
       if (resolved) {
@@ -3105,7 +3163,7 @@ export const PipelineDashboard: React.FC = () => {
 
           {/* Revenue Intelligence Insights */}
           <RevenueIntelligenceInsightsSection
-            userId={profile?.id || user?.id || 'workspace_default'}
+            userId={profile?.id || user?.id || ''}
             scopedItems={scopedItems}
             riskRows={riskRows}
             actionRows={actionRows}

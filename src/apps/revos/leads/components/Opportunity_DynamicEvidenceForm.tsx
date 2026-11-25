@@ -28,6 +28,7 @@ import {
 import { supabase } from '@/src/lib/supabase';
 import { OpportunityEvidenceRecord } from '../../types/opportunity_qualification';
 import { OpportunityDataService } from '../services/opportunityDataService';
+import { setScopedStorageItem } from '../../utils/userIsolation';
 
 // Import static knowledge base and configurations directly
 import oqEvidenceKbJson from '../../../../config/Opportunity_evidence_knowledge_base.json';
@@ -237,8 +238,8 @@ export const OpportunityDynamicEvidenceForm: React.FC<OpportunityDynamicEvidence
           });
 
           if (hasAnsweredAny && oppId && typeof window !== 'undefined') {
-            localStorage.setItem(`oq_started_${oppId}`, 'true');
-            localStorage.setItem(`oq_has_saved_evidence_${oppId}`, 'true');
+            setScopedStorageItem(`oq_started_${oppId}`, 'true');
+            setScopedStorageItem(`oq_has_saved_evidence_${oppId}`, 'true');
           }
 
           setFormData(prev => ({ ...initialFormState, ...prev }));
@@ -534,7 +535,7 @@ export const OpportunityDynamicEvidenceForm: React.FC<OpportunityDynamicEvidence
       if (currentOppId && currentSessionId && result) {
         await OpportunityDataService.saveFullQualificationResult(currentOppId, currentSessionId, result);
         if (typeof window !== 'undefined') {
-          localStorage.setItem(`oq_has_result_${currentOppId}`, 'true');
+          setScopedStorageItem(`oq_has_result_${currentOppId}`, 'true');
         }
       }
 

@@ -27,6 +27,14 @@ import {
 } from '../../types/pipeline';
 import { PipelineConfigService } from './PipelineConfigService';
 import { parseLegacyLocationToCountryAndState } from '../../leads/constants/countries';
+import {
+  getScopedStorageItem,
+  removeScopedStorageItem,
+  resolveAuthenticatedRevOSUser,
+  resolveAuthenticatedRevOSUserId,
+  scopedStorageKey,
+  setScopedStorageItem
+} from '../../utils/userIsolation';
 
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const isValidUuid = (id?: string | null): id is string => typeof id === 'string' && UUID_REGEX.test(id);
@@ -51,6 +59,23 @@ export class PipelineDataService {
     if (typeof window !== 'undefined') {
       window.dispatchEvent(new CustomEvent('pipeline_portfolio_updated'));
     }
+  }
+
+  private static async assertOwnedPipeline(pipelineId: string): Promise<string> {
+    const userId = await resolveAuthenticatedRevOSUserId();
+    if (!userId) {
+      throw new Error('Authentication required to access Pipeline Assessment records.');
+    }
+    const { data, error } = await supabase
+      .from('pipeline_opportunities')
+      .select('pipeline_id, created_by')
+      .eq('pipeline_id', pipelineId)
+      .maybeSingle();
+
+    if (error || !data || (data as any).created_by !== userId) {
+      throw new Error('Unauthorized: This pipeline opportunity does not belong to your account.');
+    }
+    return userId;
   }
 
   private static async resolveCommercialPipelineStage(pipeRow: any): Promise<any> {
@@ -154,9 +179,14 @@ export class PipelineDataService {
       throw new Error('Opportunity ID or Lead ID is required to initialize Pipeline Assessment.');
     }
 
+    const userId = await resolveAuthenticatedRevOSUserId();
+    if (!userId) {
+      throw new Error('Authentication required to initialize Pipeline Assessment.');
+    }
+
     const rawPrimary = opportunityOrLeadId || leadIdHint || '';
     const primaryId = rawPrimary.startsWith('virtual_opp_') ? rawPrimary.replace('virtual_opp_', '') : rawPrimary;
-    const inflightKey = `${primaryId}::${leadIdHint || ''}`;
+    const inflightKey = `${userId}::${primaryId}::${leadIdHint || ''}`;
 
     const existingPromise = this.pendingGetOrCreate.get(inflightKey);
     if (existingPromise) {
@@ -178,8 +208,12 @@ export class PipelineDataService {
     inheritance: PipelineInheritance;
     isNew: boolean;
   }> {
+    const userId = await resolveAuthenticatedRevOSUserId();
+    if (!userId) {
+      throw new Error('Authentication required to access Pipeline Opportunities.');
+    }
 
-    // 1. Check if pipeline_opportunities already has this record by pipeline_id, opportunity_id, or lead_id
+    // 1. Check if pipeline_opportunities already has this record for the active user
     let existingPipe: any = null;
     const lookupFilters = [`pipeline_id.eq.${primaryId}`, `opportunity_id.eq.${primaryId}`];
     if (leadIdHint) {
@@ -191,6 +225,7 @@ export class PipelineDataService {
     const { data: pipeMatches, error: pipeErr } = await supabase
       .from('pipeline_opportunities')
       .select('*')
+      .eq('created_by', userId)
       .or(lookupFilters.join(','))
       .order('created_at', { ascending: false })
       .limit(1);
@@ -227,13 +262,14 @@ export class PipelineDataService {
       };
     }
 
-    // 2. Resolve true opportunities row (primaryId might be opportunities.id OR mql_leads.id)
+    // 2. Resolve true owned opportunities row (primaryId might be opportunities.id OR mql_leads.id)
     let oppDb: any = null;
     if (isValidUuid(primaryId)) {
       const { data: directOpp } = await supabase
         .from('opportunities')
         .select('*')
         .eq('id', primaryId)
+        .eq('created_by', userId)
         .maybeSingle();
 
       if (directOpp) {
@@ -247,6 +283,7 @@ export class PipelineDataService {
           .from('opportunities')
           .select('*')
           .eq('mql_reference_id', candidateLeadId)
+          .eq('created_by', userId)
           .order('created_at', { ascending: false })
           .limit(1);
 
@@ -259,7 +296,7 @@ export class PipelineDataService {
     const resolvedOppId = oppDb?.id || primaryId;
     const resolvedLeadId = leadIdHint || oppDb?.mql_reference_id || (oppDb ? null : primaryId);
 
-    // Stage 7 Deduplication Guard: Re-check pipeline_opportunities using resolved opportunity_id / lead_id
+    // Stage 7 Deduplication Guard: Re-check pipeline_opportunities using resolved opportunity_id / lead_id for this user
     const resolvedFilters = [`opportunity_id.eq.${resolvedOppId}`];
     if (resolvedLeadId) {
       resolvedFilters.push(`lead_id.eq.${resolvedLeadId}`);
@@ -267,6 +304,7 @@ export class PipelineDataService {
     const { data: dedupeMatches } = await supabase
       .from('pipeline_opportunities')
       .select('*')
+      .eq('created_by', userId)
       .or(resolvedFilters.join(','))
       .order('created_at', { ascending: false })
       .limit(1);
@@ -322,7 +360,7 @@ export class PipelineDataService {
             .maybeSingle()
         : Promise.resolve(emptyRes),
       isValidUuid(resolvedLeadId)
-        ? supabase.from('mql_leads').select('*').eq('id', resolvedLeadId).maybeSingle()
+        ? supabase.from('mql_leads').select('*').eq('id', resolvedLeadId).eq('created_by', userId).maybeSingle()
         : Promise.resolve(emptyRes)
     ]);
 
@@ -422,9 +460,10 @@ export class PipelineDataService {
       }
     };
 
-    const newOpportunity: PipelineOpportunity = {
+    const newOpportunity: PipelineOpportunity & { created_by?: string } = {
       ...baseOpportunity,
-      source: 'Inherited'
+      source: 'Inherited',
+      created_by: userId
     };
 
     let { data: savedOpp, error: insertOppErr } = await supabase
@@ -551,23 +590,19 @@ export class PipelineDataService {
   }
 
   /**
-   * 2. List All Pipeline Opportunities with Latest Assessment Summary
+   * 2. List All Pipeline Opportunities for Active User with Latest Assessment Summary
    */
   static async listPipelineOpportunities(): Promise<Array<PipelineOpportunity & {
     latest_assessment?: PipelineAssessment;
   }>> {
-    const [oppsRes, assessmentsRes] = await Promise.all([
-      supabase
-        .from('pipeline_opportunities')
-        .select('*')
-        .order('created_at', { ascending: false }),
-      supabase
-        .from('pipeline_assessments')
-        .select('*')
-        .order('assessment_sequence', { ascending: false })
-    ]);
+    const userId = await resolveAuthenticatedRevOSUserId();
+    if (!userId) return [];
 
-    const { data: opportunities, error } = oppsRes;
+    const { data: opportunities, error } = await supabase
+      .from('pipeline_opportunities')
+      .select('*')
+      .eq('created_by', userId)
+      .order('created_at', { ascending: false });
 
     if (error) {
       console.error('Error fetching pipeline opportunities:', error);
@@ -578,9 +613,16 @@ export class PipelineDataService {
       return [];
     }
 
-    const pipeIdsSet = new Set(opportunities.map(o => o.pipeline_id));
+    const pipeIds = opportunities.map((o: any) => o.pipeline_id).filter(Boolean);
+    const pipeIdsSet = new Set(pipeIds);
+    const { data: assessRows } = await supabase
+      .from('pipeline_assessments')
+      .select('*')
+      .in('pipeline_id', pipeIds)
+      .order('assessment_sequence', { ascending: false });
+
     const assessmentMap = new Map<string, PipelineAssessment>();
-    (assessmentsRes.data || []).forEach(a => {
+    (assessRows || []).forEach(a => {
       if (pipeIdsSet.has(a.pipeline_id) && !assessmentMap.has(a.pipeline_id)) {
         assessmentMap.set(a.pipeline_id, a as PipelineAssessment);
       }
@@ -593,7 +635,7 @@ export class PipelineDataService {
   }
 
   /**
-   * 3. Get Pipeline Assessment by Pipeline ID
+   * 3. Get Pipeline Assessment by Pipeline ID (Owner-Verified)
    */
   static async getLatestAssessment(pipelineId: string): Promise<{
     assessment: PipelineAssessment | null;
@@ -603,7 +645,26 @@ export class PipelineDataService {
     strategies: PipelineStrategy[];
     actions: PipelineAction[];
   }> {
+    const empty = {
+      assessment: null,
+      padf_results: [],
+      swot_results: [],
+      risks: [],
+      strategies: [],
+      actions: []
+    };
     try {
+      const userId = await resolveAuthenticatedRevOSUserId();
+      if (!userId) return empty;
+
+      const { data: ownedOpp } = await supabase
+        .from('pipeline_opportunities')
+        .select('pipeline_id')
+        .eq('pipeline_id', pipelineId)
+        .eq('created_by', userId)
+        .maybeSingle();
+      if (!ownedOpp) return empty;
+
       const { data: assessment, error: assessErr } = await supabase
         .from('pipeline_assessments')
         .select('*')
@@ -613,14 +674,7 @@ export class PipelineDataService {
         .maybeSingle();
 
       if (assessErr || !assessment) {
-        return {
-          assessment: null,
-          padf_results: [],
-          swot_results: [],
-          risks: [],
-          strategies: [],
-          actions: []
-        };
+        return empty;
       }
 
       const assessmentId = assessment.assessment_id;
@@ -643,14 +697,7 @@ export class PipelineDataService {
       };
     } catch (e) {
       console.warn('getLatestAssessment network warning:', e);
-      return {
-        assessment: null,
-        padf_results: [],
-        swot_results: [],
-        risks: [],
-        strategies: [],
-        actions: []
-      };
+      return empty;
     }
   }
 
@@ -658,6 +705,7 @@ export class PipelineDataService {
    * 4. Evidence Management: Add Single Evidence Record
    */
   static async addEvidence(evidence: Omit<PipelineEvidence, 'id' | 'created_at' | 'updated_at'>): Promise<PipelineEvidence> {
+    await this.assertOwnedPipeline(evidence.pipeline_id);
     const { data, error } = await supabase
       .from('pipeline_evidence')
       .insert(evidence)
@@ -676,6 +724,16 @@ export class PipelineDataService {
    */
   static async listEvidence(pipelineId: string): Promise<PipelineEvidence[]> {
     try {
+      const userId = await resolveAuthenticatedRevOSUserId();
+      if (!userId) return [];
+      const { data: ownedOpp } = await supabase
+        .from('pipeline_opportunities')
+        .select('pipeline_id')
+        .eq('pipeline_id', pipelineId)
+        .eq('created_by', userId)
+        .maybeSingle();
+      if (!ownedOpp) return [];
+
       const { data, error } = await supabase
         .from('pipeline_evidence')
         .select('*')
@@ -698,6 +756,16 @@ export class PipelineDataService {
    */
   static async getAssessmentSnapshots(pipelineId: string): Promise<PipelineAssessmentSnapshot[]> {
     try {
+      const userId = await resolveAuthenticatedRevOSUserId();
+      if (!userId) return [];
+      const { data: ownedOpp } = await supabase
+        .from('pipeline_opportunities')
+        .select('pipeline_id')
+        .eq('pipeline_id', pipelineId)
+        .eq('created_by', userId)
+        .maybeSingle();
+      if (!ownedOpp) return [];
+
       const { data, error } = await supabase
         .from('pipeline_assessment_snapshots')
         .select('*')
@@ -719,6 +787,14 @@ export class PipelineDataService {
    * 7. Update Action Status
    */
   static async updateActionStatus(actionId: string, status: PipelineAction['action_status'], notes?: string): Promise<boolean> {
+    const { data: actionRow } = await supabase
+      .from('pipeline_actions')
+      .select('pipeline_id')
+      .eq('action_id', actionId)
+      .maybeSingle();
+    if (!actionRow?.pipeline_id) return false;
+    await this.assertOwnedPipeline(actionRow.pipeline_id);
+
     const { error } = await supabase
       .from('pipeline_actions')
       .update({
@@ -757,10 +833,12 @@ export class PipelineDataService {
       };
     }
   ): Promise<PipelineOpportunity | null> {
+    const userId = await this.assertOwnedPipeline(pipelineId);
     const { data: currentRow } = await supabase
       .from('pipeline_opportunities')
       .select('metadata')
       .eq('pipeline_id', pipelineId)
+      .eq('created_by', userId)
       .maybeSingle();
 
     const mergedMetadata = {
@@ -784,6 +862,7 @@ export class PipelineDataService {
       .from('pipeline_opportunities')
       .update(payload)
       .eq('pipeline_id', pipelineId)
+      .eq('created_by', userId)
       .select()
       .maybeSingle();
 
@@ -803,6 +882,14 @@ export class PipelineDataService {
     riskStatus: PipelineRisk['risk_status'],
     owner?: string
   ): Promise<boolean> {
+    const { data: riskRow } = await supabase
+      .from('pipeline_risks')
+      .select('pipeline_id')
+      .eq('risk_instance_id', riskInstanceId)
+      .maybeSingle();
+    if (!riskRow?.pipeline_id) return false;
+    await this.assertOwnedPipeline(riskRow.pipeline_id);
+
     const payload: Record<string, unknown> = {
       risk_status: riskStatus,
       updated_at: new Date().toISOString()
@@ -830,6 +917,14 @@ export class PipelineDataService {
     strategyInstanceId: string,
     strategyStatus: PipelineStrategy['strategy_status']
   ): Promise<boolean> {
+    const { data: stratRow } = await supabase
+      .from('pipeline_strategies')
+      .select('pipeline_id')
+      .eq('strategy_instance_id', strategyInstanceId)
+      .maybeSingle();
+    if (!stratRow?.pipeline_id) return false;
+    await this.assertOwnedPipeline(stratRow.pipeline_id);
+
     const { error } = await supabase
       .from('pipeline_strategies')
       .update({
@@ -948,10 +1043,12 @@ export class PipelineDataService {
     evidence_count: number;
     evidence: PipelineEvidence[];
   }> {
+    const userId = await this.assertOwnedPipeline(pipelineId);
     const { data: preOpp } = await supabase
       .from('pipeline_opportunities')
       .select('pipeline_stage')
       .eq('pipeline_id', pipelineId)
+      .eq('created_by', userId)
       .maybeSingle();
 
     const preserveStage = Boolean(
@@ -1129,11 +1226,13 @@ export class PipelineDataService {
    * Stage 7 Enhancement: Preserves active commercial Kanban stage and syncs pipeline_evidence_relationships
    */
   static async runPipelineAssessment(pipelineId: string): Promise<any> {
+    const userId = await this.assertOwnedPipeline(pipelineId);
     // Capture prior commercial stage before Edge Function executes
     const { data: preOpp } = await supabase
       .from('pipeline_opportunities')
       .select('pipeline_stage, lifecycle_status')
       .eq('pipeline_id', pipelineId)
+      .eq('created_by', userId)
       .maybeSingle();
 
     const extractErrorInfo = (rawMsg: string, httpStatus?: number, rawCode?: string) => {
@@ -1299,6 +1398,7 @@ export class PipelineDataService {
     }
   ): Promise<PipelineAssessment | null> {
     if (!pipelineId || !assessmentId) return null;
+    await this.assertOwnedPipeline(pipelineId);
 
     try {
       const { data, error } = await supabase.functions.invoke('pipeline-assessment', {
@@ -1444,6 +1544,14 @@ export class PipelineDataService {
     status: PipelineInheritance['validation_status'] = 'VALIDATED',
     notes?: string
   ): Promise<PipelineInheritance | null> {
+    const { data: inhRow } = await supabase
+      .from('pipeline_inheritance')
+      .select('pipeline_id')
+      .eq('inheritance_id', inheritanceId)
+      .maybeSingle();
+    if (!inhRow?.pipeline_id) return null;
+    await this.assertOwnedPipeline(inhRow.pipeline_id);
+
     const { data, error } = await supabase
       .from('pipeline_inheritance')
       .update({
@@ -1467,6 +1575,16 @@ export class PipelineDataService {
    * 14. Stage 7: List & Sync Evidence Relationships (pipeline_evidence_relationships)
    */
   static async listEvidenceRelationships(pipelineId: string): Promise<PipelineEvidenceRelationship[]> {
+    const userId = await resolveAuthenticatedRevOSUserId();
+    if (!userId) return [];
+    const { data: ownedOpp } = await supabase
+      .from('pipeline_opportunities')
+      .select('pipeline_id')
+      .eq('pipeline_id', pipelineId)
+      .eq('created_by', userId)
+      .maybeSingle();
+    if (!ownedOpp) return [];
+
     const { data, error } = await supabase
       .from('pipeline_evidence_relationships')
       .select('*')
@@ -1485,6 +1603,7 @@ export class PipelineDataService {
     evidenceList: PipelineEvidence[]
   ): Promise<PipelineEvidenceRelationship[]> {
     if (!evidenceList || evidenceList.length === 0) return [];
+    await this.assertOwnedPipeline(pipelineId);
 
     const allKbObjs = PipelineConfigService.getAllEvidenceObjects();
     const kbDimMap = new Map<string, string>();
@@ -1674,6 +1793,16 @@ export class PipelineDataService {
     pipelineId: string
   ): Promise<PipelineOpportunityHandoverDetail | null> {
     if (!pipelineId) return null;
+    const userId = await resolveAuthenticatedRevOSUserId();
+    if (!userId) return null;
+
+    const { data: ownedOpp } = await supabase
+      .from('pipeline_opportunities')
+      .select('pipeline_id')
+      .eq('pipeline_id', pipelineId)
+      .eq('created_by', userId)
+      .maybeSingle();
+    if (!ownedOpp) return null;
 
     try {
       const { data, error } = await supabase
@@ -1694,7 +1823,7 @@ export class PipelineDataService {
 
     if (typeof window !== 'undefined') {
       try {
-        const cached = localStorage.getItem(`pipeline_handover_detail_${pipelineId}`);
+        const cached = getScopedStorageItem(`pipeline_handover_detail_${pipelineId}`, userId);
         if (cached) {
           return {
             ...(JSON.parse(cached) as PipelineOpportunityHandoverDetail),
@@ -1712,6 +1841,7 @@ export class PipelineDataService {
     inheritance?: PipelineInheritance | null,
     forceRefresh = false
   ): Promise<PipelineOpportunityHandoverDetail> {
+    const userId = await this.assertOwnedPipeline(opportunity.pipeline_id);
     const existing = await this.getOpportunityHandoverDetail(opportunity.pipeline_id);
     const isCreatedSource =
       String(opportunity.source || (opportunity.metadata as any)?.source || existing?.source || '')
@@ -1750,11 +1880,11 @@ export class PipelineDataService {
     const emptySingle = Promise.resolve({ data: null });
     const emptyList = Promise.resolve({ data: [] });
 
-    // Read upstream Opportunity Qualification intelligence strictly read-only
+    // Read upstream Opportunity Qualification intelligence strictly read-only for the owning user
     const [oppRes, formRes, sessionRes, handoverRes, historyRes, leadRes] =
       await Promise.all([
         isValidUuid(oppId)
-          ? supabase.from('opportunities').select('*').eq('id', oppId).maybeSingle()
+          ? supabase.from('opportunities').select('*').eq('id', oppId).eq('created_by', userId).maybeSingle()
           : emptySingle,
         isValidUuid(oppId)
           ? supabase.from('opportunity_form_records').select('*').eq('opportunity_id', oppId).maybeSingle()
@@ -1784,7 +1914,7 @@ export class PipelineDataService {
               .limit(10)
           : emptyList,
         isValidUuid(leadId)
-          ? supabase.from('mql_leads').select('*').eq('id', leadId).maybeSingle()
+          ? supabase.from('mql_leads').select('*').eq('id', leadId).eq('created_by', userId).maybeSingle()
           : emptySingle
       ]);
 
@@ -1808,7 +1938,7 @@ export class PipelineDataService {
 
     if (!oqResult && typeof window !== 'undefined' && oppId) {
       try {
-        const cachedOq = localStorage.getItem(`oq_result_${oppId}`);
+        const cachedOq = getScopedStorageItem(`oq_result_${oppId}`, userId);
         if (cachedOq) {
           oqResult = JSON.parse(cachedOq);
         }
@@ -2274,10 +2404,10 @@ export class PipelineDataService {
       updated_at: new Date().toISOString()
     };
 
-    // Cache locally for immediate reactivity
+    // Cache locally for immediate reactivity (user-scoped)
     if (typeof window !== 'undefined') {
       try {
-        localStorage.setItem(`pipeline_handover_detail_${opportunity.pipeline_id}`, JSON.stringify(record));
+        setScopedStorageItem(`pipeline_handover_detail_${opportunity.pipeline_id}`, JSON.stringify(record), userId);
       } catch {}
     }
 
@@ -2285,6 +2415,7 @@ export class PipelineDataService {
     try {
       const dbPayload = {
         pipeline_id: record.pipeline_id,
+        created_by: userId,
         opportunity_id: record.opportunity_id || null,
         lead_id: record.lead_id || null,
         source_session_id: record.source_session_id || null,
@@ -2335,6 +2466,7 @@ export class PipelineDataService {
     notes?: string
   ): Promise<PipelineOpportunityHandoverDetail | null> {
     if (!pipelineId) return null;
+    const userId = await this.assertOwnedPipeline(pipelineId);
     const nowIso = new Date().toISOString();
 
     const existing = await this.getOpportunityHandoverDetail(pipelineId);
@@ -2362,7 +2494,7 @@ export class PipelineDataService {
 
       if (typeof window !== 'undefined') {
         try {
-          localStorage.setItem(`pipeline_handover_detail_${pipelineId}`, JSON.stringify(updated));
+          setScopedStorageItem(`pipeline_handover_detail_${pipelineId}`, JSON.stringify(updated), userId);
         } catch {}
       }
 
@@ -2435,6 +2567,8 @@ export class PipelineDataService {
       return isNaN(parsed.getTime()) ? '' : parsed.toISOString().slice(0, 10);
     };
 
+    const userId = await this.assertOwnedPipeline(opportunity.pipeline_id);
+
     // 1. Check dedicated pipeline_form_records and pipeline_opportunities tables in Supabase first
     const [{ data: existingForm, error: formErr }, { data: dbPipeRow, error: pipeRowErr }] =
       await Promise.all([
@@ -2447,6 +2581,7 @@ export class PipelineDataService {
           .from('pipeline_opportunities')
           .select('*')
           .eq('pipeline_id', opportunity.pipeline_id)
+          .eq('created_by', userId)
           .maybeSingle()
       ]);
 
@@ -2494,7 +2629,7 @@ export class PipelineDataService {
           ? supabase.from('opportunity_sql_handover_details').select('*').eq('opportunity_id', oppId).maybeSingle()
           : emptyRes,
         isValidUuid(oppId)
-          ? supabase.from('opportunities').select('*').eq('id', oppId).maybeSingle()
+          ? supabase.from('opportunities').select('*').eq('id', oppId).eq('created_by', userId).maybeSingle()
           : emptyRes
       ]);
 
@@ -2547,7 +2682,7 @@ export class PipelineDataService {
         let mqlExtra: any = {};
         if (typeof window !== 'undefined') {
           try {
-            const rawExtra = localStorage.getItem(`mql_lead_extra_${effectiveLeadId}`);
+            const rawExtra = getScopedStorageItem(`mql_lead_extra_${effectiveLeadId}`, userId);
             if (rawExtra) mqlExtra = JSON.parse(rawExtra);
           } catch {}
         }
@@ -2556,6 +2691,7 @@ export class PipelineDataService {
             .from('mql_leads')
             .select('*')
             .eq('id', effectiveLeadId)
+            .eq('created_by', userId)
             .maybeSingle();
 
           let campaignName = '';
@@ -2767,6 +2903,7 @@ export class PipelineDataService {
     formRecord: PipelineFormRecord;
     updatedOpportunity: PipelineOpportunity;
   }> {
+    const userId = await this.assertOwnedPipeline(opportunity.pipeline_id);
     const nowIso = new Date().toISOString();
     const oppId =
       opportunity.opportunity_id ||
@@ -2809,6 +2946,7 @@ export class PipelineDataService {
 
     const fullDbFormPayload = {
       ...baseDbFormPayload,
+      created_by: userId,
       country: formInput.country || null,
       campaign_assignment: formInput.campaign_assignment || null,
       business_segment: formInput.business_segment || null,
@@ -2901,6 +3039,7 @@ export class PipelineDataService {
       .from('pipeline_opportunities')
       .update(fullOppUpdatePayload)
       .eq('pipeline_id', opportunity.pipeline_id)
+      .eq('created_by', userId)
       .select()
       .maybeSingle();
 
@@ -2909,6 +3048,7 @@ export class PipelineDataService {
         .from('pipeline_opportunities')
         .update(baseOppUpdatePayload)
         .eq('pipeline_id', opportunity.pipeline_id)
+        .eq('created_by', userId)
         .select()
         .maybeSingle();
       updatedOppRow = fallbackOppRes.data;
@@ -3011,6 +3151,11 @@ export class PipelineDataService {
     formRecord: PipelineFormRecord;
     isNew: boolean;
   }> {
+    const resolvedAuth = authUser?.id ? authUser : await resolveAuthenticatedRevOSUser();
+    const activeUserId = resolvedAuth?.id && isValidUuid(resolvedAuth.id) ? resolvedAuth.id : null;
+    if (!activeUserId) {
+      throw new Error('Authentication required to save opportunity.');
+    }
     const nowIso = new Date().toISOString();
     const isNew = !input.pipeline_id;
     const rawSlug = `${input.company_name}_${input.opportunity_name}`
@@ -3091,7 +3236,7 @@ export class PipelineDataService {
         await Promise.all([
           supabase
             .from('pipeline_opportunities')
-            .select('metadata')
+            .select('metadata, created_by')
             .eq('pipeline_id', pipelineId)
             .maybeSingle(),
           supabase
@@ -3105,6 +3250,10 @@ export class PipelineDataService {
             .eq('pipeline_id', pipelineId)
             .limit(1)
         ]);
+
+      if (existingOppRow && (existingOppRow as any).created_by && (existingOppRow as any).created_by !== activeUserId) {
+        throw new Error('Unauthorized: This opportunity belongs to another account.');
+      }
 
       existingOppMeta = ((existingOppRow as any)?.metadata || {}) as Record<string, unknown>;
       const isLocked =
@@ -3170,8 +3319,8 @@ export class PipelineDataService {
       commercial_model: initialContextPayload.commercial_model || null,
       product_solution: initialContextPayload.proposed_solution || null,
       initial_context: initialContextPayload,
-      ...(authUser?.id && isValidUuid(authUser.id) ? { created_by: authUser.id } : {}),
-      ...(authUser?.email ? { owner_email: authUser.email } : {})
+      created_by: activeUserId,
+      ...(resolvedAuth?.email ? { owner_email: resolvedAuth.email } : {})
     };
 
     let { data: savedOppRow, error: oppErr } = await supabase
@@ -3232,6 +3381,7 @@ export class PipelineDataService {
 
     const fullFormPayload: Record<string, unknown> = {
       ...baseFormPayload,
+      created_by: activeUserId,
       source: 'Created',
       country: initialContextPayload.country || null,
       business_segment: initialContextPayload.business_segment || null,
@@ -3334,6 +3484,7 @@ export class PipelineDataService {
 
       const handoverPayload: Record<string, unknown> = {
         pipeline_id: pipelineId,
+        created_by: activeUserId,
         source: 'Created',
         source_module: 'RevOS_Pipeline_Direct_Creation',
         framework_version: 'DIRECT_CREATION_v1.0',
@@ -3438,10 +3589,11 @@ export class PipelineDataService {
         if (persistedSummaryStatus === 'READY') {
           this.clearCreatedOpportunityDraftCache(pipelineId);
         } else {
-          localStorage.setItem(
+          setScopedStorageItem(
             `revos_created_opp_draft_${pipelineId}`,
             JSON.stringify({
               pipeline_id: pipelineId,
+              created_by: activeUserId,
               updated_at: nowIso,
               company_name: initialContextPayload.company_name,
               opportunity_name: initialContextPayload.opportunity_name,
@@ -3449,7 +3601,8 @@ export class PipelineDataService {
               saved_sections: Array.isArray(input.saved_sections) ? input.saved_sections : [],
               initial_context: initialContextPayload,
               summary_status: persistedSummaryStatus
-            })
+            }),
+            activeUserId
           );
           localStorage.setItem('revos_latest_created_draft_id', pipelineId);
         }
@@ -3469,6 +3622,11 @@ export class PipelineDataService {
   static async listCreatedOpportunityDrafts(
     authUser?: { id?: string; email?: string } | null
   ): Promise<import('../../types/pipeline').CreatedOpportunityDraftRecord[]> {
+    const resolvedAuth = authUser?.id ? authUser : await resolveAuthenticatedRevOSUser();
+    const userId = resolvedAuth?.id || '';
+    const userEmail = resolvedAuth?.email?.toLowerCase();
+    if (!userId) return [];
+
     const draftsById = new Map<
       string,
       import('../../types/pipeline').CreatedOpportunityDraftRecord
@@ -3479,6 +3637,7 @@ export class PipelineDataService {
       let { data: oppRows, error: oppListErr } = await supabase
         .from('pipeline_opportunities')
         .select('*')
+        .eq('created_by', userId)
         .or('source_system.eq.RevOS_Pipeline_Direct_Creation,source.eq.Created')
         .order('updated_at', { ascending: false })
         .limit(50);
@@ -3487,6 +3646,7 @@ export class PipelineDataService {
         const fallbackOppRes = await supabase
           .from('pipeline_opportunities')
           .select('*')
+          .eq('created_by', userId)
           .eq('source_system', 'RevOS_Pipeline_Direct_Creation')
           .order('updated_at', { ascending: false })
           .limit(50);
@@ -3534,18 +3694,14 @@ export class PipelineDataService {
         });
       }
 
-      const userEmail = authUser?.email?.toLowerCase();
-      const userId = authUser?.id;
-
       (oppRows || []).forEach((opp: any) => {
         if (!opp?.pipeline_id) return;
-        // Scope to matching authenticated user when ownership metadata exists
-        if (userId && opp.created_by && opp.created_by !== userId) {
-          if (!userEmail || !opp.owner_email || opp.owner_email.toLowerCase() !== userEmail) {
-            excludedPipelineIds.add(opp.pipeline_id);
-            return;
-          }
-        } else if (userEmail && opp.owner_email && opp.owner_email.toLowerCase() !== userEmail) {
+        // Strict owner isolation: row created_by must match the active userId
+        if (!opp.created_by || opp.created_by !== userId) {
+          excludedPipelineIds.add(opp.pipeline_id);
+          return;
+        }
+        if (userEmail && opp.owner_email && opp.owner_email.toLowerCase() !== userEmail) {
           excludedPipelineIds.add(opp.pipeline_id);
           return;
         }
@@ -3623,12 +3779,13 @@ export class PipelineDataService {
       console.warn('Error listing created opportunity drafts from Supabase:', err);
     }
 
-    // Merge any locally cached draft snapshots not yet reflected (skipping READY or non-owned records)
-    if (typeof window !== 'undefined') {
+    // Merge any locally cached draft snapshots belonging to this user (skipping READY or non-owned records)
+    if (typeof window !== 'undefined' && userId) {
       try {
+        const scopedDraftPrefix = scopedStorageKey('revos_created_opp_draft_', userId);
         for (let i = 0; i < localStorage.length; i++) {
           const key = localStorage.key(i);
-          if (!key || !key.startsWith('revos_created_opp_draft_')) continue;
+          if (!key || !key.startsWith(scopedDraftPrefix)) continue;
           const raw = localStorage.getItem(key);
           if (!raw) continue;
           const parsed = JSON.parse(raw);
@@ -3650,12 +3807,15 @@ export class PipelineDataService {
   }
 
   /**
-   * Retrieve a single saved Created Opportunity draft by pipeline_id
+   * Retrieve a single saved Created Opportunity draft by pipeline_id (Owner-Verified)
    */
   static async getCreatedOpportunityDraft(
     pipelineId: string
   ): Promise<import('../../types/pipeline').CreatedOpportunityDraftRecord | null> {
     if (!pipelineId) return null;
+    const userId = await resolveAuthenticatedRevOSUserId();
+    if (!userId) return null;
+
     try {
       const [{ data: opp }, { data: handover }, { data: form }, { data: assessRows }, { data: evRows }] =
         await Promise.all([
@@ -3685,6 +3845,19 @@ export class PipelineDataService {
             .eq('pipeline_id', pipelineId)
             .limit(1)
         ]);
+
+      // Reject access if the opportunity or child records belong to a different owner or lack matching ownership
+      if (opp && (opp as any).created_by !== userId) {
+        return null;
+      }
+      if (!opp) {
+        const handoverOwner = (handover as any)?.created_by;
+        const formOwner = (form as any)?.created_by;
+        if ((handover && handoverOwner !== userId) || (form && formOwner !== userId) || (!handover && !form)) {
+          // Check user-scoped cache only if not in DB for another owner
+          if (handover || form) return null;
+        }
+      }
 
       if (opp || handover || form) {
         const meta = ((opp as any)?.metadata || {}) as Record<string, any>;
@@ -3775,7 +3948,7 @@ export class PipelineDataService {
 
     if (typeof window !== 'undefined') {
       try {
-        const raw = localStorage.getItem(`revos_created_opp_draft_${pipelineId}`);
+        const raw = getScopedStorageItem(`revos_created_opp_draft_${pipelineId}`, userId);
         if (raw) return JSON.parse(raw);
       } catch {}
     }
@@ -3789,7 +3962,9 @@ export class PipelineDataService {
       if (!pipelineId || latest === pipelineId) {
         localStorage.removeItem('revos_latest_created_draft_id');
       }
+      removeScopedStorageItem('revos_latest_created_draft_id');
       if (pipelineId) {
+        removeScopedStorageItem(`revos_created_opp_draft_${pipelineId}`);
         localStorage.removeItem(`revos_created_opp_draft_${pipelineId}`);
       }
     } catch {}
@@ -3818,6 +3993,7 @@ export class PipelineDataService {
     if (!pipelineId) {
       throw new Error('pipeline_id is required to generate Initial Opportunity Context Summary.');
     }
+    await this.assertOwnedPipeline(pipelineId);
 
     const { data, error } = await supabase.functions.invoke('pipeline-assessment', {
       body: {
@@ -3943,6 +4119,7 @@ export class PipelineDataService {
     if (!summaryPayload || !summaryPayload.summary_sections) {
       throw new Error('Generated summary content is required before saving.');
     }
+    const userId = await this.assertOwnedPipeline(pipelineId);
 
     const nowIso = new Date().toISOString();
     const effectiveVersion =
@@ -3988,6 +4165,7 @@ export class PipelineDataService {
 
     const fullPayload: Record<string, unknown> = {
       pipeline_id: pipelineId,
+      created_by: userId,
       source: 'Created',
       source_module: existingHandover?.source_module || 'RevOS_Pipeline_Direct_Creation',
       framework_version: existingHandover?.framework_version || 'DIRECT_CREATION_v1.0',

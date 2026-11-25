@@ -103,7 +103,7 @@ export const RevenueIntelligenceInsightsSection: React.FC<
   const [storageReady, setStorageReady] = useState<boolean>(true);
   const [showLimitations, setShowLimitations] = useState<boolean>(false);
 
-  const effectiveUserId = userId || 'workspace_default';
+  const effectiveUserId = userId ? String(userId).trim() : '';
 
   const portfolioContext = useMemo(
     () =>
@@ -163,6 +163,13 @@ export const RevenueIntelligenceInsightsSection: React.FC<
     let cancelled = false;
 
     const loadSaved = async () => {
+      if (!effectiveUserId) {
+        if (!cancelled) {
+          setReport(null);
+          setLoadingSaved(false);
+        }
+        return;
+      }
       setLoadingSaved(true);
       try {
         const res = await RevenueIntelligenceService.getSavedReport({

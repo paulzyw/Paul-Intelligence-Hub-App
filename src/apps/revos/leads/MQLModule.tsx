@@ -17,6 +17,11 @@ import { PromotionDataService } from './services/promotionDataService';
 import { MQLConfigService } from './services/mqlConfigLoader';
 import { MQLCampaign, MQLLead, MQLQualificationResult } from '../types/mql';
 import { STANDARD_COUNTRIES, parseLegacyLocationToCountryAndState } from './constants/countries';
+import {
+  getScopedStorageItem,
+  setScopedStorageItem,
+  subscribeRevOSUserChange,
+} from '../utils/userIsolation';
 import { Plus, FolderOpen, Cpu, Users, Settings, PlusCircle, ArrowLeft, Bot, Sparkles, Activity, Check, ChevronDown, ChevronUp, Trash, Trash2, Download, RefreshCw, AlertTriangle } from 'lucide-react';
 
 const MiniScorePieChart: React.FC<{ score: number; status?: string }> = ({ score, status }) => {
@@ -118,7 +123,7 @@ export const MQLModule: React.FC = () => {
 
   const [deletedLeadIds, setDeletedLeadIds] = useState<string[]>(() => {
     try {
-      const stored = localStorage.getItem('mql_deleted_lead_ids');
+      const stored = getScopedStorageItem('mql_deleted_lead_ids');
       return stored ? JSON.parse(stored) : [];
     } catch {
       return [];
@@ -134,7 +139,7 @@ export const MQLModule: React.FC = () => {
   const [showAddOptions, setShowAddOptions] = useState<boolean>(false);
 
   useEffect(() => {
-    localStorage.setItem('mql_deleted_lead_ids', JSON.stringify(deletedLeadIds));
+    setScopedStorageItem('mql_deleted_lead_ids', JSON.stringify(deletedLeadIds));
   }, [deletedLeadIds]);
 
   useEffect(() => {
@@ -144,6 +149,20 @@ export const MQLModule: React.FC = () => {
 
   useEffect(() => {
     loadInitialData();
+    return subscribeRevOSUserChange(() => {
+      try {
+        const stored = getScopedStorageItem('mql_deleted_lead_ids');
+        setDeletedLeadIds(stored ? JSON.parse(stored) : []);
+      } catch {
+        setDeletedLeadIds([]);
+      }
+      setSelectedCampaign(null);
+      setSelectedLead(null);
+      setCampaignFilterId('all');
+      setDashboardCampaignFilter('all');
+      setTargetCampaignId('');
+      loadInitialData();
+    });
   }, []);
 
   const loadInitialData = async () => {
@@ -239,19 +258,19 @@ export const MQLModule: React.FC = () => {
       const result = await MQLDataService.getQualificationResult(lead.id);
       setQualResult(result);
       
-      const extraJson = localStorage.getItem(`mql_lead_extra_${lead.id}`);
+      const extraJson = getScopedStorageItem(`mql_lead_extra_${lead.id}`);
       const extra = extraJson ? JSON.parse(extraJson) : {};
 
       let initialLeadData = { ...lead };
       if (columnType === 'sql') {
-        const isolated = localStorage.getItem(`sql_isolated_card_edits_${lead.id}`);
+        const isolated = getScopedStorageItem(`sql_isolated_card_edits_${lead.id}`);
         if (isolated) {
           try {
             initialLeadData = { ...lead, ...JSON.parse(isolated) };
           } catch (e) {}
         }
       } else if (columnType === 'opp') {
-        const isolated = localStorage.getItem(`opp_isolated_card_edits_${lead.id}`);
+        const isolated = getScopedStorageItem(`opp_isolated_card_edits_${lead.id}`);
         if (isolated) {
           try {
             initialLeadData = { ...lead, ...JSON.parse(isolated) };
@@ -384,7 +403,7 @@ export const MQLModule: React.FC = () => {
             department: newLead.department,
             lead_date: newLead.lead_date,
           };
-          localStorage.setItem(`sql_isolated_card_edits_${selectedLead.id}`, JSON.stringify(isolatedData));
+          setScopedStorageItem(`sql_isolated_card_edits_${selectedLead.id}`, JSON.stringify(isolatedData));
           alert('SQL opportunity card details updated successfully (isolated from MQL card)!');
           await loadInitialData();
           setView('lead_canvas');
@@ -414,7 +433,7 @@ export const MQLModule: React.FC = () => {
           lead_date: newLead.lead_date,
         });
 
-        localStorage.setItem(`mql_lead_extra_${updated.id}`, JSON.stringify(extraData));
+        setScopedStorageItem(`mql_lead_extra_${updated.id}`, JSON.stringify(extraData));
 
         setLeads(leads.map(l => l.id === updated.id ? updated : l));
         setSelectedLead(updated);
@@ -443,8 +462,8 @@ export const MQLModule: React.FC = () => {
           lead_date: newLead.lead_date,
         });
 
-        // Save the extra fields to localStorage
-        localStorage.setItem(`mql_lead_extra_${created.id}`, JSON.stringify(extraData));
+        // Save the extra fields to user-scoped localStorage
+        setScopedStorageItem(`mql_lead_extra_${created.id}`, JSON.stringify(extraData));
 
         setLeads([created, ...leads]);
         
@@ -654,7 +673,7 @@ export const MQLModule: React.FC = () => {
             ticketFromDb = recObj.handover_ticket;
           }
         }
-        const stored = typeof window !== 'undefined' ? localStorage.getItem(`mql_handover_${lead.id}`) : null;
+        const stored = typeof window !== 'undefined' ? getScopedStorageItem(`mql_handover_${lead.id}`) : null;
         let parsedStored: any = null;
         if (stored) {
           try { parsedStored = JSON.parse(stored); } catch {}
@@ -716,7 +735,7 @@ export const MQLModule: React.FC = () => {
             ticketFromDb = recObj.handover_ticket;
           }
         }
-        const stored = localStorage.getItem(`mql_handover_${lead.id}`);
+        const stored = getScopedStorageItem(`mql_handover_${lead.id}`);
         let parsedStored: any = null;
         if (stored) {
           try { parsedStored = JSON.parse(stored); } catch {}
@@ -771,7 +790,7 @@ export const MQLModule: React.FC = () => {
           // 5. Segment from extra details
           let leadIndustry = '—';
           try {
-            const extraJson = localStorage.getItem(`mql_lead_extra_${lead.id}`);
+            const extraJson = getScopedStorageItem(`mql_lead_extra_${lead.id}`);
             if (extraJson) {
               const extra = JSON.parse(extraJson);
               if (extra.lead_industry) {
@@ -801,7 +820,7 @@ export const MQLModule: React.FC = () => {
                 ticketFromDb = recObj.handover_ticket;
               }
             }
-            const stored = localStorage.getItem(`mql_handover_${lead.id}`);
+            const stored = getScopedStorageItem(`mql_handover_${lead.id}`);
             let parsedStored: any = null;
             if (stored) {
               try {
@@ -865,7 +884,7 @@ export const MQLModule: React.FC = () => {
 
           let leadIndustry = '';
           try {
-            const extraJson = localStorage.getItem(`mql_lead_extra_${lead.id}`);
+            const extraJson = getScopedStorageItem(`mql_lead_extra_${lead.id}`);
             if (extraJson) {
               const extra = JSON.parse(extraJson);
               if (extra.lead_industry) {
@@ -891,7 +910,7 @@ export const MQLModule: React.FC = () => {
                 ticketFromDb = recObj.handover_ticket;
               }
             }
-            const stored = localStorage.getItem(`mql_handover_${lead.id}`);
+            const stored = getScopedStorageItem(`mql_handover_${lead.id}`);
             let parsedStored: any = null;
             if (stored) {
               try {
@@ -1238,7 +1257,7 @@ export const MQLModule: React.FC = () => {
                     let leadIndustry = lead.lead_industry || '—';
                     if (leadIndustry === '—') {
                       try {
-                        const extraJson = localStorage.getItem(`mql_lead_extra_${lead.id}`);
+                        const extraJson = getScopedStorageItem(`mql_lead_extra_${lead.id}`);
                         if (extraJson) {
                           const extra = JSON.parse(extraJson);
                           if (extra.lead_industry) {
@@ -1271,7 +1290,7 @@ export const MQLModule: React.FC = () => {
                         }
                       }
 
-                      const stored = localStorage.getItem(`mql_handover_${lead.id}`);
+                      const stored = getScopedStorageItem(`mql_handover_${lead.id}`);
                       let parsedStored: any = null;
                       if (stored) {
                         try {
@@ -1938,7 +1957,7 @@ export const MQLModule: React.FC = () => {
     if (view === 'lead_assess' && selectedLead) {
       let extra: any = {};
       try {
-        const extraJson = localStorage.getItem(`mql_lead_extra_${selectedLead.id}`);
+        const extraJson = getScopedStorageItem(`mql_lead_extra_${selectedLead.id}`);
         if (extraJson) {
           extra = JSON.parse(extraJson);
         }

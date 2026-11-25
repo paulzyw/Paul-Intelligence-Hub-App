@@ -1,16 +1,73 @@
 import { supabase } from '@/src/lib/supabase';
-import { OpportunitySession, OpportunityEvidenceRecord, OpportunityQualificationResult } from '../../types/opportunity_qualification';
-let memoryOppRevenueMap: Record<string, number> | null = null;
-let memoryOppNameMap: Record<string, string> | null = null;
+import {
+  OpportunitySession,
+  OpportunityEvidenceRecord,
+  OpportunityQualificationResult
+} from '../../types/opportunity_qualification';
+import {
+  getActiveRevOSUserId,
+  getScopedStorageItem,
+  removeScopedStorageItem,
+  resolveAuthenticatedRevOSUserId,
+  setScopedStorageItem,
+  subscribeRevOSUserChange
+} from '../../utils/userIsolation';
+
+let memoryOppRevenueMap: { userId: string; data: Record<string, number> } | null = null;
+let memoryOppNameMap: { userId: string; data: Record<string, string> } | null = null;
+
+subscribeRevOSUserChange(() => {
+  memoryOppRevenueMap = null;
+  memoryOppNameMap = null;
+});
 
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const isValidUuid = (id?: string | null): id is string => typeof id === 'string' && UUID_REGEX.test(id);
 
 export class OpportunityDataService {
+  private static async verifyOwnedOpportunity(
+    opportunityId: string
+  ): Promise<{ userId: string; opp: any } | null> {
+    if (!isValidUuid(opportunityId)) return null;
+    const userId = await resolveAuthenticatedRevOSUserId();
+    if (!userId) return null;
+    const { data, error } = await supabase
+      .from('opportunities')
+      .select('*')
+      .eq('id', opportunityId)
+      .eq('created_by', userId)
+      .maybeSingle();
+    if (error || !data) return null;
+    return { userId, opp: data };
+  }
+
+  private static async verifyOwnedSession(
+    sessionId: string
+  ): Promise<{ userId: string; session: OpportunitySession } | null> {
+    if (!isValidUuid(sessionId)) return null;
+    const userId = await resolveAuthenticatedRevOSUserId();
+    if (!userId) return null;
+    const { data, error } = await supabase
+      .from('opportunity_qualification_sessions')
+      .select('*, opportunities!inner(created_by)')
+      .eq('id', sessionId)
+      .eq('opportunities.created_by', userId)
+      .maybeSingle();
+    if (error || !data) return null;
+    return { userId, session: data as OpportunitySession };
+  }
+
   // Session Management
-  static async createSession(opportunityId: string, options: { sqlInheritanceData?: any; revenueMotion?: string; industry?: string }) {
+  static async createSession(
+    opportunityId: string,
+    options: { sqlInheritanceData?: any; revenueMotion?: string; industry?: string }
+  ) {
     if (!isValidUuid(opportunityId)) {
       throw new Error(`Invalid opportunity UUID: ${opportunityId}`);
+    }
+    const owned = await this.verifyOwnedOpportunity(opportunityId);
+    if (!owned) {
+      throw new Error('Opportunity not found or access denied.');
     }
     const { data, error } = await supabase.functions.invoke('lead-qualification', {
       body: {
@@ -27,6 +84,8 @@ export class OpportunityDataService {
 
   static async getSessionByOpportunity(opportunityId: string) {
     if (!isValidUuid(opportunityId)) return null;
+    const owned = await this.verifyOwnedOpportunity(opportunityId);
+    if (!owned) return null;
     const { data, error } = await supabase
       .from('opportunity_qualification_sessions')
       .select('*')
@@ -42,8 +101,10 @@ export class OpportunityDataService {
   // Dedicated SQL Handover Intelligence Storage
   static async getSqlHandoverData(opportunityId: string) {
     if (!isValidUuid(opportunityId)) return null;
+    const owned = await this.verifyOwnedOpportunity(opportunityId);
+    if (!owned) return null;
+
     try {
-      // 1. Try retrieving from the dedicated isolated table
       const { data, error } = await supabase
         .from('opportunity_sql_handover_details')
         .select('*')
@@ -57,7 +118,6 @@ export class OpportunityDataService {
       console.warn('Dedicated opportunity_sql_handover_details table not yet initialized, checking session fallback:', e);
     }
 
-    // 2. Fallback to existing opportunity_qualification_sessions.sql_inheritance_data
     try {
       const session = await this.getSessionByOpportunity(opportunityId);
       if (session && session.sql_inheritance_data && Object.keys(session.sql_inheritance_data).length > 0) {
@@ -75,15 +135,20 @@ export class OpportunityDataService {
     return null;
   }
 
-  static async saveSqlHandoverData(opportunityId: string, payload: {
-    sqlQipPackage: any;
-    editableFields?: any;
-    revenueMotion?: string;
-    industry?: string;
-  }) {
+  static async saveSqlHandoverData(
+    opportunityId: string,
+    payload: {
+      sqlQipPackage: any;
+      editableFields?: any;
+      revenueMotion?: string;
+      industry?: string;
+    }
+  ) {
+    const owned = await this.verifyOwnedOpportunity(opportunityId);
+    if (!owned) throw new Error('Opportunity not found or access denied.');
+
     const { sqlQipPackage, editableFields, revenueMotion, industry } = payload;
 
-    // 1. Ensure an opportunity_qualification_session exists and sync sql_inheritance_data
     let session = await this.getSessionByOpportunity(opportunityId);
     if (!session) {
       session = await this.createSession(opportunityId, {
@@ -101,7 +166,6 @@ export class OpportunityDataService {
         .eq('id', session.id);
     }
 
-    // 2. Persist in dedicated isolated table `opportunity_sql_handover_details`
     try {
       const record = {
         opportunity_id: opportunityId,
@@ -136,12 +200,13 @@ export class OpportunityDataService {
           .update(record)
           .eq('id', existingRecord.id);
       } else {
-        await supabase
-          .from('opportunity_sql_handover_details')
-          .insert([record]);
+        await supabase.from('opportunity_sql_handover_details').insert([record]);
       }
     } catch (err) {
-      console.info('Dedicated opportunity_sql_handover_details upsert bypassed (pending Supabase SQL migration execution):', err);
+      console.info(
+        'Dedicated opportunity_sql_handover_details upsert bypassed (pending Supabase SQL migration execution):',
+        err
+      );
     }
 
     return true;
@@ -149,10 +214,12 @@ export class OpportunityDataService {
 
   // Evidence Submission
   static async submitEvidence(sessionId: string, evidence: Partial<OpportunityEvidenceRecord>[]) {
-    // 1. Direct persistence in Supabase table
+    const ownedSession = await this.verifyOwnedSession(sessionId);
+    if (!ownedSession) throw new Error('Qualification session not found or access denied.');
+
     try {
       if (evidence && evidence.length > 0) {
-        const records = evidence.map(e => ({
+        const records = evidence.map((e) => ({
           session_id: sessionId,
           dimension_code: e.dimension_code || '',
           evidence_id: e.evidence_id || '',
@@ -175,7 +242,6 @@ export class OpportunityDataService {
       console.warn('Direct database error in submitEvidence:', dbErr);
     }
 
-    // 2. Also invoke Edge function if available
     try {
       const { data, error } = await supabase.functions.invoke('lead-qualification', {
         body: {
@@ -185,15 +251,16 @@ export class OpportunityDataService {
         }
       });
       if (!error && data) return data;
-    } catch (e) {
-      // Direct table upsert above succeeded
-    }
+    } catch {}
 
     return true;
   }
 
   static async getEvidenceRecords(sessionId: string) {
     if (!isValidUuid(sessionId)) return [];
+    const ownedSession = await this.verifyOwnedSession(sessionId);
+    if (!ownedSession) return [];
+
     const { data, error } = await supabase
       .from('opportunity_qualification_evidence')
       .select('*')
@@ -205,22 +272,30 @@ export class OpportunityDataService {
     return data as OpportunityEvidenceRecord[];
   }
 
-  static async getOrCreateSession(opportunityId: string, options?: {
-    revenueMotion?: string;
-    industry?: string;
-    sqlInheritanceData?: any;
-  }) {
+  static async getOrCreateSession(
+    opportunityId: string,
+    options?: {
+      revenueMotion?: string;
+      industry?: string;
+      sqlInheritanceData?: any;
+    }
+  ) {
+    const owned = await this.verifyOwnedOpportunity(opportunityId);
+    if (!owned) throw new Error('Opportunity not found or access denied.');
+
     let session = await this.getSessionByOpportunity(opportunityId);
     if (!session) {
       try {
         const { data, error } = await supabase
           .from('opportunity_qualification_sessions')
-          .insert([{
-            opportunity_id: opportunityId,
-            revenue_motion: options?.revenueMotion || 'Digital Solution Selling',
-            industry: options?.industry || 'SaaS / Software',
-            sql_inheritance_data: options?.sqlInheritanceData || {}
-          }])
+          .insert([
+            {
+              opportunity_id: opportunityId,
+              revenue_motion: options?.revenueMotion || 'Digital Solution Selling',
+              industry: options?.industry || 'SaaS / Software',
+              sql_inheritance_data: options?.sqlInheritanceData || {}
+            }
+          ])
           .select()
           .maybeSingle();
 
@@ -239,7 +314,12 @@ export class OpportunityDataService {
   }
 
   // Dynamic Suggestion Answers
-  static async generateSuggestedAnswers(opportunityId: string, revenueMotion: string, industry: string, evidenceQuestions: any[]) {
+  static async generateSuggestedAnswers(
+    opportunityId: string,
+    revenueMotion: string,
+    industry: string,
+    evidenceQuestions: any[]
+  ) {
     const { data, error } = await supabase.functions.invoke('lead-qualification', {
       body: {
         action: 'generate-opportunity-suggested-answers',
@@ -282,11 +362,10 @@ export class OpportunityDataService {
       throw new Error('Empty response from edge function');
     }
 
-    // Return the actual structured evaluation output
     const evalResult = data.result || data;
 
-    // Harmonize evidence assessments to ensure every defined question is present with dimension name tag and match tag
-    const definedQuestions = contexts.all_defined_questions || contexts.opportunity_assessment_context?.all_defined_questions;
+    const definedQuestions =
+      contexts.all_defined_questions || contexts.opportunity_assessment_context?.all_defined_questions;
     if (Array.isArray(definedQuestions) && definedQuestions.length > 0) {
       const eaMap = new Map<string, any>();
       if (Array.isArray(evalResult.evidence_assessments)) {
@@ -308,31 +387,45 @@ export class OpportunityDataService {
         const ea = eaMap.get(q.evidence_id);
         const userRec = evRecordsMap.get(q.evidence_id);
         const userAnswer = userRec?.answer_value || q.user_answer || '';
-        const isBlank = !userAnswer || userAnswer.trim() === '' || userAnswer.toLowerCase() === '[unanswered]';
+        const isBlank =
+          !userAnswer || userAnswer.trim() === '' || userAnswer.toLowerCase() === '[unanswered]';
 
-        let score = typeof ea?.signal_score === 'number' ? ea.signal_score : (isBlank ? 30 : 80);
-        let matchType = ea?.matched_type === 'positive' || (typeof ea?.signal_score === 'number' && ea.signal_score >= 75) || score >= 75 ? 'positive'
-          : ea?.matched_type === 'negative' || (typeof ea?.signal_score === 'number' && ea.signal_score < 50) || score < 50 ? 'negative'
-          : 'neutral';
+        const score = typeof ea?.signal_score === 'number' ? ea.signal_score : isBlank ? 30 : 80;
+        const matchType =
+          ea?.matched_type === 'positive' ||
+          (typeof ea?.signal_score === 'number' && ea.signal_score >= 75) ||
+          score >= 75
+            ? 'positive'
+            : ea?.matched_type === 'negative' ||
+                (typeof ea?.signal_score === 'number' && ea.signal_score < 50) ||
+                score < 50
+              ? 'negative'
+              : 'neutral';
 
-        const matchLabel = matchType === 'positive' ? 'POSITIVE MATCH'
-          : matchType === 'negative' ? 'NEGATIVE MATCH'
-          : 'NEUTRAL MATCH';
+        const matchLabel =
+          matchType === 'positive'
+            ? 'POSITIVE MATCH'
+            : matchType === 'negative'
+              ? 'NEGATIVE MATCH'
+              : 'NEUTRAL MATCH';
 
         const dimName = q.dimension_name || ea?.dimension_name || q.dimension_code || 'Dimension';
 
         return {
           evidence_object_id: q.evidence_id,
-          evidence_name: q.question_text || q.evidence_name || ea?.evidence_name || 'Opportunity Evidence Finding',
+          evidence_name:
+            q.question_text || q.evidence_name || ea?.evidence_name || 'Opportunity Evidence Finding',
           dimension_code: q.dimension_code,
           dimension_name: dimName,
           user_answer: userAnswer,
           evidence_source: userRec?.evidence_source || ea?.evidence_source || 'Customer Stakeholder',
           validation_strength: userRec?.evidence_strength || ea?.validation_strength || 'verified',
           signal_score: score,
-          identification_assessment: ea?.identification_assessment || (isBlank
-            ? `No customer evidence collected for this question. Creates an information gap in ${dimName}.`
-            : `Customer evidence evaluated: "${userAnswer}". Tested against target criteria for ${dimName}.`),
+          identification_assessment:
+            ea?.identification_assessment ||
+            (isBlank
+              ? `No customer evidence collected for this question. Creates an information gap in ${dimName}.`
+              : `Customer evidence evaluated: "${userAnswer}". Tested against target criteria for ${dimName}.`),
           tags: [
             { label: dimName, type: 'dimension' },
             { label: matchLabel, type: matchType }
@@ -373,16 +466,17 @@ export class OpportunityDataService {
     return data;
   }
 
-  // Opportunity Form Data Management (Supabase-Persisted)
+  // Opportunity Form Data Management (Supabase-Persisted, User-Isolated)
   static async getOpportunityFormData(opportunityId: string) {
     if (!isValidUuid(opportunityId)) return null;
+    const owned = await this.verifyOwnedOpportunity(opportunityId);
+    if (!owned) return null;
 
     let formRecord: any = null;
     let handoverEditable: any = null;
-    let oppRecord: any = null;
+    const oppRecord: any = owned.opp;
     let parsedDesc: any = {};
 
-    // 1. Try dedicated opportunity_form_records table
     try {
       const { data, error } = await supabase
         .from('opportunity_form_records')
@@ -393,37 +487,20 @@ export class OpportunityDataService {
       if (!error && data) {
         formRecord = data;
       }
-    } catch (e) {
-      // Table may not yet be initialized in Supabase
-    }
+    } catch {}
 
-    // 2. Check opportunity_sql_handover_details editable_fields
     try {
       const handover = await this.getSqlHandoverData(opportunityId);
       if (handover?.editable_fields && Object.keys(handover.editable_fields).length > 0) {
         handoverEditable = handover.editable_fields;
       }
-    } catch (e) {
-      // Fallback
+    } catch {}
+
+    if (oppRecord?.description && oppRecord.description.trim().startsWith('{')) {
+      try {
+        parsedDesc = JSON.parse(oppRecord.description);
+      } catch {}
     }
-
-    // 3. Also inspect opportunities record as fallback / enrichment for inherited SQL/MQL fields
-    try {
-      const { data: opp } = await supabase
-        .from('opportunities')
-        .select('*')
-        .eq('id', opportunityId)
-        .maybeSingle();
-
-      if (opp) {
-        oppRecord = opp;
-        if (opp.description && opp.description.trim().startsWith('{')) {
-          try {
-            parsedDesc = JSON.parse(opp.description);
-          } catch (e) {}
-        }
-      }
-    } catch (e) {}
 
     if (!formRecord && !handoverEditable && !oppRecord) {
       return null;
@@ -490,44 +567,49 @@ export class OpportunityDataService {
   }
 
   /**
-   * Synchronous cached getters for instant (0ms) render on component mount
+   * Synchronous cached getters scoped to the active user ID
    */
-  static getCachedOpportunityEstimatedRevenuesMap(): Record<string, number> {
-    if (memoryOppRevenueMap) return memoryOppRevenueMap;
-    if (typeof window !== 'undefined') {
-      try {
-        const stored = localStorage.getItem('revos_cached_opp_revenue_map');
-        if (stored) {
-          const parsed = JSON.parse(stored);
-          memoryOppRevenueMap = parsed;
-          return parsed;
-        }
-      } catch (e) {}
+  static getCachedOpportunityEstimatedRevenuesMap(explicitUserId?: string | null): Record<string, number> {
+    const uid = explicitUserId ?? getActiveRevOSUserId();
+    if (!uid) return {};
+    if (memoryOppRevenueMap && memoryOppRevenueMap.userId === uid) {
+      return memoryOppRevenueMap.data;
     }
+    try {
+      const stored = getScopedStorageItem('revos_cached_opp_revenue_map', uid);
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        memoryOppRevenueMap = { userId: uid, data: parsed };
+        return parsed;
+      }
+    } catch {}
     return {};
   }
 
-  static getCachedOpportunityNamesMap(): Record<string, string> {
-    if (memoryOppNameMap) return memoryOppNameMap;
-    if (typeof window !== 'undefined') {
-      try {
-        const stored = localStorage.getItem('revos_cached_opp_name_map');
-        if (stored) {
-          const parsed = JSON.parse(stored);
-          memoryOppNameMap = parsed;
-          return parsed;
-        }
-      } catch (e) {}
+  static getCachedOpportunityNamesMap(explicitUserId?: string | null): Record<string, string> {
+    const uid = explicitUserId ?? getActiveRevOSUserId();
+    if (!uid) return {};
+    if (memoryOppNameMap && memoryOppNameMap.userId === uid) {
+      return memoryOppNameMap.data;
     }
+    try {
+      const stored = getScopedStorageItem('revos_cached_opp_name_map', uid);
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        memoryOppNameMap = { userId: uid, data: parsed };
+        return parsed;
+      }
+    } catch {}
     return {};
   }
 
   /**
-   * Get Estimated Revenue map for all opportunities/leads from Opportunity Form records
-   * Sums up or queries the canonical "Estimated Revenue" defined in the Opportunity Form.
-   * Runs queries in parallel with Promise.all for ultra-fast response and persists to cache.
+   * Get Estimated Revenue map strictly for the authenticated user's opportunities
    */
   static async getOpportunityEstimatedRevenuesMap(): Promise<Record<string, number>> {
+    const userId = await resolveAuthenticatedRevOSUserId();
+    if (!userId) return {};
+
     const revenueMap: Record<string, number> = {};
 
     const parseNum = (val: any): number => {
@@ -538,33 +620,42 @@ export class OpportunityDataService {
     };
 
     try {
-      // Parallelize all 5 database queries for maximum performance
-      const [oppsRes, handoversRes, formRecordsRes, sqlPromosRes, mqlPromosRes] = await Promise.all([
+      const [oppsRes, sqlPromosRes, mqlPromosRes] = await Promise.all([
         supabase
           .from('opportunities')
-          .select('id, mql_reference_id, description'),
-        supabase
-          .from('opportunity_sql_handover_details')
-          .select('opportunity_id, editable_fields'),
-        supabase
-          .from('opportunity_form_records')
-          .select('opportunity_id, estimated_revenue'),
+          .select('id, mql_reference_id, description')
+          .eq('created_by', userId),
         supabase
           .from('sql_opportunity_promotions')
-          .select('lead_id, opportunity_id'),
+          .select('lead_id, opportunity_id')
+          .eq('created_by', userId),
         supabase
           .from('mql_sql_promotions')
           .select('lead_id, opportunity_id')
+          .eq('created_by', userId)
       ]);
 
-      // 1. Opportunities description JSON
+      const ownedOppIds = (oppsRes.data || []).map((o: any) => o.id).filter(Boolean);
+      const [handoversRes, formRecordsRes] = ownedOppIds.length > 0
+        ? await Promise.all([
+            supabase
+              .from('opportunity_sql_handover_details')
+              .select('opportunity_id, editable_fields')
+              .in('opportunity_id', ownedOppIds),
+            supabase
+              .from('opportunity_form_records')
+              .select('opportunity_id, estimated_revenue')
+              .in('opportunity_id', ownedOppIds)
+          ])
+        : [{ data: [] }, { data: [] }];
+
       (oppsRes.data || []).forEach((opp: any) => {
         let rev: string | null = null;
         if (opp.description && opp.description.trim().startsWith('{')) {
           try {
             const desc = JSON.parse(opp.description);
             if (desc.estimated_revenue) rev = desc.estimated_revenue;
-          } catch (e) {}
+          } catch {}
         }
         if (rev) {
           const num = parseNum(rev);
@@ -575,44 +666,33 @@ export class OpportunityDataService {
         }
       });
 
-      // 2. Handover details
       (handoversRes.data || []).forEach((h: any) => {
         const rev = h.editable_fields?.estimated_revenue;
         if (rev) {
-          const num = parseNum(rev);
-          revenueMap[h.opportunity_id] = num;
+          revenueMap[h.opportunity_id] = parseNum(rev);
         }
       });
 
-      // 3. Form records (canonical authority)
       (formRecordsRes.data || []).forEach((f: any) => {
         if (f.estimated_revenue) {
-          const num = parseNum(f.estimated_revenue);
-          revenueMap[f.opportunity_id] = num;
+          revenueMap[f.opportunity_id] = parseNum(f.estimated_revenue);
         }
       });
 
-      // 4. Map by lead_id from sql_opportunity_promotions
       (sqlPromosRes.data || []).forEach((p: any) => {
         if (p.opportunity_id && revenueMap[p.opportunity_id] && p.lead_id) {
           revenueMap[p.lead_id] = revenueMap[p.opportunity_id];
         }
       });
 
-      // 5. Map by lead_id from mql_sql_promotions
       (mqlPromosRes.data || []).forEach((p: any) => {
         if (p.opportunity_id && revenueMap[p.opportunity_id] && p.lead_id) {
           revenueMap[p.lead_id] = revenueMap[p.opportunity_id];
         }
       });
 
-      // Update in-memory and localStorage cache
-      memoryOppRevenueMap = revenueMap;
-      if (typeof window !== 'undefined') {
-        try {
-          localStorage.setItem('revos_cached_opp_revenue_map', JSON.stringify(revenueMap));
-        } catch (e) {}
-      }
+      memoryOppRevenueMap = { userId, data: revenueMap };
+      setScopedStorageItem('revos_cached_opp_revenue_map', JSON.stringify(revenueMap), userId);
     } catch (e) {
       console.warn('Error fetching opportunity estimated revenues map:', e);
     }
@@ -621,39 +701,51 @@ export class OpportunityDataService {
   }
 
   /**
-   * Fetches opportunity names map indexed by both opportunity_id and lead_id.
-   * Runs queries in parallel with Promise.all for high-speed retrieval and persists to cache.
+   * Fetches opportunity names map strictly for the authenticated user's opportunities
    */
   static async getOpportunityNamesMap(): Promise<Record<string, string>> {
+    const userId = await resolveAuthenticatedRevOSUserId();
+    if (!userId) return {};
+
     const nameMap: Record<string, string> = {};
 
     try {
-      const [oppsRes, handoversRes, formRecordsRes, sqlPromosRes, mqlPromosRes] = await Promise.all([
+      const [oppsRes, sqlPromosRes, mqlPromosRes] = await Promise.all([
         supabase
           .from('opportunities')
-          .select('id, mql_reference_id, opportunity_name, description, company_name'),
-        supabase
-          .from('opportunity_sql_handover_details')
-          .select('opportunity_id, editable_fields'),
-        supabase
-          .from('opportunity_form_records')
-          .select('opportunity_id, opportunity_name'),
+          .select('id, mql_reference_id, opportunity_name, description, company_name')
+          .eq('created_by', userId),
         supabase
           .from('sql_opportunity_promotions')
-          .select('lead_id, opportunity_id'),
+          .select('lead_id, opportunity_id')
+          .eq('created_by', userId),
         supabase
           .from('mql_sql_promotions')
           .select('lead_id, opportunity_id')
+          .eq('created_by', userId)
       ]);
 
-      // 1. Opportunities
+      const ownedOppIds = (oppsRes.data || []).map((o: any) => o.id).filter(Boolean);
+      const [handoversRes, formRecordsRes] = ownedOppIds.length > 0
+        ? await Promise.all([
+            supabase
+              .from('opportunity_sql_handover_details')
+              .select('opportunity_id, editable_fields')
+              .in('opportunity_id', ownedOppIds),
+            supabase
+              .from('opportunity_form_records')
+              .select('opportunity_id, opportunity_name')
+              .in('opportunity_id', ownedOppIds)
+          ])
+        : [{ data: [] }, { data: [] }];
+
       (oppsRes.data || []).forEach((opp: any) => {
         let name = opp.opportunity_name;
         if (!name && opp.description && opp.description.trim().startsWith('{')) {
           try {
             const desc = JSON.parse(opp.description);
             if (desc.opportunity_name) name = desc.opportunity_name;
-          } catch (e) {}
+          } catch {}
         }
         if (!name && opp.company_name) {
           name = `${opp.company_name} Opportunity`;
@@ -666,7 +758,6 @@ export class OpportunityDataService {
         }
       });
 
-      // 2. Handover details
       (handoversRes.data || []).forEach((h: any) => {
         const name = h.editable_fields?.opportunity_name;
         if (name) {
@@ -674,34 +765,26 @@ export class OpportunityDataService {
         }
       });
 
-      // 3. Form records
       (formRecordsRes.data || []).forEach((f: any) => {
         if (f.opportunity_name) {
           nameMap[f.opportunity_id] = f.opportunity_name;
         }
       });
 
-      // 4. Map lead_id via sql_opportunity_promotions
       (sqlPromosRes.data || []).forEach((p: any) => {
         if (p.opportunity_id && nameMap[p.opportunity_id] && p.lead_id) {
           nameMap[p.lead_id] = nameMap[p.opportunity_id];
         }
       });
 
-      // 5. Map lead_id via mql_sql_promotions
       (mqlPromosRes.data || []).forEach((p: any) => {
         if (p.opportunity_id && nameMap[p.opportunity_id] && p.lead_id) {
           nameMap[p.lead_id] = nameMap[p.opportunity_id];
         }
       });
 
-      // Update in-memory and localStorage cache
-      memoryOppNameMap = nameMap;
-      if (typeof window !== 'undefined') {
-        try {
-          localStorage.setItem('revos_cached_opp_name_map', JSON.stringify(nameMap));
-        } catch (e) {}
-      }
+      memoryOppNameMap = { userId, data: nameMap };
+      setScopedStorageItem('revos_cached_opp_name_map', JSON.stringify(nameMap), userId);
     } catch (e) {
       console.warn('Error fetching opportunity names map:', e);
     }
@@ -709,30 +792,35 @@ export class OpportunityDataService {
     return nameMap;
   }
 
-  static async saveOpportunityFormData(opportunityId: string, formData: {
-    company_name: string;
-    opportunity_name: string;
-    opportunity_owner: string;
-    opportunity_stage: string;
-    estimated_revenue: string;
-    pipeline_stage: string;
-    expected_close_date: string;
-    industry: string;
-    revenue_motion: string;
-    country?: string;
-    campaign_assignment?: string;
-    business_segment?: string;
-    product_solution?: string;
-    strategic_note?: string;
-  }) {
-    const isMissingColumnError = (err: any) =>
-      err && (
-        err.code === 'PGRST204' ||
-        /column .* does not exist/i.test(err.message || '') ||
-        /could not find the .* column/i.test(err.message || '')
-      );
+  static async saveOpportunityFormData(
+    opportunityId: string,
+    formData: {
+      company_name: string;
+      opportunity_name: string;
+      opportunity_owner: string;
+      opportunity_stage: string;
+      estimated_revenue: string;
+      pipeline_stage: string;
+      expected_close_date: string;
+      industry: string;
+      revenue_motion: string;
+      country?: string;
+      campaign_assignment?: string;
+      business_segment?: string;
+      product_solution?: string;
+      strategic_note?: string;
+    }
+  ) {
+    const owned = await this.verifyOwnedOpportunity(opportunityId);
+    if (!owned) throw new Error('Opportunity not found or access denied.');
+    const userId = owned.userId;
 
-    // 1. Update public.opportunities table (primary system of record)
+    const isMissingColumnError = (err: any) =>
+      err &&
+      (err.code === 'PGRST204' ||
+        /column .* does not exist/i.test(err.message || '') ||
+        /could not find the .* column/i.test(err.message || ''));
+
     const baseOppUpdate = {
       company_name: formData.company_name,
       opportunity_name: formData.opportunity_name,
@@ -751,14 +839,16 @@ export class OpportunityDataService {
         business_segment: formData.business_segment ?? null,
         product_solution: formData.product_solution ?? null
       })
-      .eq('id', opportunityId);
+      .eq('id', opportunityId)
+      .eq('created_by', userId);
 
     if (oppError) {
       if (isMissingColumnError(oppError)) {
         const { error: fallbackOppError } = await supabase
           .from('opportunities')
           .update(baseOppUpdate)
-          .eq('id', opportunityId);
+          .eq('id', opportunityId)
+          .eq('created_by', userId);
         if (fallbackOppError) {
           console.error('Error updating opportunities record (fallback):', fallbackOppError);
         }
@@ -767,7 +857,6 @@ export class OpportunityDataService {
       }
     }
 
-    // 2. Update public.opportunity_sql_handover_details
     try {
       await this.saveSqlHandoverData(opportunityId, {
         sqlQipPackage: {},
@@ -779,7 +868,6 @@ export class OpportunityDataService {
       console.warn('saveSqlHandoverData fallback:', e);
     }
 
-    // 3. Upsert into public.opportunity_form_records
     try {
       const baseRecord = {
         opportunity_id: opportunityId,
@@ -817,10 +905,7 @@ export class OpportunityDataService {
           .eq('id', existing.id);
 
         if (recUpdateError && isMissingColumnError(recUpdateError)) {
-          await supabase
-            .from('opportunity_form_records')
-            .update(baseRecord)
-            .eq('id', existing.id);
+          await supabase.from('opportunity_form_records').update(baseRecord).eq('id', existing.id);
         }
       } else {
         const { error: recInsertError } = await supabase
@@ -828,58 +913,53 @@ export class OpportunityDataService {
           .insert([fullRecord]);
 
         if (recInsertError && isMissingColumnError(recInsertError)) {
-          await supabase
-            .from('opportunity_form_records')
-            .insert([baseRecord]);
+          await supabase.from('opportunity_form_records').insert([baseRecord]);
         }
       }
     } catch (e) {
       console.info('opportunity_form_records upsert note (will succeed once migration runs):', e);
     }
 
-    // Update in-memory and localStorage caches immediately for instant UI reactivity
     try {
       const cleanNum = parseFloat(String(formData.estimated_revenue || '').replace(/[^0-9.]/g, ''));
       if (!isNaN(cleanNum) && cleanNum > 0) {
-        if (!memoryOppRevenueMap) memoryOppRevenueMap = {};
-        memoryOppRevenueMap[opportunityId] = cleanNum;
-        if (typeof window !== 'undefined') {
-          const stored = localStorage.getItem('revos_cached_opp_revenue_map');
-          const map = stored ? JSON.parse(stored) : {};
-          map[opportunityId] = cleanNum;
-          localStorage.setItem('revos_cached_opp_revenue_map', JSON.stringify(map));
+        if (!memoryOppRevenueMap || memoryOppRevenueMap.userId !== userId) {
+          memoryOppRevenueMap = { userId, data: {} };
         }
+        memoryOppRevenueMap.data[opportunityId] = cleanNum;
+        const stored = getScopedStorageItem('revos_cached_opp_revenue_map', userId);
+        const map = stored ? JSON.parse(stored) : {};
+        map[opportunityId] = cleanNum;
+        setScopedStorageItem('revos_cached_opp_revenue_map', JSON.stringify(map), userId);
       }
       if (formData.opportunity_name) {
-        if (!memoryOppNameMap) memoryOppNameMap = {};
-        memoryOppNameMap[opportunityId] = formData.opportunity_name;
-        if (typeof window !== 'undefined') {
-          const stored = localStorage.getItem('revos_cached_opp_name_map');
-          const map = stored ? JSON.parse(stored) : {};
-          map[opportunityId] = formData.opportunity_name;
-          localStorage.setItem('revos_cached_opp_name_map', JSON.stringify(map));
+        if (!memoryOppNameMap || memoryOppNameMap.userId !== userId) {
+          memoryOppNameMap = { userId, data: {} };
         }
+        memoryOppNameMap.data[opportunityId] = formData.opportunity_name;
+        const stored = getScopedStorageItem('revos_cached_opp_name_map', userId);
+        const map = stored ? JSON.parse(stored) : {};
+        map[opportunityId] = formData.opportunity_name;
+        setScopedStorageItem('revos_cached_opp_name_map', JSON.stringify(map), userId);
       }
-    } catch (e) {}
+    } catch {}
 
     return true;
   }
 
-  // ==============================================================================
-  // Start Qualification Tracking & Dynamic Default Navigation State
-  // ==============================================================================
-
   /**
    * Records that the user clicked "Start Opportunity Qualification" in Opportunity Form
    */
-  static async recordStartQualification(opportunityId: string, options?: { revenueMotion?: string; industry?: string }) {
+  static async recordStartQualification(
+    opportunityId: string,
+    options?: { revenueMotion?: string; industry?: string }
+  ) {
     if (!opportunityId) return;
+    const userId = await resolveAuthenticatedRevOSUserId();
+    if (!userId) return;
     try {
-      if (typeof window !== 'undefined' && window.localStorage) {
-        localStorage.setItem(`oq_started_${opportunityId}`, 'true');
-      }
+      setScopedStorageItem(`oq_started_${opportunityId}`, 'true', userId);
 
-      // 1. Ensure session exists and update status/inheritance flag
       let session = await this.getSessionByOpportunity(opportunityId);
       if (!session) {
         session = await this.getOrCreateSession(opportunityId, {
@@ -892,14 +972,20 @@ export class OpportunityDataService {
         await supabase
           .from('opportunity_qualification_sessions')
           .update({
-            sql_inheritance_data: { ...currentData, qualification_started: true, started_at: new Date().toISOString() },
-            qualification_status: session.qualification_status && session.qualification_status !== 'NOT_STARTED' ? session.qualification_status : 'IN_PROGRESS',
+            sql_inheritance_data: {
+              ...currentData,
+              qualification_started: true,
+              started_at: new Date().toISOString()
+            },
+            qualification_status:
+              session.qualification_status && session.qualification_status !== 'NOT_STARTED'
+                ? session.qualification_status
+                : 'IN_PROGRESS',
             updated_at: new Date().toISOString()
           })
           .eq('id', session.id);
       }
 
-      // 2. Also update opportunity_form_records form_status
       try {
         await supabase
           .from('opportunity_form_records')
@@ -908,9 +994,7 @@ export class OpportunityDataService {
             updated_at: new Date().toISOString()
           })
           .eq('opportunity_id', opportunityId);
-      } catch (e) {
-        // non-blocking
-      }
+      } catch {}
     } catch (err) {
       console.warn('Error recording qualification start in database:', err);
     }
@@ -921,14 +1005,15 @@ export class OpportunityDataService {
    */
   static async recordEvidenceSaved(opportunityId: string, sessionId: string, savedCount: number) {
     if (!opportunityId) return;
-    try {
-      if (typeof window !== 'undefined' && window.localStorage) {
-        localStorage.setItem(`oq_started_${opportunityId}`, 'true');
-        localStorage.setItem(`oq_has_saved_evidence_${opportunityId}`, 'true');
-        localStorage.setItem(`oq_evidence_count_${opportunityId}`, String(savedCount));
-      }
+    const owned = await this.verifyOwnedOpportunity(opportunityId);
+    if (!owned) return;
+    const userId = owned.userId;
 
-      // Ensure session in Supabase has the saved evidence flag
+    try {
+      setScopedStorageItem(`oq_started_${opportunityId}`, 'true', userId);
+      setScopedStorageItem(`oq_has_saved_evidence_${opportunityId}`, 'true', userId);
+      setScopedStorageItem(`oq_evidence_count_${opportunityId}`, String(savedCount), userId);
+
       if (sessionId) {
         const session = await this.getSessionByOpportunity(opportunityId);
         const currentData = session?.sql_inheritance_data || {};
@@ -942,7 +1027,10 @@ export class OpportunityDataService {
               saved_evidence_count: savedCount,
               last_evidence_saved_at: new Date().toISOString()
             },
-            qualification_status: session?.qualification_status && session?.qualification_status !== 'NOT_STARTED' ? session.qualification_status : 'IN_PROGRESS',
+            qualification_status:
+              session?.qualification_status && session.qualification_status !== 'NOT_STARTED'
+                ? session.qualification_status
+                : 'IN_PROGRESS',
             updated_at: new Date().toISOString()
           })
           .eq('id', sessionId);
@@ -953,34 +1041,32 @@ export class OpportunityDataService {
   }
 
   /**
-   * Checks whether the Opportunity Qualification Form should be displayed by default for this opportunity:
-   * Condition 1: User clicked "Start Opportunity Qualification" in Opportunity Form
-   * Condition 2: Saved answer for at least one evidence question
+   * Checks whether the Opportunity Qualification Form should be displayed by default for this opportunity
    */
   static async checkShouldDefaultToQualificationForm(opportunityId: string): Promise<boolean> {
     if (!opportunityId) return false;
+    const userId = await resolveAuthenticatedRevOSUserId();
+    if (!userId) return false;
 
-    // Fast check from localStorage
-    const localStarted = typeof window !== 'undefined' && localStorage.getItem(`oq_started_${opportunityId}`) === 'true';
-    const localSaved = typeof window !== 'undefined' && localStorage.getItem(`oq_has_saved_evidence_${opportunityId}`) === 'true';
+    const localStarted = getScopedStorageItem(`oq_started_${opportunityId}`, userId) === 'true';
+    const localSaved = getScopedStorageItem(`oq_has_saved_evidence_${opportunityId}`, userId) === 'true';
 
     if (!isValidUuid(opportunityId)) {
       return localStarted && localSaved;
     }
 
     try {
-      // Database check: query session
       const session = await this.getSessionByOpportunity(opportunityId);
       if (!session) {
         return localStarted && localSaved;
       }
 
-      const startedInDb = session.sql_inheritance_data?.qualification_started === true ||
+      const startedInDb =
+        session.sql_inheritance_data?.qualification_started === true ||
         (session.qualification_status && session.qualification_status !== 'NOT_STARTED');
 
       const isStarted = localStarted || startedInDb;
       if (!isStarted) {
-        // Also check opportunity_form_records
         const { data: formRec } = await supabase
           .from('opportunity_form_records')
           .select('form_status')
@@ -992,7 +1078,6 @@ export class OpportunityDataService {
         }
       }
 
-      // Verify that at least one evidence question has a saved non-empty answer
       const { data: evidenceRows, error } = await supabase
         .from('opportunity_qualification_evidence')
         .select('answer_value')
@@ -1003,14 +1088,13 @@ export class OpportunityDataService {
       }
 
       const hasAnswer = (evidenceRows || []).some(
-        (row: any) => row.answer_value && typeof row.answer_value === 'string' && row.answer_value.trim().length > 0
+        (row: any) =>
+          row.answer_value && typeof row.answer_value === 'string' && row.answer_value.trim().length > 0
       );
 
       if (hasAnswer) {
-        if (typeof window !== 'undefined') {
-          localStorage.setItem(`oq_started_${opportunityId}`, 'true');
-          localStorage.setItem(`oq_has_saved_evidence_${opportunityId}`, 'true');
-        }
+        setScopedStorageItem(`oq_started_${opportunityId}`, 'true', userId);
+        setScopedStorageItem(`oq_has_saved_evidence_${opportunityId}`, 'true', userId);
         return true;
       }
 
@@ -1022,7 +1106,7 @@ export class OpportunityDataService {
   }
 
   /**
-   * Pre-loads default qualification form display status for a list of opportunities
+   * Pre-loads default qualification form display status for a list of owned opportunities
    */
   static async getQualificationFormDefaultsMap(opportunityIds: string[]): Promise<Record<string, boolean>> {
     const result: Record<string, boolean> = {};
@@ -1040,37 +1124,37 @@ export class OpportunityDataService {
     return result;
   }
 
-  // ==============================================================================
-  // Full Qualification Result & History Management (Supabase-Persisted)
-  // ==============================================================================
-
   /**
-   * Save the full qualification result to Supabase opportunity_qualification_results,
-   * update the session, record qualification history, and sync local cache.
+   * Save the full qualification result to Supabase opportunity_qualification_results
    */
   static async saveFullQualificationResult(
-    opportunityId: string, 
-    sessionId: string, 
+    opportunityId: string,
+    sessionId: string,
     result: any
   ): Promise<boolean> {
     if (!opportunityId || !result) return false;
+    const owned = await this.verifyOwnedOpportunity(opportunityId);
+    if (!owned) throw new Error('Opportunity not found or access denied.');
+    const userId = owned.userId;
 
-    // Unpack actual AI evaluation payload if wrapped
     const actualResult = result.result || result;
 
-    const status = actualResult.qualification_summary?.qualification_status || actualResult.qualification_status || 'QUALIFIED';
-    const score = Number(actualResult.qualification_summary?.overall_score ?? actualResult.overall_score ?? 0);
-    const confidence = Number(actualResult.qualification_summary?.confidence_score ?? actualResult.confidence_score ?? 0);
+    const status =
+      actualResult.qualification_summary?.qualification_status ||
+      actualResult.qualification_status ||
+      'QUALIFIED';
+    const score = Number(
+      actualResult.qualification_summary?.overall_score ?? actualResult.overall_score ?? 0
+    );
+    const confidence = Number(
+      actualResult.qualification_summary?.confidence_score ?? actualResult.confidence_score ?? 0
+    );
 
-    // Cache locally immediately for instant feedback
-    if (typeof window !== 'undefined') {
-      localStorage.setItem(`oq_has_result_${opportunityId}`, 'true');
-      try {
-        localStorage.setItem(`oq_result_${opportunityId}`, JSON.stringify(actualResult));
-      } catch (e) {}
-    }
+    setScopedStorageItem(`oq_has_result_${opportunityId}`, 'true', userId);
+    try {
+      setScopedStorageItem(`oq_result_${opportunityId}`, JSON.stringify(actualResult), userId);
+    } catch {}
 
-    // 1. Update session in Supabase
     try {
       if (sessionId) {
         await supabase
@@ -1081,13 +1165,13 @@ export class OpportunityDataService {
             confidence_score: confidence,
             updated_at: new Date().toISOString()
           })
-          .eq('id', sessionId);
+          .eq('id', sessionId)
+          .eq('opportunity_id', opportunityId);
       }
     } catch (err) {
       console.warn('Session update in saveFullQualificationResult:', err);
     }
 
-    // 2. Upsert into opportunity_qualification_results
     try {
       if (sessionId) {
         const payload = {
@@ -1097,7 +1181,8 @@ export class OpportunityDataService {
           overall_score: score,
           confidence_score: confidence,
           dimension_results: actualResult.dimension_assessments || actualResult.dimension_results || [],
-          qualification_explanation: actualResult.qualification_summary?.summary || actualResult.qualification_explanation || '',
+          qualification_explanation:
+            actualResult.qualification_summary?.summary || actualResult.qualification_explanation || '',
           risks: actualResult.risk_analysis || actualResult.risks || [],
           contradictions: actualResult.contradictions || [],
           recommended_actions: actualResult.recommendations || actualResult.recommended_actions || [],
@@ -1109,11 +1194,11 @@ export class OpportunityDataService {
             opportunity_promotion_recommendation: actualResult.opportunity_promotion_recommendation
           },
           configuration_versions: {
-            Opportunity_industry_configuration_JSON_version: "3.0",
-            evidence_kb_version: "3.0",
-            qualification_rules_version: "3.0",
-            reasoning_strategy_version: "3.0",
-            gemini_prompt_version: "3.0"
+            Opportunity_industry_configuration_JSON_version: '3.0',
+            evidence_kb_version: '3.0',
+            qualification_rules_version: '3.0',
+            reasoning_strategy_version: '3.0',
+            gemini_prompt_version: '3.0'
           }
         };
 
@@ -1128,37 +1213,32 @@ export class OpportunityDataService {
     } catch (e) {
       console.warn('Results upsert exception:', e);
     }
-    
-    // Invalidate local cache to force fetch from DB if needed
-    if (typeof window !== 'undefined') {
-        localStorage.removeItem(`oq_result_${opportunityId}`);
-    }
 
-    // Resolve dynamic Opportunity Owner from Opportunity Form
+    removeScopedStorageItem(`oq_result_${opportunityId}`, userId);
+
     let dynamicOwner = 'Sales Representative';
     try {
       const formData = await this.getOpportunityFormData(opportunityId);
       if (formData?.opportunity_owner?.trim()) {
         dynamicOwner = formData.opportunity_owner.trim();
       }
-    } catch (e) {}
+    } catch {}
 
-    // 3. Save a History record to opportunity_qualification_history
     try {
       await this.saveQualificationHistory({
         opportunity_id: opportunityId,
         session_id: sessionId || null,
         event_name: 'Opportunity Assessment Run',
         qualification_status: status,
-        score: score,
-        confidence: confidence,
+        score,
+        confidence,
         evidence_changes: `${(actualResult.evidence_assessments || []).length} evidence items evaluated`,
         reasoning_version: 'Gemini 3.1 Flash Lite - v3.0',
         rules_version: 'OQ Rules v3.0',
         user_name: dynamicOwner,
         raw_result: actualResult
       });
-    } catch (e) {}
+    } catch {}
 
     if (typeof window !== 'undefined') {
       window.dispatchEvent(new CustomEvent('opportunity_qualification_updated', { detail: { opportunityId } }));
@@ -1168,13 +1248,14 @@ export class OpportunityDataService {
   }
 
   /**
-   * Check if a qualification result exists for this opportunity (for default view selection)
+   * Check if a qualification result exists for this owned opportunity
    */
   static async checkHasQualificationResult(opportunityId: string): Promise<boolean> {
     if (!opportunityId) return false;
+    const userId = await resolveAuthenticatedRevOSUserId();
+    if (!userId) return false;
 
-    // Fast synchronous check
-    if (typeof window !== 'undefined' && localStorage.getItem(`oq_has_result_${opportunityId}`) === 'true') {
+    if (getScopedStorageItem(`oq_has_result_${opportunityId}`, userId) === 'true') {
       return true;
     }
 
@@ -1183,15 +1264,18 @@ export class OpportunityDataService {
     }
 
     try {
-      // Check session status first
       const session = await this.getSessionByOpportunity(opportunityId);
       if (session) {
-        if (session.overall_score && session.overall_score > 0 && session.qualification_status && session.qualification_status !== 'NOT_STARTED') {
-          if (typeof window !== 'undefined') localStorage.setItem(`oq_has_result_${opportunityId}`, 'true');
+        if (
+          session.overall_score &&
+          session.overall_score > 0 &&
+          session.qualification_status &&
+          session.qualification_status !== 'NOT_STARTED'
+        ) {
+          setScopedStorageItem(`oq_has_result_${opportunityId}`, 'true', userId);
           return true;
         }
 
-        // Check opportunity_qualification_results table
         const { data, error } = await supabase
           .from('opportunity_qualification_results')
           .select('id')
@@ -1199,7 +1283,7 @@ export class OpportunityDataService {
           .maybeSingle();
 
         if (!error && data) {
-          if (typeof window !== 'undefined') localStorage.setItem(`oq_has_result_${opportunityId}`, 'true');
+          setScopedStorageItem(`oq_has_result_${opportunityId}`, 'true', userId);
           return true;
         }
       }
@@ -1230,71 +1314,37 @@ export class OpportunityDataService {
   }
 
   /**
-   * Retrieve saved qualification result from localStorage cache or Supabase
+   * Retrieve saved qualification result strictly for owned opportunity/session
    */
   static async getSavedQualificationResult(opportunityId: string, sessionId?: string): Promise<any | null> {
     if (!opportunityId) return null;
     if (!isValidUuid(opportunityId) && !isValidUuid(sessionId)) return null;
 
-    // 1. Query by opportunity_id in Supabase table directly (Primary)
     if (isValidUuid(opportunityId)) {
-    try {
-      const { data, error } = await supabase
-        .from('opportunity_qualification_results')
-        .select('*')
-        .eq('opportunity_id', opportunityId)
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .maybeSingle();
+      const owned = await this.verifyOwnedOpportunity(opportunityId);
+      if (!owned) return null;
 
-      if (!error && data) {
-        const reconstituted = {
-          qualification_summary: {
-            qualification_status: data.qualification_status,
-            overall_score: Number(data.overall_score || 0),
-            confidence_score: Number(data.confidence_score || 0),
-            summary: data.qualification_explanation || data.final_decision?.qualification_summary?.summary || '',
-            primary_reason: data.qualification_explanation || data.final_decision?.qualification_summary?.primary_reason || '',
-            health_indicator: data.final_decision?.qualification_summary?.health_indicator,
-            opportunity_readiness: data.final_decision?.qualification_summary?.opportunity_readiness
-          },
-          dimension_assessments: data.dimension_results || [],
-          evidence_assessments: data.final_decision?.evidence_assessments || [],
-          risk_analysis: data.risks || [],
-          recommendations: data.recommended_actions || [],
-          explainability: data.final_decision?.explainability || {
-            decision_summary: data.qualification_explanation || ''
-          },
-          opportunity_promotion_recommendation: data.final_decision?.opportunity_promotion_recommendation
-        };
-        return reconstituted;
-      }
-    } catch (err) {}
-    }
-
-    // 2. Fallback: query by session_id
-    let targetSessionId = isValidUuid(sessionId) ? sessionId : undefined;
-    if (!targetSessionId && isValidUuid(opportunityId)) {
-      const session = await this.getSessionByOpportunity(opportunityId);
-      targetSessionId = session?.id;
-    }
-
-    if (isValidUuid(targetSessionId)) {
       try {
         const { data, error } = await supabase
           .from('opportunity_qualification_results')
           .select('*')
-          .eq('session_id', targetSessionId)
+          .eq('opportunity_id', opportunityId)
+          .order('created_at', { ascending: false })
+          .limit(1)
           .maybeSingle();
 
         if (!error && data) {
-          const reconstituted = {
+          return {
             qualification_summary: {
               qualification_status: data.qualification_status,
               overall_score: Number(data.overall_score || 0),
               confidence_score: Number(data.confidence_score || 0),
-              summary: data.qualification_explanation || data.final_decision?.qualification_summary?.summary || '',
-              primary_reason: data.qualification_explanation || data.final_decision?.qualification_summary?.primary_reason || '',
+              summary:
+                data.qualification_explanation || data.final_decision?.qualification_summary?.summary || '',
+              primary_reason:
+                data.qualification_explanation ||
+                data.final_decision?.qualification_summary?.primary_reason ||
+                '',
               health_indicator: data.final_decision?.qualification_summary?.health_indicator,
               opportunity_readiness: data.final_decision?.qualification_summary?.opportunity_readiness
             },
@@ -1307,16 +1357,60 @@ export class OpportunityDataService {
             },
             opportunity_promotion_recommendation: data.final_decision?.opportunity_promotion_recommendation
           };
-          return reconstituted;
         }
-      } catch (err) {}
+      } catch {}
+    }
+
+    let targetSessionId = isValidUuid(sessionId) ? sessionId : undefined;
+    if (!targetSessionId && isValidUuid(opportunityId)) {
+      const session = await this.getSessionByOpportunity(opportunityId);
+      targetSessionId = session?.id;
+    }
+
+    if (isValidUuid(targetSessionId)) {
+      const ownedSession = await this.verifyOwnedSession(targetSessionId);
+      if (!ownedSession) return null;
+
+      try {
+        const { data, error } = await supabase
+          .from('opportunity_qualification_results')
+          .select('*')
+          .eq('session_id', targetSessionId)
+          .maybeSingle();
+
+        if (!error && data) {
+          return {
+            qualification_summary: {
+              qualification_status: data.qualification_status,
+              overall_score: Number(data.overall_score || 0),
+              confidence_score: Number(data.confidence_score || 0),
+              summary:
+                data.qualification_explanation || data.final_decision?.qualification_summary?.summary || '',
+              primary_reason:
+                data.qualification_explanation ||
+                data.final_decision?.qualification_summary?.primary_reason ||
+                '',
+              health_indicator: data.final_decision?.qualification_summary?.health_indicator,
+              opportunity_readiness: data.final_decision?.qualification_summary?.opportunity_readiness
+            },
+            dimension_assessments: data.dimension_results || [],
+            evidence_assessments: data.final_decision?.evidence_assessments || [],
+            risk_analysis: data.risks || [],
+            recommendations: data.recommended_actions || [],
+            explainability: data.final_decision?.explainability || {
+              decision_summary: data.qualification_explanation || ''
+            },
+            opportunity_promotion_recommendation: data.final_decision?.opportunity_promotion_recommendation
+          };
+        }
+      } catch {}
     }
 
     return null;
   }
 
   /**
-   * Save entry to opportunity_qualification_history (One record per day; overwrites on the same day)
+   * Save entry to opportunity_qualification_history strictly for owned opportunity
    */
   static async saveQualificationHistory(historyItem: {
     opportunity_id: string;
@@ -1331,13 +1425,16 @@ export class OpportunityDataService {
     user_name?: string;
     raw_result?: any;
   }): Promise<boolean> {
+    const owned = await this.verifyOwnedOpportunity(historyItem.opportunity_id);
+    if (!owned) return false;
+    const userId = owned.userId;
+
     try {
       const todayStart = new Date();
       todayStart.setUTCHours(0, 0, 0, 0);
       const todayEnd = new Date();
       todayEnd.setUTCHours(23, 59, 59, 999);
 
-      // Check if a record already exists for this opportunity today
       const { data: existingToday } = await supabase
         .from('opportunity_qualification_history')
         .select('id')
@@ -1352,7 +1449,6 @@ export class OpportunityDataService {
       };
 
       if (existingToday && existingToday.length > 0) {
-        // Overwrite the existing record from today with latest data
         const primaryId = existingToday[0].id;
         const { error } = await supabase
           .from('opportunity_qualification_history')
@@ -1363,18 +1459,12 @@ export class OpportunityDataService {
           console.warn('opportunity_qualification_history update note:', error.message);
         }
 
-        // Clean up any extra redundant entries from today
         if (existingToday.length > 1) {
           const extraIds = existingToday.slice(1).map((r: any) => r.id);
-          await supabase
-            .from('opportunity_qualification_history')
-            .delete()
-            .in('id', extraIds);
+          await supabase.from('opportunity_qualification_history').delete().in('id', extraIds);
         }
       } else {
-        const { error } = await supabase
-          .from('opportunity_qualification_history')
-          .insert([payload]);
+        const { error } = await supabase.from('opportunity_qualification_history').insert([payload]);
 
         if (error) {
           console.warn('opportunity_qualification_history insert note:', error.message);
@@ -1384,14 +1474,15 @@ export class OpportunityDataService {
       console.warn('saveQualificationHistory error:', e);
     }
 
-    // Also update local cache: keep one entry per day, overwriting today's record
-    if (typeof window !== 'undefined' && historyItem.opportunity_id) {
+    if (historyItem.opportunity_id) {
       const key = `oq_history_${historyItem.opportunity_id}`;
       const todayLabel = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-      const existingStr = localStorage.getItem(key);
+      const existingStr = getScopedStorageItem(key, userId);
       let list: any[] = [];
-      try { list = existingStr ? JSON.parse(existingStr) : []; } catch (e) {}
-      
+      try {
+        list = existingStr ? JSON.parse(existingStr) : [];
+      } catch {}
+
       const newEntry = {
         event: historyItem.event_name,
         date: todayLabel,
@@ -1404,73 +1495,77 @@ export class OpportunityDataService {
         user: historyItem.user_name || 'Sales Representative'
       };
 
-      // Filter out any existing item with today's date, then unshift the new latest entry
       list = [newEntry, ...list.filter((item: any) => item.date !== todayLabel)];
-      localStorage.setItem(key, JSON.stringify(list.slice(0, 15)));
+      setScopedStorageItem(key, JSON.stringify(list.slice(0, 15)), userId);
     }
 
     return true;
   }
 
   /**
-   * Get qualification history for an opportunity (One entry per day)
+   * Get qualification history strictly for an owned opportunity
    */
   static async getQualificationHistory(opportunityId: string): Promise<any[]> {
     if (!opportunityId) return [];
+    const userId = await resolveAuthenticatedRevOSUserId();
+    if (!userId) return [];
 
     if (isValidUuid(opportunityId)) {
-    try {
-      // Dynamically fetch Opportunity Owner from Opportunity Form
-      let dynamicOwner = 'Sales Representative';
+      const owned = await this.verifyOwnedOpportunity(opportunityId);
+      if (!owned) return [];
+
       try {
-        const formData = await this.getOpportunityFormData(opportunityId);
-        if (formData?.opportunity_owner?.trim()) {
-          dynamicOwner = formData.opportunity_owner.trim();
-        }
-      } catch (e) {}
-
-      const { data, error } = await supabase
-        .from('opportunity_qualification_history')
-        .select('*')
-        .eq('opportunity_id', opportunityId)
-        .order('created_at', { ascending: false });
-
-      if (!error && data && data.length > 0) {
-        // Group by calendar day and keep only the latest evaluation per day
-        const dayMap = new Map<string, any>();
-        for (const d of data) {
-          const dateObj = new Date(d.event_date || d.created_at);
-          const dateKey = dateObj.toISOString().split('T')[0];
-          if (!dayMap.has(dateKey)) {
-            dayMap.set(dateKey, {
-              event: d.event_name,
-              date: dateObj.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
-              status: d.qualification_status,
-              score: Number(d.score || 0),
-              confidence: `${d.confidence}%`,
-              evidence_changes: d.evidence_changes || 'Evaluation run',
-              reasoning_version: d.reasoning_version || 'v3.0',
-              rules_version: d.rules_version || 'v3.0',
-              user: (d.user_name && d.user_name !== 'Sales Representative') ? d.user_name : dynamicOwner
-            });
-          }
-        }
-
-        return Array.from(dayMap.values());
-      }
-    } catch (e) {
-      console.warn('Error fetching opportunity_qualification_history:', e);
-    }
-    }
-
-    // Check localStorage fallback
-    if (typeof window !== 'undefined') {
-      const cached = localStorage.getItem(`oq_history_${opportunityId}`);
-      if (cached) {
+        let dynamicOwner = 'Sales Representative';
         try {
-          return JSON.parse(cached);
-        } catch (e) {}
+          const formData = await this.getOpportunityFormData(opportunityId);
+          if (formData?.opportunity_owner?.trim()) {
+            dynamicOwner = formData.opportunity_owner.trim();
+          }
+        } catch {}
+
+        const { data, error } = await supabase
+          .from('opportunity_qualification_history')
+          .select('*')
+          .eq('opportunity_id', opportunityId)
+          .order('created_at', { ascending: false });
+
+        if (!error && data && data.length > 0) {
+          const dayMap = new Map<string, any>();
+          for (const d of data) {
+            const dateObj = new Date(d.event_date || d.created_at);
+            const dateKey = dateObj.toISOString().split('T')[0];
+            if (!dayMap.has(dateKey)) {
+              dayMap.set(dateKey, {
+                event: d.event_name,
+                date: dateObj.toLocaleDateString('en-US', {
+                  month: 'short',
+                  day: 'numeric',
+                  year: 'numeric'
+                }),
+                status: d.qualification_status,
+                score: Number(d.score || 0),
+                confidence: `${d.confidence}%`,
+                evidence_changes: d.evidence_changes || 'Evaluation run',
+                reasoning_version: d.reasoning_version || 'v3.0',
+                rules_version: d.rules_version || 'v3.0',
+                user:
+                  d.user_name && d.user_name !== 'Sales Representative' ? d.user_name : dynamicOwner
+              });
+            }
+          }
+
+          return Array.from(dayMap.values());
+        }
+      } catch (e) {
+        console.warn('Error fetching opportunity_qualification_history:', e);
       }
+    }
+
+    const cached = getScopedStorageItem(`oq_history_${opportunityId}`, userId);
+    if (cached) {
+      try {
+        return JSON.parse(cached);
+      } catch {}
     }
 
     return [];
@@ -1478,9 +1573,20 @@ export class OpportunityDataService {
 
   static async getAllSessions(): Promise<OpportunitySession[]> {
     try {
+      const userId = await resolveAuthenticatedRevOSUserId();
+      if (!userId) return [];
+
+      const { data: opps, error: oppsErr } = await supabase
+        .from('opportunities')
+        .select('id')
+        .eq('created_by', userId);
+      if (oppsErr || !opps || opps.length === 0) return [];
+
+      const ownedOppIds = opps.map((o: any) => o.id).filter(Boolean);
       const { data, error } = await supabase
         .from('opportunity_qualification_sessions')
         .select('*')
+        .in('opportunity_id', ownedOppIds)
         .order('created_at', { ascending: false });
       if (error) {
         console.warn('Error fetching all opportunity qualification sessions:', error);

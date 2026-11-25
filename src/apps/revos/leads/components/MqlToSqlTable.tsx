@@ -5,6 +5,7 @@ import { SQLDataService } from '../services/sqlDataService';
 import { PromotionDataService } from '../services/promotionDataService';
 import { supabase } from '@/src/lib/supabase';
 import { Search, Download, Trash, Trash2, RefreshCw, ArrowLeft } from 'lucide-react';
+import { getScopedStorageItem, setScopedStorageItem, subscribeRevOSUserChange } from '../../utils/userIsolation';
 
 const MiniScorePieChart: React.FC<{ score: number; status?: string }> = ({ score, status }) => {
   const roundedScore = Math.round(score);
@@ -90,10 +91,10 @@ export const MqlToSqlTable: React.FC<MqlToSqlTableProps> = ({ leads, campaigns, 
     setCurrentPage(1);
   }, [searchQuery, showDeletedOnly]);
 
-  // Soft-deleted MQL Lead IDs inside this view
+  // Soft-deleted MQL Lead IDs inside this view (user-scoped)
   const [deletedMqlIds, setDeletedMqlIds] = useState<string[]>(() => {
     try {
-      const stored = localStorage.getItem('sql_mql_table_deleted_ids');
+      const stored = getScopedStorageItem('sql_mql_table_deleted_ids');
       return stored ? JSON.parse(stored) : [];
     } catch {
       return [];
@@ -101,7 +102,18 @@ export const MqlToSqlTable: React.FC<MqlToSqlTableProps> = ({ leads, campaigns, 
   });
 
   useEffect(() => {
-    localStorage.setItem('sql_mql_table_deleted_ids', JSON.stringify(deletedMqlIds));
+    return subscribeRevOSUserChange(() => {
+      try {
+        const stored = getScopedStorageItem('sql_mql_table_deleted_ids');
+        setDeletedMqlIds(stored ? JSON.parse(stored) : []);
+      } catch {
+        setDeletedMqlIds([]);
+      }
+    });
+  }, []);
+
+  useEffect(() => {
+    setScopedStorageItem('sql_mql_table_deleted_ids', JSON.stringify(deletedMqlIds));
   }, [deletedMqlIds]);
 
   const [promotedLeadIds, setPromotedLeadIds] = useState<string[]>([]);
@@ -111,18 +123,25 @@ export const MqlToSqlTable: React.FC<MqlToSqlTableProps> = ({ leads, campaigns, 
     const fetchData = async () => {
       setLoading(true);
       try {
-        const [opps, pIds, assessListRes] = await Promise.all([
+        const [opps, pIds] = await Promise.all([
           SQLDataService.getOpportunities(),
-          PromotionDataService.getPromotedLeadIds(),
-          supabase
-            .from('sql_assessments')
-            .select('*')
-            .order('created_at', { ascending: false })
+          PromotionDataService.getPromotedLeadIds()
         ]);
         setOpportunities(opps);
         setPromotedLeadIds(pIds);
-        if (assessListRes.data) {
-          setAssessments(assessListRes.data as SQLAssessment[]);
+
+        const ownedOppIds = opps.map(o => o.id).filter(Boolean);
+        if (ownedOppIds.length > 0) {
+          const assessListRes = await supabase
+            .from('sql_assessments')
+            .select('*')
+            .in('opportunity_id', ownedOppIds)
+            .order('created_at', { ascending: false });
+          if (assessListRes.data) {
+            setAssessments(assessListRes.data as SQLAssessment[]);
+          }
+        } else {
+          setAssessments([]);
         }
 
         const qResultsMap: Record<string, any> = {};

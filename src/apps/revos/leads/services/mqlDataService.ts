@@ -1,5 +1,6 @@
 import { supabase } from '@/src/lib/supabase';
 import { MQLCampaign, MQLLead, MQLEvidenceAssessment, MQLQualificationResult } from '../../types/mql';
+import { resolveAuthenticatedRevOSUserId } from '../../utils/userIsolation';
 
 const isTransientFetchError = (err: any): boolean => {
   const msg = String(err?.message || err || '').toLowerCase();
@@ -35,9 +36,14 @@ async function withTransientRetry<T>(
 export class MQLDataService {
   static async getGTMCampaigns() {
     try {
-      // Assuming revos_gtmos_strategies is the table holding GTMOS campaigns
+      const userId = await resolveAuthenticatedRevOSUserId();
+      if (!userId) return [];
       const { data, error } = await withTransientRetry(() =>
-        supabase.from('revos_gtmos_strategies').select('*').order('created_at', { ascending: false })
+        supabase
+          .from('revos_gtmos_strategies')
+          .select('*')
+          .eq('creator_id', userId)
+          .order('created_at', { ascending: false })
       );
       if (error) {
         console.warn('Non-blocking warning fetching GTM campaigns:', error?.message || error);
@@ -51,39 +57,64 @@ export class MQLDataService {
   }
 
   static async getCampaigns() {
+    const userId = await resolveAuthenticatedRevOSUserId();
+    if (!userId) return [] as MQLCampaign[];
     const { data, error } = await withTransientRetry(() =>
-      supabase.from('mql_campaigns').select('*').order('created_at', { ascending: false })
+      supabase
+        .from('mql_campaigns')
+        .select('*')
+        .eq('created_by', userId)
+        .order('created_at', { ascending: false })
     );
     if (error) throw error;
-    return data as MQLCampaign[];
+    return (data || []) as MQLCampaign[];
   }
 
   static async createCampaign(campaign: Partial<MQLCampaign>) {
-    const { data, error } = await supabase.from('mql_campaigns').upsert([campaign]).select().single();
+    const userId = await resolveAuthenticatedRevOSUserId();
+    if (!userId) throw new Error('Authentication required to create MQL campaign.');
+    const payload = { ...campaign, created_by: userId };
+    const { data, error } = await supabase.from('mql_campaigns').upsert([payload]).select().single();
     if (error) throw error;
     return data as MQLCampaign;
   }
 
   static async getLeads(campaignId?: string) {
+    const userId = await resolveAuthenticatedRevOSUserId();
+    if (!userId) return [];
     const { data, error } = await withTransientRetry(() => {
-      let query = supabase.from('mql_leads').select('*, mql_campaigns(*)').order('created_at', { ascending: false });
+      let query = supabase
+        .from('mql_leads')
+        .select('*, mql_campaigns(*)')
+        .eq('created_by', userId)
+        .order('created_at', { ascending: false });
       if (campaignId) {
         query = query.eq('campaign_id', campaignId);
       }
       return query;
     });
     if (error) throw error;
-    return data;
+    return data || [];
   }
-  
+
   static async getLead(leadId: string) {
-    const { data, error } = await supabase.from('mql_leads').select('*, mql_campaigns(*)').eq('id', leadId).single();
+    const userId = await resolveAuthenticatedRevOSUserId();
+    if (!userId) throw new Error('Authentication required to read lead.');
+    const { data, error } = await supabase
+      .from('mql_leads')
+      .select('*, mql_campaigns(*)')
+      .eq('id', leadId)
+      .eq('created_by', userId)
+      .single();
     if (error) throw error;
     return data;
   }
 
   static async createLead(lead: Partial<MQLLead>) {
-    const { data, error } = await supabase.from('mql_leads').insert([lead]).select().single();
+    const userId = await resolveAuthenticatedRevOSUserId();
+    if (!userId) throw new Error('Authentication required to create lead.');
+    const scopedLead = { ...lead, created_by: userId };
+    const { data, error } = await supabase.from('mql_leads').insert([scopedLead]).select().single();
     if (error) {
       const msg = String(error?.message || '').toLowerCase();
       if (
@@ -92,7 +123,7 @@ export class MQLDataService {
         msg.includes('state_province') ||
         msg.includes('product_solution')
       ) {
-        const { country: _c, state_province: _s, product_solution: _p, ...legacyLead } = lead;
+        const { country: _c, state_province: _s, product_solution: _p, ...legacyLead } = scopedLead;
         const retry = await supabase.from('mql_leads').insert([legacyLead]).select().single();
         if (retry.error) throw retry.error;
         return { ...(retry.data as MQLLead), country: _c, state_province: _s, product_solution: _p };
@@ -103,13 +134,25 @@ export class MQLDataService {
   }
 
   static async bulkCreateLeads(leads: Partial<MQLLead>[]) {
-    const { data, error } = await supabase.from('mql_leads').insert(leads).select();
+    const userId = await resolveAuthenticatedRevOSUserId();
+    if (!userId) throw new Error('Authentication required to import leads.');
+    const scopedLeads = leads.map((lead) => ({ ...lead, created_by: userId }));
+    const { data, error } = await supabase.from('mql_leads').insert(scopedLeads).select();
     if (error) throw error;
     return data as MQLLead[];
   }
 
   static async updateLead(leadId: string, lead: Partial<MQLLead>) {
-    const { data, error } = await supabase.from('mql_leads').update(lead).eq('id', leadId).select().single();
+    const userId = await resolveAuthenticatedRevOSUserId();
+    if (!userId) throw new Error('Authentication required to update lead.');
+    const { created_by: _ignored, ...safeFields } = lead as any;
+    const { data, error } = await supabase
+      .from('mql_leads')
+      .update(safeFields)
+      .eq('id', leadId)
+      .eq('created_by', userId)
+      .select()
+      .single();
     if (error) {
       const msg = String(error?.message || '').toLowerCase();
       if (
@@ -118,8 +161,14 @@ export class MQLDataService {
         msg.includes('state_province') ||
         msg.includes('product_solution')
       ) {
-        const { country: _c, state_province: _s, product_solution: _p, ...legacyLead } = lead;
-        const retry = await supabase.from('mql_leads').update(legacyLead).eq('id', leadId).select().single();
+        const { country: _c, state_province: _s, product_solution: _p, ...legacyLead } = safeFields;
+        const retry = await supabase
+          .from('mql_leads')
+          .update(legacyLead)
+          .eq('id', leadId)
+          .eq('created_by', userId)
+          .select()
+          .single();
         if (retry.error) throw retry.error;
         return { ...(retry.data as MQLLead), country: _c, state_province: _s, product_solution: _p };
       }
@@ -129,132 +178,179 @@ export class MQLDataService {
   }
 
   static async getAssessments(leadId: string) {
-    const { data, error } = await supabase.from('mql_evidence_assessments').select('*').eq('lead_id', leadId);
+    const userId = await resolveAuthenticatedRevOSUserId();
+    if (!userId) return [];
+    const { data: lead } = await supabase
+      .from('mql_leads')
+      .select('id')
+      .eq('id', leadId)
+      .eq('created_by', userId)
+      .maybeSingle();
+    if (!lead) return [];
+    const { data, error } = await supabase
+      .from('mql_evidence_assessments')
+      .select('*')
+      .eq('lead_id', leadId);
     if (error) throw error;
-    return data as MQLEvidenceAssessment[];
+    return (data || []) as MQLEvidenceAssessment[];
   }
 
   static async saveAssessments(leadId: string, assessments: Partial<MQLEvidenceAssessment>[]) {
-    // We can do an upsert
-    const payload = assessments.map(a => ({
+    const userId = await resolveAuthenticatedRevOSUserId();
+    if (!userId) throw new Error('Authentication required to save lead assessments.');
+    const { data: lead } = await supabase
+      .from('mql_leads')
+      .select('id')
+      .eq('id', leadId)
+      .eq('created_by', userId)
+      .maybeSingle();
+    if (!lead) throw new Error('Lead not found or access denied.');
+
+    const payload = assessments.map((a) => ({
       ...a,
       lead_id: leadId,
       updated_at: new Date().toISOString()
     }));
-    
-    const { data, error } = await supabase.from('mql_evidence_assessments')
+
+    const { data, error } = await supabase
+      .from('mql_evidence_assessments')
       .upsert(payload, { onConflict: 'lead_id, evidence_id' })
       .select();
     if (error) throw error;
-    
-    // Update lead status to Assessing
-    await supabase.from('mql_leads').update({ status: 'Assessing' }).eq('id', leadId);
-    
+
+    await supabase
+      .from('mql_leads')
+      .update({ status: 'Assessing' })
+      .eq('id', leadId)
+      .eq('created_by', userId);
+
     return data as MQLEvidenceAssessment[];
   }
 
   static async evaluateLead(leadId: string, combinedConfig?: any, ruleSet?: any) {
-    try {
-      // Invoke the edge function
-      const { data, error } = await supabase.functions.invoke('lead-qualification', {
-        body: { leadId, combinedConfig, ruleSet }
-      });
-      
-      if (error) {
-        console.warn("Edge function failed, using local mock. Error:", error);
-        throw error;
-      }
+    const userId = await resolveAuthenticatedRevOSUserId();
+    if (!userId) throw new Error('Authentication required to evaluate lead.');
 
-      // If the edge function succeeded, let's make sure it's saved in the database!
-      if (data) {
-        await supabase.from('mql_qualification_results').upsert({
-          ...data,
-          lead_id: leadId,
-          evaluated_at: new Date().toISOString()
-        }, { onConflict: 'lead_id' });
-        
-        if (data.qualification_status) {
-          await supabase.from('mql_leads').update({ status: data.qualification_status }).eq('id', leadId);
-        }
-      }
-      
-      return data;
-    } catch (err) {
-      console.log("Mocking qualification result since edge function is unavailable.");
-      // Create a mock result
-      const mockResult = {
-        lead_id: leadId,
-        qualification_status: 'Qualified MQL',
-        qualification_score: 85,
-        confidence_score: 90,
-        dimension_scores: { fit: 90, intent: 80, engagement: 85, timing: 85 },
-        supporting_evidence: ['Strong job title', 'Enterprise company size'],
-        negative_evidence: ['No recent website visits'],
-        missing_evidence: ['Budget details unknown'],
-        reasoning: {
-          summary: 'Good fit based on firmographics and title.',
-          fit: 'Matches ICP perfectly.',
-          intent: 'Showed some early intent.',
-          engagement: 'Engaged with 1 whitepaper.',
-          timing: 'No compelling event yet.'
-        },
-        recommendations: ['Follow up via email'],
-        next_best_actions: ['Enroll in nurture sequence'],
-        evaluated_at: new Date().toISOString()
-      };
-      
-      // Attempt to save the mock result to DB
-      const { data } = await supabase.from('mql_qualification_results').upsert(mockResult).select().single();
-      
-      await supabase.from('mql_leads').update({ status: 'Qualified' }).eq('id', leadId);
-      
-      return data || mockResult;
+    const { data, error } = await supabase.functions.invoke('lead-qualification', {
+      body: { leadId, combinedConfig, ruleSet }
+    });
+
+    if (error) {
+      throw error;
     }
+
+    if (data) {
+      await supabase
+        .from('mql_qualification_results')
+        .upsert(
+          {
+            ...data,
+            lead_id: leadId,
+            evaluated_at: new Date().toISOString()
+          },
+          { onConflict: 'lead_id' }
+        );
+
+      if (data.qualification_status) {
+        await supabase
+          .from('mql_leads')
+          .update({ status: data.qualification_status })
+          .eq('id', leadId)
+          .eq('created_by', userId);
+      }
+    }
+
+    return data;
   }
-  
+
   static async getQualificationResult(leadId: string) {
-    const { data, error } = await supabase.from('mql_qualification_results').select('*').eq('lead_id', leadId).maybeSingle();
+    const userId = await resolveAuthenticatedRevOSUserId();
+    if (!userId) return null;
+    const { data: lead } = await supabase
+      .from('mql_leads')
+      .select('id')
+      .eq('id', leadId)
+      .eq('created_by', userId)
+      .maybeSingle();
+    if (!lead) return null;
+    const { data, error } = await supabase
+      .from('mql_qualification_results')
+      .select('*')
+      .eq('lead_id', leadId)
+      .maybeSingle();
     if (error) throw error;
     return data as MQLQualificationResult | null;
   }
 
   static async saveQualificationResult(result: MQLQualificationResult) {
-    const { id, ...rest } = result;
+    const userId = await resolveAuthenticatedRevOSUserId();
+    if (!userId) throw new Error('Authentication required to save qualification result.');
+    const { data: lead } = await supabase
+      .from('mql_leads')
+      .select('id')
+      .eq('id', result.lead_id)
+      .eq('created_by', userId)
+      .maybeSingle();
+    if (!lead) throw new Error('Lead not found or access denied.');
+
+    const { id: _id, ...rest } = result;
     const payload = {
       ...rest,
       evaluated_at: new Date().toISOString()
     };
-    
-    const { data, error } = await supabase.from('mql_qualification_results')
+
+    const { data, error } = await supabase
+      .from('mql_qualification_results')
       .upsert(payload, { onConflict: 'lead_id' })
       .select()
       .maybeSingle();
-      
+
     if (error) throw error;
-    
-    // Also, update the lead's status in mql_leads to match the qualification_status
+
     if (result.qualification_status) {
-      await supabase.from('mql_leads')
+      await supabase
+        .from('mql_leads')
         .update({ status: result.qualification_status })
-        .eq('id', result.lead_id);
+        .eq('id', result.lead_id)
+        .eq('created_by', userId);
     }
-    
+
     return data as MQLQualificationResult;
   }
 
   static async getCampaignQualificationResults(campaignId: string) {
-    const { data: leads, error: leadsErr } = await supabase.from('mql_leads').select('id').eq('campaign_id', campaignId);
+    const userId = await resolveAuthenticatedRevOSUserId();
+    if (!userId) return [];
+    const { data: leads, error: leadsErr } = await supabase
+      .from('mql_leads')
+      .select('id')
+      .eq('campaign_id', campaignId)
+      .eq('created_by', userId);
     if (leadsErr || !leads || leads.length === 0) return [];
-    
-    const leadIds = leads.map(l => l.id);
-    const { data, error } = await supabase.from('mql_qualification_results').select('*').in('lead_id', leadIds);
+
+    const leadIds = leads.map((l) => l.id);
+    const { data, error } = await supabase
+      .from('mql_qualification_results')
+      .select('*')
+      .in('lead_id', leadIds);
     if (error) throw error;
-    return data as MQLQualificationResult[];
+    return (data || []) as MQLQualificationResult[];
   }
 
   static async getAllQualificationResults() {
     try {
-      const { data, error } = await supabase.from('mql_qualification_results').select('*');
+      const userId = await resolveAuthenticatedRevOSUserId();
+      if (!userId) return [];
+      const { data: leads, error: leadsErr } = await supabase
+        .from('mql_leads')
+        .select('id')
+        .eq('created_by', userId);
+      if (leadsErr || !leads || leads.length === 0) return [];
+      const leadIds = leads.map((l) => l.id);
+      const { data, error } = await supabase
+        .from('mql_qualification_results')
+        .select('*')
+        .in('lead_id', leadIds);
       if (error) throw error;
       return (data as MQLQualificationResult[]) || [];
     } catch (error) {
@@ -264,7 +360,13 @@ export class MQLDataService {
   }
 
   static async deleteLeads(leadIds: string[]) {
-    const { error } = await supabase.from('mql_leads').delete().in('id', leadIds);
+    const userId = await resolveAuthenticatedRevOSUserId();
+    if (!userId) throw new Error('Authentication required to delete leads.');
+    const { error } = await supabase
+      .from('mql_leads')
+      .delete()
+      .in('id', leadIds)
+      .eq('created_by', userId);
     if (error) throw error;
   }
 }

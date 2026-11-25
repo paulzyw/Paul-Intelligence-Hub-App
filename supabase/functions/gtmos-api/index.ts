@@ -93,6 +93,33 @@ serve(async (req) => {
   }
 
   try {
+    const authHeader = req.headers.get('authorization') || req.headers.get('Authorization') || '';
+    const token = authHeader.replace(/^Bearer\s+/i, '').trim();
+    const supabaseUrl = Deno.env.get('SUPABASE_URL') || '';
+    const anonKey = (Deno.env.get('SUPABASE_ANON_KEY') || '').trim();
+    const serviceRoleKey = (Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '').trim();
+    const authLookupKey = serviceRoleKey || anonKey;
+
+    const isServiceRole = Boolean(serviceRoleKey && token && token === serviceRoleKey);
+    const hasUserJwt = Boolean(token && token !== anonKey && token.split('.').length === 3);
+
+    if (!isServiceRole) {
+      if (!hasUserJwt || !supabaseUrl || !authLookupKey) {
+        return new Response(
+          JSON.stringify({ error: 'Unauthorized: valid user authentication is required.' }),
+          { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+      const authSupabase = createClient(supabaseUrl, authLookupKey);
+      const { data: userRes, error: authErr } = await authSupabase.auth.getUser(token);
+      if (authErr || !userRes?.user) {
+        return new Response(
+          JSON.stringify({ error: 'Unauthorized: invalid or expired authentication token.' }),
+          { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+    }
+
     const rawBody = await req.json();
     const { action, onboardingData, strategyData, projectName, categoryId, companyName, industry, currentFields, buyerType, pitchFormat, gtmStrategyDraft, activeScenario, activeParams, revenueDecomposition, executionPlan, simulationConfig, strategyDraft, category, messagingType } = rawBody;
 

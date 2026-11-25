@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Edit, ArrowUpRight, X, Save, Building2, DollarSign, Layers, Target } from 'lucide-react';
 import { PipelineOpportunity, PipelineAssessment } from '../../types/pipeline';
+import { getScopedStorageItem, setScopedStorageItem } from '../../utils/userIsolation';
 
 export const PIPELINE_STAGE_OPTIONS = [
   'Qualification',
@@ -53,10 +54,13 @@ export interface IsolatedPipelineCardEdits {
 
 const ISOLATED_STORAGE_PREFIX = 'pipeline_isolated_card_edits_';
 
-export function getIsolatedPipelineCardEdits(itemId: string): IsolatedPipelineCardEdits | null {
+export function getIsolatedPipelineCardEdits(
+  itemId: string,
+  explicitUserId?: string | null
+): IsolatedPipelineCardEdits | null {
   if (typeof window === 'undefined' || !itemId) return null;
   try {
-    const raw = localStorage.getItem(`${ISOLATED_STORAGE_PREFIX}${itemId}`);
+    const raw = getScopedStorageItem(`${ISOLATED_STORAGE_PREFIX}${itemId}`, explicitUserId);
     if (!raw) return null;
     return JSON.parse(raw) as IsolatedPipelineCardEdits;
   } catch {
@@ -64,10 +68,14 @@ export function getIsolatedPipelineCardEdits(itemId: string): IsolatedPipelineCa
   }
 }
 
-export function saveIsolatedPipelineCardEdits(itemId: string, edits: IsolatedPipelineCardEdits): void {
+export function saveIsolatedPipelineCardEdits(
+  itemId: string,
+  edits: IsolatedPipelineCardEdits,
+  explicitUserId?: string | null
+): void {
   if (typeof window === 'undefined' || !itemId) return;
   try {
-    localStorage.setItem(`${ISOLATED_STORAGE_PREFIX}${itemId}`, JSON.stringify(edits));
+    setScopedStorageItem(`${ISOLATED_STORAGE_PREFIX}${itemId}`, JSON.stringify(edits), explicitUserId);
   } catch {
     // ignore storage quota failures cleanly
   }

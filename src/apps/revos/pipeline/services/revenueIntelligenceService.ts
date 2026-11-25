@@ -2,6 +2,7 @@ import { supabase } from '../../../../lib/supabase';
 import { PipelineAssessmentSnapshot } from '../../types/pipeline';
 import { PipelineCardItem } from '../components/PipelineCard';
 import { PipelineConfigService } from './PipelineConfigService';
+import { resolveAuthenticatedRevOSUserId } from '../../utils/userIsolation';
 
 export const REVENUE_INTELLIGENCE_PROMPT_VERSION = '1.0';
 export const REVENUE_INTELLIGENCE_SPEC_VERSION = '1.0';
@@ -1108,11 +1109,16 @@ export class RevenueIntelligenceService {
     latestSaved: SavedRevenueIntelligenceRecord | null;
     storageReady: boolean;
   }> {
+    const uid = await resolveAuthenticatedRevOSUserId(params.userId);
+    if (!uid) {
+      return { exactMatch: null, latestSaved: null, storageReady: false };
+    }
+
     try {
       const { data, error } = await supabase.functions.invoke('pipeline-assessment', {
         body: {
           action: 'get-saved-revenue-intelligence',
-          user_id: params.userId || 'workspace_default',
+          user_id: uid,
           scope_hash: params.scopeHash
         }
       });
@@ -1129,7 +1135,6 @@ export class RevenueIntelligenceService {
     }
 
     try {
-      const uid = params.userId || 'workspace_default';
       const { data: rows, error } = await supabase
         .from('pipeline_revenue_intelligence_reports')
         .select('*')
@@ -1166,10 +1171,15 @@ export class RevenueIntelligenceService {
     modelIdentifier: string;
     fromCache: boolean;
   }> {
+    const uid = await resolveAuthenticatedRevOSUserId(params.userId);
+    if (!uid) {
+      throw new Error('Authentication required to generate Revenue Intelligence insights.');
+    }
+
     const { data, error } = await supabase.functions.invoke('pipeline-assessment', {
       body: {
         action: 'generate-revenue-intelligence',
-        user_id: params.userId || 'workspace_default',
+        user_id: uid,
         scope_hash: params.scopeHash,
         force_refresh: Boolean(params.forceRefresh),
         portfolio_context: params.portfolioContext
@@ -1209,10 +1219,15 @@ export class RevenueIntelligenceService {
     generatedAt: string;
     modelIdentifier?: string;
   }): Promise<SavedRevenueIntelligenceRecord> {
+    const uid = await resolveAuthenticatedRevOSUserId(params.userId);
+    if (!uid) {
+      throw new Error('Authentication required to save Revenue Intelligence report.');
+    }
+
     const { data, error } = await supabase.functions.invoke('pipeline-assessment', {
       body: {
         action: 'save-revenue-intelligence',
-        user_id: params.userId || 'workspace_default',
+        user_id: uid,
         scope_hash: params.scopeHash,
         scope_label: params.scopeLabel,
         applied_filters: params.appliedFilters,

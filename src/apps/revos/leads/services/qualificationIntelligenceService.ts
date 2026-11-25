@@ -1,5 +1,10 @@
 import { supabase } from '@/src/lib/supabase';
 import { MQLLead, MQLQualificationResult, MQLCampaign } from '../../types/mql';
+import {
+  getScopedStorageItem,
+  resolveAuthenticatedRevOSUserId,
+  setScopedStorageItem
+} from '../../utils/userIsolation';
 
 export interface SupportingMetric {
   metric_name: string;
@@ -374,14 +379,18 @@ export class QualificationIntelligenceService {
   }
 
   /**
-   * Loads the most recent saved insights from Supabase dedicated table (or localStorage fallback).
+   * Loads the most recent saved insights from Supabase dedicated table (or user-scoped localStorage fallback).
    */
   static async getSavedInsights(campaignId: string = 'all'): Promise<SavedQualificationInsightsRecord | null> {
+    const userId = await resolveAuthenticatedRevOSUserId();
+    if (!userId) return null;
+
     try {
       const { data, error } = await supabase
         .from('qualification_executive_insights')
         .select('*')
         .eq('scope_campaign_id', campaignId)
+        .eq('created_by', userId)
         .order('generated_at', { ascending: false })
         .limit(1)
         .maybeSingle();
@@ -401,13 +410,11 @@ export class QualificationIntelligenceService {
           persisted_to_db: true
         };
 
-        // Sync local cache
-        if (typeof window !== 'undefined') {
-          localStorage.setItem(
-            `qualification_executive_insights_${campaignId}`,
-            JSON.stringify(record)
-          );
-        }
+        setScopedStorageItem(
+          `qualification_executive_insights_${campaignId}`,
+          JSON.stringify(record),
+          userId
+        );
 
         return record;
       } else if (error) {
@@ -417,13 +424,10 @@ export class QualificationIntelligenceService {
       console.warn('Dedicated qualification_executive_insights table query warning:', e);
     }
 
-    // Fallback to localStorage
     try {
-      if (typeof window !== 'undefined') {
-        const cached = localStorage.getItem(`qualification_executive_insights_${campaignId}`);
-        if (cached) {
-          return JSON.parse(cached);
-        }
+      const cached = getScopedStorageItem(`qualification_executive_insights_${campaignId}`, userId);
+      if (cached) {
+        return JSON.parse(cached);
       }
     } catch (e) {
       console.warn('LocalStorage read error:', e);
@@ -438,8 +442,14 @@ export class QualificationIntelligenceService {
   static async saveInsights(
     record: SavedQualificationInsightsRecord
   ): Promise<{ success: boolean; id?: string; error?: string }> {
+    const userId = await resolveAuthenticatedRevOSUserId();
+    if (!userId) {
+      return { success: false, error: 'Authentication required to save insights.' };
+    }
+
     try {
       const payload = {
+        created_by: userId,
         scope_campaign_id: record.scope_campaign_id || 'all',
         scope_campaign_name: record.scope_campaign_name || 'All Campaigns (Account-Wide)',
         scope_industry: record.scope_industry || null,
@@ -463,19 +473,17 @@ export class QualificationIntelligenceService {
       }
 
       if (data) {
-        // Also update local cache with the new database ID and status
         const updatedRecord: SavedQualificationInsightsRecord = {
           ...record,
           id: data.id,
           persisted_to_db: true,
           db_error: undefined
         };
-        if (typeof window !== 'undefined') {
-          localStorage.setItem(
-            `qualification_executive_insights_${record.scope_campaign_id}`,
-            JSON.stringify(updatedRecord)
-          );
-        }
+        setScopedStorageItem(
+          `qualification_executive_insights_${record.scope_campaign_id}`,
+          JSON.stringify(updatedRecord),
+          userId
+        );
         return { success: true, id: data.id };
       }
 
@@ -557,12 +565,14 @@ export class QualificationIntelligenceService {
       resultRecord.persisted_to_db = true;
     }
 
-    // 3. Persist to localStorage for instantaneous fast-load cache
+    // 3. Persist to user-scoped localStorage for instantaneous fast-load cache
     try {
-      if (typeof window !== 'undefined') {
-        localStorage.setItem(
+      const uid = await resolveAuthenticatedRevOSUserId();
+      if (uid) {
+        setScopedStorageItem(
           `qualification_executive_insights_${scope.campaign_id}`,
-          JSON.stringify(resultRecord)
+          JSON.stringify(resultRecord),
+          uid
         );
       }
     } catch (lsErr) {

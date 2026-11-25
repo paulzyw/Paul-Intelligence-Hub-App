@@ -3,6 +3,7 @@ import { supabase } from '@/src/lib/supabase';
 import { OpportunityDataService } from '../services/opportunityDataService';
 import { SQLDataService } from '../services/sqlDataService';
 import { STANDARD_COUNTRIES, parseLegacyLocationToCountryAndState } from '../constants/countries';
+import { getScopedStorageItem, resolveAuthenticatedRevOSUserId } from '../../utils/userIsolation';
 import { 
   Building2, Briefcase, User, TrendingUp, Calendar, 
   DollarSign, CheckCircle2, AlertCircle, RefreshCw, 
@@ -162,24 +163,31 @@ export const OpportunityForm: React.FC<OpportunityFormProps> = ({
           let mqlExtra: any = {};
           if (typeof window !== 'undefined') {
             try {
-              const rawExtra = localStorage.getItem(`mql_lead_extra_${opportunity.mql_reference_id}`);
+              const rawExtra = getScopedStorageItem(`mql_lead_extra_${opportunity.mql_reference_id}`);
               if (rawExtra) mqlExtra = JSON.parse(rawExtra);
             } catch {}
           }
 
           try {
-            const { data: mqlLead } = await supabase
-              .from('mql_leads')
-              .select('*')
-              .eq('id', opportunity.mql_reference_id)
-              .maybeSingle();
+            const activeUserId = await resolveAuthenticatedRevOSUserId();
+            let mqlLead: any = null;
+            if (activeUserId) {
+              const { data } = await supabase
+                .from('mql_leads')
+                .select('*')
+                .eq('id', opportunity.mql_reference_id)
+                .eq('created_by', activeUserId)
+                .maybeSingle();
+              mqlLead = data;
+            }
 
             let campaignName = '';
-            if (mqlLead?.campaign_id) {
+            if (activeUserId && mqlLead?.campaign_id) {
               const { data: campaignRow } = await supabase
                 .from('mql_campaigns')
                 .select('name')
                 .eq('id', mqlLead.campaign_id)
+                .eq('created_by', activeUserId)
                 .maybeSingle();
               campaignName = campaignRow?.name || '';
             }

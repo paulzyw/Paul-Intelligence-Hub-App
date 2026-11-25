@@ -6,6 +6,7 @@ import { PromotionDataService } from '../services/promotionDataService';
 import { SQLOpportunity } from '../../types/sql';
 import { MQLDataService } from '../services/mqlDataService';
 import { supabase } from '@/src/lib/supabase';
+import { getScopedStorageItem, resolveAuthenticatedRevOSUserId } from '../../utils/userIsolation';
 import { 
   ArrowLeft, BadgeCheck, ShieldAlert, FileText, User, 
   Layers, BarChart3, ChevronRight, Activity, Zap, 
@@ -126,7 +127,7 @@ export const MQLToSQLDetailsPage: React.FC<MQLToSQLDetailsPageProps> = ({
       return propRecs.handover_ticket.handover_date;
     }
     if (typeof window !== 'undefined') {
-      const stored = localStorage.getItem(`mql_handover_${lead.id}`);
+      const stored = getScopedStorageItem(`mql_handover_${lead.id}`);
       if (stored) {
         try {
           const parsed = JSON.parse(stored);
@@ -143,6 +144,16 @@ export const MQLToSQLDetailsPage: React.FC<MQLToSQLDetailsPageProps> = ({
     const loadHandoverDate = async () => {
       if (dbHandoverDate) return;
       try {
+        const userId = await resolveAuthenticatedRevOSUserId();
+        if (!userId) return;
+        const { data: ownedLead } = await supabase
+          .from('mql_leads')
+          .select('id')
+          .eq('id', lead.id)
+          .eq('created_by', userId)
+          .maybeSingle();
+        if (!ownedLead) return;
+
         const { data, error } = await supabase
           .from('mql_qualification_results')
           .select('recommendations')
@@ -167,7 +178,7 @@ export const MQLToSQLDetailsPage: React.FC<MQLToSQLDetailsPageProps> = ({
   const leadExtra = React.useMemo(() => {
     if (typeof window === 'undefined' || !lead?.id) return {};
     try {
-      const stored = localStorage.getItem(`mql_lead_extra_${lead.id}`);
+      const stored = getScopedStorageItem(`mql_lead_extra_${lead.id}`);
       return stored ? JSON.parse(stored) : {};
     } catch {
       return {};

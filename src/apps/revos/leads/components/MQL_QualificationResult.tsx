@@ -29,6 +29,12 @@ import {
 } from 'lucide-react';
 import { MQLDataService } from '../services/mqlDataService';
 import { supabase } from '@/src/lib/supabase';
+import {
+  getScopedStorageItem,
+  setScopedStorageItem,
+  removeScopedStorageItem,
+  resolveAuthenticatedRevOSUserId,
+} from '../../utils/userIsolation';
 
 interface MQL_QualificationResultProps {
   result: MQLQualificationResult;
@@ -85,7 +91,7 @@ export const MQL_QualificationResult: React.FC<MQL_QualificationResultProps> = (
         }
       }
 
-      const stored = localStorage.getItem(`mql_handover_${result.lead_id}`);
+      const stored = getScopedStorageItem(`mql_handover_${result.lead_id}`);
       let parsedStored: any = null;
       if (stored) {
         try {
@@ -182,10 +188,28 @@ export const MQL_QualificationResult: React.FC<MQL_QualificationResultProps> = (
     }
   };
 
+  const verifyOwnedLead = async (leadId: string) => {
+    const userId = await resolveAuthenticatedRevOSUserId();
+    if (!userId) {
+      throw new Error('User not authenticated.');
+    }
+    const { data: ownedLead, error: leadErr } = await supabase
+      .from('mql_leads')
+      .select('id')
+      .eq('id', leadId)
+      .eq('created_by', userId)
+      .maybeSingle();
+    if (leadErr) throw leadErr;
+    if (!ownedLead) {
+      throw new Error('Lead not found or access denied.');
+    }
+  };
+
   const handleSaveHandoverToDatabase = async () => {
     setSavingHandover(true);
     setSaveSuccess(false);
     try {
+      await verifyOwnedLead(result.lead_id);
       const ticket = {
         lead_id: result.lead_id,
         qualification_summary: qualificationSummary,
@@ -198,7 +222,7 @@ export const MQL_QualificationResult: React.FC<MQL_QualificationResultProps> = (
         handed_over_at: handoverTicket?.handed_over_at || null
       };
       
-      localStorage.setItem(`mql_handover_${result.lead_id}`, JSON.stringify(ticket));
+      setScopedStorageItem(`mql_handover_${result.lead_id}`, JSON.stringify(ticket));
       setHandoverTicket(ticket);
 
       const { error } = await supabase
@@ -223,6 +247,7 @@ export const MQL_QualificationResult: React.FC<MQL_QualificationResultProps> = (
     e.preventDefault();
     setSubmittingHandover(true);
     try {
+      await verifyOwnedLead(result.lead_id);
       await new Promise(resolve => setTimeout(resolve, 800));
       
       const ticket = {
@@ -237,7 +262,7 @@ export const MQL_QualificationResult: React.FC<MQL_QualificationResultProps> = (
         handed_over_at: new Date().toISOString()
       };
       
-      localStorage.setItem(`mql_handover_${result.lead_id}`, JSON.stringify(ticket));
+      setScopedStorageItem(`mql_handover_${result.lead_id}`, JSON.stringify(ticket));
       setHandoverTicket(ticket);
       setIsHandedOver(true);
       
@@ -273,11 +298,12 @@ export const MQL_QualificationResult: React.FC<MQL_QualificationResultProps> = (
       is_handed_over: false
     };
     
-    localStorage.setItem(`mql_handover_${result.lead_id}`, JSON.stringify(updatedTicket));
+    setScopedStorageItem(`mql_handover_${result.lead_id}`, JSON.stringify(updatedTicket));
     setHandoverTicket(updatedTicket);
     setIsHandedOver(false);
 
     try {
+      await verifyOwnedLead(result.lead_id);
       await supabase
         .from('mql_qualification_results')
         .update({
@@ -297,9 +323,10 @@ export const MQL_QualificationResult: React.FC<MQL_QualificationResultProps> = (
     }
 
     setShowResetConfirm(false);
-    localStorage.removeItem(`mql_handover_${result.lead_id}`);
+    removeScopedStorageItem(`mql_handover_${result.lead_id}`);
     
     try {
+      await verifyOwnedLead(result.lead_id);
       await supabase
         .from('mql_qualification_results')
         .update({

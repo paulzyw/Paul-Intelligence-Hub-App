@@ -9,6 +9,7 @@ import { SQLtoOpportunity } from './SQLtoOpportunity';
 import { SqlToOpportunityDetailsPage } from './SqlToOpportunityDetailsPage';
 import { OpportunityDynamicEvidenceForm } from './Opportunity_DynamicEvidenceForm';
 import { OpportunityQualificaitonResult } from './Opportunity_QualificaitonResult';
+import { getScopedStorageItem, subscribeRevOSUserChange } from '../../utils/userIsolation';
 import { Bot, Sparkles, Check, Play, AlertCircle, RefreshCw, Layers, Clock, TrendingUp, ShieldAlert, Award, FileText, ClipboardList, ShieldCheck } from 'lucide-react';
 
 export const OpportunityQualificaitonModule: React.FC = () => {
@@ -24,6 +25,11 @@ export const OpportunityQualificaitonModule: React.FC = () => {
 
   useEffect(() => {
     loadPipelineData();
+    return subscribeRevOSUserChange(() => {
+      setSelectedOpportunity(null);
+      setActiveOqResult(null);
+      loadPipelineData();
+    });
   }, []);
 
   const loadPipelineData = async () => {
@@ -72,14 +78,14 @@ export const OpportunityQualificaitonModule: React.FC = () => {
 
     // 1. Check if qualification result already exists (highest priority for default display)
     const hasResultCached = hasResultMap[opp.id] ?? (
-      (typeof window !== 'undefined' && localStorage.getItem('oq_has_result_' + opp.id) === 'true') ||
+      (typeof window !== 'undefined' && getScopedStorageItem('oq_has_result_' + opp.id) === 'true') ||
       (sessions[opp.id]?.qualification_status && sessions[opp.id]?.qualification_status !== 'NOT_STARTED' && (sessions[opp.id]?.overall_score || 0) > 0)
     );
 
     // 2. Check if qualification form criteria met (started + >= 1 evidence saved)
     const isFormDefault = defaultToFormMap[opp.id] ?? (
-      (typeof window !== 'undefined' && localStorage.getItem('oq_started_' + opp.id) === 'true') &&
-      (typeof window !== 'undefined' && localStorage.getItem('oq_has_saved_evidence_' + opp.id) === 'true')
+      (typeof window !== 'undefined' && getScopedStorageItem('oq_started_' + opp.id) === 'true') &&
+      (typeof window !== 'undefined' && getScopedStorageItem('oq_has_saved_evidence_' + opp.id) === 'true')
     );
 
     if (hasResultCached) {

@@ -252,6 +252,19 @@ export const OpportunityCreationForm: React.FC<OpportunityCreationFormProps> = (
   const userEditedRef = useRef<boolean>(false);
   const draftBootstrappedRef = useRef<boolean>(false);
   const lastBootstrappedUrlIdRef = useRef<string | null>(null);
+  const prevUserIdRef = useRef<string | null>(user?.id || null);
+
+  useEffect(() => {
+    const currentUid = user?.id || null;
+    if (prevUserIdRef.current !== currentUid) {
+      prevUserIdRef.current = currentUid;
+      draftBootstrappedRef.current = false;
+      userEditedRef.current = false;
+      setSavedPipelineId(null);
+      setAvailableDrafts([]);
+      setResumedDraftNotice(null);
+    }
+  }, [user?.id]);
 
   const defaultOwnerForAuth = useCallback(() => {
     return (

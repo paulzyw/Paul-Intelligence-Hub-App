@@ -1,4 +1,11 @@
 import { supabase } from '@/src/lib/supabase';
+import {
+  getScopedStorageItem,
+  removeScopedStorageItem,
+  resolveAuthenticatedRevOSUserId,
+  setScopedStorageItem,
+  subscribeRevOSUserChange
+} from '../../utils/userIsolation';
 
 export interface MQLSQLPromotion {
   id?: string;
@@ -7,83 +14,109 @@ export interface MQLSQLPromotion {
   status?: string;
   promoted_at?: string;
   promoted_by?: string;
+  created_by?: string;
 }
 
-let memoryPromotedLeadIds: string[] | null = null;
-let memorySqlOpportunityPromotedLeadIds: string[] | null = null;
+let memoryPromotedLeadIds: { userId: string; ids: string[] } | null = null;
+let memorySqlOpportunityPromotedLeadIds: { userId: string; ids: string[] } | null = null;
+
+subscribeRevOSUserChange(() => {
+  memoryPromotedLeadIds = null;
+  memorySqlOpportunityPromotedLeadIds = null;
+});
 
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const isValidUuid = (id?: string | null): id is string => typeof id === 'string' && UUID_REGEX.test(id);
 
 export class PromotionDataService {
   /**
-   * Synchronous cached getters for instant (0ms) render on component mount
+   * Synchronous cached getters scoped to the active authenticated user
    */
-  static getCachedPromotedLeadIds(): string[] {
-    if (memoryPromotedLeadIds) return memoryPromotedLeadIds;
+  static getCachedPromotedLeadIds(explicitUserId?: string | null): string[] {
+    if (
+      memoryPromotedLeadIds &&
+      (!explicitUserId || memoryPromotedLeadIds.userId === explicitUserId)
+    ) {
+      return memoryPromotedLeadIds.ids;
+    }
     if (typeof window !== 'undefined') {
       try {
-        const stored = localStorage.getItem('revos_cached_promoted_lead_ids');
+        const stored = getScopedStorageItem('revos_cached_promoted_lead_ids', explicitUserId);
         if (stored) {
           const parsed = JSON.parse(stored);
-          memoryPromotedLeadIds = parsed;
-          return parsed;
+          if (Array.isArray(parsed)) {
+            if (explicitUserId) {
+              memoryPromotedLeadIds = { userId: explicitUserId, ids: parsed };
+            }
+            return parsed;
+          }
         }
-      } catch (e) {}
+      } catch {}
     }
     return [];
   }
 
-  static getCachedSqlOpportunityPromotedLeadIds(): string[] {
-    if (memorySqlOpportunityPromotedLeadIds) return memorySqlOpportunityPromotedLeadIds;
+  static getCachedSqlOpportunityPromotedLeadIds(explicitUserId?: string | null): string[] {
+    if (
+      memorySqlOpportunityPromotedLeadIds &&
+      (!explicitUserId || memorySqlOpportunityPromotedLeadIds.userId === explicitUserId)
+    ) {
+      return memorySqlOpportunityPromotedLeadIds.ids;
+    }
     if (typeof window !== 'undefined') {
       try {
-        const stored = localStorage.getItem('sql_opportunity_promoted_lead_ids');
+        const stored = getScopedStorageItem('sql_opportunity_promoted_lead_ids', explicitUserId);
         if (stored) {
           const parsed = JSON.parse(stored);
-          memorySqlOpportunityPromotedLeadIds = parsed;
-          return parsed;
+          if (Array.isArray(parsed)) {
+            if (explicitUserId) {
+              memorySqlOpportunityPromotedLeadIds = { userId: explicitUserId, ids: parsed };
+            }
+            return parsed;
+          }
         }
-      } catch (e) {}
+      } catch {}
     }
     return [];
   }
 
   /**
-   * Get all promoted lead IDs from Supabase table mql_sql_promotions.
+   * Get all promoted lead IDs for the authenticated user from Supabase table mql_sql_promotions.
    */
   static async getPromotedLeadIds(): Promise<string[]> {
+    const userId = await resolveAuthenticatedRevOSUserId();
+    if (!userId) return [];
     try {
       const { data, error } = await supabase
         .from('mql_sql_promotions')
-        .select('lead_id');
+        .select('lead_id')
+        .eq('created_by', userId);
 
       if (error) {
         console.warn('mql_sql_promotions table fetch:', error.message);
-        return this.getCachedPromotedLeadIds();
+        return this.getCachedPromotedLeadIds(userId);
       }
       const ids = (data || []).map((row: any) => row.lead_id).filter(Boolean);
-      memoryPromotedLeadIds = ids;
-      if (typeof window !== 'undefined') {
-        try {
-          localStorage.setItem('revos_cached_promoted_lead_ids', JSON.stringify(ids));
-        } catch (e) {}
-      }
+      memoryPromotedLeadIds = { userId, ids };
+      setScopedStorageItem('revos_cached_promoted_lead_ids', JSON.stringify(ids), userId);
       return ids;
     } catch (err) {
       console.error('Failed to fetch promoted lead IDs from Supabase:', err);
-      return this.getCachedPromotedLeadIds();
+      return this.getCachedPromotedLeadIds(userId);
     }
   }
 
   /**
-   * Get all MQL to SQL promotion records with timestamps from Supabase.
+   * Get all MQL to SQL promotion records with timestamps for the authenticated user from Supabase.
    */
   static async getMqlSqlPromotions(): Promise<any[]> {
+    const userId = await resolveAuthenticatedRevOSUserId();
+    if (!userId) return [];
     try {
       const { data, error } = await supabase
         .from('mql_sql_promotions')
-        .select('*');
+        .select('*')
+        .eq('created_by', userId);
 
       if (error) {
         console.warn('mql_sql_promotions table fetch:', error.message);
@@ -97,22 +130,25 @@ export class PromotionDataService {
   }
 
   /**
-   * Check if a specific lead ID is promoted in Supabase.
+   * Check if a specific lead ID is promoted in Supabase for the authenticated user.
    */
   static async isLeadPromoted(leadId: string): Promise<boolean> {
     if (!isValidUuid(leadId)) return false;
+    const userId = await resolveAuthenticatedRevOSUserId();
+    if (!userId) return false;
     try {
       const { data, error } = await supabase
         .from('mql_sql_promotions')
         .select('id')
         .eq('lead_id', leadId)
+        .eq('created_by', userId)
         .limit(1);
 
       if (error) {
         return false;
       }
       return Boolean(data && data.length > 0);
-    } catch (err) {
+    } catch {
       return false;
     }
   }
@@ -122,18 +158,26 @@ export class PromotionDataService {
    */
   static async promoteLead(leadId: string, opportunityId?: string, promotionDate?: string): Promise<boolean> {
     if (!leadId) return false;
+    const userId = await resolveAuthenticatedRevOSUserId();
+    if (!userId) return false;
     try {
       const dateToSave = promotionDate || new Date().toISOString().split('T')[0];
-      if (typeof window !== 'undefined') {
-        localStorage.setItem(`mql_promotion_date_${leadId}`, dateToSave);
-      }
-      if (memoryPromotedLeadIds && !memoryPromotedLeadIds.includes(leadId)) {
-        memoryPromotedLeadIds.push(leadId);
+      setScopedStorageItem(`mql_promotion_date_${leadId}`, dateToSave, userId);
+      if (memoryPromotedLeadIds?.userId === userId && !memoryPromotedLeadIds.ids.includes(leadId)) {
+        memoryPromotedLeadIds.ids.push(leadId);
       }
       const { error } = await supabase
         .from('mql_sql_promotions')
         .upsert(
-          [{ lead_id: leadId, opportunity_id: opportunityId, status: 'Promoted', promotion_date: dateToSave }],
+          [
+            {
+              lead_id: leadId,
+              opportunity_id: opportunityId,
+              status: 'Promoted',
+              promotion_date: dateToSave,
+              created_by: userId
+            }
+          ],
           { onConflict: 'lead_id' }
         );
 
@@ -152,14 +196,20 @@ export class PromotionDataService {
    */
   static async unpromoteLead(leadId: string): Promise<boolean> {
     if (!leadId) return false;
+    const userId = await resolveAuthenticatedRevOSUserId();
+    if (!userId) return false;
     try {
-      if (memoryPromotedLeadIds) {
-        memoryPromotedLeadIds = memoryPromotedLeadIds.filter(id => id !== leadId);
+      if (memoryPromotedLeadIds?.userId === userId) {
+        memoryPromotedLeadIds = {
+          userId,
+          ids: memoryPromotedLeadIds.ids.filter((id) => id !== leadId)
+        };
       }
       const { error } = await supabase
         .from('mql_sql_promotions')
         .delete()
-        .eq('lead_id', leadId);
+        .eq('lead_id', leadId)
+        .eq('created_by', userId);
 
       if (error) {
         console.error('Error unpromoting lead in Supabase:', error);
@@ -174,23 +224,27 @@ export class PromotionDataService {
 
   static async unpromoteSqlOpportunity(opportunityId: string): Promise<boolean> {
     if (!opportunityId) return false;
+    const userId = await resolveAuthenticatedRevOSUserId();
+    if (!userId) return false;
     try {
-      if (memorySqlOpportunityPromotedLeadIds) {
-        memorySqlOpportunityPromotedLeadIds = memorySqlOpportunityPromotedLeadIds.filter(id => id !== opportunityId);
+      if (memorySqlOpportunityPromotedLeadIds?.userId === userId) {
+        memorySqlOpportunityPromotedLeadIds = {
+          userId,
+          ids: memorySqlOpportunityPromotedLeadIds.ids.filter((id) => id !== opportunityId)
+        };
       }
       const { error } = await supabase
         .from('sql_opportunity_promotions')
         .delete()
-        .eq('opportunity_id', opportunityId);
+        .eq('opportunity_id', opportunityId)
+        .eq('created_by', userId);
 
       if (error) {
         console.error('Error unpromoting SQL opportunity in Supabase:', error);
         return false;
       }
-      if (typeof window !== 'undefined') {
-        localStorage.removeItem(`sql_opp_promoted_opp_${opportunityId}`);
-        localStorage.removeItem(`oq_promoted_${opportunityId}`);
-      }
+      removeScopedStorageItem(`sql_opp_promoted_opp_${opportunityId}`, userId);
+      removeScopedStorageItem(`oq_promoted_${opportunityId}`, userId);
       return true;
     } catch (err) {
       console.error('Failed to unpromote SQL opportunity in Supabase:', err);
@@ -198,51 +252,44 @@ export class PromotionDataService {
     }
   }
 
-  // ==============================================================================
-  // Dedicated SQL to Opportunity Promotion Methods (sql_opportunity_promotions table)
-  // ==============================================================================
-
   /**
-   * Get all promoted lead IDs from Supabase table sql_opportunity_promotions.
+   * Get all promoted lead IDs for the authenticated user from Supabase table sql_opportunity_promotions.
    */
   static async getSqlOpportunityPromotedLeadIds(): Promise<string[]> {
+    const userId = await resolveAuthenticatedRevOSUserId();
+    if (!userId) return [];
     try {
       const { data, error } = await supabase
         .from('sql_opportunity_promotions')
-        .select('lead_id, opportunity_id');
+        .select('lead_id, opportunity_id')
+        .eq('created_by', userId);
 
       if (error) {
         console.warn('sql_opportunity_promotions table fetch:', error.message);
-        // Fallback to local storage if table is not yet provisioned
-        if (typeof window !== 'undefined') {
-          const stored = localStorage.getItem('sql_opportunity_promoted_lead_ids');
-          if (stored) {
-            try { return JSON.parse(stored); } catch {}
-          }
-        }
-        return [];
+        return this.getCachedSqlOpportunityPromotedLeadIds(userId);
       }
 
       const leadIds = (data || []).map((row: any) => row.lead_id).filter(Boolean);
-      memorySqlOpportunityPromotedLeadIds = leadIds;
-      if (typeof window !== 'undefined') {
-        localStorage.setItem('sql_opportunity_promoted_lead_ids', JSON.stringify(leadIds));
-      }
+      memorySqlOpportunityPromotedLeadIds = { userId, ids: leadIds };
+      setScopedStorageItem('sql_opportunity_promoted_lead_ids', JSON.stringify(leadIds), userId);
       return leadIds;
     } catch (err) {
       console.error('Failed to fetch promoted lead IDs from sql_opportunity_promotions:', err);
-      return this.getCachedSqlOpportunityPromotedLeadIds();
+      return this.getCachedSqlOpportunityPromotedLeadIds(userId);
     }
   }
 
   /**
-   * Get all SQL to Opportunity promotion records with timestamps from Supabase.
+   * Get all SQL to Opportunity promotion records for the authenticated user from Supabase.
    */
   static async getSqlOpportunityPromotions(): Promise<any[]> {
+    const userId = await resolveAuthenticatedRevOSUserId();
+    if (!userId) return [];
     try {
       const { data, error } = await supabase
         .from('sql_opportunity_promotions')
-        .select('*');
+        .select('*')
+        .eq('created_by', userId);
 
       if (error) {
         console.warn('sql_opportunity_promotions table fetch:', error.message);
@@ -256,13 +303,16 @@ export class PromotionDataService {
   }
 
   /**
-   * Get all promoted opportunity IDs from Supabase table sql_opportunity_promotions.
+   * Get all promoted opportunity IDs for the authenticated user from Supabase table sql_opportunity_promotions.
    */
   static async getSqlOpportunityPromotedOppIds(): Promise<string[]> {
+    const userId = await resolveAuthenticatedRevOSUserId();
+    if (!userId) return [];
     try {
       const { data, error } = await supabase
         .from('sql_opportunity_promotions')
-        .select('opportunity_id');
+        .select('opportunity_id')
+        .eq('created_by', userId);
 
       if (error) {
         console.warn('sql_opportunity_promotions table fetch:', error.message);
@@ -277,49 +327,44 @@ export class PromotionDataService {
   }
 
   /**
-   * Check if a lead or opportunity has been promoted in sql_opportunity_promotions in Supabase.
+   * Check if a lead or opportunity has been promoted in sql_opportunity_promotions for the authenticated user.
    */
   static async isSqlToOpportunityPromoted(identifier: { leadId?: string; opportunityId?: string }): Promise<boolean> {
     const { leadId, opportunityId } = identifier;
     if (!leadId && !opportunityId) return false;
+    const userId = await resolveAuthenticatedRevOSUserId();
+    if (!userId) return false;
 
-    // Fast check in localStorage cache
-    if (typeof window !== 'undefined') {
-      if (leadId && localStorage.getItem(`sql_opp_promoted_lead_${leadId}`) === 'true') return true;
-      if (opportunityId && localStorage.getItem(`sql_opp_promoted_opp_${opportunityId}`) === 'true') return true;
-    }
+    if (leadId && getScopedStorageItem(`sql_opp_promoted_lead_${leadId}`, userId) === 'true') return true;
+    if (opportunityId && getScopedStorageItem(`sql_opp_promoted_opp_${opportunityId}`, userId) === 'true') return true;
 
     try {
-      // 1. Try querying by lead_id
       if (isValidUuid(leadId)) {
         const { data, error } = await supabase
           .from('sql_opportunity_promotions')
           .select('id, status')
           .eq('lead_id', leadId)
+          .eq('created_by', userId)
           .maybeSingle();
 
         if (!error && data) {
-          if (typeof window !== 'undefined') {
-            localStorage.setItem(`sql_opp_promoted_lead_${leadId}`, 'true');
-            if (opportunityId) localStorage.setItem(`sql_opp_promoted_opp_${opportunityId}`, 'true');
-          }
+          setScopedStorageItem(`sql_opp_promoted_lead_${leadId}`, 'true', userId);
+          if (opportunityId) setScopedStorageItem(`sql_opp_promoted_opp_${opportunityId}`, 'true', userId);
           return true;
         }
       }
 
-      // 2. Try querying by opportunity_id
       if (isValidUuid(opportunityId)) {
         const { data, error } = await supabase
           .from('sql_opportunity_promotions')
           .select('id, status, lead_id')
           .eq('opportunity_id', opportunityId)
+          .eq('created_by', userId)
           .maybeSingle();
 
         if (!error && data) {
-          if (typeof window !== 'undefined') {
-            localStorage.setItem(`sql_opp_promoted_opp_${opportunityId}`, 'true');
-            if (data.lead_id) localStorage.setItem(`sql_opp_promoted_lead_${data.lead_id}`, 'true');
-          }
+          setScopedStorageItem(`sql_opp_promoted_opp_${opportunityId}`, 'true', userId);
+          if (data.lead_id) setScopedStorageItem(`sql_opp_promoted_lead_${data.lead_id}`, 'true', userId);
           return true;
         }
       }
@@ -327,7 +372,6 @@ export class PromotionDataService {
       console.warn('sql_opportunity_promotions check warning:', err);
     }
 
-    // Fallback: Check opportunity_promotions or local storage
     if (opportunityId) {
       const oppPromoted = await this.isOpportunityPromoted(opportunityId);
       if (oppPromoted) return true;
@@ -337,7 +381,7 @@ export class PromotionDataService {
   }
 
   /**
-   * Find corresponding lead_id for an opportunity from Supabase.
+   * Find corresponding lead_id for an owned opportunity from Supabase.
    */
   static async resolveLeadIdForOpportunity(opportunityId: string, fallbackLeadId?: string): Promise<string | null> {
     if (fallbackLeadId) return fallbackLeadId;
@@ -346,24 +390,26 @@ export class PromotionDataService {
       return opportunityId.replace('virtual_opp_', '') || null;
     }
     if (!isValidUuid(opportunityId)) return null;
+    const userId = await resolveAuthenticatedRevOSUserId();
+    if (!userId) return null;
 
     try {
-      // 1. Check opportunities.mql_reference_id
       const { data: opp } = await supabase
         .from('opportunities')
         .select('mql_reference_id')
         .eq('id', opportunityId)
+        .eq('created_by', userId)
         .maybeSingle();
 
       if (opp?.mql_reference_id) {
         return opp.mql_reference_id;
       }
 
-      // 2. Check mql_sql_promotions
       const { data: mqlPromo } = await supabase
         .from('mql_sql_promotions')
         .select('lead_id')
         .eq('opportunity_id', opportunityId)
+        .eq('created_by', userId)
         .maybeSingle();
 
       if (mqlPromo?.lead_id) {
@@ -378,7 +424,6 @@ export class PromotionDataService {
 
   /**
    * Promote an SQL to Opportunity in Supabase sql_opportunity_promotions table.
-   * Note: Inserts into sql_opportunity_promotions without modifying sql_leads.
    */
   static async recordSqlOpportunityPromotion(
     leadId: string,
@@ -386,26 +431,28 @@ export class PromotionDataService {
     notes?: string
   ): Promise<boolean> {
     if (!leadId && !opportunityId) return false;
+    const userId = await resolveAuthenticatedRevOSUserId();
+    if (!userId) return false;
 
-    // Cache locally for immediate UI reactivity
-    if (typeof window !== 'undefined') {
-      if (leadId) localStorage.setItem(`sql_opp_promoted_lead_${leadId}`, 'true');
-      if (opportunityId) {
-        localStorage.setItem(`sql_opp_promoted_opp_${opportunityId}`, 'true');
-        localStorage.setItem(`oq_promoted_${opportunityId}`, 'true');
+    if (leadId) setScopedStorageItem(`sql_opp_promoted_lead_${leadId}`, 'true', userId);
+    if (opportunityId) {
+      setScopedStorageItem(`sql_opp_promoted_opp_${opportunityId}`, 'true', userId);
+      setScopedStorageItem(`oq_promoted_${opportunityId}`, 'true', userId);
+    }
+    try {
+      const stored = getScopedStorageItem('sql_opportunity_promoted_lead_ids', userId);
+      const ids = stored ? JSON.parse(stored) : [];
+      if (leadId && Array.isArray(ids) && !ids.includes(leadId)) {
+        ids.push(leadId);
+        setScopedStorageItem('sql_opportunity_promoted_lead_ids', JSON.stringify(ids), userId);
       }
-      // Update cached array of promoted lead IDs
-      try {
-        const stored = localStorage.getItem('sql_opportunity_promoted_lead_ids');
-        const ids = stored ? JSON.parse(stored) : [];
-        if (leadId && !ids.includes(leadId)) {
-          ids.push(leadId);
-          localStorage.setItem('sql_opportunity_promoted_lead_ids', JSON.stringify(ids));
-        }
-      } catch {}
-      if (memorySqlOpportunityPromotedLeadIds && leadId && !memorySqlOpportunityPromotedLeadIds.includes(leadId)) {
-        memorySqlOpportunityPromotedLeadIds.push(leadId);
-      }
+    } catch {}
+    if (
+      memorySqlOpportunityPromotedLeadIds?.userId === userId &&
+      leadId &&
+      !memorySqlOpportunityPromotedLeadIds.ids.includes(leadId)
+    ) {
+      memorySqlOpportunityPromotedLeadIds.ids.push(leadId);
     }
 
     const payload = {
@@ -415,48 +462,40 @@ export class PromotionDataService {
       promoted_at: new Date().toISOString(),
       promoted_by: 'Sales Representative',
       notes: notes || 'Promoted via RevOS Opportunity Qualification Engine',
-      updated_at: new Date().toISOString()
+      updated_at: new Date().toISOString(),
+      created_by: userId
     };
 
-    let insertedSuccessfully = false;
-
     try {
-      // 1. Insert into dedicated sql_opportunity_promotions table
       const { error } = await supabase
         .from('sql_opportunity_promotions')
         .upsert(payload, { onConflict: 'opportunity_id' });
 
       if (error) {
         console.warn('sql_opportunity_promotions upsert note (will succeed once SQL migration is run in Supabase):', error.message);
-      } else {
-        insertedSuccessfully = true;
       }
     } catch (e) {
       console.warn('sql_opportunity_promotions upsert exception:', e);
     }
 
-    // 2. Also keep opportunity_promotions synchronized
     if (opportunityId) {
       try {
         await this.promoteToOpportunity(opportunityId, new Date().toISOString().split('T')[0], undefined, notes);
-      } catch (e) {}
+      } catch {}
     }
 
     return true;
   }
 
-  // ==============================================================================
-  // Legacy / Direct Opportunity Promotion Methods (opportunity_promotions table)
-  // ==============================================================================
-
   /**
-   * Check if an opportunity has been promoted in Supabase dedicated table
+   * Check if an owned opportunity has been promoted in Supabase dedicated table
    */
   static async isOpportunityPromoted(opportunityId: string): Promise<boolean> {
     if (!opportunityId) return false;
+    const userId = await resolveAuthenticatedRevOSUserId();
+    if (!userId) return false;
 
-    // Check localStorage cache first for instant synchronous feedback
-    if (typeof window !== 'undefined' && localStorage.getItem(`oq_promoted_${opportunityId}`) === 'true') {
+    if (getScopedStorageItem(`oq_promoted_${opportunityId}`, userId) === 'true') {
       return true;
     }
 
@@ -467,20 +506,26 @@ export class PromotionDataService {
         .from('opportunity_promotions')
         .select('id, promotion_status')
         .eq('opportunity_id', opportunityId)
+        .eq('created_by', userId)
         .maybeSingle();
 
       if (!error && data) {
-        if (typeof window !== 'undefined') {
-          localStorage.setItem(`oq_promoted_${opportunityId}`, 'true');
-        }
+        setScopedStorageItem(`oq_promoted_${opportunityId}`, 'true', userId);
         return true;
       }
     } catch (err) {
       console.warn('opportunity_promotions check failed:', err);
     }
 
-    // Fallback: Check if opportunity_qualification_sessions is marked as is_promoted
     try {
+      const { data: opp } = await supabase
+        .from('opportunities')
+        .select('id')
+        .eq('id', opportunityId)
+        .eq('created_by', userId)
+        .maybeSingle();
+      if (!opp) return false;
+
       const { data: session } = await supabase
         .from('opportunity_qualification_sessions')
         .select('is_promoted')
@@ -488,21 +533,21 @@ export class PromotionDataService {
         .maybeSingle();
 
       if (session?.is_promoted) {
-        if (typeof window !== 'undefined') {
-          localStorage.setItem(`oq_promoted_${opportunityId}`, 'true');
-        }
+        setScopedStorageItem(`oq_promoted_${opportunityId}`, 'true', userId);
         return true;
       }
-    } catch (e) {}
+    } catch {}
 
     return false;
   }
 
   /**
-   * Get promotion record for an opportunity
+   * Get promotion record for an owned opportunity
    */
   static async getOpportunityPromotion(opportunityId: string): Promise<any | null> {
     if (!opportunityId) return null;
+    const userId = await resolveAuthenticatedRevOSUserId();
+    if (!userId) return null;
 
     if (isValidUuid(opportunityId)) {
       try {
@@ -510,6 +555,7 @@ export class PromotionDataService {
           .from('opportunity_promotions')
           .select('*')
           .eq('opportunity_id', opportunityId)
+          .eq('created_by', userId)
           .maybeSingle();
 
         if (!error && data) {
@@ -520,18 +566,15 @@ export class PromotionDataService {
       }
     }
 
-    // Fallback to local storage
-    if (typeof window !== 'undefined') {
-      const isPromoted = localStorage.getItem(`oq_promoted_${opportunityId}`) === 'true';
-      const promoDate = localStorage.getItem(`oq_promotion_date_${opportunityId}`);
-      if (isPromoted) {
-        return {
-          opportunity_id: opportunityId,
-          promotion_date: promoDate || new Date().toISOString().split('T')[0],
-          promotion_status: 'Promoted to Opportunity',
-          promoted_by: 'Sales Representative'
-        };
-      }
+    const isPromoted = getScopedStorageItem(`oq_promoted_${opportunityId}`, userId) === 'true';
+    const promoDate = getScopedStorageItem(`oq_promotion_date_${opportunityId}`, userId);
+    if (isPromoted) {
+      return {
+        opportunity_id: opportunityId,
+        promotion_date: promoDate || new Date().toISOString().split('T')[0],
+        promotion_status: 'Promoted to Opportunity',
+        promoted_by: 'Sales Representative'
+      };
     }
 
     return null;
@@ -541,18 +584,17 @@ export class PromotionDataService {
    * Record promotion to Opportunity in Supabase dedicated table
    */
   static async promoteToOpportunity(
-    opportunityId: string, 
-    promotionDate: string, 
+    opportunityId: string,
+    promotionDate: string,
     sessionId?: string,
     notes?: string
   ): Promise<boolean> {
     if (!opportunityId) return false;
+    const userId = await resolveAuthenticatedRevOSUserId();
+    if (!userId) return false;
 
-    // Cache immediately in localStorage
-    if (typeof window !== 'undefined') {
-      localStorage.setItem(`oq_promoted_${opportunityId}`, 'true');
-      localStorage.setItem(`oq_promotion_date_${opportunityId}`, promotionDate);
-    }
+    setScopedStorageItem(`oq_promoted_${opportunityId}`, 'true', userId);
+    setScopedStorageItem(`oq_promotion_date_${opportunityId}`, promotionDate, userId);
 
     const payload = {
       opportunity_id: opportunityId,
@@ -561,11 +603,11 @@ export class PromotionDataService {
       promotion_status: 'Promoted to Opportunity',
       promoted_by: 'Sales Representative',
       notes: notes || 'Promoted via RevOS Opportunity Qualification Engine',
-      updated_at: new Date().toISOString()
+      updated_at: new Date().toISOString(),
+      created_by: userId
     };
 
     try {
-      // 1. Upsert into dedicated opportunity_promotions table
       const { error } = await supabase
         .from('opportunity_promotions')
         .upsert(payload, { onConflict: 'opportunity_id' });
@@ -577,8 +619,15 @@ export class PromotionDataService {
       console.warn('opportunity_promotions upsert exception:', e);
     }
 
-    // 2. Also update session is_promoted flag if session exists
     try {
+      const { data: opp } = await supabase
+        .from('opportunities')
+        .select('id')
+        .eq('id', opportunityId)
+        .eq('created_by', userId)
+        .maybeSingle();
+      if (!opp) return true;
+
       if (sessionId) {
         await supabase
           .from('opportunity_qualification_sessions')
@@ -590,9 +639,8 @@ export class PromotionDataService {
           .update({ is_promoted: true, updated_at: new Date().toISOString() })
           .eq('opportunity_id', opportunityId);
       }
-    } catch (e) {}
+    } catch {}
 
     return true;
   }
 }
-

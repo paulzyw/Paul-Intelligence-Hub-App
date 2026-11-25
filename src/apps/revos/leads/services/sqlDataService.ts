@@ -1,5 +1,6 @@
 import { supabase } from '@/src/lib/supabase';
 import { SQLOpportunity, SQLAssessment, SQLEvidenceRecord, SQLDimensionResult, SQLRecommendation } from '../../types/sql';
+import { resolveAuthenticatedRevOSUserId } from '../../utils/userIsolation';
 
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const isValidUuid = (id?: string | null): id is string => typeof id === 'string' && UUID_REGEX.test(id);
@@ -7,49 +8,61 @@ const isValidUuid = (id?: string | null): id is string => typeof id === 'string'
 export class SQLDataService {
   // Opportunity management
   static async getOpportunities() {
+    const userId = await resolveAuthenticatedRevOSUserId();
+    if (!userId) return [];
     const { data, error } = await supabase
       .from('opportunities')
       .select('*')
+      .eq('created_by', userId)
       .order('created_at', { ascending: false });
     if (error) {
       console.error(error);
       return [];
     }
-    return data as SQLOpportunity[];
+    return (data || []) as SQLOpportunity[];
   }
 
   static async getOpportunityByMqlId(mqlId: string) {
     if (!isValidUuid(mqlId)) return null;
+    const userId = await resolveAuthenticatedRevOSUserId();
+    if (!userId) return null;
     const { data, error } = await supabase
       .from('opportunities')
       .select('*')
       .eq('mql_reference_id', mqlId)
+      .eq('created_by', userId)
       .order('created_at', { ascending: false })
       .limit(1);
     if (error) {
       console.error(error);
       return null;
     }
-    return (data && data.length > 0) ? (data[0] as SQLOpportunity) : null;
+    return data && data.length > 0 ? (data[0] as SQLOpportunity) : null;
   }
 
   static async getOpportunity(id: string) {
     if (!isValidUuid(id)) {
       throw new Error(`Invalid opportunity UUID: ${id}`);
     }
+    const userId = await resolveAuthenticatedRevOSUserId();
+    if (!userId) throw new Error('Authentication required to read opportunity.');
     const { data, error } = await supabase
       .from('opportunities')
       .select('*')
       .eq('id', id)
+      .eq('created_by', userId)
       .single();
     if (error) throw error;
     return data as SQLOpportunity;
   }
 
   static async createOpportunity(opportunity: Partial<SQLOpportunity>) {
+    const userId = await resolveAuthenticatedRevOSUserId();
+    if (!userId) throw new Error('Authentication required to create opportunity.');
+    const scopedOpp = { ...opportunity, created_by: userId };
     const { data, error } = await supabase
       .from('opportunities')
-      .insert([opportunity])
+      .insert([scopedOpp])
       .select()
       .single();
     if (error) {
@@ -67,7 +80,7 @@ export class SQLDataService {
           business_segment: _bs,
           product_solution: _ps,
           ...legacyOpp
-        } = opportunity;
+        } = scopedOpp;
         const retry = await supabase
           .from('opportunities')
           .insert([legacyOpp])
@@ -88,10 +101,14 @@ export class SQLDataService {
   }
 
   static async updateOpportunity(id: string, opportunity: Partial<SQLOpportunity>) {
+    const userId = await resolveAuthenticatedRevOSUserId();
+    if (!userId) throw new Error('Authentication required to update opportunity.');
+    const { created_by: _ignored, ...safeFields } = opportunity as any;
     const { data, error } = await supabase
       .from('opportunities')
-      .update(opportunity)
+      .update(safeFields)
       .eq('id', id)
+      .eq('created_by', userId)
       .select()
       .single();
     if (error) {
@@ -109,11 +126,12 @@ export class SQLDataService {
           business_segment: _bs,
           product_solution: _ps,
           ...legacyOpp
-        } = opportunity;
+        } = safeFields;
         const retry = await supabase
           .from('opportunities')
           .update(legacyOpp)
           .eq('id', id)
+          .eq('created_by', userId)
           .select()
           .single();
         if (retry.error) throw retry.error;
@@ -131,34 +149,54 @@ export class SQLDataService {
   }
 
   static async deleteOpportunity(id: string) {
+    const userId = await resolveAuthenticatedRevOSUserId();
+    if (!userId) throw new Error('Authentication required to delete opportunity.');
     const { error } = await supabase
       .from('opportunities')
       .delete()
-      .eq('id', id);
+      .eq('id', id)
+      .eq('created_by', userId);
     if (error) throw error;
     return true;
   }
 
+  private static async verifyOwnedOpportunity(opportunityId: string): Promise<boolean> {
+    if (!isValidUuid(opportunityId)) return false;
+    const userId = await resolveAuthenticatedRevOSUserId();
+    if (!userId) return false;
+    const { data } = await supabase
+      .from('opportunities')
+      .select('id')
+      .eq('id', opportunityId)
+      .eq('created_by', userId)
+      .maybeSingle();
+    return Boolean(data?.id);
+  }
+
   // SQL Assessment management
   static async saveFullQualificationResult(opportunityId: string, result: any) {
+    const owned = await this.verifyOwnedOpportunity(opportunityId);
+    if (!owned) throw new Error('Opportunity not found or access denied.');
+
     let assessment = await this.getAssessmentByOpportunity(opportunityId);
     let assessmentId = assessment?.id;
-    
+
     if (!assessment) {
       const created = await this.createAssessment(opportunityId);
       assessmentId = created.assessment_id;
     }
-    
-    // Update assessment status
-    await supabase.from('sql_assessments').update({
-      assessment_status: 'completed',
-      qualification_status: result.qualification_summary?.qualification_status,
-      overall_score: result.qualification_summary?.overall_score,
-      confidence_score: result.qualification_summary?.confidence_score,
-      completed_at: new Date().toISOString()
-    }).eq('id', assessmentId);
 
-    // Save full JSON in reasoning sessions
+    await supabase
+      .from('sql_assessments')
+      .update({
+        assessment_status: 'completed',
+        qualification_status: result.qualification_summary?.qualification_status,
+        overall_score: result.qualification_summary?.overall_score,
+        confidence_score: result.qualification_summary?.confidence_score,
+        completed_at: new Date().toISOString()
+      })
+      .eq('id', assessmentId);
+
     const { error } = await supabase.from('sql_reasoning_sessions').insert({
       assessment_id: assessmentId,
       model_name: 'gemini-3.1-pro',
@@ -166,7 +204,7 @@ export class SQLDataService {
       execution_status: 'success',
       output_response: result
     });
-    
+
     if (error) {
       console.error('Error saving full qualification result:', error);
       throw error;
@@ -181,22 +219,26 @@ export class SQLDataService {
 
   static async getSavedQualificationResult(opportunityId: string) {
     if (!isValidUuid(opportunityId)) return null;
+    const owned = await this.verifyOwnedOpportunity(opportunityId);
+    if (!owned) return null;
     const assessment = await this.getAssessmentByOpportunity(opportunityId);
     if (!assessment) return null;
-    
+
     const { data, error } = await supabase
       .from('sql_reasoning_sessions')
       .select('output_response')
       .eq('assessment_id', assessment.id)
       .order('created_at', { ascending: false })
       .limit(1);
-      
+
     if (error || !data || data.length === 0) return null;
     return data[0].output_response;
   }
 
   static async getAssessmentByOpportunity(opportunityId: string) {
     if (!isValidUuid(opportunityId)) return null;
+    const owned = await this.verifyOwnedOpportunity(opportunityId);
+    if (!owned) return null;
     const { data, error } = await supabase
       .from('sql_assessments')
       .select('*')
@@ -207,21 +249,37 @@ export class SQLDataService {
       return null;
     }
     if (!data || data.length === 0) return null;
-    // Prefer completed assessment with valid overall_score
-    const completed = data.find(a => (a.assessment_status === 'completed' || a.overall_score !== null) && a.overall_score !== undefined);
+    const completed = data.find(
+      (a) => (a.assessment_status === 'completed' || a.overall_score !== null) && a.overall_score !== undefined
+    );
     return (completed || data[0]) as SQLAssessment;
   }
 
   static async createAssessment(opportunityId: string) {
-    const { data, error } = await supabase.from('sql_assessments').insert({
-      opportunity_id: opportunityId,
-      assessment_status: 'created'
-    }).select().single();
+    const owned = await this.verifyOwnedOpportunity(opportunityId);
+    if (!owned) throw new Error('Opportunity not found or access denied.');
+    const { data, error } = await supabase
+      .from('sql_assessments')
+      .insert({
+        opportunity_id: opportunityId,
+        assessment_status: 'created'
+      })
+      .select()
+      .single();
     if (error) throw error;
     return { assessment_id: data.id, status: 'created' };
   }
 
   static async getEvidenceRecords(assessmentId: string) {
+    const userId = await resolveAuthenticatedRevOSUserId();
+    if (!userId) return [];
+    const { data: assessment } = await supabase
+      .from('sql_assessments')
+      .select('id, opportunities!inner(created_by)')
+      .eq('id', assessmentId)
+      .eq('opportunities.created_by', userId)
+      .maybeSingle();
+    if (!assessment) return [];
     const { data, error } = await supabase
       .from('sql_evidence_records')
       .select('*')
@@ -234,11 +292,20 @@ export class SQLDataService {
   }
 
   static async submitEvidence(assessmentId: string, evidence: Partial<SQLEvidenceRecord>[]) {
-    // Delete existing evidence for this assessment first
+    const userId = await resolveAuthenticatedRevOSUserId();
+    if (!userId) throw new Error('Authentication required to submit evidence.');
+    const { data: assessment } = await supabase
+      .from('sql_assessments')
+      .select('id, opportunities!inner(created_by)')
+      .eq('id', assessmentId)
+      .eq('opportunities.created_by', userId)
+      .maybeSingle();
+    if (!assessment) throw new Error('Assessment not found or access denied.');
+
     await supabase.from('sql_evidence_records').delete().eq('assessment_id', assessmentId);
-    
+
     if (evidence.length > 0) {
-      const recordsToInsert = evidence.map(e => ({
+      const recordsToInsert = evidence.map((e) => ({
         ...e,
         assessment_id: assessmentId,
         validation_status: e.validation_status || 'unverified'
@@ -246,14 +313,19 @@ export class SQLDataService {
       const { error: insertError } = await supabase.from('sql_evidence_records').insert(recordsToInsert);
       if (insertError) throw insertError;
     }
-    
-    // Update assessment status
-    await supabase.from('sql_assessments').update({ assessment_status: 'collecting_evidence' }).eq('id', assessmentId);
-    
+
+    await supabase
+      .from('sql_assessments')
+      .update({ assessment_status: 'collecting_evidence' })
+      .eq('id', assessmentId);
+
     return { success: true };
   }
 
-  static async executeReasoning(assessmentId: string, contexts: { industry_context: any; evidence_context: any; qualification_policy: any }) {
+  static async executeReasoning(
+    assessmentId: string,
+    contexts: { industry_context: any; evidence_context: any; qualification_policy: any }
+  ) {
     const { data, error } = await supabase.functions.invoke('lead-qualification', {
       body: {
         action: 'execute-sql-reasoning',
@@ -288,16 +360,32 @@ export class SQLDataService {
   }
 
   static async retrieveAssessmentResult(assessmentId: string) {
-    const { data: assessment, error: assessError } = await supabase.from('sql_assessments').select('*, opportunities(*)').eq('id', assessmentId).single();
+    const userId = await resolveAuthenticatedRevOSUserId();
+    if (!userId) throw new Error('Authentication required to retrieve SQL assessment.');
+    const { data: assessment, error: assessError } = await supabase
+      .from('sql_assessments')
+      .select('*, opportunities!inner(*)')
+      .eq('id', assessmentId)
+      .eq('opportunities.created_by', userId)
+      .single();
     if (assessError) throw assessError;
 
-    const { data: dimensions, error: dimError } = await supabase.from('sql_dimension_results').select('*').eq('assessment_id', assessmentId);
+    const { data: dimensions, error: dimError } = await supabase
+      .from('sql_dimension_results')
+      .select('*')
+      .eq('assessment_id', assessmentId);
     if (dimError) throw dimError;
 
-    const { data: recommendations, error: recError } = await supabase.from('sql_recommendations').select('*').eq('assessment_id', assessmentId);
+    const { data: recommendations, error: recError } = await supabase
+      .from('sql_recommendations')
+      .select('*')
+      .eq('assessment_id', assessmentId);
     if (recError) throw recError;
 
-    const { data: evidence, error: evError } = await supabase.from('sql_evidence_records').select('*').eq('assessment_id', assessmentId);
+    const { data: evidence, error: evError } = await supabase
+      .from('sql_evidence_records')
+      .select('*')
+      .eq('assessment_id', assessmentId);
     if (evError) throw evError;
 
     return {

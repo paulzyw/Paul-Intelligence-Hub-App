@@ -8,6 +8,7 @@ import { SqlToOpportunityTable } from './SqlToOpportunityTable';
 import { PromotionDataService } from '../services/promotionDataService';
 import { OpportunityDataService } from '../services/opportunityDataService';
 import { supabase } from '@/src/lib/supabase';
+import { getScopedStorageItem, resolveAuthenticatedRevOSUserId } from '../../utils/userIsolation';
 
 interface LeadCanvasProps {
   leads: MQLLead[];
@@ -68,7 +69,7 @@ export const LeadCanvas: React.FC<LeadCanvasProps> = ({ leads, campaigns, onLead
       console.error('Failed to load SQL to Opportunity promotions from Supabase:', err);
     });
 
-    const loadOpportunityData = () => {
+    const loadOpportunityData = async () => {
       OpportunityDataService.getOpportunityEstimatedRevenuesMap().then(map => {
         setOppRevenueMap(map);
       }).catch(err => {
@@ -81,25 +82,58 @@ export const LeadCanvas: React.FC<LeadCanvasProps> = ({ leads, campaigns, onLead
         console.error('Failed to load opportunity names from Supabase:', err);
       });
 
-      Promise.all([
-        supabase.from('opportunities').select('*'),
-        supabase.from('sql_opportunity_promotions').select('lead_id, opportunity_id'),
-        supabase.from('opportunity_form_records').select('*'),
-        supabase.from('opportunity_sql_handover_details').select('*'),
-        supabase.from('opportunity_qualification_sessions').select('*'),
-        supabase.from('opportunity_qualification_results').select('*').order('created_at', { ascending: false })
-      ]).then(([oppsRes, promosRes, formsRes, handoversRes, sessionsRes, resultsRes]) => {
+      try {
+        const userId = await resolveAuthenticatedRevOSUserId();
+        if (!userId) {
+          setOppIdByLeadMap({});
+          setOppRecordsById({});
+          setOppFormByOppId({});
+          setOppHandoverByOppId({});
+          setOppSessionByOppId({});
+          setOppResultByOppId({});
+          return;
+        }
+
+        const [oppsRes, promosRes] = await Promise.all([
+          supabase.from('opportunities').select('*').eq('created_by', userId),
+          supabase.from('sql_opportunity_promotions').select('lead_id, opportunity_id').eq('created_by', userId)
+        ]);
+
         const nextIdMap: Record<string, string> = {};
         const nextOpps: Record<string, any> = {};
-        (promosRes.data || []).forEach((p: any) => {
-          if (p.lead_id && p.opportunity_id) nextIdMap[p.lead_id] = p.opportunity_id;
-        });
+        const ownedOppIds = new Set<string>();
+
         (oppsRes.data || []).forEach((o: any) => {
-          if (o.id) nextOpps[o.id] = o;
+          if (o.id) {
+            nextOpps[o.id] = o;
+            ownedOppIds.add(o.id);
+          }
           if (o.mql_reference_id && o.id) nextIdMap[o.mql_reference_id] = o.id;
+        });
+        (promosRes.data || []).forEach((p: any) => {
+          if (p.lead_id && p.opportunity_id) {
+            nextIdMap[p.lead_id] = p.opportunity_id;
+            ownedOppIds.add(p.opportunity_id);
+          }
         });
         setOppIdByLeadMap(nextIdMap);
         setOppRecordsById(nextOpps);
+
+        const oppIdList = Array.from(ownedOppIds);
+        if (oppIdList.length === 0) {
+          setOppFormByOppId({});
+          setOppHandoverByOppId({});
+          setOppSessionByOppId({});
+          setOppResultByOppId({});
+          return;
+        }
+
+        const [formsRes, handoversRes, sessionsRes, resultsRes] = await Promise.all([
+          supabase.from('opportunity_form_records').select('*').in('opportunity_id', oppIdList),
+          supabase.from('opportunity_sql_handover_details').select('*').in('opportunity_id', oppIdList),
+          supabase.from('opportunity_qualification_sessions').select('*').in('opportunity_id', oppIdList),
+          supabase.from('opportunity_qualification_results').select('*').in('opportunity_id', oppIdList).order('created_at', { ascending: false })
+        ]);
 
         const nextForms: Record<string, any> = {};
         (formsRes.data || []).forEach((f: any) => {
@@ -134,7 +168,7 @@ export const LeadCanvas: React.FC<LeadCanvasProps> = ({ leads, campaigns, onLead
           }
         });
         setOppResultByOppId(nextResults);
-      }).catch(() => {});
+      } catch {}
     };
 
     loadOpportunityData();
@@ -243,9 +277,9 @@ export const LeadCanvas: React.FC<LeadCanvasProps> = ({ leads, campaigns, onLead
     if (oppRevenueMap[lead.id] !== undefined && oppRevenueMap[lead.id] > 0) {
       return oppRevenueMap[lead.id];
     }
-    // 2. Check localStorage isolated card edits or form drafts
+    // 2. Check user-scoped localStorage isolated card edits or form drafts
     if (typeof window !== 'undefined') {
-      const oppCardEdits = localStorage.getItem(`opp_isolated_card_edits_${lead.id}`);
+      const oppCardEdits = getScopedStorageItem(`opp_isolated_card_edits_${lead.id}`);
       if (oppCardEdits) {
         try {
           const parsed = JSON.parse(oppCardEdits);
@@ -256,7 +290,7 @@ export const LeadCanvas: React.FC<LeadCanvasProps> = ({ leads, campaigns, onLead
         } catch (e) {}
       }
 
-      const sqlCardEdits = localStorage.getItem(`sql_isolated_card_edits_${lead.id}`);
+      const sqlCardEdits = getScopedStorageItem(`sql_isolated_card_edits_${lead.id}`);
       if (sqlCardEdits) {
         try {
           const parsed = JSON.parse(sqlCardEdits);
@@ -342,7 +376,7 @@ export const LeadCanvas: React.FC<LeadCanvasProps> = ({ leads, campaigns, onLead
 
   const getIsolatedLead = (lead: MQLLead, type: 'lead' | 'mql' | 'sql' | 'opp') => {
     if (type === 'sql') {
-      const stored = localStorage.getItem(`sql_isolated_card_edits_${lead.id}`);
+      const stored = getScopedStorageItem(`sql_isolated_card_edits_${lead.id}`);
       if (stored) {
         try {
           return { ...lead, ...JSON.parse(stored) };
@@ -352,7 +386,7 @@ export const LeadCanvas: React.FC<LeadCanvasProps> = ({ leads, campaigns, onLead
       }
     }
     if (type === 'opp') {
-      const stored = localStorage.getItem(`opp_isolated_card_edits_${lead.id}`);
+      const stored = getScopedStorageItem(`opp_isolated_card_edits_${lead.id}`);
       if (stored) {
         try {
           return { ...lead, ...JSON.parse(stored) };
@@ -470,9 +504,9 @@ export const LeadCanvas: React.FC<LeadCanvasProps> = ({ leads, campaigns, onLead
   };
 
   const getOpportunityName = (lead: MQLLead): string => {
-    // 1. Check isolated card edits for SQL card
+    // 1. Check user-scoped isolated card edits for SQL card
     if (typeof window !== 'undefined') {
-      const sqlCardEdits = localStorage.getItem(`sql_isolated_card_edits_${lead.id}`);
+      const sqlCardEdits = getScopedStorageItem(`sql_isolated_card_edits_${lead.id}`);
       if (sqlCardEdits) {
         try {
           const parsed = JSON.parse(sqlCardEdits);
@@ -526,7 +560,7 @@ export const LeadCanvas: React.FC<LeadCanvasProps> = ({ leads, campaigns, onLead
 
     let extraBusinessSegment = '';
     if (typeof window !== 'undefined') {
-      const extraJson = localStorage.getItem(`mql_lead_extra_${lead.id}`);
+      const extraJson = getScopedStorageItem(`mql_lead_extra_${lead.id}`);
       if (extraJson) {
         try {
           const parsedExtra = JSON.parse(extraJson);

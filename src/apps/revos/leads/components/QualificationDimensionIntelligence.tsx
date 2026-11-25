@@ -35,6 +35,7 @@ import {
 import { MQLLead, MQLQualificationResult, MQLCampaign } from '../../types/mql';
 import { SQLOpportunity, SQLAssessment } from '../../types/sql';
 import { supabase } from '@/src/lib/supabase';
+import { getScopedStorageItem, resolveAuthenticatedRevOSUserId } from '../../utils/userIsolation';
 
 // ==========================================
 // CANONICAL DIMENSION DEFINITIONS (FROM CONFIG)
@@ -427,34 +428,66 @@ export const QualificationDimensionIntelligence: React.FC<QualificationDimension
   const [dbOqResults, setDbOqResults] = useState<any[]>([]);
   const [dbOpportunities, setDbOpportunities] = useState<SQLOpportunity[]>([]);
 
-  // Fetch dedicated database tables directly from Supabase
+  // Fetch dedicated database tables directly from Supabase scoped to active authenticated user
   const fetchDedicatedDatabases = async () => {
     try {
-      const [
-        assessRes,
-        dimRes,
-        recRes,
-        sessRes,
-        oqSessRes,
-        oqResRes,
-        oppsRes
-      ] = await Promise.all([
-        supabase.from('sql_assessments').select('*').order('created_at', { ascending: false }),
-        supabase.from('sql_dimension_results').select('*'),
-        supabase.from('sql_recommendations').select('*'),
-        supabase.from('sql_reasoning_sessions').select('*').order('created_at', { ascending: false }),
-        supabase.from('opportunity_qualification_sessions').select('*').order('created_at', { ascending: false }),
-        supabase.from('opportunity_qualification_results').select('*').order('created_at', { ascending: false }),
-        supabase.from('opportunities').select('*').order('created_at', { ascending: false })
+      const userId = await resolveAuthenticatedRevOSUserId();
+      if (!userId) {
+        setDbOpportunities([]);
+        setDbSqlAssessments([]);
+        setDbSqlDimensionResults([]);
+        setDbSqlRecommendations([]);
+        setDbSqlReasoningSessions([]);
+        setDbOqSessions([]);
+        setDbOqResults([]);
+        return;
+      }
+
+      const oppsRes = await supabase
+        .from('opportunities')
+        .select('*')
+        .eq('created_by', userId)
+        .order('created_at', { ascending: false });
+
+      const ownedOpps = (oppsRes.data || []) as SQLOpportunity[];
+      setDbOpportunities(ownedOpps);
+
+      const ownedOppIds = ownedOpps.map(o => o.id).filter(Boolean);
+      if (ownedOppIds.length === 0) {
+        setDbSqlAssessments([]);
+        setDbSqlDimensionResults([]);
+        setDbSqlRecommendations([]);
+        setDbSqlReasoningSessions([]);
+        setDbOqSessions([]);
+        setDbOqResults([]);
+        return;
+      }
+
+      const [assessRes, sessRes, oqSessRes, oqResRes] = await Promise.all([
+        supabase.from('sql_assessments').select('*').in('opportunity_id', ownedOppIds).order('created_at', { ascending: false }),
+        supabase.from('sql_reasoning_sessions').select('*').in('opportunity_id', ownedOppIds).order('created_at', { ascending: false }),
+        supabase.from('opportunity_qualification_sessions').select('*').in('opportunity_id', ownedOppIds).order('created_at', { ascending: false }),
+        supabase.from('opportunity_qualification_results').select('*').in('opportunity_id', ownedOppIds).order('created_at', { ascending: false })
       ]);
 
-      if (assessRes.data) setDbSqlAssessments(assessRes.data as SQLAssessment[]);
-      if (dimRes.data) setDbSqlDimensionResults(dimRes.data);
-      if (recRes.data) setDbSqlRecommendations(recRes.data);
+      const assessList = (assessRes.data || []) as SQLAssessment[];
+      setDbSqlAssessments(assessList);
       if (sessRes.data) setDbSqlReasoningSessions(sessRes.data);
       if (oqSessRes.data) setDbOqSessions(oqSessRes.data);
       if (oqResRes.data) setDbOqResults(oqResRes.data);
-      if (oppsRes.data) setDbOpportunities(oppsRes.data as SQLOpportunity[]);
+
+      const ownedAssessmentIds = assessList.map(a => a.id).filter(Boolean);
+      if (ownedAssessmentIds.length > 0) {
+        const [dimRes, recRes] = await Promise.all([
+          supabase.from('sql_dimension_results').select('*').in('assessment_id', ownedAssessmentIds),
+          supabase.from('sql_recommendations').select('*').in('assessment_id', ownedAssessmentIds)
+        ]);
+        setDbSqlDimensionResults(dimRes.data || []);
+        setDbSqlRecommendations(recRes.data || []);
+      } else {
+        setDbSqlDimensionResults([]);
+        setDbSqlRecommendations([]);
+      }
     } catch (err) {
       console.warn('Error fetching dedicated qualification database tables:', err);
     }
@@ -519,7 +552,7 @@ export const QualificationDimensionIntelligence: React.FC<QualificationDimension
     const rec = q?.recommendations;
     if (rec && typeof rec === 'object' && !Array.isArray(rec) && (rec as any).handover_ticket) return true;
     if (typeof window !== 'undefined') {
-      const stored = localStorage.getItem(`mql_handover_${lead.id}`);
+      const stored = getScopedStorageItem(`mql_handover_${lead.id}`);
       if (stored) return true;
     }
     return false;
@@ -565,7 +598,7 @@ export const QualificationDimensionIntelligence: React.FC<QualificationDimension
     return scopedLeads.map(lead => {
       let result = qualResults.find(r => r.lead_id === lead.id);
       if (!result && typeof window !== 'undefined') {
-        const cached = localStorage.getItem(`mql_result_${lead.id}`);
+        const cached = getScopedStorageItem(`mql_result_${lead.id}`);
         if (cached) {
           try { result = JSON.parse(cached); } catch {}
         }

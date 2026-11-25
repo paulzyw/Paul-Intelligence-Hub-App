@@ -15,6 +15,136 @@ const getEnv = (key: string): string => {
   }
 };
 
+const jsonError = (status: number, error: string, code?: string) =>
+  new Response(JSON.stringify({ error, ...(code ? { code } : {}) }), {
+    status,
+    headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+  });
+
+const requireAuthenticatedUser = async (
+  req: Request,
+  supabase: any
+): Promise<{
+  authorized: boolean;
+  status: number;
+  error?: string;
+  userId?: string | null;
+  isServiceRole?: boolean;
+}> => {
+  const authHeader = req.headers.get('authorization') || req.headers.get('Authorization') || '';
+  const token = authHeader.replace(/^Bearer\s+/i, '').trim();
+  const anonKey = getEnv('SUPABASE_ANON_KEY').trim();
+  const serviceRoleKey = getEnv('SUPABASE_SERVICE_ROLE_KEY').trim();
+
+  if (serviceRoleKey && token && token === serviceRoleKey) {
+    return { authorized: true, status: 200, userId: null, isServiceRole: true };
+  }
+
+  const hasUserJwt = Boolean(token && token !== anonKey && token.split('.').length === 3);
+  if (!hasUserJwt) {
+    return {
+      authorized: false,
+      status: 401,
+      error: 'Unauthorized: valid user authentication is required.'
+    };
+  }
+
+  const { data: userRes, error: authErr } = await supabase.auth.getUser(token);
+  const user = userRes?.user || null;
+  if (authErr || !user) {
+    return {
+      authorized: false,
+      status: 401,
+      error: 'Unauthorized: invalid or expired authentication token.'
+    };
+  }
+
+  return {
+    authorized: true,
+    status: 200,
+    userId: user.id,
+    isServiceRole: false
+  };
+};
+
+const assertOwnedOpportunity = async (supabase: any, opportunityId: string, userId: string | null | undefined) => {
+  if (!opportunityId) {
+    return { ok: false, status: 400, error: 'opportunity_id is required.' };
+  }
+  const { data, error } = await supabase
+    .from('opportunities')
+    .select('id, created_by')
+    .eq('id', opportunityId)
+    .maybeSingle();
+  if (error) throw error;
+  if (!data) {
+    return { ok: false, status: 404, error: 'Opportunity not found.' };
+  }
+  if (userId && data.created_by !== userId) {
+    return { ok: false, status: 403, error: 'Forbidden: you do not have access to this opportunity.' };
+  }
+  return { ok: true, status: 200, opportunity: data };
+};
+
+const assertOwnedSqlAssessment = async (supabase: any, assessmentId: string, userId: string | null | undefined) => {
+  if (!assessmentId) {
+    return { ok: false, status: 400, error: 'assessment_id is required.' };
+  }
+  const { data, error } = await supabase
+    .from('sql_assessments')
+    .select('id, opportunity_id, opportunities(id, created_by)')
+    .eq('id', assessmentId)
+    .maybeSingle();
+  if (error) throw error;
+  if (!data) {
+    return { ok: false, status: 404, error: 'SQL assessment not found.' };
+  }
+  const oppRel = Array.isArray((data as any).opportunities) ? (data as any).opportunities[0] : (data as any).opportunities;
+  if (userId && (!oppRel || oppRel.created_by !== userId)) {
+    return { ok: false, status: 403, error: 'Forbidden: you do not have access to this SQL assessment.' };
+  }
+  return { ok: true, status: 200, assessment: data };
+};
+
+const assertOwnedOqSession = async (supabase: any, sessionId: string, userId: string | null | undefined) => {
+  if (!sessionId) {
+    return { ok: false, status: 400, error: 'session_id is required.' };
+  }
+  const { data, error } = await supabase
+    .from('opportunity_qualification_sessions')
+    .select('id, opportunity_id, opportunities(id, created_by)')
+    .eq('id', sessionId)
+    .maybeSingle();
+  if (error) throw error;
+  if (!data) {
+    return { ok: false, status: 404, error: 'Opportunity qualification session not found.' };
+  }
+  const oppRel = Array.isArray((data as any).opportunities) ? (data as any).opportunities[0] : (data as any).opportunities;
+  if (userId && (!oppRel || oppRel.created_by !== userId)) {
+    return { ok: false, status: 403, error: 'Forbidden: you do not have access to this qualification session.' };
+  }
+  return { ok: true, status: 200, session: data };
+};
+
+const assertOwnedMqlLead = async (supabase: any, leadId: string, userId: string | null | undefined) => {
+  if (!leadId) {
+    return { ok: false, status: 400, error: 'leadId is required.' };
+  }
+  const { data, error } = await supabase
+    .from('mql_leads')
+    .select('id, created_by')
+    .eq('id', leadId)
+    .maybeSingle();
+  if (error) throw error;
+  if (!data) {
+    return { ok: false, status: 404, error: 'Lead not found.' };
+  }
+  if (userId && data.created_by !== userId) {
+    return { ok: false, status: 403, error: 'Forbidden: you do not have access to this lead.' };
+  }
+  return { ok: true, status: 200, lead: data };
+};
+
 function buildQualificationPrompt(lead: any, assessments: any[], campaign: any, combinedConfig: any, ruleSet: any) {
   // Build a mapping of evidence definitions for easy prompt injection
   const evidenceMap = new Map();
@@ -137,6 +267,17 @@ serve(async (req: Request) => {
     const body = await req.json();
     const { action } = body;
 
+    const supabaseUrl = getEnv('SUPABASE_URL');
+    const supabaseKey = getEnv('SUPABASE_SERVICE_ROLE_KEY') || getEnv('SUPABASE_ANON_KEY');
+    if (!supabaseUrl || !supabaseKey) throw new Error('Supabase credentials not configured.');
+    const supabase = createClient(supabaseUrl, supabaseKey);
+
+    const authCheck = await requireAuthenticatedUser(req, supabase);
+    if (!authCheck.authorized) {
+      return jsonError(authCheck.status, authCheck.error || 'Unauthorized', 'UNAUTHORIZED');
+    }
+    const callerUserId = authCheck.isServiceRole ? null : authCheck.userId;
+
     const apiKey = Deno.env.get('GEMINI_API_KEY');
     if (!apiKey) throw new Error('GEMINI_API_KEY is not set');
 
@@ -147,10 +288,8 @@ serve(async (req: Request) => {
     // ---------------------------------------------------------
     if (action === 'create-sql-assessment') {
       const { opportunity_id } = body;
-      const supabaseUrl = getEnv('SUPABASE_URL');
-      const supabaseKey = getEnv('SUPABASE_SERVICE_ROLE_KEY') || getEnv('SUPABASE_ANON_KEY');
-      if (!supabaseUrl || !supabaseKey) throw new Error('Supabase credentials not configured.');
-      const supabase = createClient(supabaseUrl, supabaseKey);
+      const own = await assertOwnedOpportunity(supabase, opportunity_id, callerUserId);
+      if (!own.ok) return jsonError(own.status, own.error);
 
       const { data, error } = await supabase.from('sql_assessments').insert({
         opportunity_id,
@@ -165,10 +304,8 @@ serve(async (req: Request) => {
 
     if (action === 'submit-sql-evidence') {
       const { assessment_id, evidence } = body; // evidence is array of records
-      const supabaseUrl = getEnv('SUPABASE_URL');
-      const supabaseKey = getEnv('SUPABASE_SERVICE_ROLE_KEY') || getEnv('SUPABASE_ANON_KEY');
-      if (!supabaseUrl || !supabaseKey) throw new Error('Supabase credentials not configured.');
-      const supabase = createClient(supabaseUrl, supabaseKey);
+      const own = await assertOwnedSqlAssessment(supabase, assessment_id, callerUserId);
+      if (!own.ok) return jsonError(own.status, own.error);
 
       // Insert or upsert multiple evidence records
       const { data, error } = await supabase.from('sql_evidence_records').upsert(
@@ -197,10 +334,8 @@ serve(async (req: Request) => {
 
     if (action === 'execute-sql-reasoning') {
       const { assessment_id, industry_context, evidence_context, qualification_policy } = body;
-      const supabaseUrl = getEnv('SUPABASE_URL');
-      const supabaseKey = getEnv('SUPABASE_SERVICE_ROLE_KEY') || getEnv('SUPABASE_ANON_KEY');
-      if (!supabaseUrl || !supabaseKey) throw new Error('Supabase credentials not configured.');
-      const supabase = createClient(supabaseUrl, supabaseKey);
+      const own = await assertOwnedSqlAssessment(supabase, assessment_id, callerUserId);
+      if (!own.ok) return jsonError(own.status, own.error);
 
       // Update assessment status to processing
       await supabase.from('sql_assessments').update({ assessment_status: 'ai_processing' }).eq('id', assessment_id);
@@ -797,10 +932,8 @@ EVALUATION INSTRUCTIONS:
 
     if (action === 'retrieve-sql-assessment-result') {
       const { assessment_id } = body;
-      const supabaseUrl = getEnv('SUPABASE_URL');
-      const supabaseKey = getEnv('SUPABASE_SERVICE_ROLE_KEY') || getEnv('SUPABASE_ANON_KEY');
-      if (!supabaseUrl || !supabaseKey) throw new Error('Supabase credentials not configured.');
-      const supabase = createClient(supabaseUrl, supabaseKey);
+      const own = await assertOwnedSqlAssessment(supabase, assessment_id, callerUserId);
+      if (!own.ok) return jsonError(own.status, own.error);
 
       // Fetch assessment & opportunity
       const { data: assessment, error: assessError } = await supabase.from('sql_assessments').select('*, opportunities(*)').eq('id', assessment_id).single();
@@ -833,10 +966,8 @@ EVALUATION INSTRUCTIONS:
     // ---------------------------------------------------------
     if (action === 'create-opportunity-session') {
       const { opportunity_id, sql_inheritance_data, revenue_motion, industry } = body;
-      const supabaseUrl = getEnv('SUPABASE_URL');
-      const supabaseKey = getEnv('SUPABASE_SERVICE_ROLE_KEY') || getEnv('SUPABASE_ANON_KEY');
-      if (!supabaseUrl || !supabaseKey) throw new Error('Supabase credentials not configured.');
-      const supabase = createClient(supabaseUrl, supabaseKey);
+      const own = await assertOwnedOpportunity(supabase, opportunity_id, callerUserId);
+      if (!own.ok) return jsonError(own.status, own.error);
 
       // Check if session already exists
       const { data: existingSession, error: checkError } = await supabase
@@ -872,10 +1003,8 @@ EVALUATION INSTRUCTIONS:
 
     if (action === 'submit-opportunity-evidence') {
       const { session_id, evidence } = body; // evidence is array of records
-      const supabaseUrl = getEnv('SUPABASE_URL');
-      const supabaseKey = getEnv('SUPABASE_SERVICE_ROLE_KEY') || getEnv('SUPABASE_ANON_KEY');
-      if (!supabaseUrl || !supabaseKey) throw new Error('Supabase credentials not configured.');
-      const supabase = createClient(supabaseUrl, supabaseKey);
+      const own = await assertOwnedOqSession(supabase, session_id, callerUserId);
+      if (!own.ok) return jsonError(own.status, own.error);
 
       // Delete existing evidence for this session first
       await supabase.from('opportunity_qualification_evidence').delete().eq('session_id', session_id);
@@ -907,18 +1036,13 @@ EVALUATION INSTRUCTIONS:
 
     if (action === 'generate-opportunity-suggested-answers') {
       const { opportunity_id, revenue_motion, industry, evidence_questions } = body;
-      const supabaseUrl = getEnv('SUPABASE_URL');
-      const supabaseKey = getEnv('SUPABASE_SERVICE_ROLE_KEY') || getEnv('SUPABASE_ANON_KEY');
       let opp: any = null;
 
-      if (supabaseUrl && supabaseKey && opportunity_id) {
-        try {
-          const supabase = createClient(supabaseUrl, supabaseKey);
-          const { data } = await supabase.from('opportunities').select('*').eq('id', opportunity_id).maybeSingle();
-          opp = data;
-        } catch (e) {
-          console.warn("Could not fetch opportunity details for suggested answers:", e);
-        }
+      if (opportunity_id) {
+        const own = await assertOwnedOpportunity(supabase, opportunity_id, callerUserId);
+        if (!own.ok) return jsonError(own.status, own.error);
+        const { data } = await supabase.from('opportunities').select('*').eq('id', opportunity_id).maybeSingle();
+        opp = data;
       }
 
       const oppContext = `
@@ -1025,10 +1149,8 @@ Return a valid JSON object matching the requested schema.
 
     if (action === 'execute-opportunity-reasoning') {
       const { session_id, sql_inheritance_context, opportunity_assessment_context, industry_config, evidence_kb, qualification_rules } = body;
-      const supabaseUrl = getEnv('SUPABASE_URL');
-      const supabaseKey = getEnv('SUPABASE_SERVICE_ROLE_KEY') || getEnv('SUPABASE_ANON_KEY');
-      if (!supabaseUrl || !supabaseKey) throw new Error('Supabase credentials not configured.');
-      const supabase = createClient(supabaseUrl, supabaseKey);
+      const own = await assertOwnedOqSession(supabase, session_id, callerUserId);
+      if (!own.ok) return jsonError(own.status, own.error);
 
       // Fetch opportunity details
       const { data: session, error: sessionErr } = await supabase.from('opportunity_qualification_sessions').select('*, opportunities(*)').eq('id', session_id).single();
@@ -1547,10 +1669,8 @@ EVALUATION INSTRUCTIONS:
 
     if (action === 'retrieve-opportunity-qualification-result') {
       const { session_id } = body;
-      const supabaseUrl = getEnv('SUPABASE_URL');
-      const supabaseKey = getEnv('SUPABASE_SERVICE_ROLE_KEY') || getEnv('SUPABASE_ANON_KEY');
-      if (!supabaseUrl || !supabaseKey) throw new Error('Supabase credentials not configured.');
-      const supabase = createClient(supabaseUrl, supabaseKey);
+      const own = await assertOwnedOqSession(supabase, session_id, callerUserId);
+      if (!own.ok) return jsonError(own.status, own.error);
 
       // Fetch session
       const { data: session, error: sErr } = await supabase.from('opportunity_qualification_sessions').select('*').eq('id', session_id).single();
@@ -1575,10 +1695,13 @@ EVALUATION INSTRUCTIONS:
 
     if (action === 'promote-sql-to-opportunity') {
       const { opportunity_id, session_id } = body;
-      const supabaseUrl = getEnv('SUPABASE_URL');
-      const supabaseKey = getEnv('SUPABASE_SERVICE_ROLE_KEY') || getEnv('SUPABASE_ANON_KEY');
-      if (!supabaseUrl || !supabaseKey) throw new Error('Supabase credentials not configured.');
-      const supabase = createClient(supabaseUrl, supabaseKey);
+      const oppOwn = await assertOwnedOpportunity(supabase, opportunity_id, callerUserId);
+      if (!oppOwn.ok) return jsonError(oppOwn.status, oppOwn.error);
+      const sessOwn = await assertOwnedOqSession(supabase, session_id, callerUserId);
+      if (!sessOwn.ok) return jsonError(sessOwn.status, sessOwn.error);
+      if (sessOwn.session?.opportunity_id && sessOwn.session.opportunity_id !== opportunity_id) {
+        return jsonError(403, 'Forbidden: qualification session does not belong to target opportunity.');
+      }
 
       // 1. Mark session as promoted
       await supabase.from('opportunity_qualification_sessions').update({
@@ -1615,6 +1738,10 @@ EVALUATION INSTRUCTIONS:
 
     if (action === 'generate-sales-handover') {
       const { lead, campaign, qualificationResult } = body;
+      if (lead?.id) {
+        const own = await assertOwnedMqlLead(supabase, String(lead.id), callerUserId);
+        if (!own.ok) return jsonError(own.status, own.error);
+      }
       
       const prompt = `You are a top-tier sales engineer and RevOps strategist. Create high-signal, professional sales handover intelligence materials for a qualified lead based on their details, campaign context, and qualification assessment.
       
@@ -1670,19 +1797,13 @@ EVALUATION INSTRUCTIONS:
 
     if (action === 'generate-sql-suggested-answers') {
       const { opportunity_id, revenue_motion, industry, evidence_questions } = body;
-
-      const supabaseUrl = getEnv('SUPABASE_URL');
-      const supabaseKey = getEnv('SUPABASE_SERVICE_ROLE_KEY') || getEnv('SUPABASE_ANON_KEY');
       let opp: any = null;
 
-      if (supabaseUrl && supabaseKey && opportunity_id) {
-        try {
-          const supabase = createClient(supabaseUrl, supabaseKey);
-          const { data } = await supabase.from('opportunities').select('*').eq('id', opportunity_id).maybeSingle();
-          opp = data;
-        } catch (e) {
-          console.warn("Could not fetch opportunity details for suggested answers:", e);
-        }
+      if (opportunity_id) {
+        const own = await assertOwnedOpportunity(supabase, opportunity_id, callerUserId);
+        if (!own.ok) return jsonError(own.status, own.error);
+        const { data } = await supabase.from('opportunities').select('*').eq('id', opportunity_id).maybeSingle();
+        opp = data;
       }
 
       const oppContext = `
@@ -1950,35 +2071,34 @@ Produce an evidence-based executive synthesis adhering strictly to the JSON sche
       // Attempt to persist into dedicated database table if Supabase credentials available
       let savedRecord = null;
       try {
-        const supabaseUrl = getEnv('SUPABASE_URL');
-        const supabaseKey = getEnv('SUPABASE_SERVICE_ROLE_KEY') || getEnv('SUPABASE_ANON_KEY');
-        if (supabaseUrl && supabaseKey) {
-          const supabase = createClient(supabaseUrl, supabaseKey);
-          const scopeCampaignId = analysis_scope?.campaign_id || 'all';
-          const scopeCampaignName = analysis_scope?.campaign_name || 'All Campaigns';
-          
-          const { data, error: dbErr } = await supabase
-            .from('qualification_executive_insights')
-            .insert({
-              scope_campaign_id: scopeCampaignId,
-              scope_campaign_name: scopeCampaignName,
-              scope_industry: analysis_scope?.industry || null,
-              scope_revenue_motion: analysis_scope?.revenue_motion || null,
-              total_leads_scoped: analysis_metrics?.total_leads || 0,
-              assessed_leads_count: analysis_metrics?.total_assessed || 0,
-              analysis_metrics: analysis_metrics || {},
-              insights_data: parsedInsights,
-              generated_at: new Date().toISOString()
-            })
-            .select()
-            .maybeSingle();
+        const scopeCampaignId = analysis_scope?.campaign_id || 'all';
+        const scopeCampaignName = analysis_scope?.campaign_name || 'All Campaigns';
+        const insightPayload: Record<string, any> = {
+          scope_campaign_id: scopeCampaignId,
+          scope_campaign_name: scopeCampaignName,
+          scope_industry: analysis_scope?.industry || null,
+          scope_revenue_motion: analysis_scope?.revenue_motion || null,
+          total_leads_scoped: analysis_metrics?.total_leads || 0,
+          assessed_leads_count: analysis_metrics?.total_assessed || 0,
+          analysis_metrics: analysis_metrics || {},
+          insights_data: parsedInsights,
+          generated_at: new Date().toISOString()
+        };
+        if (callerUserId) {
+          insightPayload.created_by = callerUserId;
+        }
+
+        const { data, error: dbErr } = await supabase
+          .from('qualification_executive_insights')
+          .insert(insightPayload)
+          .select()
+          .maybeSingle();
 
           if (!dbErr && data) {
             savedRecord = data;
           } else if (dbErr) {
             console.warn("Table qualification_executive_insights insertion warning:", dbErr.message);
           }
-        }
       } catch (dbEx) {
         console.warn("Could not save to qualification_executive_insights:", dbEx);
       }
@@ -1998,14 +2118,8 @@ Produce an evidence-based executive synthesis adhering strictly to the JSON sche
       throw new Error('leadId is required');
     }
 
-    const supabaseUrl = getEnv('SUPABASE_URL');
-    const supabaseKey = getEnv('SUPABASE_SERVICE_ROLE_KEY') || getEnv('SUPABASE_ANON_KEY');
-    
-    if (!supabaseUrl || !supabaseKey) {
-       throw new Error('Supabase credentials not configured.');
-    }
-
-    const supabase = createClient(supabaseUrl, supabaseKey);
+    const leadOwn = await assertOwnedMqlLead(supabase, String(leadId), callerUserId);
+    if (!leadOwn.ok) return jsonError(leadOwn.status, leadOwn.error);
 
     // Fetch lead, campaign, and assessments
     const { data: lead, error: leadError } = await supabase.from('mql_leads').select('*, mql_campaigns(*)').eq('id', leadId).single();

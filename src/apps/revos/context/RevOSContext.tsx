@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 import { RevOSState, RevOSProfile, RevOSOrg, GTMOSStrategy } from '../types';
 import { supabase } from '../../../lib/supabase';
 import { useAuth } from '../../../hooks/useAuth';
+import { clearAllRevOSWorkspaceCaches, setActiveRevOSUserId } from '../utils/userIsolation';
 
 interface RevOSContextType extends RevOSState {
   refreshProfile: () => Promise<void>;
@@ -69,12 +70,17 @@ export function RevOSProvider({ children }: { children: React.ReactNode }) {
   };
 
   useEffect(() => {
+    setActiveRevOSUserId(user?.id || null);
+  }, [user?.id]);
+
+  useEffect(() => {
     if (authLoading) {
       setState(prev => ({ ...prev, isLoading: true }));
       return;
     }
 
     if (!user) {
+      setCurrentStrategy(null);
       setState({ profile: null, org: null, isLoading: false, error: null });
     } else if (authProfile) {
       fetchOrgDetails(authProfile);
@@ -90,6 +96,9 @@ export function RevOSProvider({ children }: { children: React.ReactNode }) {
     } catch (err) {
       console.warn('RevOS Context SignOut API failure, performing offline cleanup:', err);
     } finally {
+      setActiveRevOSUserId(null);
+      clearAllRevOSWorkspaceCaches();
+      setCurrentStrategy(null);
       try {
         const keysToRemove: string[] = [];
         for (let i = 0; i < localStorage.length; i++) {
