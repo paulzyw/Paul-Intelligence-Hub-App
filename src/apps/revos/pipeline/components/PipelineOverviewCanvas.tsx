@@ -14,7 +14,8 @@ import {
   Award,
   ChevronLeft,
   ChevronRight,
-  Plus
+  Plus,
+  Target
 } from 'lucide-react';
 import { PipelineOpportunity } from '../../types/pipeline';
 import { PipelineDataService } from '../services/PipelineDataService';
@@ -436,7 +437,66 @@ export const PipelineOverviewCanvas: React.FC<PipelineOverviewCanvasProps> = ({ 
       </div>
 
       {/* Main Portfolio View */}
-      {viewMode === 'list' ? (
+      {loading && items.length === 0 ? (
+        <div className="flex flex-col items-center justify-center py-16 text-text-secondary space-y-2">
+          <RefreshCw className="h-6 w-6 animate-spin text-accent" />
+          <span className="text-xs font-mono">Loading Pipeline Canvas...</span>
+        </div>
+      ) : items.length === 0 ? (
+        <div className="p-6 sm:p-8 rounded-2xl bg-bg-surface/50 border border-border flex flex-col justify-center text-left space-y-6">
+          <div className="flex flex-col sm:flex-row sm:items-start gap-4 border-b border-border/70 pb-5">
+            <div className="w-12 h-12 rounded-2xl bg-accent/15 border border-accent/30 flex items-center justify-center shrink-0">
+              <Target className="h-6 w-6 text-accent" />
+            </div>
+            <div className="space-y-1.5">
+              <span className="text-[9px] sm:text-[10px] font-mono font-bold text-accent uppercase tracking-widest block">
+                Pipeline Assessment Workspace · Ready to Initialize
+              </span>
+              <h2 className="text-base sm:text-xl font-black text-text-primary tracking-tight">
+                Create Your First Pipeline Opportunity
+              </h2>
+              <p className="text-xs text-text-secondary leading-relaxed max-w-2xl">
+                No pipeline opportunities exist yet in your workspace. Create an opportunity to open the Pipeline Assessment workflow, run PADF winability scoring, and unlock forecast analytics.
+              </p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div className="p-3.5 rounded-xl bg-bg-primary/50 border border-border/70 space-y-1">
+              <span className="text-[10px] font-mono font-bold text-accent uppercase">1. Create Opportunity</span>
+              <p className="text-[11px] text-text-secondary leading-snug">
+                Enter account details, solution context, deal value, and pipeline stage in the Opportunity Creation Form.
+              </p>
+            </div>
+            <div className="p-3.5 rounded-xl bg-bg-primary/50 border border-border/70 space-y-1">
+              <span className="text-[10px] font-mono font-bold text-accent uppercase">2. PADF Assessment</span>
+              <p className="text-[11px] text-text-secondary leading-snug">
+                Capture evidence across Fit, Timing, Political, and Risk pillars to compute Risk-Adjusted Winability.
+              </p>
+            </div>
+            <div className="p-3.5 rounded-xl bg-bg-primary/50 border border-border/70 space-y-1">
+              <span className="text-[10px] font-mono font-bold text-accent uppercase">3. Strategy &amp; Forecast</span>
+              <p className="text-[11px] text-text-secondary leading-snug">
+                Generate SWOT/TOWS execution plays and monitor pipeline health across Canvas and Dashboard.
+              </p>
+            </div>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-3 pt-1">
+            <button
+              type="button"
+              onClick={() => navigate('/product/revos/pipeline?create=true')}
+              className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-3 bg-accent text-black font-extrabold rounded-2xl text-xs hover:scale-[1.02] active:scale-[0.98] transition-all shadow-md shadow-accent/15 hover:shadow-accent/30 cursor-pointer"
+            >
+              <Plus className="h-4 w-4" />
+              Create Opportunity
+            </button>
+            <span className="text-[11px] font-mono text-text-secondary">
+              Or promote qualified SQL leads directly from <Link to="/product/revos/leads" className="text-accent font-bold hover:underline">Lead Canvas</Link>.
+            </span>
+          </div>
+        </div>
+      ) : viewMode === 'list' ? (
         <PipelineDirectoryTable
           items={items}
           loading={loading && items.length === 0}
@@ -451,11 +511,6 @@ export const PipelineOverviewCanvas: React.FC<PipelineOverviewCanvasProps> = ({ 
             invalidatePipelinePortfolioCache();
           }}
         />
-      ) : loading && items.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-16 text-text-secondary space-y-2">
-          <RefreshCw className="h-6 w-6 animate-spin text-accent" />
-          <span className="text-xs font-mono">Loading Pipeline Canvas...</span>
-        </div>
       ) : (
         /* 4-Column Kanban Canvas matching Lead Canvas UI Style */
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3 items-start pb-4">

@@ -22,7 +22,7 @@ import {
   setScopedStorageItem,
   subscribeRevOSUserChange,
 } from '../utils/userIsolation';
-import { Plus, FolderOpen, Cpu, Users, Settings, PlusCircle, ArrowLeft, Bot, Sparkles, Activity, Check, ChevronDown, ChevronUp, Trash, Trash2, Download, RefreshCw, AlertTriangle } from 'lucide-react';
+import { Plus, FolderOpen, Cpu, Users, Settings, PlusCircle, ArrowLeft, Bot, Sparkles, Activity, Check, ChevronDown, ChevronUp, Trash, Trash2, Download, RefreshCw, AlertTriangle, Target, CheckCircle2 } from 'lucide-react';
 
 const MiniScorePieChart: React.FC<{ score: number; status?: string }> = ({ score, status }) => {
   const roundedScore = Math.round(score);
@@ -93,7 +93,7 @@ export const MQLModule: React.FC = () => {
 
   // High-level horizontal navigation: 'campaign' | 'lead_canvas' | 'lead' | 'dashboard' | 'sql_qualification' | 'opportunity_qualification'
   const [activeTab, setActiveTab] = useState<'campaign' | 'lead_canvas' | 'lead' | 'dashboard' | 'sql_qualification' | 'opportunity_qualification'>('campaign');
-  const [returnTab, setReturnTab] = useState<'dashboard' | 'lead_canvas' | null>(null);
+  const [returnTab, setReturnTab] = useState<'dashboard' | 'lead_canvas' | 'campaign' | null>(null);
 
   // Campaign qualification results for the Lead Dashboard
   const [campaignQualResults, setCampaignQualResults] = useState<MQLQualificationResult[]>([]);
@@ -165,6 +165,21 @@ export const MQLModule: React.FC = () => {
     });
   }, []);
 
+  const hasLeads = leads.length > 0;
+
+  useEffect(() => {
+    if (!loading && leads.length === 0) {
+      if (
+        activeTab === 'lead_canvas' ||
+        activeTab === 'dashboard' ||
+        (activeTab === 'lead' && view !== 'lead_create')
+      ) {
+        setActiveTab('campaign');
+        setView('campaign_config');
+      }
+    }
+  }, [loading, leads.length, activeTab, view]);
+
   const loadInitialData = async () => {
     setLoading(true);
     try {
@@ -207,7 +222,11 @@ export const MQLModule: React.FC = () => {
   };
 
   const handleTabChange = (tab: 'campaign' | 'lead_canvas' | 'lead' | 'dashboard' | 'sql_qualification' | 'opportunity_qualification') => {
+    if (!hasLeads && (tab === 'lead_canvas' || tab === 'dashboard' || tab === 'lead')) {
+      return;
+    }
     setReturnTab(null);
+    setShowAddOptions(false);
     setActiveTab(tab);
     if (tab === 'campaign') {
       setView('campaign_config');
@@ -218,6 +237,34 @@ export const MQLModule: React.FC = () => {
         setView('lead_list');
       }
     }
+  };
+
+  const openManualAddLead = (sourceTab?: 'campaign') => {
+    setShowAddOptions(false);
+    setSelectedLead(null);
+    setQualResult(null);
+    setAssessmentData([]);
+    setNewLead({
+      name: '', email: '', company_name: '', job_title: '',
+      website: '', lead_industry: '', employee_size: '', location: '',
+      country: '', state_province: '',
+      annual_revenue: '', product_solution: '',
+      phone: '', department: '', lead_date: ''
+    });
+    if (selectedCampaign) {
+      setTargetCampaignId(selectedCampaign.id);
+    } else if (campaignFilterId !== 'all') {
+      setTargetCampaignId(campaignFilterId);
+    } else if (campaigns.length > 0) {
+      setTargetCampaignId(campaigns[0].id);
+    } else {
+      setTargetCampaignId('');
+    }
+    if (sourceTab === 'campaign') {
+      setReturnTab('campaign');
+    }
+    setActiveTab('lead');
+    setView('lead_create');
   };
 
   const openLeadAssessment = async (lead: MQLLead) => {
@@ -1589,6 +1636,10 @@ export const MQLModule: React.FC = () => {
                     if (returnTab === 'dashboard') {
                       setReturnTab(null);
                       setActiveTab('dashboard');
+                    } else if (returnTab === 'campaign') {
+                      setReturnTab(null);
+                      setActiveTab('campaign');
+                      setView('campaign_config');
                     } else {
                       setView(activeTab === 'lead_canvas' ? 'lead_canvas' : 'lead_list'); 
                     }
@@ -2235,10 +2286,14 @@ export const MQLModule: React.FC = () => {
 
           <button
             onClick={() => handleTabChange('lead_canvas')}
-            className={`inline-flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl border text-[10px] sm:text-xs font-bold uppercase transition-all shrink-0 cursor-pointer ${
-              activeTab === 'lead_canvas' || activeTab === 'lead'
-                ? 'bg-accent border-accent text-black font-black scale-105 shadow-md shadow-accent/15'
-                : 'bg-bg-primary/50 border-border/70 text-text-secondary hover:text-text-primary hover:border-text-secondary/40'
+            disabled={!hasLeads}
+            title={!hasLeads ? 'Create at least one lead first to unlock Lead Canvas' : undefined}
+            className={`inline-flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl border text-[10px] sm:text-xs font-bold uppercase transition-all shrink-0 ${
+              !hasLeads
+                ? 'bg-bg-primary/30 border-border/50 text-text-secondary/45 cursor-not-allowed'
+                : activeTab === 'lead_canvas' || activeTab === 'lead'
+                ? 'bg-accent border-accent text-black font-black scale-105 shadow-md shadow-accent/15 cursor-pointer'
+                : 'bg-bg-primary/50 border-border/70 text-text-secondary hover:text-text-primary hover:border-text-secondary/40 cursor-pointer'
             }`}
           >
             <span className="font-mono">2.</span>
@@ -2247,10 +2302,14 @@ export const MQLModule: React.FC = () => {
 
           <button
             onClick={() => handleTabChange('dashboard')}
-            className={`inline-flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl border text-[10px] sm:text-xs font-bold uppercase transition-all shrink-0 cursor-pointer ${
-              activeTab === 'dashboard'
-                ? 'bg-accent border-accent text-black font-black scale-105 shadow-md shadow-accent/15'
-                : 'bg-bg-primary/50 border-border/70 text-text-secondary hover:text-text-primary hover:border-text-secondary/40'
+            disabled={!hasLeads}
+            title={!hasLeads ? 'Create at least one lead first to unlock Lead Dashboard' : undefined}
+            className={`inline-flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl border text-[10px] sm:text-xs font-bold uppercase transition-all shrink-0 ${
+              !hasLeads
+                ? 'bg-bg-primary/30 border-border/50 text-text-secondary/45 cursor-not-allowed'
+                : activeTab === 'dashboard'
+                ? 'bg-accent border-accent text-black font-black scale-105 shadow-md shadow-accent/15 cursor-pointer'
+                : 'bg-bg-primary/50 border-border/70 text-text-secondary hover:text-text-primary hover:border-text-secondary/40 cursor-pointer'
             }`}
           >
             <span className="font-mono">3.</span>
@@ -2269,7 +2328,167 @@ export const MQLModule: React.FC = () => {
           <SQLQualificationModule />
         </div>
       ) : activeTab === 'campaign' ? (
-        <div className="flex flex-col lg:grid lg:grid-cols-12 gap-6">
+        <div className="space-y-4">
+          {/* Empty-State Entry Point when user has 0 created leads */}
+          {!loading && !hasLeads && (
+            <div className="p-6 sm:p-7 rounded-2xl bg-bg-surface/60 border border-border shadow-sm space-y-5">
+              <div className="flex flex-col sm:flex-row sm:items-start gap-4 border-b border-border/70 pb-5">
+                <div className="w-12 h-12 rounded-2xl bg-accent/15 border border-accent/30 flex items-center justify-center shrink-0">
+                  <Target className="h-6 w-6 text-accent" />
+                </div>
+                <div className="space-y-1.5">
+                  <span className="text-[9px] sm:text-[10px] font-mono font-bold text-accent uppercase tracking-widest block">
+                    Lead Qualification Workspace · Ready to Initialize
+                  </span>
+                  <h2 className="text-base sm:text-xl font-black text-text-primary tracking-tight">
+                    Create Your First Qualification Lead
+                  </h2>
+                  <p className="text-xs text-text-secondary leading-relaxed max-w-2xl">
+                    No leads have been created yet. Create a qualification campaign first, then add your first lead to unlock <span className="text-text-primary font-semibold">Lead Canvas</span> and <span className="text-text-primary font-semibold">Lead Dashboard</span>.
+                  </p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
+                <div className={`p-4 rounded-xl border space-y-3 ${
+                  campaigns.length === 0
+                    ? 'bg-accent/5 border-accent/40'
+                    : 'bg-bg-primary/45 border-emerald-500/30'
+                }`}>
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-[10px] font-mono font-bold text-accent uppercase">
+                      1. Create Qualification Campaign
+                    </span>
+                    {campaigns.length > 0 ? (
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 text-[10px] font-mono font-bold">
+                        <CheckCircle2 className="h-3 w-3" />
+                        {campaigns.length} Ready
+                      </span>
+                    ) : (
+                      <span className="px-2 py-0.5 rounded-md bg-accent/15 border border-accent/30 text-accent text-[10px] font-mono font-bold">
+                        Step 1
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-[11px] text-text-secondary leading-relaxed">
+                    Define your campaign name, target industry model, and ICP parameters in the form below.
+                  </p>
+                  {campaigns.length === 0 && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelectedCampaign(null);
+                        setView('campaign_config');
+                        if (typeof document !== 'undefined') {
+                          const panel = document.getElementById('campaign-canvas-form-panel');
+                          panel?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                          const firstInput = panel?.querySelector('textarea, input[type="text"]') as HTMLElement | null;
+                          firstInput?.focus();
+                        }
+                      }}
+                      className="inline-flex items-center justify-center gap-1.5 px-4 py-2 bg-accent text-black font-black text-xs rounded-xl hover:opacity-90 transition-all shadow-sm cursor-pointer"
+                    >
+                      <Plus className="h-3.5 w-3.5" />
+                      Create New Campaign
+                    </button>
+                  )}
+                </div>
+
+                <div className={`p-4 rounded-xl border space-y-3 ${
+                  campaigns.length > 0
+                    ? 'bg-accent/5 border-accent/40'
+                    : 'bg-bg-primary/35 border-border/70 opacity-75'
+                }`}>
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-[10px] font-mono font-bold text-accent uppercase">
+                      2. Add New Lead
+                    </span>
+                    <span className={`px-2 py-0.5 rounded-md border text-[10px] font-mono font-bold ${
+                      campaigns.length > 0
+                        ? 'bg-accent/15 border-accent/30 text-accent'
+                        : 'bg-bg-surface border-border text-text-secondary'
+                    }`}>
+                      {campaigns.length > 0 ? 'Next Step' : 'Requires Step 1'}
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-text-secondary leading-relaxed">
+                    Add your first lead manually or import via CSV to begin MQL evaluation and unlock Lead Canvas &amp; Lead Dashboard.
+                  </p>
+                  {campaigns.length > 0 ? (
+                    <div className="flex flex-wrap items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => openManualAddLead('campaign')}
+                        className="inline-flex items-center justify-center gap-1.5 px-4 py-2 bg-accent text-black font-black text-xs rounded-xl hover:opacity-90 transition-all shadow-sm cursor-pointer"
+                      >
+                        <PlusCircle className="h-3.5 w-3.5" />
+                        Manual Add Lead
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setShowCsvImport(true)}
+                        className="inline-flex items-center justify-center gap-1.5 px-4 py-2 bg-bg-surface border border-border text-text-primary font-bold text-xs rounded-xl hover:border-accent/50 transition-all cursor-pointer"
+                      >
+                        <Download className="h-3.5 w-3.5 rotate-180" />
+                        Import CSV
+                      </button>
+                    </div>
+                  ) : (
+                    <span className="inline-block text-[11px] font-mono text-text-secondary">
+                      Save a campaign in Step 1 first to enable adding leads.
+                    </span>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
+          <div className="flex justify-end">
+            <div className="relative">
+              <button
+                onClick={() => setShowAddOptions(!showAddOptions)}
+                className="px-4 py-2 bg-accent text-black dark:text-black hover:opacity-90 font-black text-xs rounded-xl transition-all shadow-md flex items-center gap-1.5 select-none justify-center whitespace-nowrap"
+              >
+                <PlusCircle className="h-4 w-4" />
+                Add New Lead
+                <ChevronDown className="h-3.5 w-3.5 ml-1 opacity-70" />
+              </button>
+
+              {showAddOptions && (
+                <>
+                  <div
+                    className="fixed inset-0 z-10"
+                    onClick={() => setShowAddOptions(false)}
+                  />
+                  <div className="absolute right-0 mt-2 w-48 bg-bg-surface border border-border rounded-xl shadow-lg z-20 py-2 animate-in fade-in slide-in-from-top-2 duration-200">
+                    <button
+                      onClick={() => openManualAddLead('campaign')}
+                      disabled={campaigns.length === 0}
+                      title={campaigns.length === 0 ? 'Create a campaign first' : undefined}
+                      className="w-full text-left px-4 py-2.5 text-xs font-bold text-text-primary hover:bg-bg-primary/50 disabled:opacity-45 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
+                    >
+                      <Plus className="h-3.5 w-3.5" />
+                      Manual Add
+                    </button>
+                    <button
+                      onClick={() => {
+                        setShowAddOptions(false);
+                        setShowCsvImport(true);
+                      }}
+                      disabled={campaigns.length === 0}
+                      title={campaigns.length === 0 ? 'Create a campaign first' : undefined}
+                      className="w-full text-left px-4 py-2.5 text-xs font-bold text-text-primary hover:bg-bg-primary/50 disabled:opacity-45 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
+                    >
+                      <Download className="h-3.5 w-3.5 rotate-180" />
+                      Import CSV
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+
+          <div className="flex flex-col lg:grid lg:grid-cols-12 gap-6">
           {/* Left Side: Campaigns Register List (Col 4) */}
           <div className="w-full lg:col-span-4 p-5 rounded-2xl bg-bg-surface border border-border flex flex-col shadow-sm">
             <div className="flex items-center justify-between border-b border-border pb-3.5 mb-4">
@@ -2317,11 +2536,12 @@ export const MQLModule: React.FC = () => {
           </div>
 
           {/* Right Side: Active Focus Sheet (Col 8) */}
-          <div className="w-full lg:col-span-8 flex flex-col min-w-0">
+          <div id="campaign-canvas-form-panel" className="w-full lg:col-span-8 flex flex-col min-w-0">
             {/* View Content area */}
             <div className="animate-in fade-in-30 duration-200">
               {renderMainContent()}
             </div>
+          </div>
           </div>
         </div>
       ) : (

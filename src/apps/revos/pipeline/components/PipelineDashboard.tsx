@@ -41,7 +41,8 @@ import {
   Target,
   ZoomIn,
   ZoomOut,
-  RotateCcw
+  RotateCcw,
+  Plus
 } from 'lucide-react';
 import { supabase } from '../../../../lib/supabase';
 import { useAuth } from '../../../../hooks/useAuth';
@@ -2429,19 +2430,29 @@ export const PipelineDashboard: React.FC = () => {
 
       {/* Empty State if zero portfolio records or filtered to zero */}
       {items.length === 0 ? (
-        <div className="p-10 text-center bg-bg-surface border border-border rounded-2xl space-y-3">
+        <div className="p-10 text-center bg-bg-surface border border-border rounded-2xl space-y-4">
           <PieChartIcon className="h-9 w-9 mx-auto text-text-secondary/50" />
           <h3 className="text-sm font-bold text-text-primary">No Pipeline Opportunities Recorded</h3>
           <p className="text-xs text-text-secondary max-w-md mx-auto">
-            Promote qualified SQL opportunities in Lead Canvas to unlock pipeline valuation analytics, PADF scoring breakdowns, and closeability forecasting.
+            Create your first pipeline opportunity or promote qualified SQL opportunities in Lead Canvas to unlock pipeline valuation analytics, PADF scoring breakdowns, and closeability forecasting.
           </p>
-          <Link
-            to="/product/revos/leads"
-            className="inline-flex items-center gap-2 px-4 py-2 bg-accent text-black rounded-xl text-xs font-bold hover:bg-accent-hover transition-colors"
-          >
-            <Layers className="h-3.5 w-3.5" />
-            <span>Open Lead Canvas</span>
-          </Link>
+          <div className="flex flex-wrap items-center justify-center gap-3">
+            <button
+              type="button"
+              onClick={() => navigate('/product/revos/pipeline?create=true')}
+              className="inline-flex items-center gap-2 px-4 py-2 bg-accent text-black rounded-xl text-xs font-bold hover:bg-accent-hover transition-colors cursor-pointer"
+            >
+              <Plus className="h-3.5 w-3.5" />
+              <span>Create Opportunity</span>
+            </button>
+            <Link
+              to="/product/revos/leads"
+              className="inline-flex items-center gap-2 px-4 py-2 bg-bg-primary border border-border text-text-primary rounded-xl text-xs font-semibold hover:border-accent/50 transition-colors"
+            >
+              <Layers className="h-3.5 w-3.5 text-accent" />
+              <span>Open Lead Canvas</span>
+            </Link>
+          </div>
         </div>
       ) : scopedItems.length === 0 ? (
         <div className="p-10 text-center bg-bg-surface border border-border rounded-2xl space-y-3">
