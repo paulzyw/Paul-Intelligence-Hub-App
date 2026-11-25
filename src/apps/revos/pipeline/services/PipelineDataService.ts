@@ -1035,7 +1035,6 @@ export class PipelineDataService {
       await supabase
         .from('pipeline_opportunities')
         .update({
-          pipeline_stage: 'Evidence Populated',
           updated_at: new Date().toISOString()
         })
         .eq('pipeline_id', pipelineId);

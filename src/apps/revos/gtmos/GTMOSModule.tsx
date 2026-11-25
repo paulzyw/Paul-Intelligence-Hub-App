@@ -43,7 +43,7 @@ import {
 import { supabase } from '../../../lib/supabase';
 import { useRevOS } from '../context/RevOSContext';
 import { OnboardingCategoryFields, StrategyPillar, GTMOSActionTask, GTMOSSimulationState, GTMOSRisk, GTMOSRecommendation, GTMOSProject, CategoryId } from './types';
-import { CATEGORY_SPECS, INITIAL_ONBOARDING_FIELDS, EMPTY_ONBOARDING_FIELDS, SEED_PROJECTS, DEFAULT_PILLARS } from './initialState';
+import { CATEGORY_SPECS, EMPTY_ONBOARDING_FIELDS, DEFAULT_PILLARS } from './initialState';
 import { OnboardingForms } from './OnboardingForms';
 import { GTMSimulationEngine } from './GTMSimulationEngine';
 import { GTMExecutionEngine } from './GTMExecutionEngine';
@@ -256,9 +256,13 @@ const invokeGtmApi = async (action: string, payload: Record<string, any> = {}) =
 export function GTMOSModule() {
   const { profile, org } = useRevOS();
 
-  // Selected state
-  const [projectsList, setProjectsList] = useState<GTMOSProject[]>(SEED_PROJECTS);
-  const [currentProjectId, setCurrentProjectId] = useState<string>('00000000-0000-0000-0000-000000000001');
+  // Selected state (starts empty — no hardcoded seed auto-created)
+  const [projectsList, setProjectsList] = useState<GTMOSProject[]>([]);
+  const [currentProjectId, setCurrentProjectId] = useState<string>('');
+  const [isInitialLoading, setIsInitialLoading] = useState<boolean>(true);
+  const [projectPendingDelete, setProjectPendingDelete] = useState<GTMOSProject | null>(null);
+  const [isDeletingProject, setIsDeletingProject] = useState<boolean>(false);
+  const [deleteProjectError, setDeleteProjectError] = useState<string | null>(null);
 
   // Isolates local cache key per logged-in user to prevent multi-account profile mixing in the browser
   const getCacheKey = () => {
@@ -380,7 +384,31 @@ export function GTMOSModule() {
   const [isReportModalOpen, setIsReportModalOpen] = useState(false);
 
   // Loaded project reference helper
+  const hasProjects = projectsList.length > 0;
   const currentProject = projectsList.find(p => p.id === currentProjectId) || projectsList[0];
+
+  const openCreateProjectDialog = () => {
+    setShowNewProjDialog(true);
+  };
+
+  useEffect(() => {
+    if (!hasProjects && activeStep !== 1) {
+      setActiveStep(1);
+      setSaveState('idle');
+    }
+  }, [hasProjects, activeStep]);
+
+  useEffect(() => {
+    if (!projectPendingDelete) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && !isDeletingProject) {
+        setProjectPendingDelete(null);
+        setDeleteProjectError(null);
+      }
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [projectPendingDelete, isDeletingProject]);
 
   // Auto-scroll selected step into visual center of the timeline stepper
   useEffect(() => {
@@ -401,36 +429,51 @@ export function GTMOSModule() {
   useEffect(() => {
     async function loadDatabaseState() {
       setIsSyncingDb(true);
+      setIsInitialLoading(true);
       const cacheKey = getCacheKey();
       
-      // Step 1: Pre-populate from Local Storage for near-instant offline load
+      // Step 1: Pre-populate from Local Storage for near-instant offline load (skipping legacy hardcoded seed IDs)
       let localCache: GTMOSProject[] | null = null;
       try {
         const localBackup = localStorage.getItem(cacheKey);
         if (localBackup) {
           const parsed = JSON.parse(localBackup);
-          if (parsed && parsed.length > 0) {
-            localCache = parsed.map((p: any) => ({
-              ...p,
-              id: sanitizeProjectId(p.id)
-            }));
+          if (Array.isArray(parsed)) {
+            const nonSeed = parsed.filter(
+              (p: any) =>
+                p &&
+                p.id &&
+                p.id !== '00000000-0000-0000-0000-000000000001' &&
+                p.id !== 'proj-revos-core'
+            );
+            if (nonSeed.length > 0) {
+              localCache = nonSeed.map((p: any) => ({
+                ...p,
+                id: sanitizeProjectId(p.id)
+              }));
+            }
           }
         }
       } catch (e) {
         console.warn('Could not parse local backup:', e);
       }
 
-      if (localCache) {
+      if (localCache && localCache.length > 0) {
         localCache.sort((a, b) => new Date(b.updated_at || 0).getTime() - new Date(a.updated_at || 0).getTime());
         setProjectsList(localCache);
         setCurrentProjectId(localCache[0].id);
         setActiveStep(1);
         localStorage.setItem(cacheKey, JSON.stringify(localCache));
         setDbStatusMsg('Restored from Local Cache');
+      } else {
+        setProjectsList([]);
+        setCurrentProjectId('');
+        setActiveStep(1);
       }
 
       if (!supabase) {
         setIsSyncingDb(false);
+        setIsInitialLoading(false);
         return;
       }
 
@@ -459,7 +502,7 @@ export function GTMOSModule() {
               market_segment: row.market_segment || 'General B2B',
               strategic_objective: row.strategic_objective || 'Scale pipeline ARR',
               currentStep: raw.currentStep || 1,
-              onboarding: raw.onboarding || INITIAL_ONBOARDING_FIELDS,
+              onboarding: raw.onboarding || EMPTY_ONBOARDING_FIELDS,
               aiReasoning: intel.aiReasoning || null,
               aiVulnerabilities: intel.aiVulnerabilities || [],
               readinessScore: intel.readinessScore || 70,
@@ -492,107 +535,21 @@ export function GTMOSModule() {
           localStorage.setItem(cacheKey, JSON.stringify(formattedProjects));
           setDbStatusMsg('Connected with Supabase Cloud');
         } else {
-          // No remote rows found. If we had local cache, upload them to Supabase to transition to SaaS
-          if (localCache && localCache.length > 0) {
-            setDbStatusMsg('Uploading Local Cache to SaaS...');
-            const uploadedList: GTMOSProject[] = [];
-            for (const proj of localCache) {
-              // Ensure we replace any shared seed UUID to prevent global primary key collision
-              const targetId = proj.id === '00000000-0000-0000-0000-000000000001' ? generateUUID() : proj.id;
-              const freshProj = { ...proj, id: targetId };
-              uploadedList.push(freshProj);
-
-              await supabase
-                .from('revos_gtmos_strategies')
-                .upsert({
-                  id: targetId,
-                  org_id: org?.id || null,
-                  creator_id: profile?.id || null,
-                  title: freshProj.title,
-                  market_segment: freshProj.market_segment,
-                  strategic_objective: freshProj.strategic_objective,
-                  updated_at: freshProj.updated_at || new Date().toISOString(),
-                  raw_input: {
-                    currentStep: freshProj.currentStep,
-                    onboarding: freshProj.onboarding,
-                    tasks: freshProj.tasks,
-                    simulationConfig: freshProj.simulationConfig,
-                    gtmStrategyDraft: freshProj.gtmStrategyDraft || null,
-                    gtmCanvas: freshProj.gtmCanvas || null,
-                    gtmExecutionPlan: freshProj.gtmExecutionPlan || null,
-                    archivedExecutionPlan: freshProj.archivedExecutionPlan || null,
-                    revenueDecomposition: freshProj.revenueDecomposition || null,
-                    executiveDashboardRollup: freshProj.executiveDashboardRollup || null
-                  },
-                  structured_intelligence: {
-                    aiReasoning: freshProj.aiReasoning,
-                    aiVulnerabilities: freshProj.aiVulnerabilities,
-                    readinessScore: freshProj.readinessScore,
-                    pillars: freshProj.pillars,
-                    risks: freshProj.risks,
-                    recommendations: freshProj.recommendations
-                  }
-                });
-            }
-            setProjectsList(uploadedList);
-            setCurrentProjectId(uploadedList[0].id);
-            setActiveStep(1);
-            localStorage.setItem(cacheKey, JSON.stringify(uploadedList));
-            setDbStatusMsg('Synced with Supabase Cloud');
-          } else {
-            // No local cache, initialize our seed project with a unique, secure UUID per user
-            const seedId = generateUUID();
-            const seed = {
-              ...SEED_PROJECTS[0],
-              id: seedId,
-              updated_at: new Date().toISOString()
-            };
-            const { error: insertErr } = await supabase
-              .from('revos_gtmos_strategies')
-              .insert({
-                id: seed.id,
-                org_id: org?.id || null,
-                creator_id: profile?.id || null,
-                title: seed.title,
-                market_segment: seed.market_segment,
-                strategic_objective: seed.strategic_objective,
-                updated_at: seed.updated_at,
-                raw_input: {
-                  currentStep: seed.currentStep,
-                  onboarding: seed.onboarding,
-                  tasks: seed.tasks,
-                  simulationConfig: seed.simulationConfig,
-                  gtmStrategyDraft: seed.gtmStrategyDraft || null,
-                  gtmCanvas: seed.gtmCanvas || null,
-                  gtmExecutionPlan: seed.gtmExecutionPlan || null,
-                  archivedExecutionPlan: seed.archivedExecutionPlan || null,
-                  revenueDecomposition: seed.revenueDecomposition || null,
-                  executiveDashboardRollup: seed.executiveDashboardRollup || null
-                },
-                structured_intelligence: {
-                  aiReasoning: seed.aiReasoning,
-                  aiVulnerabilities: seed.aiVulnerabilities,
-                  readinessScore: seed.readinessScore,
-                  pillars: seed.pillars,
-                  risks: seed.risks,
-                  recommendations: seed.recommendations
-                }
-              });
-            if (!insertErr) {
-              const list = [seed];
-              setProjectsList(list);
-              setCurrentProjectId(seed.id);
-              setActiveStep(1);
-              localStorage.setItem(cacheKey, JSON.stringify(list));
-              setDbStatusMsg('Synced Seed with Supabase');
-            }
-          }
+          // No remote rows found: treat Supabase as authoritative (zero auto-seeded example project)
+          setProjectsList([]);
+          setCurrentProjectId('');
+          setActiveStep(1);
+          try {
+            localStorage.setItem(cacheKey, JSON.stringify([]));
+          } catch {}
+          setDbStatusMsg('Connected with Supabase Cloud');
         }
       } catch (err: any) {
         console.error('Database Sync Issue:', err);
         setDbStatusMsg('Supabase Sandbox (RLS Enabled)');
       } finally {
         setIsSyncingDb(false);
+        setIsInitialLoading(false);
       }
     }
     loadDatabaseState();
@@ -662,15 +619,19 @@ export function GTMOSModule() {
   };
 
   const refreshProjectFromCloud = async () => {
-    if (!supabase) return;
+    if (!supabase || !currentProjectId || !currentProject) return;
     try {
       setDbStatusMsg('Polling Live Cloud State...');
-      const { data, error } = await supabase
+      let refreshQuery = supabase
         .from('revos_gtmos_strategies')
         .select('*')
-        .eq('id', currentProjectId)
-        .eq('creator_id', profile?.id || '')
-        .single();
+        .eq('id', currentProjectId);
+      if (profile?.id) {
+        refreshQuery = refreshQuery.eq('creator_id', profile.id);
+      } else {
+        refreshQuery = refreshQuery.is('creator_id', null);
+      }
+      const { data, error } = await refreshQuery.single();
 
       if (error) throw error;
       if (data) {
@@ -683,7 +644,7 @@ export function GTMOSModule() {
           market_segment: data.market_segment || 'General B2B',
           strategic_objective: data.strategic_objective || 'Scale pipeline ARR',
           currentStep: raw.currentStep || activeStep,
-          onboarding: raw.onboarding || INITIAL_ONBOARDING_FIELDS,
+          onboarding: raw.onboarding || EMPTY_ONBOARDING_FIELDS,
           aiReasoning: intel.aiReasoning || null,
           aiVulnerabilities: intel.aiVulnerabilities || [],
           readinessScore: intel.readinessScore || 70,
@@ -717,6 +678,10 @@ export function GTMOSModule() {
 
   // Set step state on tick
   const handleStepChange = (step: number) => {
+    if (!hasProjects || !currentProject) {
+      setActiveStep(1);
+      return;
+    }
     setActiveStep(step);
     const nextList = projectsList.map(p => (p.id === currentProjectId ? { ...p, currentStep: step } : p));
     syncWithCloud(nextList, currentProjectId);
@@ -733,19 +698,22 @@ export function GTMOSModule() {
   // Step 1: Create Custom Project Strategic Registry
   const handleCreateProject = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newProjTitle.trim()) return;
+    const trimmedTitle = newProjTitle.trim();
+    if (!trimmedTitle) return;
 
     const newProjId = generateUUID();
+    const trimmedSegment = newProjSegment.trim() || 'Enterprise SaaS';
+    const trimmedObj = newProjObj.trim() || 'Grow pipeline volume';
     const fresh: GTMOSProject = {
       id: newProjId,
-      title: newProjTitle,
-      market_segment: newProjSegment || 'Enterprise SaaS',
-      strategic_objective: newProjObj || 'Grow pipeline volume',
+      title: trimmedTitle,
+      market_segment: trimmedSegment,
+      strategic_objective: trimmedObj,
       currentStep: 1,
       onboarding: {
         ...EMPTY_ONBOARDING_FIELDS,
-        companyName: newProjTitle,
-        industry: newProjSegment || 'Enterprise SaaS'
+        companyName: trimmedTitle,
+        industry: trimmedSegment
       },
       aiReasoning: null,
       aiVulnerabilities: [],
@@ -769,44 +737,79 @@ export function GTMOSModule() {
     setProjectsList(nextProjects);
     setCurrentProjectId(newProjId);
     setActiveStep(1);
+    setSaveState('idle');
     setShowNewProjDialog(false);
     setNewProjTitle('');
     setNewProjSegment('');
     setNewProjObj('');
 
-    // Upsert to DB
-    await syncWithCloud(nextProjects, newProjId);
+    // Upsert to DB (gracefully keeps local state if offline)
+    try {
+      await syncWithCloud(nextProjects, newProjId);
+    } catch (err) {
+      console.warn('Cloud sync deferred for new project:', err);
+    }
   };
 
-  const handleDeleteProject = async (id: string, e: React.MouseEvent) => {
+  const handleRequestDeleteProject = (proj: GTMOSProject, e: React.MouseEvent) => {
     e.stopPropagation();
-    if (projectsList.length <= 1) return; // keep at least one
+    setDeleteProjectError(null);
+    setProjectPendingDelete(proj);
+  };
 
-    const next = projectsList.filter(p => p.id !== id);
-    setProjectsList(next);
+  const handleConfirmDeleteProject = async () => {
+    if (!projectPendingDelete || isDeletingProject) return;
+    const id = projectPendingDelete.id;
+    setIsDeletingProject(true);
+    setDeleteProjectError(null);
+
     try {
-      localStorage.setItem(getCacheKey(), JSON.stringify(next));
-    } catch (err) {
-      console.warn(err);
-    }
-    
-    if (currentProjectId === id) {
-      setCurrentProjectId(next[0].id);
-      setActiveStep(1);
-    }
-
-    if (supabase) {
-      try {
-        await supabase.from('revos_gtmos_strategies').delete().eq('id', id).eq('creator_id', profile?.id || '');
-      } catch (err) {
-        console.error(err);
+      if (supabase) {
+        let deleteQuery = supabase
+          .from('revos_gtmos_strategies')
+          .delete()
+          .eq('id', id);
+        if (profile?.id) {
+          deleteQuery = deleteQuery.eq('creator_id', profile.id);
+        } else {
+          deleteQuery = deleteQuery.is('creator_id', null);
+        }
+        const { error: deleteErr } = await deleteQuery;
+        if (deleteErr) throw deleteErr;
       }
+
+      const next = projectsList.filter(p => p.id !== id);
+      setProjectsList(next);
+      try {
+        localStorage.setItem(getCacheKey(), JSON.stringify(next));
+      } catch (err) {
+        console.warn(err);
+      }
+
+      if (next.length === 0) {
+        setCurrentProjectId('');
+        setActiveStep(1);
+        setSaveState('idle');
+        setDbStatusMsg('Connected with Supabase Cloud');
+      } else if (currentProjectId === id) {
+        setCurrentProjectId(next[0].id);
+        setActiveStep(1);
+        setSaveState('idle');
+      }
+
+      setProjectPendingDelete(null);
+    } catch (err: any) {
+      console.error('Failed to delete GTMOS strategy:', err);
+      setDeleteProjectError(err?.message || 'Unable to delete project from Supabase. Please try again.');
+    } finally {
+      setIsDeletingProject(false);
     }
   };
 
   // Questionnaire mutators (Steps 2 - 9)
   // Saved inside state and LocalStorage for high-performance responsive typing, and persisted to Supabase upon clicking Save Changes/Next Step
   const handleOnboardingChange = (field: keyof OnboardingCategoryFields, val: string) => {
+    if (!currentProject) return;
     const updated = {
       ...currentProject.onboarding,
       [field]: val
@@ -1861,19 +1864,24 @@ export function GTMOSModule() {
         >
           {workflowSteps.map((s) => {
             const isActive = activeStep === s.num;
-            const isFinished = s.num < activeStep;
+            const isFinished = hasProjects && s.num < activeStep;
+            const isLocked = !hasProjects && s.num > 1;
             
             return (
               <button
                 key={s.num}
                 id={`gtm-step-btn-${s.num}`}
                 onClick={() => handleStepChange(s.num)}
+                disabled={isLocked}
+                title={isLocked ? 'Create a GTM project first to unlock this phase' : undefined}
                 className={`inline-flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl border text-[10px] sm:text-xs font-bold uppercase transition-all shrink-0 ${
-                  isActive
-                    ? 'bg-accent border-accent text-black font-black scale-105 shadow-md shadow-accent/15'
+                  isLocked
+                    ? 'bg-bg-primary/30 border-border/50 text-text-secondary/45 cursor-not-allowed'
+                    : isActive
+                    ? 'bg-accent border-accent text-black font-black scale-105 shadow-md shadow-accent/15 cursor-pointer'
                     : isFinished
-                    ? 'bg-accent/10 border-accent/30 text-accent hover:bg-accent/25'
-                    : 'bg-bg-primary/50 border-border/70 text-text-secondary hover:text-text-primary hover:border-text-secondary/40'
+                    ? 'bg-accent/10 border-accent/30 text-accent hover:bg-accent/25 cursor-pointer'
+                    : 'bg-bg-primary/50 border-border/70 text-text-secondary hover:text-text-primary hover:border-text-secondary/40 cursor-pointer'
                 }`}
               >
                 <span className="font-mono">{s.num}.</span>
@@ -1907,78 +1915,170 @@ export function GTMOSModule() {
                         GTM Strategy List
                       </h3>
                       <button
-                        onClick={() => setShowNewProjDialog(true)}
-                        className="p-1.5 sm:p-2 rounded-lg bg-accent/15 border border-accent/20 hover:bg-accent hover:text-black hover:border-accent text-accent transition-all shrink-0"
+                        type="button"
+                        onClick={openCreateProjectDialog}
+                        className="p-1.5 sm:p-2 rounded-lg bg-accent/15 border border-accent/20 hover:bg-accent hover:text-black hover:border-accent text-accent transition-all shrink-0 cursor-pointer"
                         title="Initialize fresh strategy blueprint"
+                        aria-label="Add new GTM project"
                       >
                         <Plus className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
                       </button>
                     </div>
 
-                    <div className="space-y-2 overflow-y-auto scrollbar-none pr-1 max-h-[40vh] lg:max-h-[50vh]">
-                      {projectsList.map(p => (
-                        <div
-                          key={p.id}
-                          onClick={() => {
-                            setCurrentProjectId(p.id);
-                            handleStepChange(1);
-                          }}
-                          className={`p-3 sm:p-4 rounded-xl border transition-all cursor-pointer text-left relative group ${
-                            p.id === currentProjectId
-                              ? 'bg-accent/15 border-accent text-accent'
-                              : 'bg-bg-primary/60 border-border/80 text-text-secondary hover:border-text-secondary/25'
-                          }`}
-                        >
-                          <h4 className="text-[11px] sm:text-xs font-black leading-snug pr-6 truncate">{p.title}</h4>
-                          <span className="text-[8px] sm:text-[9px] font-mono uppercase block mt-1 opacity-80 truncate">{p.market_segment}</span>
-                          
-                          <button
-                            onClick={(e) => handleDeleteProject(p.id, e)}
-                            className="absolute right-2 sm:right-3 top-2 sm:top-3.5 p-1.5 rounded-lg border border-transparent hover:border-red-500/20 text-text-secondary hover:text-red-400 opacity-0 group-hover:opacity-100 transition-all duration-200"
-                            title="Purge strategy row"
-                          >
-                            <Trash2 className="h-3 w-3" />
-                          </button>
+                    {isInitialLoading && !hasProjects ? (
+                      <div className="flex flex-col items-center justify-center py-8 text-center space-y-2 text-text-secondary">
+                        <Loader2 className="h-5 w-5 text-accent animate-spin" />
+                        <span className="text-[11px] font-mono">Loading strategy blueprints...</span>
+                      </div>
+                    ) : !hasProjects ? (
+                      <div className="p-4 sm:p-5 rounded-xl border border-dashed border-border/80 bg-bg-primary/35 text-center space-y-3 my-auto">
+                        <div className="w-9 h-9 rounded-xl bg-accent/10 border border-accent/20 flex items-center justify-center mx-auto">
+                          <Compass className="h-4 w-4 text-accent" />
                         </div>
-                      ))}
-                    </div>
+                        <div className="space-y-1">
+                          <p className="text-xs font-bold text-text-primary">No GTM projects yet</p>
+                          <p className="text-[11px] text-text-secondary leading-relaxed">
+                            Initialize your first strategy blueprint to populate this workspace.
+                          </p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={openCreateProjectDialog}
+                          className="inline-flex items-center justify-center gap-1.5 text-[11px] font-bold text-accent hover:underline cursor-pointer"
+                        >
+                          <Plus className="h-3.5 w-3.5" />
+                          Create a GTM project
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="space-y-2 overflow-y-auto scrollbar-none pr-1 max-h-[40vh] lg:max-h-[50vh]">
+                        {projectsList.map(p => (
+                          <div
+                            key={p.id}
+                            onClick={() => {
+                              setCurrentProjectId(p.id);
+                              handleStepChange(1);
+                            }}
+                            className={`p-3 sm:p-4 rounded-xl border transition-all cursor-pointer text-left relative group ${
+                              p.id === currentProjectId
+                                ? 'bg-accent/15 border-accent text-accent'
+                                : 'bg-bg-primary/60 border-border/80 text-text-secondary hover:border-text-secondary/25'
+                            }`}
+                          >
+                            <h4 className="text-[11px] sm:text-xs font-black leading-snug pr-7 truncate">{p.title}</h4>
+                            <span className="text-[8px] sm:text-[9px] font-mono uppercase block mt-1 opacity-80 truncate">{p.market_segment}</span>
+                            
+                            <button
+                              type="button"
+                              onClick={(e) => handleRequestDeleteProject(p, e)}
+                              className="absolute right-2 sm:right-3 top-2 sm:top-3.5 p-1.5 rounded-lg border border-transparent hover:border-red-500/25 hover:bg-red-500/10 text-text-secondary hover:text-red-400 opacity-75 sm:opacity-0 sm:group-hover:opacity-100 focus:opacity-100 transition-all duration-200 cursor-pointer"
+                              title="Delete strategy project"
+                              aria-label={`Delete ${p.title}`}
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
 
-                  {/* Active Strategy config focus sheet */}
-                  <div className="w-full lg:col-span-8 p-4 sm:p-6 rounded-2xl bg-bg-surface/50 border border-border flex flex-col justify-center text-left">
-                    <div className="border-b border-border pb-3 sm:pb-4 mb-4 sm:mb-5">
-                      <span className="text-[8px] sm:text-[9px] font-mono text-accent uppercase tracking-widest block mb-1.5">Target strategy context</span>
-                      <h2 className="text-sm sm:text-base md:text-lg font-black text-text-primary leading-tight">{currentProject.title}</h2>
+                  {/* Active Strategy config focus sheet OR Empty-State Entry Point */}
+                  {isInitialLoading && !hasProjects ? (
+                    <div className="w-full lg:col-span-8 p-6 sm:p-8 rounded-2xl bg-bg-surface/50 border border-border flex flex-col items-center justify-center text-center min-h-[280px] space-y-3">
+                      <Loader2 className="h-6 w-6 text-accent animate-spin" />
+                      <div className="text-xs font-mono text-text-secondary">Synchronizing your GTMOS workspace...</div>
                     </div>
-
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 mb-4 sm:mb-5">
-                      <div className="flex flex-col min-w-0">
-                        <span className="text-[9px] sm:text-[10px] font-bold text-text-secondary uppercase mb-1">Market Segment / Vertical</span>
-                        <div className="p-2.5 sm:p-3 bg-bg-primary/60 border border-border/80 text-[11px] sm:text-xs font-bold text-text-primary rounded-xl truncate">{currentProject.market_segment}</div>
+                  ) : !hasProjects || !currentProject ? (
+                    <div className="w-full lg:col-span-8 p-6 sm:p-8 rounded-2xl bg-bg-surface/50 border border-border flex flex-col justify-center text-left space-y-6">
+                      <div className="flex flex-col sm:flex-row sm:items-start gap-4 border-b border-border/70 pb-5">
+                        <div className="w-12 h-12 rounded-2xl bg-accent/15 border border-accent/30 flex items-center justify-center shrink-0">
+                          <Target className="h-6 w-6 text-accent" />
+                        </div>
+                        <div className="space-y-1.5">
+                          <span className="text-[9px] sm:text-[10px] font-mono font-bold text-accent uppercase tracking-widest block">
+                            GTMOS Workspace · Ready to Initialize
+                          </span>
+                          <h2 className="text-base sm:text-xl font-black text-text-primary tracking-tight">
+                            Create Your First GTM Strategy Project
+                          </h2>
+                          <p className="text-xs text-text-secondary leading-relaxed max-w-2xl">
+                            Start with a clean Go-to-Market strategic blueprint tailored to your company, target vertical, and commercial goals. Creating a project unlocks Operational Onboarding, AI Strategic Reasoning, Revenue Decomposition, GTM Simulation, and Execution Planning.
+                          </p>
+                        </div>
                       </div>
-                      <div className="flex flex-col min-w-0">
-                        <span className="text-[9px] sm:text-[10px] font-bold text-text-secondary uppercase mb-1">Enterprise strategic Priorities</span>
-                        <div className="p-2.5 sm:p-3 bg-bg-primary/60 border border-border/80 text-[11px] sm:text-xs text-text-primary rounded-xl truncate">{currentProject.strategic_objective}</div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                        <div className="p-3.5 rounded-xl bg-bg-primary/50 border border-border/70 space-y-1">
+                          <span className="text-[10px] font-mono font-bold text-accent uppercase">1. Define Blueprint</span>
+                          <p className="text-[11px] text-text-secondary leading-snug">
+                            Set your launch title, target market vertical, and priority commercial objective.
+                          </p>
+                        </div>
+                        <div className="p-3.5 rounded-xl bg-bg-primary/50 border border-border/70 space-y-1">
+                          <span className="text-[10px] font-mono font-bold text-accent uppercase">2. Operational Inputs</span>
+                          <p className="text-[11px] text-text-secondary leading-snug">
+                            Capture real company, product, customer, and metric baselines across Steps 2–9.
+                          </p>
+                        </div>
+                        <div className="p-3.5 rounded-xl bg-bg-primary/50 border border-border/70 space-y-1">
+                          <span className="text-[10px] font-mono font-bold text-accent uppercase">3. AI Strategy &amp; Sim</span>
+                          <p className="text-[11px] text-text-secondary leading-snug">
+                            Generate your 9-pillar GTM canvas, revenue model, execution plan, and boardroom report.
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="flex flex-wrap items-center gap-3 pt-1">
+                        <button
+                          type="button"
+                          onClick={openCreateProjectDialog}
+                          className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-3 bg-accent text-black font-extrabold rounded-2xl text-xs hover:scale-[1.02] active:scale-[0.98] transition-all shadow-md shadow-accent/15 hover:shadow-accent/30 cursor-pointer"
+                        >
+                          <Plus className="h-4 w-4" />
+                          Create New GTM Project
+                        </button>
+                        <span className="text-[11px] font-mono text-text-secondary">
+                          Or use the <span className="text-accent font-bold">+</span> icon in GTM Strategy List anytime to add blueprints.
+                        </span>
                       </div>
                     </div>
+                  ) : (
+                    <div className="w-full lg:col-span-8 p-4 sm:p-6 rounded-2xl bg-bg-surface/50 border border-border flex flex-col justify-center text-left">
+                      <div className="border-b border-border pb-3 sm:pb-4 mb-4 sm:mb-5">
+                        <span className="text-[8px] sm:text-[9px] font-mono text-accent uppercase tracking-widest block mb-1.5">Target strategy context</span>
+                        <h2 className="text-sm sm:text-base md:text-lg font-black text-text-primary leading-tight">{currentProject.title}</h2>
+                      </div>
 
-                    <div className="p-3 sm:p-4 rounded-xl bg-accent/5 border border-accent/20 flex gap-2.5 sm:gap-3 mb-4 sm:mb-5 items-start">
-                      <Bot className="h-4 w-4 sm:h-5 sm:w-5 text-accent shrink-0 mt-0.5 animate-pulse" />
-                      <p className="text-[11px] sm:text-xs leading-relaxed text-text-secondary">
-                        Selecting this strategy mounts the respective onboarding variables and compiles all steps. Click <span className="font-bold text-accent">"Primary Onboarding Phase"</span> below to initiate Company onboarding metrics.
-                      </p>
-                    </div>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 mb-4 sm:mb-5">
+                        <div className="flex flex-col min-w-0">
+                          <span className="text-[9px] sm:text-[10px] font-bold text-text-secondary uppercase mb-1">Market Segment / Vertical</span>
+                          <div className="p-2.5 sm:p-3 bg-bg-primary/60 border border-border/80 text-[11px] sm:text-xs font-bold text-text-primary rounded-xl truncate">{currentProject.market_segment}</div>
+                        </div>
+                        <div className="flex flex-col min-w-0">
+                          <span className="text-[9px] sm:text-[10px] font-bold text-text-secondary uppercase mb-1">Enterprise strategic Priorities</span>
+                          <div className="p-2.5 sm:p-3 bg-bg-primary/60 border border-border/80 text-[11px] sm:text-xs text-text-primary rounded-xl truncate">{currentProject.strategic_objective}</div>
+                        </div>
+                      </div>
 
-                    <div className="mt-auto pt-2">
-                      <button
-                        onClick={() => handleStepChange(2)}
-                        className="w-full sm:w-auto inline-flex items-center justify-center sm:justify-start gap-2 px-5 sm:px-6 py-2.5 sm:py-3 bg-accent text-black font-extrabold rounded-2xl text-[11px] sm:text-xs hover:scale-[1.02] active:scale-[0.98] transition-all shadow-md shadow-accent/10 hover:shadow-accent/25"
-                      >
-                        Primary Onboarding Phase
-                        <ChevronRight className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
-                      </button>
+                      <div className="p-3 sm:p-4 rounded-xl bg-accent/5 border border-accent/20 flex gap-2.5 sm:gap-3 mb-4 sm:mb-5 items-start">
+                        <Bot className="h-4 w-4 sm:h-5 sm:w-5 text-accent shrink-0 mt-0.5 animate-pulse" />
+                        <p className="text-[11px] sm:text-xs leading-relaxed text-text-secondary">
+                          Selecting this strategy mounts the respective onboarding variables and compiles all steps. Click <span className="font-bold text-accent">"Primary Onboarding Phase"</span> below to initiate Company onboarding metrics.
+                        </p>
+                      </div>
+
+                      <div className="mt-auto pt-2">
+                        <button
+                          onClick={() => handleStepChange(2)}
+                          className="w-full sm:w-auto inline-flex items-center justify-center sm:justify-start gap-2 px-5 sm:px-6 py-2.5 sm:py-3 bg-accent text-black font-extrabold rounded-2xl text-[11px] sm:text-xs hover:scale-[1.02] active:scale-[0.98] transition-all shadow-md shadow-accent/10 hover:shadow-accent/25 cursor-pointer"
+                        >
+                          Primary Onboarding Phase
+                          <ChevronRight className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                        </button>
+                      </div>
                     </div>
-                  </div>
+                  )}
                 </div>
 
                 {/* Create Custom Strategy Modal Drawer popup */}
@@ -2030,13 +2130,13 @@ export function GTMOSModule() {
                         <button
                           type="button"
                           onClick={() => setShowNewProjDialog(false)}
-                          className="px-4 py-2 border border-border text-text-secondary hover:text-text-primary text-xs font-bold rounded-xl transition-all"
+                          className="px-4 py-2 border border-border text-text-secondary hover:text-text-primary text-xs font-bold rounded-xl transition-all cursor-pointer"
                         >
                           Cancel
                         </button>
                         <button
                           type="submit"
-                          className="px-5 py-2 bg-accent text-black font-bold rounded-xl text-xs hover:scale-105 active:scale-95 transition-all"
+                          className="px-5 py-2 bg-accent text-black font-bold rounded-xl text-xs hover:scale-105 active:scale-95 transition-all cursor-pointer"
                         >
                           Create blueprint
                         </button>
@@ -2044,9 +2144,91 @@ export function GTMOSModule() {
                     </form>
                   </div>
                 )}
+
+                {/* Delete Project Confirmation Modal */}
+                {projectPendingDelete && (
+                  <div
+                    className="fixed inset-0 bg-black/65 backdrop-blur-sm flex items-center justify-center p-4 z-50"
+                    onClick={() => {
+                      if (!isDeletingProject) {
+                        setProjectPendingDelete(null);
+                        setDeleteProjectError(null);
+                      }
+                    }}
+                  >
+                    <div
+                      role="dialog"
+                      aria-modal="true"
+                      aria-labelledby="gtmos-delete-modal-title"
+                      onClick={(e) => e.stopPropagation()}
+                      className="w-full max-w-md p-6 rounded-3xl bg-bg-surface border border-border space-y-5 text-left shadow-2xl animate-in zoom-in-95 duration-200"
+                    >
+                      <div className="flex items-start gap-3">
+                        <div className="w-10 h-10 rounded-2xl bg-red-500/10 border border-red-500/25 flex items-center justify-center shrink-0">
+                          <Trash2 className="h-5 w-5 text-red-400" />
+                        </div>
+                        <div className="space-y-1 min-w-0">
+                          <h3 id="gtmos-delete-modal-title" className="text-sm font-black text-text-primary uppercase tracking-wider">
+                            Delete GTM Strategy Project
+                          </h3>
+                          <p className="text-xs text-text-secondary leading-relaxed">
+                            Are you sure you want to permanently delete this strategy blueprint? This removes its onboarding inputs, AI reasoning, simulations, and execution plans.
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="p-3.5 rounded-xl bg-bg-primary/60 border border-border/80 space-y-1">
+                        <div className="text-xs font-black text-text-primary truncate">{projectPendingDelete.title}</div>
+                        <div className="text-[10px] font-mono text-text-secondary uppercase truncate">
+                          {projectPendingDelete.market_segment}
+                        </div>
+                      </div>
+
+                      {deleteProjectError && (
+                        <div className="p-3 rounded-xl bg-red-500/10 border border-red-500/30 text-xs text-red-400">
+                          {deleteProjectError}
+                        </div>
+                      )}
+
+                      <div className="flex justify-end gap-3 pt-3 border-t border-border/40">
+                        <button
+                          type="button"
+                          disabled={isDeletingProject}
+                          onClick={() => {
+                            setProjectPendingDelete(null);
+                            setDeleteProjectError(null);
+                          }}
+                          className="px-4 py-2 border border-border text-text-secondary hover:text-text-primary text-xs font-bold rounded-xl transition-all disabled:opacity-50 cursor-pointer"
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          type="button"
+                          disabled={isDeletingProject}
+                          onClick={handleConfirmDeleteProject}
+                          className="inline-flex items-center gap-2 px-5 py-2 bg-red-500 hover:bg-red-600 text-white font-bold rounded-xl text-xs transition-all disabled:opacity-50 cursor-pointer"
+                        >
+                          {isDeletingProject ? (
+                            <>
+                              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                              Deleting...
+                            </>
+                          ) : (
+                            <>
+                              <Trash2 className="h-3.5 w-3.5" />
+                              Delete Project
+                            </>
+                          )}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 
+            {hasProjects && currentProject && (
+              <>
             {/* Steps 2 - 9: Categories Onboarding Guided Checklist */}
             {activeStep >= 2 && activeStep <= 9 && currentOnboardingCategory && (
               <OnboardingForms
@@ -3934,6 +4116,8 @@ export function GTMOSModule() {
                 )}
               </div>
             )}
+              </>
+            )}
           </motion.div>
         </AnimatePresence>
       </div>
@@ -4006,7 +4190,7 @@ export function GTMOSModule() {
                 ? handleSaveAndContinueGlobal
                 : () => handleStepChange(activeStep + 1)
             }
-            disabled={activeStep >= 21 || saveState === 'saving'}
+            disabled={!hasProjects || activeStep >= 21 || saveState === 'saving'}
             className="px-3 sm:px-5 py-2 bg-accent hover:bg-accent/90 text-black font-extrabold text-[10px] sm:text-xs rounded-xl disabled:opacity-30 disabled:pointer-events-none transition-all flex items-center gap-1 sm:gap-1.5 shadow h-9 sm:h-10 cursor-pointer"
           >
             {activeStep >= 2 && activeStep <= 9 && saveState === 'dirty' ? (

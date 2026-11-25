@@ -5,7 +5,9 @@ import path from 'node:path';
 import {
   resolveCanvasColumn,
   isCreatedOpportunityReadyForCanvas,
-  normalizePipelineStage
+  normalizePipelineStage,
+  resolveStrictPipelineStageCandidate,
+  resolveSnapshotContributionPipelineStage
 } from '../src/apps/revos/pipeline/services/pipelinePortfolioLoader';
 
 test('resolveCanvasColumn maps every Pipeline Stage option across the 4 Pipeline Canvas columns', () => {
@@ -292,5 +294,53 @@ test('Pipeline Form Item 11 retrieves Product/Solution by source and Assessment 
     !workspaceSrc.includes('OpportunityCreationForm') &&
       !workspaceSrc.includes('enableOpportunityRegisterTab'),
     'Assessment Workspace does not embed Opportunity Register tab or OpportunityCreationForm'
+  );
+});
+
+test('Historical Portfolio Snapshot Section C stage resolution strictly sticks to Pipeline Stage and rejects Assessment Completed / Opportunity Stage values', () => {
+  // Rejects non-Pipeline-Stage placeholders and Opportunity Stage values
+  assert.equal(resolveStrictPipelineStageCandidate('Assessment Completed'), undefined);
+  assert.equal(resolveStrictPipelineStageCandidate('Evidence Populated'), undefined);
+  assert.equal(resolveStrictPipelineStageCandidate('Active Assessment'), undefined);
+  assert.equal(resolveStrictPipelineStageCandidate('Emerging Opportunity'), undefined);
+  assert.equal(resolveStrictPipelineStageCandidate('Validated Opportunity'), undefined);
+  assert.equal(resolveStrictPipelineStageCandidate(''), undefined);
+
+  // Accepts canonical Pipeline Stages and normalizes legacy compound labels
+  assert.equal(resolveStrictPipelineStageCandidate('Solution Development'), 'Solution Development');
+  assert.equal(resolveStrictPipelineStageCandidate('Discovery'), 'Discovery');
+  assert.equal(resolveStrictPipelineStageCandidate('Negotiation'), 'Negotiation');
+  assert.equal(resolveStrictPipelineStageCandidate('Discovery & Solutioning'), 'Discovery');
+  assert.equal(resolveStrictPipelineStageCandidate('Proposal & Negotiation'), 'Proposal');
+
+  // Legacy snapshot containing 'Assessment Completed' falls back to canonical item pipeline_stage
+  assert.equal(
+    resolveSnapshotContributionPipelineStage('Assessment Completed', 'Negotiation', 'ACTIVE'),
+    'Negotiation'
+  );
+  // Valid historical snapshot stage is preserved at observation point
+  assert.equal(
+    resolveSnapshotContributionPipelineStage('Proposal', 'Negotiation', 'ACTIVE'),
+    'Proposal'
+  );
+  // Never leaks Opportunity Stage if both snapshot and item stage are invalid
+  assert.equal(
+    resolveSnapshotContributionPipelineStage('Assessment Completed', 'Emerging Opportunity', 'ACTIVE'),
+    'Qualification'
+  );
+
+  const evolutionSrc = fs.readFileSync(
+    path.resolve(
+      process.cwd(),
+      'src/apps/revos/pipeline/components/PipelineWinabilityEvolutionSection.tsx'
+    ),
+    'utf8'
+  );
+  assert.ok(
+    !evolutionSrc.includes('snapOpp?.sales_stage') &&
+      !evolutionSrc.includes('ol.item.opportunity_stage') &&
+      evolutionSrc.includes('resolveStrictPipelineStageCandidate(snapOpp?.pipeline_stage)') &&
+      evolutionSrc.includes('resolveSnapshotContributionPipelineStage('),
+    'PipelineWinabilityEvolutionSection strictly enforces Pipeline Stage without sales_stage/opportunity_stage fallback'
   );
 });

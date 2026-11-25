@@ -110,6 +110,44 @@ export function normalizePipelineStage(
   return 'Qualification';
 }
 
+const VALID_PIPELINE_STAGE_SET = new Set<string>(PIPELINE_STAGE_OPTIONS);
+
+/**
+ * Validates and normalizes a raw stage string strictly against canonical Pipeline Stages
+ * (`PIPELINE_STAGE_OPTIONS`). Rejects assessment workflow placeholders (e.g. 'Assessment Completed',
+ * 'Evidence Populated', 'Active Assessment') and Opportunity Stage values (`sales_stage`).
+ */
+export function resolveStrictPipelineStageCandidate(rawStage?: unknown): string | undefined {
+  if (typeof rawStage !== 'string') return undefined;
+  const trimmed = rawStage.trim();
+  if (!trimmed) return undefined;
+  if (VALID_PIPELINE_STAGE_SET.has(trimmed)) return trimmed;
+  if (trimmed === 'Discovery & Solutioning') return 'Discovery';
+  if (trimmed === 'Proposal & Negotiation') return 'Proposal';
+  return undefined;
+}
+
+/**
+ * Resolves the Pipeline Stage displayed in Section C (Opportunity Contributions) of the
+ * Historical Portfolio Snapshot modal strictly from valid Pipeline Stage sources.
+ */
+export function resolveSnapshotContributionPipelineStage(
+  historicalStageCandidate?: unknown,
+  itemPipelineStage?: unknown,
+  lifecycleStatus?: string
+): string {
+  const fromSnapshot = resolveStrictPipelineStageCandidate(historicalStageCandidate);
+  if (fromSnapshot) return fromSnapshot;
+
+  const fromItem = resolveStrictPipelineStageCandidate(itemPipelineStage);
+  if (fromItem) return fromItem;
+
+  if (lifecycleStatus === 'CLOSED_WON') return 'Closed Won';
+  if (lifecycleStatus === 'CLOSED_LOST') return 'Closed Lost';
+
+  return 'Qualification';
+}
+
 export function normalizeOpportunityStage(
   salesStage?: string,
   formOppStage?: string,
@@ -192,7 +230,14 @@ export function applyIsolatedEdits(item: PipelineCardItem): PipelineCardItem {
     opportunity_name: isolated.opportunity_name ?? item.opportunity_name,
     estimated_value:
       isolated.estimated_value !== undefined ? isolated.estimated_value : item.estimated_value,
-    pipeline_stage: isolated.pipeline_stage ?? item.pipeline_stage,
+    pipeline_stage:
+      isolated.pipeline_stage !== undefined
+        ? normalizePipelineStage(
+            isolated.pipeline_stage,
+            item.pipeline_opp?.lifecycle_status,
+            item.pipeline_stage
+          )
+        : item.pipeline_stage,
     opportunity_stage: isolated.opportunity_stage ?? item.opportunity_stage
   };
 }
@@ -556,7 +601,7 @@ async function executeLoadCanonicalPipelinePortfolio(): Promise<PipelineCardItem
       pipeline_stage: normalizePipelineStage(
         linkedPipe?.pipeline_stage,
         linkedPipe?.lifecycle_status,
-        form.pipeline_stage,
+        pipeForm?.pipeline_stage || form.pipeline_stage,
         parsedDesc.pipeline_stage
       ),
       opportunity_stage: normalizeOpportunityStage(
@@ -646,7 +691,7 @@ async function executeLoadCanonicalPipelinePortfolio(): Promise<PipelineCardItem
       pipeline_stage: normalizePipelineStage(
         linkedPipe?.pipeline_stage,
         linkedPipe?.lifecycle_status,
-        form.pipeline_stage
+        pipeForm?.pipeline_stage || form.pipeline_stage
       ),
       opportunity_stage: normalizeOpportunityStage(
         linkedPipe?.sales_stage,

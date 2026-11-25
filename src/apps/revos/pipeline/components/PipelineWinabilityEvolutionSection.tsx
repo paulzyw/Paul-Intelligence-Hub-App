@@ -27,7 +27,11 @@ import {
 } from 'lucide-react';
 import { PipelineAssessmentSnapshot } from '../../types/pipeline';
 import { PipelineCardItem } from './PipelineCard';
-import { isPipelineItemClosed } from '../services/pipelinePortfolioLoader';
+import {
+  isPipelineItemClosed,
+  resolveStrictPipelineStageCandidate,
+  resolveSnapshotContributionPipelineStage
+} from '../services/pipelinePortfolioLoader';
 import { PipelineEvolutionTimeline, consolidateDailySnapshots } from './PipelineEvolutionTimeline';
 
 /**
@@ -316,7 +320,7 @@ export const PipelineWinabilityEvolutionSection: React.FC<
           kbVersion: snapAssess?.evidence_kb_version || linkedAssess?.evidence_kb_version,
           rulesVersion: snapAssess?.rules_version || linkedAssess?.rules_version,
           triggerType: snapAssess?.trigger_type || linkedAssess?.trigger_type,
-          historicalStage: snapOpp?.pipeline_stage || snapOpp?.sales_stage,
+          historicalStage: resolveStrictPipelineStageCandidate(snapOpp?.pipeline_stage),
           historicalDealValue:
             typeof snapOpp?.deal_value === 'number' && snapOpp.deal_value > 0
               ? snapOpp.deal_value
@@ -556,11 +560,11 @@ export const PipelineWinabilityEvolutionSection: React.FC<
           0,
           Number(latestAssess?.historicalDealValue ?? ol.item.estimated_value ?? 0)
         );
-        const stageAtPoint =
-          latestAssess?.historicalStage ||
-          ol.item.pipeline_stage ||
-          ol.item.opportunity_stage ||
-          'Qualification';
+        const stageAtPoint = resolveSnapshotContributionPipelineStage(
+          latestAssess?.historicalStage,
+          ol.item.pipeline_stage,
+          ol.item.pipeline_opp?.lifecycle_status
+        );
 
         const row: OpportunityContributionRow = {
           item: ol.item,

@@ -1384,7 +1384,7 @@ export const PADFDimensionHealthView: React.FC<PADFDimensionHealthViewProps> = (
                   </div>
 
                   {/* Scrollable Toolkit Body */}
-                  <div className="flex-1 overflow-y-auto space-y-4 pr-1.5 mt-4">
+                  <div className="flex-1 overflow-y-auto custom-scrollbar-horizontal-neutral space-y-4 pr-1.5 mt-4">
                     {/* CURRENT ASSESSMENT */}
                     <div className="space-y-2">
                       <div className="text-[10px] font-mono font-bold uppercase tracking-widest text-text-secondary">
