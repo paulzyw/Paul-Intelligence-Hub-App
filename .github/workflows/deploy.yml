@@ -53,3 +53,20 @@ jobs:
           export WASMER_TOKEN=$(echo -n "$WASMER_TOKEN" | tr -d '\n\r ')
           sed -i "s/version = \".*\"/version = \"0.1.${{ github.run_number }}\"/" wasmer.toml
           wasmer deploy --non-interactive --owner paulzyw02
+
+  deploy_render:
+    name: Deploy to Render
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger Render Static Site Deploy Hook
+        env:
+          RENDER_DEPLOY_HOOK_URL: ${{ secrets.RENDER_DEPLOY_HOOK_URL }}
+        run: |
+          if [ -z "$RENDER_DEPLOY_HOOK_URL" ]; then
+            echo "RENDER_DEPLOY_HOOK_URL secret is not configured."
+            exit 1
+          fi
+          curl -fsS --retry 3 --retry-delay 5 -X POST "$RENDER_DEPLOY_HOOK_URL"
+          echo ""
+          echo "Render deployment hook triggered successfully."
+
