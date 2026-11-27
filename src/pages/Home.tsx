@@ -317,7 +317,7 @@ export function Home() {
   return (
     <div className="flex flex-col w-full">
       {/* NEW HERO SECTION DUPLICATING SOLUTIONS HERO CONTENT (WITHOUT THREADS OR GEAR TRAIN) */}
-      <section id="hero" className="relative w-full bg-bg-hero-primary pt-24 pb-20 sm:pt-28 sm:pb-24 md:pt-32 md:pb-28 overflow-hidden transition-colors duration-400">
+      <section id="hero" className="relative w-full min-h-[calc(100vh-4rem)] supports-[height:100svh]:min-h-[calc(100svh-4rem)] flex flex-col justify-center bg-bg-hero-primary pt-16 pb-24 sm:pt-20 sm:pb-24 md:pt-24 md:pb-28 overflow-hidden transition-colors duration-400">
         {/* Layer 0: Background image at the bottom */}
         {!heroImgHidden && (
           <img
@@ -364,7 +364,7 @@ export function Home() {
         <div className="absolute inset-0 bg-gradient-to-t from-bg-hero-primary via-bg-hero-primary/10 to-transparent z-10 pointer-events-none"></div>
     
         {/* Layer 3: Eyebrow, Headline, Supporting Script, and CTA */}
-        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 text-center lg:text-left relative z-20">
+        <div className="w-full mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 text-center lg:text-left relative z-20">
           <div>
             <motion.div 
               initial={{ opacity: 0, y: 8 }}
@@ -473,7 +473,7 @@ export function Home() {
                   THE REVENUE CHALLENGE
                 </span>
                 <h2 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-extrabold text-text-primary tracking-tight leading-tight">
-                  When Revenue Execution Breaks Down, the Impact Adds Up
+                  When Revenue Execution Breaks Down, Impact Adds Up
                 </h2>
                 <p className="text-sm sm:text-base md:text-lg text-text-secondary leading-relaxed pt-0.5">
                   The visible problem may be a missed target, a stalled deal, or pressure to discount. Behind it may be disconnected decisions across the revenue lifecycle.
